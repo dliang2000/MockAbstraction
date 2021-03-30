@@ -1,0 +1,849 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FieldUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Lang</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.lang3.reflect</a> &gt; <span class="el_source">FieldUtils.java</span></div><h1>FieldUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.lang3.reflect;
+
+import org.apache.commons.lang3.ClassUtils;
+import org.apache.commons.lang3.JavaVersion;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
+import org.apache.commons.lang3.Validate;
+
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * Utilities for working with {@link Field}s by reflection. Adapted and refactored from the dormant [reflect] Commons
+ * sandbox component.
+ * &lt;p&gt;
+ * The ability is provided to break the scoping restrictions coded by the programmer. This can allow fields to be
+ * changed that shouldn't be. This facility should be used with care.
+ *
+ * @since 2.5
+ */
+public class FieldUtils {
+
+    /**
+     * {@link FieldUtils} instances should NOT be constructed in standard programming.
+     * &lt;p&gt;
+     * This constructor is {@code public} to permit tools that require a JavaBean instance to operate.
+     * &lt;/p&gt;
+     */
+    public FieldUtils() {
+<span class="fc" id="L50">        super();</span>
+<span class="fc" id="L51">    }</span>
+
+    /**
+     * Gets an accessible {@link Field} by name respecting scope. Superclasses/interfaces will be considered.
+     *
+     * @param cls
+     *            the {@link Class} to reflect, must not be {@code null}
+     * @param fieldName
+     *            the field name to obtain
+     * @return the Field object
+     * @throws IllegalArgumentException
+     *             if the class is {@code null}, or the field name is blank or empty
+     */
+    public static Field getField(final Class&lt;?&gt; cls, final String fieldName) {
+<span class="fc" id="L65">        final Field field = getField(cls, fieldName, false);</span>
+<span class="fc" id="L66">        MemberUtils.setAccessibleWorkaround(field);</span>
+<span class="fc" id="L67">        return field;</span>
+    }
+
+    /**
+     * Gets an accessible {@link Field} by name, breaking scope if requested. Superclasses/interfaces will be
+     * considered.
+     *
+     * @param cls
+     *            the {@link Class} to reflect, must not be {@code null}
+     * @param fieldName
+     *            the field name to obtain
+     * @param forceAccess
+     *            whether to break scope restrictions using the
+     *            {@link java.lang.reflect.AccessibleObject#setAccessible(boolean)} method. {@code false} will only
+     *            match {@code public} fields.
+     * @return the Field object
+     * @throws IllegalArgumentException
+     *             if the class is {@code null}, or the field name is blank or empty or is matched at multiple places
+     *             in the inheritance hierarchy
+     */
+    public static Field getField(final Class&lt;?&gt; cls, final String fieldName, final boolean forceAccess) {
+<span class="fc bfc" id="L88" title="All 2 branches covered.">        Validate.isTrue(cls != null, &quot;The class must not be null&quot;);</span>
+<span class="fc" id="L89">        Validate.isTrue(StringUtils.isNotBlank(fieldName), &quot;The field name must not be blank/empty&quot;);</span>
+        // FIXME is this workaround still needed? lang requires Java 6
+        // Sun Java 1.3 has a bugged implementation of getField hence we write the
+        // code ourselves
+
+        // getField() will return the Field object with the declaring class
+        // set correctly to the class that declares the field. Thus requesting the
+        // field on a subclass will return the field from the superclass.
+        //
+        // priority order for lookup:
+        // searchclass private/protected/package/public
+        // superclass protected/package/public
+        // private/different package blocks access to further superclasses
+        // implementedinterface public
+
+        // check up the superclass hierarchy
+<span class="fc bfc" id="L105" title="All 2 branches covered.">        for (Class&lt;?&gt; acls = cls; acls != null; acls = acls.getSuperclass()) {</span>
+            try {
+<span class="fc" id="L107">                final Field field = acls.getDeclaredField(fieldName);</span>
+                // getDeclaredField checks for non-public scopes as well
+                // and it returns accurate results
+<span class="fc bfc" id="L110" title="All 2 branches covered.">                if (!Modifier.isPublic(field.getModifiers())) {</span>
+<span class="fc bfc" id="L111" title="All 2 branches covered.">                    if (forceAccess) {</span>
+<span class="fc" id="L112">                        field.setAccessible(true);</span>
+                    } else {
+<span class="fc" id="L114">                        continue;</span>
+                    }
+                }
+<span class="fc" id="L117">                return field;</span>
+<span class="fc" id="L118">            } catch (final NoSuchFieldException ex) { // NOPMD</span>
+                // ignore
+            }
+        }
+        // check the public interface case. This must be manually searched for
+        // incase there is a public supersuperclass field hidden by a private/package
+        // superclass field.
+<span class="fc" id="L125">        Field match = null;</span>
+<span class="fc bfc" id="L126" title="All 2 branches covered.">        for (final Class&lt;?&gt; class1 : ClassUtils.getAllInterfaces(cls)) {</span>
+            try {
+<span class="fc" id="L128">                final Field test = class1.getField(fieldName);</span>
+<span class="fc bfc" id="L129" title="All 2 branches covered.">                Validate.isTrue(match == null, &quot;Reference to field %s is ambiguous relative to %s&quot;</span>
+                        + &quot;; a matching field exists on two or more implemented interfaces.&quot;, fieldName, cls);
+<span class="fc" id="L131">                match = test;</span>
+<span class="fc" id="L132">            } catch (final NoSuchFieldException ex) { // NOPMD</span>
+                // ignore
+<span class="fc" id="L134">            }</span>
+<span class="fc" id="L135">        }</span>
+<span class="fc" id="L136">        return match;</span>
+    }
+
+    /**
+     * Gets an accessible {@link Field} by name respecting scope. Only the specified class will be considered.
+     *
+     * @param cls
+     *            the {@link Class} to reflect, must not be {@code null}
+     * @param fieldName
+     *            the field name to obtain
+     * @return the Field object
+     * @throws IllegalArgumentException
+     *             if the class is {@code null}, or the field name is blank or empty
+     */
+    public static Field getDeclaredField(final Class&lt;?&gt; cls, final String fieldName) {
+<span class="fc" id="L151">        return getDeclaredField(cls, fieldName, false);</span>
+    }
+
+    /**
+     * Gets an accessible {@link Field} by name, breaking scope if requested. Only the specified class will be
+     * considered.
+     *
+     * @param cls
+     *            the {@link Class} to reflect, must not be {@code null}
+     * @param fieldName
+     *            the field name to obtain
+     * @param forceAccess
+     *            whether to break scope restrictions using the
+     *            {@link java.lang.reflect.AccessibleObject#setAccessible(boolean)} method. {@code false} will only
+     *            match {@code public} fields.
+     * @return the Field object
+     * @throws IllegalArgumentException
+     *             if the class is {@code null}, or the field name is blank or empty
+     */
+    public static Field getDeclaredField(final Class&lt;?&gt; cls, final String fieldName, final boolean forceAccess) {
+<span class="fc bfc" id="L171" title="All 2 branches covered.">        Validate.isTrue(cls != null, &quot;The class must not be null&quot;);</span>
+<span class="fc" id="L172">        Validate.isTrue(StringUtils.isNotBlank(fieldName), &quot;The field name must not be blank/empty&quot;);</span>
+        try {
+            // only consider the specified class by using getDeclaredField()
+<span class="fc" id="L175">            final Field field = cls.getDeclaredField(fieldName);</span>
+<span class="fc bfc" id="L176" title="All 2 branches covered.">            if (!MemberUtils.isAccessible(field)) {</span>
+<span class="fc bfc" id="L177" title="All 2 branches covered.">                if (forceAccess) {</span>
+<span class="fc" id="L178">                    field.setAccessible(true);</span>
+                } else {
+<span class="fc" id="L180">                    return null;</span>
+                }
+            }
+<span class="fc" id="L183">            return field;</span>
+<span class="fc" id="L184">        } catch (final NoSuchFieldException e) { // NOPMD</span>
+            // ignore
+        }
+<span class="fc" id="L187">        return null;</span>
+    }
+
+    /**
+     * Gets all fields of the given class and its parents (if any).
+     *
+     * @param cls
+     *            the {@link Class} to query
+     * @return an array of Fields (possibly empty).
+     * @throws IllegalArgumentException
+     *             if the class is {@code null}
+     * @since 3.2
+     */
+    public static Field[] getAllFields(final Class&lt;?&gt; cls) {
+<span class="fc" id="L201">        final List&lt;Field&gt; allFieldsList = getAllFieldsList(cls);</span>
+<span class="fc" id="L202">        return allFieldsList.toArray(new Field[allFieldsList.size()]);</span>
+    }
+
+    /**
+     * Gets all fields of the given class and its parents (if any).
+     *
+     * @param cls
+     *            the {@link Class} to query
+     * @return an array of Fields (possibly empty).
+     * @throws IllegalArgumentException
+     *             if the class is {@code null}
+     * @since 3.2
+     */
+    public static List&lt;Field&gt; getAllFieldsList(final Class&lt;?&gt; cls) {
+<span class="fc bfc" id="L216" title="All 2 branches covered.">        Validate.isTrue(cls != null, &quot;The class must not be null&quot;);</span>
+<span class="fc" id="L217">        final List&lt;Field&gt; allFields = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L218">        Class&lt;?&gt; currentClass = cls;</span>
+<span class="fc bfc" id="L219" title="All 2 branches covered.">        while (currentClass != null) {</span>
+<span class="fc" id="L220">            final Field[] declaredFields = currentClass.getDeclaredFields();</span>
+<span class="fc" id="L221">            Collections.addAll(allFields, declaredFields);</span>
+<span class="fc" id="L222">            currentClass = currentClass.getSuperclass();</span>
+<span class="fc" id="L223">        }</span>
+<span class="fc" id="L224">        return allFields;</span>
+    }
+
+    /**
+     * Gets all fields of the given class and its parents (if any) that are annotated with the given annotation.
+     * @param cls
+     *            the {@link Class} to query
+     * @param annotationCls
+     *            the {@link Annotation} that must be present on a field to be matched
+     * @return an array of Fields (possibly empty).
+     * @throws IllegalArgumentException
+     *            if the class or annotation are {@code null}
+     * @since 3.4
+     */
+    public static Field[] getFieldsWithAnnotation(final Class&lt;?&gt; cls, final Class&lt;? extends Annotation&gt; annotationCls) {
+<span class="fc" id="L239">        final List&lt;Field&gt; annotatedFieldsList = getFieldsListWithAnnotation(cls, annotationCls);</span>
+<span class="fc" id="L240">        return annotatedFieldsList.toArray(new Field[annotatedFieldsList.size()]);</span>
+    }
+
+    /**
+     * Gets all fields of the given class and its parents (if any) that are annotated with the given annotation.
+     * @param cls
+     *            the {@link Class} to query
+     * @param annotationCls
+     *            the {@link Annotation} that must be present on a field to be matched
+     * @return a list of Fields (possibly empty).
+     * @throws IllegalArgumentException
+     *            if the class or annotation are {@code null}
+     * @since 3.4
+     */
+    public static List&lt;Field&gt; getFieldsListWithAnnotation(final Class&lt;?&gt; cls, final Class&lt;? extends Annotation&gt; annotationCls) {
+<span class="fc bfc" id="L255" title="All 2 branches covered.">        Validate.isTrue(annotationCls != null, &quot;The annotation class must not be null&quot;);</span>
+<span class="fc" id="L256">        final List&lt;Field&gt; allFields = getAllFieldsList(cls);</span>
+<span class="fc" id="L257">        final List&lt;Field&gt; annotatedFields = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L258" title="All 2 branches covered.">        for (final Field field : allFields) {</span>
+<span class="fc bfc" id="L259" title="All 2 branches covered.">            if (field.getAnnotation(annotationCls) != null) {</span>
+<span class="fc" id="L260">                annotatedFields.add(field);</span>
+            }
+<span class="fc" id="L262">        }</span>
+<span class="fc" id="L263">        return annotatedFields;</span>
+    }
+
+    /**
+     * Reads an accessible {@code static} {@link Field}.
+     *
+     * @param field
+     *            to read
+     * @return the field value
+     * @throws IllegalArgumentException
+     *             if the field is {@code null}, or not {@code static}
+     * @throws IllegalAccessException
+     *             if the field is not accessible
+     */
+    public static Object readStaticField(final Field field) throws IllegalAccessException {
+<span class="fc" id="L278">        return readStaticField(field, false);</span>
+    }
+
+    /**
+     * Reads a static {@link Field}.
+     *
+     * @param field
+     *            to read
+     * @param forceAccess
+     *            whether to break scope restrictions using the
+     *            {@link java.lang.reflect.AccessibleObject#setAccessible(boolean)} method.
+     * @return the field value
+     * @throws IllegalArgumentException
+     *             if the field is {@code null} or not {@code static}
+     * @throws IllegalAccessException
+     *             if the field is not made accessible
+     */
+    public static Object readStaticField(final Field field, final boolean forceAccess) throws IllegalAccessException {
+<span class="fc bfc" id="L296" title="All 2 branches covered.">        Validate.isTrue(field != null, &quot;The field must not be null&quot;);</span>
+<span class="fc" id="L297">        Validate.isTrue(Modifier.isStatic(field.getModifiers()), &quot;The field '%s' is not static&quot;, field.getName());</span>
+<span class="fc" id="L298">        return readField(field, (Object) null, forceAccess);</span>
+    }
+
+    /**
+     * Reads the named {@code public static} {@link Field}. Superclasses will be considered.
+     *
+     * @param cls
+     *            the {@link Class} to reflect, must not be {@code null}
+     * @param fieldName
+     *            the field name to obtain
+     * @return the value of the field
+     * @throws IllegalArgumentException
+     *             if the class is {@code null}, or the field name is blank or empty, is not {@code static}, or could
+     *             not be found
+     * @throws IllegalAccessException
+     *             if the field is not accessible
+     */
+    public static Object readStaticField(final Class&lt;?&gt; cls, final String fieldName) throws IllegalAccessException {
+<span class="fc" id="L316">        return readStaticField(cls, fieldName, false);</span>
+    }
+
+    /**
+     * Reads the named {@code static} {@link Field}. Superclasses will be considered.
+     *
+     * @param cls
+     *            the {@link Class} to reflect, must not be {@code null}
+     * @param fieldName
+     *            the field name to obtain
+     * @param forceAccess
+     *            whether to break scope restrictions using the
+     *            {@link java.lang.reflect.AccessibleObject#setAccessible(boolean)} method. {@code false} will only
+     *            match {@code public} fields.
+     * @return the Field object
+     * @throws IllegalArgumentException
+     *             if the class is {@code null}, or the field name is blank or empty, is not {@code static}, or could
+     *             not be found
+     * @throws IllegalAccessException
+     *             if the field is not made accessible
+     */
+    public static Object readStaticField(final Class&lt;?&gt; cls, final String fieldName, final boolean forceAccess) throws IllegalAccessException {
+<span class="fc" id="L338">        final Field field = getField(cls, fieldName, forceAccess);</span>
+<span class="fc bfc" id="L339" title="All 2 branches covered.">        Validate.isTrue(field != null, &quot;Cannot locate field '%s' on %s&quot;, fieldName, cls);</span>
+        // already forced access above, don't repeat it here:
+<span class="fc" id="L341">        return readStaticField(field, false);</span>
+    }
+
+    /**
+     * Gets the value of a {@code static} {@link Field} by name. The field must be {@code public}. Only the specified
+     * class will be considered.
+     *
+     * @param cls
+     *            the {@link Class} to reflect, must not be {@code null}
+     * @param fieldName
+     *            the field name to obtain
+     * @return the value of the field
+     * @throws IllegalArgumentException
+     *             if the class is {@code null}, or the field name is blank or empty, is not {@code static}, or could
+     *             not be found
+     * @throws IllegalAccessException
+     *             if the field is not accessible
+     */
+    public static Object readDeclaredStaticField(final Class&lt;?&gt; cls, final String fieldName) throws IllegalAccessException {
+<span class="fc" id="L360">        return readDeclaredStaticField(cls, fieldName, false);</span>
+    }
+
+    /**
+     * Gets the value of a {@code static} {@link Field} by name. Only the specified class will be considered.
+     *
+     * @param cls
+     *            the {@link Class} to reflect, must not be {@code null}
+     * @param fieldName
+     *            the field name to obtain
+     * @param forceAccess
+     *            whether to break scope restrictions using the
+     *            {@link java.lang.reflect.AccessibleObject#setAccessible(boolean)} method. {@code false} will only
+     *            match {@code public} fields.
+     * @return the Field object
+     * @throws IllegalArgumentException
+     *             if the class is {@code null}, or the field name is blank or empty, is not {@code static}, or could
+     *             not be found
+     * @throws IllegalAccessException
+     *             if the field is not made accessible
+     */
+    public static Object readDeclaredStaticField(final Class&lt;?&gt; cls, final String fieldName, final boolean forceAccess) throws IllegalAccessException {
+<span class="fc" id="L382">        final Field field = getDeclaredField(cls, fieldName, forceAccess);</span>
+<span class="fc bfc" id="L383" title="All 2 branches covered.">        Validate.isTrue(field != null, &quot;Cannot locate declared field %s.%s&quot;, cls.getName(), fieldName);</span>
+        // already forced access above, don't repeat it here:
+<span class="fc" id="L385">        return readStaticField(field, false);</span>
+    }
+
+    /**
+     * Reads an accessible {@link Field}.
+     *
+     * @param field
+     *            the field to use
+     * @param target
+     *            the object to call on, may be {@code null} for {@code static} fields
+     * @return the field value
+     * @throws IllegalArgumentException
+     *             if the field is {@code null}
+     * @throws IllegalAccessException
+     *             if the field is not accessible
+     */
+    public static Object readField(final Field field, final Object target) throws IllegalAccessException {
+<span class="fc" id="L402">        return readField(field, target, false);</span>
+    }
+
+    /**
+     * Reads a {@link Field}.
+     *
+     * @param field
+     *            the field to use
+     * @param target
+     *            the object to call on, may be {@code null} for {@code static} fields
+     * @param forceAccess
+     *            whether to break scope restrictions using the
+     *            {@link java.lang.reflect.AccessibleObject#setAccessible(boolean)} method.
+     * @return the field value
+     * @throws IllegalArgumentException
+     *             if the field is {@code null}
+     * @throws IllegalAccessException
+     *             if the field is not made accessible
+     */
+    public static Object readField(final Field field, final Object target, final boolean forceAccess) throws IllegalAccessException {
+<span class="fc bfc" id="L422" title="All 2 branches covered.">        Validate.isTrue(field != null, &quot;The field must not be null&quot;);</span>
+<span class="fc bfc" id="L423" title="All 4 branches covered.">        if (forceAccess &amp;&amp; !field.isAccessible()) {</span>
+<span class="fc" id="L424">            field.setAccessible(true);</span>
+        } else {
+<span class="fc" id="L426">            MemberUtils.setAccessibleWorkaround(field);</span>
+        }
+<span class="fc" id="L428">        return field.get(target);</span>
+    }
+
+    /**
+     * Reads the named {@code public} {@link Field}. Superclasses will be considered.
+     *
+     * @param target
+     *            the object to reflect, must not be {@code null}
+     * @param fieldName
+     *            the field name to obtain
+     * @return the value of the field
+     * @throws IllegalArgumentException
+     *             if the class is {@code null}, or the field name is blank or empty or could not be found
+     * @throws IllegalAccessException
+     *             if the named field is not {@code public}
+     */
+    public static Object readField(final Object target, final String fieldName) throws IllegalAccessException {
+<span class="fc" id="L445">        return readField(target, fieldName, false);</span>
+    }
+
+    /**
+     * Reads the named {@link Field}. Superclasses will be considered.
+     *
+     * @param target
+     *            the object to reflect, must not be {@code null}
+     * @param fieldName
+     *            the field name to obtain
+     * @param forceAccess
+     *            whether to break scope restrictions using the
+     *            {@link java.lang.reflect.AccessibleObject#setAccessible(boolean)} method. {@code false} will only
+     *            match {@code public} fields.
+     * @return the field value
+     * @throws IllegalArgumentException
+     *             if {@code target} is {@code null}, or the field name is blank or empty or could not be found
+     * @throws IllegalAccessException
+     *             if the named field is not made accessible
+     */
+    public static Object readField(final Object target, final String fieldName, final boolean forceAccess) throws IllegalAccessException {
+<span class="fc bfc" id="L466" title="All 2 branches covered.">        Validate.isTrue(target != null, &quot;target object must not be null&quot;);</span>
+<span class="fc" id="L467">        final Class&lt;?&gt; cls = target.getClass();</span>
+<span class="fc" id="L468">        final Field field = getField(cls, fieldName, forceAccess);</span>
+<span class="fc bfc" id="L469" title="All 2 branches covered.">        Validate.isTrue(field != null, &quot;Cannot locate field %s on %s&quot;, fieldName, cls);</span>
+        // already forced access above, don't repeat it here:
+<span class="fc" id="L471">        return readField(field, target, false);</span>
+    }
+
+    /**
+     * Reads the named {@code public} {@link Field}. Only the class of the specified object will be considered.
+     *
+     * @param target
+     *            the object to reflect, must not be {@code null}
+     * @param fieldName
+     *            the field name to obtain
+     * @return the value of the field
+     * @throws IllegalArgumentException
+     *             if {@code target} is {@code null}, or the field name is blank or empty or could not be found
+     * @throws IllegalAccessException
+     *             if the named field is not {@code public}
+     */
+    public static Object readDeclaredField(final Object target, final String fieldName) throws IllegalAccessException {
+<span class="fc" id="L488">        return readDeclaredField(target, fieldName, false);</span>
+    }
+
+    /**
+     * Gets a {@link Field} value by name. Only the class of the specified object will be considered.
+     *
+     * @param target
+     *            the object to reflect, must not be {@code null}
+     * @param fieldName
+     *            the field name to obtain
+     * @param forceAccess
+     *            whether to break scope restrictions using the
+     *            {@link java.lang.reflect.AccessibleObject#setAccessible(boolean)} method. {@code false} will only
+     *            match public fields.
+     * @return the Field object
+     * @throws IllegalArgumentException
+     *             if {@code target} is {@code null}, or the field name is blank or empty or could not be found
+     * @throws IllegalAccessException
+     *             if the field is not made accessible
+     */
+    public static Object readDeclaredField(final Object target, final String fieldName, final boolean forceAccess) throws IllegalAccessException {
+<span class="fc bfc" id="L509" title="All 2 branches covered.">        Validate.isTrue(target != null, &quot;target object must not be null&quot;);</span>
+<span class="fc" id="L510">        final Class&lt;?&gt; cls = target.getClass();</span>
+<span class="fc" id="L511">        final Field field = getDeclaredField(cls, fieldName, forceAccess);</span>
+<span class="fc bfc" id="L512" title="All 2 branches covered.">        Validate.isTrue(field != null, &quot;Cannot locate declared field %s.%s&quot;, cls, fieldName);</span>
+        // already forced access above, don't repeat it here:
+<span class="fc" id="L514">        return readField(field, target, false);</span>
+    }
+
+    /**
+     * Writes a {@code public static} {@link Field}.
+     *
+     * @param field
+     *            to write
+     * @param value
+     *            to set
+     * @throws IllegalArgumentException
+     *             if the field is {@code null} or not {@code static}, or {@code value} is not assignable
+     * @throws IllegalAccessException
+     *             if the field is not {@code public} or is {@code final}
+     */
+    public static void writeStaticField(final Field field, final Object value) throws IllegalAccessException {
+<span class="fc" id="L530">        writeStaticField(field, value, false);</span>
+<span class="fc" id="L531">    }</span>
+
+    /**
+     * Writes a static {@link Field}.
+     *
+     * @param field
+     *            to write
+     * @param value
+     *            to set
+     * @param forceAccess
+     *            whether to break scope restrictions using the
+     *            {@link java.lang.reflect.AccessibleObject#setAccessible(boolean)} method. {@code false} will only
+     *            match {@code public} fields.
+     * @throws IllegalArgumentException
+     *             if the field is {@code null} or not {@code static}, or {@code value} is not assignable
+     * @throws IllegalAccessException
+     *             if the field is not made accessible or is {@code final}
+     */
+    public static void writeStaticField(final Field field, final Object value, final boolean forceAccess) throws IllegalAccessException {
+<span class="pc bpc" id="L550" title="1 of 2 branches missed.">        Validate.isTrue(field != null, &quot;The field must not be null&quot;);</span>
+<span class="fc" id="L551">        Validate.isTrue(Modifier.isStatic(field.getModifiers()), &quot;The field %s.%s is not static&quot;, field.getDeclaringClass().getName(),</span>
+<span class="fc" id="L552">                field.getName());</span>
+<span class="fc" id="L553">        writeField(field, (Object) null, value, forceAccess);</span>
+<span class="fc" id="L554">    }</span>
+
+    /**
+     * Writes a named {@code public static} {@link Field}. Superclasses will be considered.
+     *
+     * @param cls
+     *            {@link Class} on which the field is to be found
+     * @param fieldName
+     *            to write
+     * @param value
+     *            to set
+     * @throws IllegalArgumentException
+     *             if {@code cls} is {@code null}, the field name is blank or empty, the field cannot be located or is
+     *             not {@code static}, or {@code value} is not assignable
+     * @throws IllegalAccessException
+     *             if the field is not {@code public} or is {@code final}
+     */
+    public static void writeStaticField(final Class&lt;?&gt; cls, final String fieldName, final Object value) throws IllegalAccessException {
+<span class="fc" id="L572">        writeStaticField(cls, fieldName, value, false);</span>
+<span class="fc" id="L573">    }</span>
+
+    /**
+     * Writes a named {@code static} {@link Field}. Superclasses will be considered.
+     *
+     * @param cls
+     *            {@link Class} on which the field is to be found
+     * @param fieldName
+     *            to write
+     * @param value
+     *            to set
+     * @param forceAccess
+     *            whether to break scope restrictions using the
+     *            {@link java.lang.reflect.AccessibleObject#setAccessible(boolean)} method. {@code false} will only
+     *            match {@code public} fields.
+     * @throws IllegalArgumentException
+     *             if {@code cls} is {@code null}, the field name is blank or empty, the field cannot be located or is
+     *             not {@code static}, or {@code value} is not assignable
+     * @throws IllegalAccessException
+     *             if the field is not made accessible or is {@code final}
+     */
+    public static void writeStaticField(final Class&lt;?&gt; cls, final String fieldName, final Object value, final boolean forceAccess)
+            throws IllegalAccessException {
+<span class="fc" id="L596">        final Field field = getField(cls, fieldName, forceAccess);</span>
+<span class="fc bfc" id="L597" title="All 2 branches covered.">        Validate.isTrue(field != null, &quot;Cannot locate field %s on %s&quot;, fieldName, cls);</span>
+        // already forced access above, don't repeat it here:
+<span class="fc" id="L599">        writeStaticField(field, value, false);</span>
+<span class="fc" id="L600">    }</span>
+
+    /**
+     * Writes a named {@code public static} {@link Field}. Only the specified class will be considered.
+     *
+     * @param cls
+     *            {@link Class} on which the field is to be found
+     * @param fieldName
+     *            to write
+     * @param value
+     *            to set
+     * @throws IllegalArgumentException
+     *             if {@code cls} is {@code null}, the field name is blank or empty, the field cannot be located or is
+     *             not {@code static}, or {@code value} is not assignable
+     * @throws IllegalAccessException
+     *             if the field is not {@code public} or is {@code final}
+     */
+    public static void writeDeclaredStaticField(final Class&lt;?&gt; cls, final String fieldName, final Object value) throws IllegalAccessException {
+<span class="nc" id="L618">        writeDeclaredStaticField(cls, fieldName, value, false);</span>
+<span class="nc" id="L619">    }</span>
+
+    /**
+     * Writes a named {@code static} {@link Field}. Only the specified class will be considered.
+     *
+     * @param cls
+     *            {@link Class} on which the field is to be found
+     * @param fieldName
+     *            to write
+     * @param value
+     *            to set
+     * @param forceAccess
+     *            whether to break scope restrictions using the {@code AccessibleObject#setAccessible(boolean)} method.
+     *            {@code false} will only match {@code public} fields.
+     * @throws IllegalArgumentException
+     *             if {@code cls} is {@code null}, the field name is blank or empty, the field cannot be located or is
+     *             not {@code static}, or {@code value} is not assignable
+     * @throws IllegalAccessException
+     *             if the field is not made accessible or is {@code final}
+     */
+    public static void writeDeclaredStaticField(final Class&lt;?&gt; cls, final String fieldName, final Object value, final boolean forceAccess)
+            throws IllegalAccessException {
+<span class="fc" id="L641">        final Field field = getDeclaredField(cls, fieldName, forceAccess);</span>
+<span class="fc bfc" id="L642" title="All 2 branches covered.">        Validate.isTrue(field != null, &quot;Cannot locate declared field %s.%s&quot;, cls.getName(), fieldName);</span>
+        // already forced access above, don't repeat it here:
+<span class="fc" id="L644">        writeField(field, (Object) null, value, false);</span>
+<span class="fc" id="L645">    }</span>
+
+    /**
+     * Writes an accessible {@link Field}.
+     *
+     * @param field
+     *            to write
+     * @param target
+     *            the object to call on, may be {@code null} for {@code static} fields
+     * @param value
+     *            to set
+     * @throws IllegalAccessException
+     *             if the field or target is {@code null}, the field is not accessible or is {@code final}, or
+     *             {@code value} is not assignable
+     */
+    public static void writeField(final Field field, final Object target, final Object value) throws IllegalAccessException {
+<span class="fc" id="L661">        writeField(field, target, value, false);</span>
+<span class="fc" id="L662">    }</span>
+
+    /**
+     * Writes a {@link Field}.
+     *
+     * @param field
+     *            to write
+     * @param target
+     *            the object to call on, may be {@code null} for {@code static} fields
+     * @param value
+     *            to set
+     * @param forceAccess
+     *            whether to break scope restrictions using the
+     *            {@link java.lang.reflect.AccessibleObject#setAccessible(boolean)} method. {@code false} will only
+     *            match {@code public} fields.
+     * @throws IllegalArgumentException
+     *             if the field is {@code null} or {@code value} is not assignable
+     * @throws IllegalAccessException
+     *             if the field is not made accessible or is {@code final}
+     */
+    public static void writeField(final Field field, final Object target, final Object value, final boolean forceAccess)
+            throws IllegalAccessException {
+<span class="pc bpc" id="L684" title="1 of 2 branches missed.">        Validate.isTrue(field != null, &quot;The field must not be null&quot;);</span>
+<span class="pc bpc" id="L685" title="1 of 4 branches missed.">        if (forceAccess &amp;&amp; !field.isAccessible()) {</span>
+<span class="fc" id="L686">            field.setAccessible(true);</span>
+        } else {
+<span class="fc" id="L688">            MemberUtils.setAccessibleWorkaround(field);</span>
+        }
+<span class="fc" id="L690">        field.set(target, value);</span>
+<span class="fc" id="L691">    }</span>
+
+    /**
+     * Removes the final modifier from a {@link Field}.
+     *
+     * @param field
+     *            to remove the final modifier
+     * @throws IllegalArgumentException
+     *             if the field is {@code null}
+     * @since 3.2
+     */
+    public static void removeFinalModifier(final Field field) {
+<span class="nc" id="L703">        removeFinalModifier(field, true);</span>
+<span class="nc" id="L704">    }</span>
+
+    /**
+     * Removes the final modifier from a {@link Field}.
+     *
+     * @param field
+     *            to remove the final modifier
+     * @param forceAccess
+     *            whether to break scope restrictions using the
+     *            {@link java.lang.reflect.AccessibleObject#setAccessible(boolean)} method. {@code false} will only
+     *            match {@code public} fields.
+     * @throws IllegalArgumentException
+     *             if the field is {@code null}
+     * @deprecated As of java 12.0, we can no longer drop the &lt;code&gt;final&lt;/code&gt; modifier, thus
+     *             rendering this method obsolete. The JDK discussion about this change can be found
+     *             here: http://mail.openjdk.java.net/pipermail/core-libs-dev/2018-November/056486.html
+     * @since 3.3
+     */
+    @Deprecated
+    public static void removeFinalModifier(final Field field, final boolean forceAccess) {
+<span class="pc bpc" id="L724" title="1 of 2 branches missed.">        Validate.isTrue(field != null, &quot;The field must not be null&quot;);</span>
+
+        try {
+<span class="pc bpc" id="L727" title="1 of 2 branches missed.">            if (Modifier.isFinal(field.getModifiers())) {</span>
+                // Do all JREs implement Field with a private ivar called &quot;modifiers&quot;?
+<span class="fc" id="L729">                final Field modifiersField = Field.class.getDeclaredField(&quot;modifiers&quot;);</span>
+<span class="pc bpc" id="L730" title="1 of 4 branches missed.">                final boolean doForceAccess = forceAccess &amp;&amp; !modifiersField.isAccessible();</span>
+<span class="fc bfc" id="L731" title="All 2 branches covered.">                if (doForceAccess) {</span>
+<span class="fc" id="L732">                    modifiersField.setAccessible(true);</span>
+                }
+                try {
+<span class="fc" id="L735">                    modifiersField.setInt(field, field.getModifiers() &amp; ~Modifier.FINAL);</span>
+                } finally {
+<span class="fc bfc" id="L737" title="All 2 branches covered.">                    if (doForceAccess) {</span>
+<span class="fc" id="L738">                        modifiersField.setAccessible(false);</span>
+                    }
+                }
+            }
+<span class="fc" id="L742">        } catch (final NoSuchFieldException | IllegalAccessException ignored) {</span>
+<span class="pc bpc" id="L743" title="1 of 2 branches missed.">            if (SystemUtils.isJavaVersionAtLeast(JavaVersion.JAVA_12)) {</span>
+<span class="nc" id="L744">              throw new UnsupportedOperationException(</span>
+                  &quot;In java 12+ final cannot be removed.&quot;,
+                  ignored
+              );
+            }
+            // else no exception is thrown because we can modify final.
+<span class="fc" id="L750">        }</span>
+<span class="fc" id="L751">    }</span>
+
+    /**
+     * Writes a {@code public} {@link Field}. Superclasses will be considered.
+     *
+     * @param target
+     *            the object to reflect, must not be {@code null}
+     * @param fieldName
+     *            the field name to obtain
+     * @param value
+     *            to set
+     * @throws IllegalArgumentException
+     *             if {@code target} is {@code null}, {@code fieldName} is blank or empty or could not be found, or
+     *             {@code value} is not assignable
+     * @throws IllegalAccessException
+     *             if the field is not accessible
+     */
+    public static void writeField(final Object target, final String fieldName, final Object value) throws IllegalAccessException {
+<span class="fc" id="L769">        writeField(target, fieldName, value, false);</span>
+<span class="fc" id="L770">    }</span>
+
+    /**
+     * Writes a {@link Field}. Superclasses will be considered.
+     *
+     * @param target
+     *            the object to reflect, must not be {@code null}
+     * @param fieldName
+     *            the field name to obtain
+     * @param value
+     *            to set
+     * @param forceAccess
+     *            whether to break scope restrictions using the
+     *            {@link java.lang.reflect.AccessibleObject#setAccessible(boolean)} method. {@code false} will only
+     *            match {@code public} fields.
+     * @throws IllegalArgumentException
+     *             if {@code target} is {@code null}, {@code fieldName} is blank or empty or could not be found, or
+     *             {@code value} is not assignable
+     * @throws IllegalAccessException
+     *             if the field is not made accessible
+     */
+    public static void writeField(final Object target, final String fieldName, final Object value, final boolean forceAccess)
+            throws IllegalAccessException {
+<span class="pc bpc" id="L793" title="1 of 2 branches missed.">        Validate.isTrue(target != null, &quot;target object must not be null&quot;);</span>
+<span class="fc" id="L794">        final Class&lt;?&gt; cls = target.getClass();</span>
+<span class="fc" id="L795">        final Field field = getField(cls, fieldName, forceAccess);</span>
+<span class="fc bfc" id="L796" title="All 2 branches covered.">        Validate.isTrue(field != null, &quot;Cannot locate declared field %s.%s&quot;, cls.getName(), fieldName);</span>
+        // already forced access above, don't repeat it here:
+<span class="fc" id="L798">        writeField(field, target, value, false);</span>
+<span class="fc" id="L799">    }</span>
+
+    /**
+     * Writes a {@code public} {@link Field}. Only the specified class will be considered.
+     *
+     * @param target
+     *            the object to reflect, must not be {@code null}
+     * @param fieldName
+     *            the field name to obtain
+     * @param value
+     *            to set
+     * @throws IllegalArgumentException
+     *             if {@code target} is {@code null}, {@code fieldName} is blank or empty or could not be found, or
+     *             {@code value} is not assignable
+     * @throws IllegalAccessException
+     *             if the field is not made accessible
+     */
+    public static void writeDeclaredField(final Object target, final String fieldName, final Object value) throws IllegalAccessException {
+<span class="fc" id="L817">        writeDeclaredField(target, fieldName, value, false);</span>
+<span class="fc" id="L818">    }</span>
+
+    /**
+     * Writes a {@code public} {@link Field}. Only the specified class will be considered.
+     *
+     * @param target
+     *            the object to reflect, must not be {@code null}
+     * @param fieldName
+     *            the field name to obtain
+     * @param value
+     *            to set
+     * @param forceAccess
+     *            whether to break scope restrictions using the
+     *            {@link java.lang.reflect.AccessibleObject#setAccessible(boolean)} method. {@code false} will only
+     *            match {@code public} fields.
+     * @throws IllegalArgumentException
+     *             if {@code target} is {@code null}, {@code fieldName} is blank or empty or could not be found, or
+     *             {@code value} is not assignable
+     * @throws IllegalAccessException
+     *             if the field is not made accessible
+     */
+    public static void writeDeclaredField(final Object target, final String fieldName, final Object value, final boolean forceAccess)
+            throws IllegalAccessException {
+<span class="pc bpc" id="L841" title="1 of 2 branches missed.">        Validate.isTrue(target != null, &quot;target object must not be null&quot;);</span>
+<span class="fc" id="L842">        final Class&lt;?&gt; cls = target.getClass();</span>
+<span class="fc" id="L843">        final Field field = getDeclaredField(cls, fieldName, forceAccess);</span>
+<span class="fc bfc" id="L844" title="All 2 branches covered.">        Validate.isTrue(field != null, &quot;Cannot locate declared field %s.%s&quot;, cls.getName(), fieldName);</span>
+        // already forced access above, don't repeat it here:
+<span class="fc" id="L846">        writeField(field, target, value, false);</span>
+<span class="fc" id="L847">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

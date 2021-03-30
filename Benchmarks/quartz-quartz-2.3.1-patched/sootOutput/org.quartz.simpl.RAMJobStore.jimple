@@ -1,0 +1,5381 @@
+public class org.quartz.simpl.RAMJobStore extends java.lang.Object implements org.quartz.spi.JobStore
+{
+    protected java.util.HashMap jobsByKey;
+    protected java.util.HashMap triggersByKey;
+    protected java.util.HashMap jobsByGroup;
+    protected java.util.HashMap triggersByGroup;
+    protected java.util.TreeSet timeTriggers;
+    protected java.util.HashMap calendarsByName;
+    protected java.util.Map triggersByJob;
+    protected final java.lang.Object lock;
+    protected java.util.HashSet pausedTriggerGroups;
+    protected java.util.HashSet pausedJobGroups;
+    protected java.util.HashSet blockedJobs;
+    protected long misfireThreshold;
+    protected org.quartz.spi.SchedulerSignaler signaler;
+    private final org.slf4j.Logger log;
+    private static final java.util.concurrent.atomic.AtomicLong ftrCtr;
+
+    public void <init>()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.util.HashMap $r1, $r2, $r3, $r4, $r7, $r8;
+        java.util.TreeSet $r5;
+        org.quartz.simpl.TriggerWrapperComparator $r6;
+        java.lang.Object $r9;
+        java.util.HashSet $r10, $r11, $r12;
+        java.lang.Class $r13;
+        org.slf4j.Logger $r14;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        specialinvoke r0.<java.lang.Object: void <init>()>();
+
+        $r1 = new java.util.HashMap;
+
+        specialinvoke $r1.<java.util.HashMap: void <init>(int)>(1000);
+
+        r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByKey> = $r1;
+
+        $r2 = new java.util.HashMap;
+
+        specialinvoke $r2.<java.util.HashMap: void <init>(int)>(1000);
+
+        r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey> = $r2;
+
+        $r3 = new java.util.HashMap;
+
+        specialinvoke $r3.<java.util.HashMap: void <init>(int)>(25);
+
+        r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByGroup> = $r3;
+
+        $r4 = new java.util.HashMap;
+
+        specialinvoke $r4.<java.util.HashMap: void <init>(int)>(25);
+
+        r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByGroup> = $r4;
+
+        $r5 = new java.util.TreeSet;
+
+        $r6 = new org.quartz.simpl.TriggerWrapperComparator;
+
+        specialinvoke $r6.<org.quartz.simpl.TriggerWrapperComparator: void <init>()>();
+
+        specialinvoke $r5.<java.util.TreeSet: void <init>(java.util.Comparator)>($r6);
+
+        r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers> = $r5;
+
+        $r7 = new java.util.HashMap;
+
+        specialinvoke $r7.<java.util.HashMap: void <init>(int)>(25);
+
+        r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap calendarsByName> = $r7;
+
+        $r8 = new java.util.HashMap;
+
+        specialinvoke $r8.<java.util.HashMap: void <init>(int)>(1000);
+
+        r0.<org.quartz.simpl.RAMJobStore: java.util.Map triggersByJob> = $r8;
+
+        $r9 = new java.lang.Object;
+
+        specialinvoke $r9.<java.lang.Object: void <init>()>();
+
+        r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock> = $r9;
+
+        $r10 = new java.util.HashSet;
+
+        specialinvoke $r10.<java.util.HashSet: void <init>()>();
+
+        r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet pausedTriggerGroups> = $r10;
+
+        $r11 = new java.util.HashSet;
+
+        specialinvoke $r11.<java.util.HashSet: void <init>()>();
+
+        r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet pausedJobGroups> = $r11;
+
+        $r12 = new java.util.HashSet;
+
+        specialinvoke $r12.<java.util.HashSet: void <init>()>();
+
+        r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet blockedJobs> = $r12;
+
+        r0.<org.quartz.simpl.RAMJobStore: long misfireThreshold> = 5000L;
+
+        $r13 = virtualinvoke r0.<java.lang.Object: java.lang.Class getClass()>();
+
+        $r14 = staticinvoke <org.slf4j.LoggerFactory: org.slf4j.Logger getLogger(java.lang.Class)>($r13);
+
+        r0.<org.quartz.simpl.RAMJobStore: org.slf4j.Logger log> = $r14;
+
+        return;
+    }
+
+    protected org.slf4j.Logger getLog()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.slf4j.Logger $r1;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        $r1 = r0.<org.quartz.simpl.RAMJobStore: org.slf4j.Logger log>;
+
+        return $r1;
+    }
+
+    public void initialize(org.quartz.spi.ClassLoadHelper, org.quartz.spi.SchedulerSignaler)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.spi.ClassLoadHelper r1;
+        org.quartz.spi.SchedulerSignaler r2;
+        org.slf4j.Logger $r3;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.spi.ClassLoadHelper;
+
+        r2 := @parameter1: org.quartz.spi.SchedulerSignaler;
+
+        r0.<org.quartz.simpl.RAMJobStore: org.quartz.spi.SchedulerSignaler signaler> = r2;
+
+        $r3 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: org.slf4j.Logger getLog()>();
+
+        interfaceinvoke $r3.<org.slf4j.Logger: void info(java.lang.String)>("RAMJobStore initialized.");
+
+        return;
+    }
+
+    public void schedulerStarted()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        return;
+    }
+
+    public void schedulerPaused()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        return;
+    }
+
+    public void schedulerResumed()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        return;
+    }
+
+    public long getMisfireThreshold()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        long $l0;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        $l0 = r0.<org.quartz.simpl.RAMJobStore: long misfireThreshold>;
+
+        return $l0;
+    }
+
+    public void setMisfireThreshold(long)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        long l0;
+        byte $b1;
+        java.lang.IllegalArgumentException $r1;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        l0 := @parameter0: long;
+
+        $b1 = l0 cmp 1L;
+
+        if $b1 >= 0 goto label1;
+
+        $r1 = new java.lang.IllegalArgumentException;
+
+        specialinvoke $r1.<java.lang.IllegalArgumentException: void <init>(java.lang.String)>("Misfire threshold must be larger than 0");
+
+        throw $r1;
+
+     label1:
+        r0.<org.quartz.simpl.RAMJobStore: long misfireThreshold> = l0;
+
+        return;
+    }
+
+    public void shutdown()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        return;
+    }
+
+    public boolean supportsPersistence()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        return 0;
+    }
+
+    public void clearAllSchedulingData() throws org.quartz.JobPersistenceException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.lang.Object $r3, $r4, $r5, $r7, $r8, $r10;
+        boolean $z0, $z1, $z2, $z4, $z6;
+        org.quartz.impl.matchers.GroupMatcher $r6, $r9;
+        java.lang.Throwable $r11;
+        java.util.List r12, r18, r24;
+        java.util.Iterator r13, r16, r19, r22, r25;
+        java.lang.String r14, r20, r26;
+        java.util.Set r15, r21;
+        org.quartz.TriggerKey r17;
+        org.quartz.JobKey r23;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        $r3 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r3;
+
+     label01:
+        r12 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.List getTriggerGroupNames()>();
+
+        r13 = interfaceinvoke r12.<java.util.List: java.util.Iterator iterator()>();
+
+     label02:
+        $z0 = interfaceinvoke r13.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label05;
+
+        $r8 = interfaceinvoke r13.<java.util.Iterator: java.lang.Object next()>();
+
+        r14 = (java.lang.String) $r8;
+
+        $r9 = staticinvoke <org.quartz.impl.matchers.GroupMatcher: org.quartz.impl.matchers.GroupMatcher triggerGroupEquals(java.lang.String)>(r14);
+
+        r15 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.Set getTriggerKeys(org.quartz.impl.matchers.GroupMatcher)>($r9);
+
+        r16 = interfaceinvoke r15.<java.util.Set: java.util.Iterator iterator()>();
+
+     label03:
+        $z6 = interfaceinvoke r16.<java.util.Iterator: boolean hasNext()>();
+
+        if $z6 == 0 goto label04;
+
+        $r10 = interfaceinvoke r16.<java.util.Iterator: java.lang.Object next()>();
+
+        r17 = (org.quartz.TriggerKey) $r10;
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: boolean removeTrigger(org.quartz.TriggerKey)>(r17);
+
+        goto label03;
+
+     label04:
+        goto label02;
+
+     label05:
+        r18 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.List getJobGroupNames()>();
+
+        r19 = interfaceinvoke r18.<java.util.List: java.util.Iterator iterator()>();
+
+     label06:
+        $z1 = interfaceinvoke r19.<java.util.Iterator: boolean hasNext()>();
+
+        if $z1 == 0 goto label09;
+
+        $r5 = interfaceinvoke r19.<java.util.Iterator: java.lang.Object next()>();
+
+        r20 = (java.lang.String) $r5;
+
+        $r6 = staticinvoke <org.quartz.impl.matchers.GroupMatcher: org.quartz.impl.matchers.GroupMatcher jobGroupEquals(java.lang.String)>(r20);
+
+        r21 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.Set getJobKeys(org.quartz.impl.matchers.GroupMatcher)>($r6);
+
+        r22 = interfaceinvoke r21.<java.util.Set: java.util.Iterator iterator()>();
+
+     label07:
+        $z4 = interfaceinvoke r22.<java.util.Iterator: boolean hasNext()>();
+
+        if $z4 == 0 goto label08;
+
+        $r7 = interfaceinvoke r22.<java.util.Iterator: java.lang.Object next()>();
+
+        r23 = (org.quartz.JobKey) $r7;
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: boolean removeJob(org.quartz.JobKey)>(r23);
+
+        goto label07;
+
+     label08:
+        goto label06;
+
+     label09:
+        r24 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.List getCalendarNames()>();
+
+        r25 = interfaceinvoke r24.<java.util.List: java.util.Iterator iterator()>();
+
+     label10:
+        $z2 = interfaceinvoke r25.<java.util.Iterator: boolean hasNext()>();
+
+        if $z2 == 0 goto label11;
+
+        $r4 = interfaceinvoke r25.<java.util.Iterator: java.lang.Object next()>();
+
+        r26 = (java.lang.String) $r4;
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: boolean removeCalendar(java.lang.String)>(r26);
+
+        goto label10;
+
+     label11:
+        exitmonitor $r3;
+
+     label12:
+        goto label15;
+
+     label13:
+        $r11 := @caughtexception;
+
+        exitmonitor $r3;
+
+     label14:
+        throw $r11;
+
+     label15:
+        return;
+
+        catch java.lang.Throwable from label01 to label12 with label13;
+        catch java.lang.Throwable from label13 to label14 with label13;
+    }
+
+    public void storeJobAndTrigger(org.quartz.JobDetail, org.quartz.spi.OperableTrigger) throws org.quartz.JobPersistenceException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.JobDetail r1;
+        org.quartz.spi.OperableTrigger r2;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.JobDetail;
+
+        r2 := @parameter1: org.quartz.spi.OperableTrigger;
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: void storeJob(org.quartz.JobDetail,boolean)>(r1, 0);
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: void storeTrigger(org.quartz.spi.OperableTrigger,boolean)>(r2, 0);
+
+        return;
+    }
+
+    public void storeJob(org.quartz.JobDetail, boolean) throws org.quartz.ObjectAlreadyExistsException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.JobDetail r1, $r7, $r15;
+        boolean z0, z1;
+        org.quartz.simpl.JobWrapper $r5, r33;
+        java.lang.Object $r6, $r8, $r11, $r14, $r19;
+        org.quartz.JobKey $r9, $r12, $r17, $r20, $r22, $r27;
+        java.util.HashMap $r10, $r13, $r16, $r23, $r25, $r26, r32;
+        java.lang.String $r18, $r28;
+        org.quartz.ObjectAlreadyExistsException $r30;
+        java.lang.Throwable $r31;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.JobDetail;
+
+        z0 := @parameter1: boolean;
+
+        $r5 = new org.quartz.simpl.JobWrapper;
+
+        $r6 = interfaceinvoke r1.<org.quartz.JobDetail: java.lang.Object clone()>();
+
+        $r7 = (org.quartz.JobDetail) $r6;
+
+        specialinvoke $r5.<org.quartz.simpl.JobWrapper: void <init>(org.quartz.JobDetail)>($r7);
+
+        z1 = 0;
+
+        $r8 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r8;
+
+     label01:
+        $r10 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByKey>;
+
+        $r9 = $r5.<org.quartz.simpl.JobWrapper: org.quartz.JobKey key>;
+
+        $r11 = virtualinvoke $r10.<java.util.HashMap: java.lang.Object get(java.lang.Object)>($r9);
+
+        if $r11 == null goto label03;
+
+        if z0 != 0 goto label02;
+
+        $r30 = new org.quartz.ObjectAlreadyExistsException;
+
+        specialinvoke $r30.<org.quartz.ObjectAlreadyExistsException: void <init>(org.quartz.JobDetail)>(r1);
+
+        throw $r30;
+
+     label02:
+        z1 = 1;
+
+     label03:
+        if z1 != 0 goto label05;
+
+        $r16 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByGroup>;
+
+        $r17 = interfaceinvoke r1.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r18 = virtualinvoke $r17.<org.quartz.JobKey: java.lang.String getGroup()>();
+
+        $r19 = virtualinvoke $r16.<java.util.HashMap: java.lang.Object get(java.lang.Object)>($r18);
+
+        r32 = (java.util.HashMap) $r19;
+
+        if r32 != null goto label04;
+
+        $r25 = new java.util.HashMap;
+
+        specialinvoke $r25.<java.util.HashMap: void <init>(int)>(100);
+
+        r32 = $r25;
+
+        $r26 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByGroup>;
+
+        $r27 = interfaceinvoke r1.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r28 = virtualinvoke $r27.<org.quartz.JobKey: java.lang.String getGroup()>();
+
+        virtualinvoke $r26.<java.util.HashMap: java.lang.Object put(java.lang.Object,java.lang.Object)>($r28, $r25);
+
+     label04:
+        $r20 = interfaceinvoke r1.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        virtualinvoke r32.<java.util.HashMap: java.lang.Object put(java.lang.Object,java.lang.Object)>($r20, $r5);
+
+        $r23 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByKey>;
+
+        $r22 = $r5.<org.quartz.simpl.JobWrapper: org.quartz.JobKey key>;
+
+        virtualinvoke $r23.<java.util.HashMap: java.lang.Object put(java.lang.Object,java.lang.Object)>($r22, $r5);
+
+        goto label06;
+
+     label05:
+        $r13 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByKey>;
+
+        $r12 = $r5.<org.quartz.simpl.JobWrapper: org.quartz.JobKey key>;
+
+        $r14 = virtualinvoke $r13.<java.util.HashMap: java.lang.Object get(java.lang.Object)>($r12);
+
+        r33 = (org.quartz.simpl.JobWrapper) $r14;
+
+        $r15 = $r5.<org.quartz.simpl.JobWrapper: org.quartz.JobDetail jobDetail>;
+
+        r33.<org.quartz.simpl.JobWrapper: org.quartz.JobDetail jobDetail> = $r15;
+
+     label06:
+        exitmonitor $r8;
+
+     label07:
+        goto label10;
+
+     label08:
+        $r31 := @caughtexception;
+
+        exitmonitor $r8;
+
+     label09:
+        throw $r31;
+
+     label10:
+        return;
+
+        catch java.lang.Throwable from label01 to label07 with label08;
+        catch java.lang.Throwable from label08 to label09 with label08;
+    }
+
+    public boolean removeJob(org.quartz.JobKey)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.JobKey r1;
+        java.util.List r3;
+        org.quartz.spi.OperableTrigger r4;
+        java.lang.Object $r6, $r8, $r11, $r16;
+        boolean $z0, z2, $z3, z4;
+        java.util.HashMap $r7, $r9, $r13, r20;
+        java.lang.String $r10, $r14;
+        int $i0;
+        org.quartz.TriggerKey $r17;
+        java.lang.Throwable $r18;
+        java.util.Iterator r19;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.JobKey;
+
+        z2 = 0;
+
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r6;
+
+     label01:
+        r3 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.List getTriggersForJob(org.quartz.JobKey)>(r1);
+
+        r19 = interfaceinvoke r3.<java.util.List: java.util.Iterator iterator()>();
+
+     label02:
+        $z0 = interfaceinvoke r19.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label03;
+
+        $r16 = interfaceinvoke r19.<java.util.Iterator: java.lang.Object next()>();
+
+        r4 = (org.quartz.spi.OperableTrigger) $r16;
+
+        $r17 = interfaceinvoke r4.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: boolean removeTrigger(org.quartz.TriggerKey)>($r17);
+
+        z2 = 1;
+
+        goto label02;
+
+     label03:
+        $r7 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByKey>;
+
+        $r8 = virtualinvoke $r7.<java.util.HashMap: java.lang.Object remove(java.lang.Object)>(r1);
+
+        if $r8 == null goto label04;
+
+        $z3 = 1;
+
+        goto label05;
+
+     label04:
+        $z3 = 0;
+
+     label05:
+        z4 = $z3 | z2;
+
+        if z4 == 0 goto label06;
+
+        $r9 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByGroup>;
+
+        $r10 = virtualinvoke r1.<org.quartz.JobKey: java.lang.String getGroup()>();
+
+        $r11 = virtualinvoke $r9.<java.util.HashMap: java.lang.Object get(java.lang.Object)>($r10);
+
+        r20 = (java.util.HashMap) $r11;
+
+        if r20 == null goto label06;
+
+        virtualinvoke r20.<java.util.HashMap: java.lang.Object remove(java.lang.Object)>(r1);
+
+        $i0 = virtualinvoke r20.<java.util.HashMap: int size()>();
+
+        if $i0 != 0 goto label06;
+
+        $r13 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByGroup>;
+
+        $r14 = virtualinvoke r1.<org.quartz.JobKey: java.lang.String getGroup()>();
+
+        virtualinvoke $r13.<java.util.HashMap: java.lang.Object remove(java.lang.Object)>($r14);
+
+     label06:
+        exitmonitor $r6;
+
+     label07:
+        goto label10;
+
+     label08:
+        $r18 := @caughtexception;
+
+        exitmonitor $r6;
+
+     label09:
+        throw $r18;
+
+     label10:
+        return z4;
+
+        catch java.lang.Throwable from label01 to label07 with label08;
+        catch java.lang.Throwable from label08 to label09 with label08;
+    }
+
+    public boolean removeJobs(java.util.List) throws org.quartz.JobPersistenceException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.util.List r1;
+        java.util.Iterator r3;
+        org.quartz.JobKey r4;
+        java.lang.Object $r6, $r7;
+        boolean $z0, $z1, z2, $z3;
+        java.lang.Throwable $r8;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: java.util.List;
+
+        z2 = 1;
+
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r6;
+
+     label1:
+        r3 = interfaceinvoke r1.<java.util.List: java.util.Iterator iterator()>();
+
+     label2:
+        $z0 = interfaceinvoke r3.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label5;
+
+        $r7 = interfaceinvoke r3.<java.util.Iterator: java.lang.Object next()>();
+
+        r4 = (org.quartz.JobKey) $r7;
+
+        $z1 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: boolean removeJob(org.quartz.JobKey)>(r4);
+
+        if $z1 == 0 goto label3;
+
+        if z2 == 0 goto label3;
+
+        $z3 = 1;
+
+        goto label4;
+
+     label3:
+        $z3 = 0;
+
+     label4:
+        z2 = $z3;
+
+        goto label2;
+
+     label5:
+        exitmonitor $r6;
+
+     label6:
+        goto label9;
+
+     label7:
+        $r8 := @caughtexception;
+
+        exitmonitor $r6;
+
+     label8:
+        throw $r8;
+
+     label9:
+        return z2;
+
+        catch java.lang.Throwable from label1 to label6 with label7;
+        catch java.lang.Throwable from label7 to label8 with label7;
+    }
+
+    public boolean removeTriggers(java.util.List) throws org.quartz.JobPersistenceException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.util.List r1;
+        java.util.Iterator r3;
+        org.quartz.TriggerKey r4;
+        java.lang.Object $r6, $r7;
+        boolean $z0, $z1, z2, $z3;
+        java.lang.Throwable $r8;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: java.util.List;
+
+        z2 = 1;
+
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r6;
+
+     label1:
+        r3 = interfaceinvoke r1.<java.util.List: java.util.Iterator iterator()>();
+
+     label2:
+        $z0 = interfaceinvoke r3.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label5;
+
+        $r7 = interfaceinvoke r3.<java.util.Iterator: java.lang.Object next()>();
+
+        r4 = (org.quartz.TriggerKey) $r7;
+
+        $z1 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: boolean removeTrigger(org.quartz.TriggerKey)>(r4);
+
+        if $z1 == 0 goto label3;
+
+        if z2 == 0 goto label3;
+
+        $z3 = 1;
+
+        goto label4;
+
+     label3:
+        $z3 = 0;
+
+     label4:
+        z2 = $z3;
+
+        goto label2;
+
+     label5:
+        exitmonitor $r6;
+
+     label6:
+        goto label9;
+
+     label7:
+        $r8 := @caughtexception;
+
+        exitmonitor $r6;
+
+     label8:
+        throw $r8;
+
+     label9:
+        return z2;
+
+        catch java.lang.Throwable from label1 to label6 with label7;
+        catch java.lang.Throwable from label7 to label8 with label7;
+    }
+
+    public void storeJobsAndTriggers(java.util.Map, boolean) throws org.quartz.JobPersistenceException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.util.Map r1;
+        boolean z0, $z1, $z2, $z3, $z4, $z5, $z6;
+        java.lang.Object $r4, $r6, $r7, $r9, $r11, $r14, $r15, $r18, $r20, $r24;
+        java.util.Set $r5, $r10, $r13, $r19;
+        org.quartz.JobDetail $r8, $r16, $r25;
+        org.quartz.spi.OperableTrigger $r12;
+        org.quartz.JobKey $r17;
+        org.quartz.TriggerKey $r21;
+        org.quartz.ObjectAlreadyExistsException $r22, $r23;
+        java.lang.Throwable $r26;
+        java.util.Iterator r27, r29, r31, r33;
+        java.util.Map$Entry r28, r32;
+        org.quartz.Trigger r30, r34;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: java.util.Map;
+
+        z0 := @parameter1: boolean;
+
+        $r4 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r4;
+
+     label01:
+        if z0 != 0 goto label07;
+
+        $r13 = interfaceinvoke r1.<java.util.Map: java.util.Set entrySet()>();
+
+        r27 = interfaceinvoke $r13.<java.util.Set: java.util.Iterator iterator()>();
+
+     label02:
+        $z2 = interfaceinvoke r27.<java.util.Iterator: boolean hasNext()>();
+
+        if $z2 == 0 goto label07;
+
+        $r14 = interfaceinvoke r27.<java.util.Iterator: java.lang.Object next()>();
+
+        r28 = (java.util.Map$Entry) $r14;
+
+        $r15 = interfaceinvoke r28.<java.util.Map$Entry: java.lang.Object getKey()>();
+
+        $r16 = (org.quartz.JobDetail) $r15;
+
+        $r17 = interfaceinvoke $r16.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $z3 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: boolean checkExists(org.quartz.JobKey)>($r17);
+
+        if $z3 == 0 goto label03;
+
+        $r23 = new org.quartz.ObjectAlreadyExistsException;
+
+        $r24 = interfaceinvoke r28.<java.util.Map$Entry: java.lang.Object getKey()>();
+
+        $r25 = (org.quartz.JobDetail) $r24;
+
+        specialinvoke $r23.<org.quartz.ObjectAlreadyExistsException: void <init>(org.quartz.JobDetail)>($r25);
+
+        throw $r23;
+
+     label03:
+        $r18 = interfaceinvoke r28.<java.util.Map$Entry: java.lang.Object getValue()>();
+
+        $r19 = (java.util.Set) $r18;
+
+        r29 = interfaceinvoke $r19.<java.util.Set: java.util.Iterator iterator()>();
+
+     label04:
+        $z4 = interfaceinvoke r29.<java.util.Iterator: boolean hasNext()>();
+
+        if $z4 == 0 goto label06;
+
+        $r20 = interfaceinvoke r29.<java.util.Iterator: java.lang.Object next()>();
+
+        r30 = (org.quartz.Trigger) $r20;
+
+        $r21 = interfaceinvoke r30.<org.quartz.Trigger: org.quartz.TriggerKey getKey()>();
+
+        $z5 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: boolean checkExists(org.quartz.TriggerKey)>($r21);
+
+        if $z5 == 0 goto label05;
+
+        $r22 = new org.quartz.ObjectAlreadyExistsException;
+
+        specialinvoke $r22.<org.quartz.ObjectAlreadyExistsException: void <init>(org.quartz.Trigger)>(r30);
+
+        throw $r22;
+
+     label05:
+        goto label04;
+
+     label06:
+        goto label02;
+
+     label07:
+        $r5 = interfaceinvoke r1.<java.util.Map: java.util.Set entrySet()>();
+
+        r31 = interfaceinvoke $r5.<java.util.Set: java.util.Iterator iterator()>();
+
+     label08:
+        $z6 = interfaceinvoke r31.<java.util.Iterator: boolean hasNext()>();
+
+        if $z6 == 0 goto label11;
+
+        $r6 = interfaceinvoke r31.<java.util.Iterator: java.lang.Object next()>();
+
+        r32 = (java.util.Map$Entry) $r6;
+
+        $r7 = interfaceinvoke r32.<java.util.Map$Entry: java.lang.Object getKey()>();
+
+        $r8 = (org.quartz.JobDetail) $r7;
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: void storeJob(org.quartz.JobDetail,boolean)>($r8, 1);
+
+        $r9 = interfaceinvoke r32.<java.util.Map$Entry: java.lang.Object getValue()>();
+
+        $r10 = (java.util.Set) $r9;
+
+        r33 = interfaceinvoke $r10.<java.util.Set: java.util.Iterator iterator()>();
+
+     label09:
+        $z1 = interfaceinvoke r33.<java.util.Iterator: boolean hasNext()>();
+
+        if $z1 == 0 goto label10;
+
+        $r11 = interfaceinvoke r33.<java.util.Iterator: java.lang.Object next()>();
+
+        r34 = (org.quartz.Trigger) $r11;
+
+        $r12 = (org.quartz.spi.OperableTrigger) r34;
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: void storeTrigger(org.quartz.spi.OperableTrigger,boolean)>($r12, 1);
+
+        goto label09;
+
+     label10:
+        goto label08;
+
+     label11:
+        exitmonitor $r4;
+
+     label12:
+        goto label15;
+
+     label13:
+        $r26 := @caughtexception;
+
+        exitmonitor $r4;
+
+     label14:
+        throw $r26;
+
+     label15:
+        return;
+
+        catch java.lang.Throwable from label01 to label12 with label13;
+        catch java.lang.Throwable from label13 to label14 with label13;
+    }
+
+    public void storeTrigger(org.quartz.spi.OperableTrigger, boolean) throws org.quartz.JobPersistenceException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.spi.OperableTrigger r1, $r7;
+        boolean z0, $z2, $z3, $z4, $z5;
+        org.quartz.simpl.TriggerWrapper $r5;
+        java.lang.Object $r6, $r8, $r11, $r16, $r20;
+        org.quartz.TriggerKey $r9, $r18, $r21, $r23, $r27, $r39, $r53;
+        java.util.HashMap $r10, $r17, $r24, $r37, $r38, r57;
+        org.quartz.JobKey $r12, $r14, $r29, $r32, $r34, $r43, $r49;
+        org.quartz.JobDetail $r13;
+        java.util.Map $r15, $r44;
+        java.lang.String $r19, $r28, $r33, $r40, $r52;
+        java.util.HashSet $r26, $r30, $r31, $r35;
+        java.util.TreeSet $r36;
+        java.util.ArrayList $r42;
+        org.quartz.JobPersistenceException $r46;
+        java.lang.StringBuilder $r47, $r48, $r50, $r51;
+        org.quartz.ObjectAlreadyExistsException $r54;
+        java.lang.Throwable $r55;
+        java.util.List r56;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.spi.OperableTrigger;
+
+        z0 := @parameter1: boolean;
+
+        $r5 = new org.quartz.simpl.TriggerWrapper;
+
+        $r6 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: java.lang.Object clone()>();
+
+        $r7 = (org.quartz.spi.OperableTrigger) $r6;
+
+        specialinvoke $r5.<org.quartz.simpl.TriggerWrapper: void <init>(org.quartz.spi.OperableTrigger)>($r7);
+
+        $r8 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r8;
+
+     label01:
+        $r10 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r9 = $r5.<org.quartz.simpl.TriggerWrapper: org.quartz.TriggerKey key>;
+
+        $r11 = virtualinvoke $r10.<java.util.HashMap: java.lang.Object get(java.lang.Object)>($r9);
+
+        if $r11 == null goto label03;
+
+        if z0 != 0 goto label02;
+
+        $r54 = new org.quartz.ObjectAlreadyExistsException;
+
+        specialinvoke $r54.<org.quartz.ObjectAlreadyExistsException: void <init>(org.quartz.Trigger)>(r1);
+
+        throw $r54;
+
+     label02:
+        $r53 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        specialinvoke r0.<org.quartz.simpl.RAMJobStore: boolean removeTrigger(org.quartz.TriggerKey,boolean)>($r53, 0);
+
+     label03:
+        $r12 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $r13 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: org.quartz.JobDetail retrieveJob(org.quartz.JobKey)>($r12);
+
+        if $r13 != null goto label04;
+
+        $r46 = new org.quartz.JobPersistenceException;
+
+        $r47 = new java.lang.StringBuilder;
+
+        specialinvoke $r47.<java.lang.StringBuilder: void <init>()>();
+
+        $r48 = virtualinvoke $r47.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("The job (");
+
+        $r49 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $r50 = virtualinvoke $r48.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r49);
+
+        $r51 = virtualinvoke $r50.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(") referenced by the trigger does not exist.");
+
+        $r52 = virtualinvoke $r51.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r46.<org.quartz.JobPersistenceException: void <init>(java.lang.String)>($r52);
+
+        throw $r46;
+
+     label04:
+        $r15 = r0.<org.quartz.simpl.RAMJobStore: java.util.Map triggersByJob>;
+
+        $r14 = $r5.<org.quartz.simpl.TriggerWrapper: org.quartz.JobKey jobKey>;
+
+        $r16 = interfaceinvoke $r15.<java.util.Map: java.lang.Object get(java.lang.Object)>($r14);
+
+        r56 = (java.util.List) $r16;
+
+        if r56 != null goto label05;
+
+        $r42 = new java.util.ArrayList;
+
+        specialinvoke $r42.<java.util.ArrayList: void <init>(int)>(1);
+
+        r56 = $r42;
+
+        $r44 = r0.<org.quartz.simpl.RAMJobStore: java.util.Map triggersByJob>;
+
+        $r43 = $r5.<org.quartz.simpl.TriggerWrapper: org.quartz.JobKey jobKey>;
+
+        interfaceinvoke $r44.<java.util.Map: java.lang.Object put(java.lang.Object,java.lang.Object)>($r43, $r42);
+
+     label05:
+        interfaceinvoke r56.<java.util.List: boolean add(java.lang.Object)>($r5);
+
+        $r17 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByGroup>;
+
+        $r18 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r19 = virtualinvoke $r18.<org.quartz.TriggerKey: java.lang.String getGroup()>();
+
+        $r20 = virtualinvoke $r17.<java.util.HashMap: java.lang.Object get(java.lang.Object)>($r19);
+
+        r57 = (java.util.HashMap) $r20;
+
+        if r57 != null goto label06;
+
+        $r37 = new java.util.HashMap;
+
+        specialinvoke $r37.<java.util.HashMap: void <init>(int)>(100);
+
+        r57 = $r37;
+
+        $r38 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByGroup>;
+
+        $r39 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r40 = virtualinvoke $r39.<org.quartz.TriggerKey: java.lang.String getGroup()>();
+
+        virtualinvoke $r38.<java.util.HashMap: java.lang.Object put(java.lang.Object,java.lang.Object)>($r40, $r37);
+
+     label06:
+        $r21 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        virtualinvoke r57.<java.util.HashMap: java.lang.Object put(java.lang.Object,java.lang.Object)>($r21, $r5);
+
+        $r24 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r23 = $r5.<org.quartz.simpl.TriggerWrapper: org.quartz.TriggerKey key>;
+
+        virtualinvoke $r24.<java.util.HashMap: java.lang.Object put(java.lang.Object,java.lang.Object)>($r23, $r5);
+
+        $r26 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet pausedTriggerGroups>;
+
+        $r27 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r28 = virtualinvoke $r27.<org.quartz.TriggerKey: java.lang.String getGroup()>();
+
+        $z2 = virtualinvoke $r26.<java.util.HashSet: boolean contains(java.lang.Object)>($r28);
+
+        if $z2 != 0 goto label07;
+
+        $r31 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet pausedJobGroups>;
+
+        $r32 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $r33 = virtualinvoke $r32.<org.quartz.JobKey: java.lang.String getGroup()>();
+
+        $z4 = virtualinvoke $r31.<java.util.HashSet: boolean contains(java.lang.Object)>($r33);
+
+        if $z4 == 0 goto label08;
+
+     label07:
+        $r5.<org.quartz.simpl.TriggerWrapper: int state> = 4;
+
+        $r30 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet blockedJobs>;
+
+        $r29 = $r5.<org.quartz.simpl.TriggerWrapper: org.quartz.JobKey jobKey>;
+
+        $z3 = virtualinvoke $r30.<java.util.HashSet: boolean contains(java.lang.Object)>($r29);
+
+        if $z3 == 0 goto label10;
+
+        $r5.<org.quartz.simpl.TriggerWrapper: int state> = 6;
+
+        goto label10;
+
+     label08:
+        $r35 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet blockedJobs>;
+
+        $r34 = $r5.<org.quartz.simpl.TriggerWrapper: org.quartz.JobKey jobKey>;
+
+        $z5 = virtualinvoke $r35.<java.util.HashSet: boolean contains(java.lang.Object)>($r34);
+
+        if $z5 == 0 goto label09;
+
+        $r5.<org.quartz.simpl.TriggerWrapper: int state> = 5;
+
+        goto label10;
+
+     label09:
+        $r36 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r36.<java.util.TreeSet: boolean add(java.lang.Object)>($r5);
+
+     label10:
+        exitmonitor $r8;
+
+     label11:
+        goto label14;
+
+     label12:
+        $r55 := @caughtexception;
+
+        exitmonitor $r8;
+
+     label13:
+        throw $r55;
+
+     label14:
+        return;
+
+        catch java.lang.Throwable from label01 to label11 with label12;
+        catch java.lang.Throwable from label12 to label13 with label12;
+    }
+
+    public boolean removeTrigger(org.quartz.TriggerKey)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.TriggerKey r1;
+        boolean $z0;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.TriggerKey;
+
+        $z0 = specialinvoke r0.<org.quartz.simpl.RAMJobStore: boolean removeTrigger(org.quartz.TriggerKey,boolean)>(r1, 1);
+
+        return $z0;
+    }
+
+    private boolean removeTrigger(org.quartz.TriggerKey, boolean)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.TriggerKey r1;
+        boolean z0, z1, $z3, $z4, $z6, $z7;
+        org.quartz.simpl.TriggerWrapper r3;
+        java.util.HashMap r4, $r10, $r12, $r16, $r27;
+        java.util.List r5, r7;
+        org.quartz.simpl.JobWrapper r6;
+        java.lang.Object $r9, $r11, $r14, $r17, $r33;
+        java.lang.String $r13, $r28;
+        org.quartz.JobKey $r15, $r18, $r20, $r21, $r23, $r32;
+        org.quartz.JobDetail $r19;
+        org.quartz.spi.SchedulerSignaler $r22;
+        int $i0, $i1;
+        java.util.Map $r24, $r31;
+        java.lang.Throwable $r30;
+        java.util.TreeSet $r34;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.TriggerKey;
+
+        z0 := @parameter1: boolean;
+
+        $r9 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r9;
+
+     label01:
+        $r10 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r11 = virtualinvoke $r10.<java.util.HashMap: java.lang.Object remove(java.lang.Object)>(r1);
+
+        r3 = (org.quartz.simpl.TriggerWrapper) $r11;
+
+        if r3 == null goto label02;
+
+        $z7 = 1;
+
+        goto label03;
+
+     label02:
+        $z7 = 0;
+
+     label03:
+        z1 = $z7;
+
+        if $z7 == 0 goto label07;
+
+        $r12 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByGroup>;
+
+        $r13 = virtualinvoke r1.<org.quartz.TriggerKey: java.lang.String getGroup()>();
+
+        $r14 = virtualinvoke $r12.<java.util.HashMap: java.lang.Object get(java.lang.Object)>($r13);
+
+        r4 = (java.util.HashMap) $r14;
+
+        if r4 == null goto label04;
+
+        virtualinvoke r4.<java.util.HashMap: java.lang.Object remove(java.lang.Object)>(r1);
+
+        $i1 = virtualinvoke r4.<java.util.HashMap: int size()>();
+
+        if $i1 != 0 goto label04;
+
+        $r27 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByGroup>;
+
+        $r28 = virtualinvoke r1.<org.quartz.TriggerKey: java.lang.String getGroup()>();
+
+        virtualinvoke $r27.<java.util.HashMap: java.lang.Object remove(java.lang.Object)>($r28);
+
+     label04:
+        $r31 = r0.<org.quartz.simpl.RAMJobStore: java.util.Map triggersByJob>;
+
+        $r32 = r3.<org.quartz.simpl.TriggerWrapper: org.quartz.JobKey jobKey>;
+
+        $r33 = interfaceinvoke $r31.<java.util.Map: java.lang.Object get(java.lang.Object)>($r32);
+
+        r5 = (java.util.List) $r33;
+
+        if r5 == null goto label05;
+
+        interfaceinvoke r5.<java.util.List: boolean remove(java.lang.Object)>(r3);
+
+        $z6 = interfaceinvoke r5.<java.util.List: boolean isEmpty()>();
+
+        if $z6 == 0 goto label05;
+
+        $r24 = r0.<org.quartz.simpl.RAMJobStore: java.util.Map triggersByJob>;
+
+        $r23 = r3.<org.quartz.simpl.TriggerWrapper: org.quartz.JobKey jobKey>;
+
+        interfaceinvoke $r24.<java.util.Map: java.lang.Object remove(java.lang.Object)>($r23);
+
+     label05:
+        $r34 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r34.<java.util.TreeSet: boolean remove(java.lang.Object)>(r3);
+
+        if z0 == 0 goto label07;
+
+        $r16 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByKey>;
+
+        $r15 = r3.<org.quartz.simpl.TriggerWrapper: org.quartz.JobKey jobKey>;
+
+        $r17 = virtualinvoke $r16.<java.util.HashMap: java.lang.Object get(java.lang.Object)>($r15);
+
+        r6 = (org.quartz.simpl.JobWrapper) $r17;
+
+        $r18 = r3.<org.quartz.simpl.TriggerWrapper: org.quartz.JobKey jobKey>;
+
+        r7 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.List getTriggersForJob(org.quartz.JobKey)>($r18);
+
+        if r7 == null goto label06;
+
+        $i0 = interfaceinvoke r7.<java.util.List: int size()>();
+
+        if $i0 != 0 goto label07;
+
+     label06:
+        $r19 = r6.<org.quartz.simpl.JobWrapper: org.quartz.JobDetail jobDetail>;
+
+        $z3 = interfaceinvoke $r19.<org.quartz.JobDetail: boolean isDurable()>();
+
+        if $z3 != 0 goto label07;
+
+        $r20 = r6.<org.quartz.simpl.JobWrapper: org.quartz.JobKey key>;
+
+        $z4 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: boolean removeJob(org.quartz.JobKey)>($r20);
+
+        if $z4 == 0 goto label07;
+
+        $r22 = r0.<org.quartz.simpl.RAMJobStore: org.quartz.spi.SchedulerSignaler signaler>;
+
+        $r21 = r6.<org.quartz.simpl.JobWrapper: org.quartz.JobKey key>;
+
+        interfaceinvoke $r22.<org.quartz.spi.SchedulerSignaler: void notifySchedulerListenersJobDeleted(org.quartz.JobKey)>($r21);
+
+     label07:
+        exitmonitor $r9;
+
+     label08:
+        goto label11;
+
+     label09:
+        $r30 := @caughtexception;
+
+        exitmonitor $r9;
+
+     label10:
+        throw $r30;
+
+     label11:
+        return z1;
+
+        catch java.lang.Throwable from label01 to label08 with label09;
+        catch java.lang.Throwable from label09 to label10 with label09;
+    }
+
+    public boolean replaceTrigger(org.quartz.TriggerKey, org.quartz.spi.OperableTrigger) throws org.quartz.JobPersistenceException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.TriggerKey r1;
+        org.quartz.spi.OperableTrigger r2, $r12, $r28;
+        boolean z0, $z1, $z4, $z5;
+        org.quartz.simpl.TriggerWrapper r4;
+        java.util.HashMap r5, $r10, $r15, $r22;
+        java.util.List r6;
+        java.lang.Object $r9, $r11, $r17, $r31;
+        org.quartz.JobKey $r13, $r14, $r18, $r30;
+        java.lang.String $r16, $r23;
+        java.util.Map $r19, $r29;
+        int $i0;
+        org.quartz.JobPersistenceException $r25, $r27;
+        java.lang.Throwable $r26;
+        java.util.TreeSet $r32;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.TriggerKey;
+
+        r2 := @parameter1: org.quartz.spi.OperableTrigger;
+
+        $r9 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r9;
+
+     label01:
+        $r10 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r11 = virtualinvoke $r10.<java.util.HashMap: java.lang.Object remove(java.lang.Object)>(r1);
+
+        r4 = (org.quartz.simpl.TriggerWrapper) $r11;
+
+        if r4 == null goto label02;
+
+        $z5 = 1;
+
+        goto label03;
+
+     label02:
+        $z5 = 0;
+
+     label03:
+        z0 = $z5;
+
+        if $z5 == 0 goto label10;
+
+        $r12 = virtualinvoke r4.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger getTrigger()>();
+
+        $r13 = interfaceinvoke $r12.<org.quartz.spi.OperableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $r14 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $z1 = virtualinvoke $r13.<org.quartz.JobKey: boolean equals(java.lang.Object)>($r14);
+
+        if $z1 != 0 goto label04;
+
+        $r25 = new org.quartz.JobPersistenceException;
+
+        specialinvoke $r25.<org.quartz.JobPersistenceException: void <init>(java.lang.String)>("New trigger is not related to the same job as the old trigger.");
+
+        throw $r25;
+
+     label04:
+        $r15 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByGroup>;
+
+        $r16 = virtualinvoke r1.<org.quartz.TriggerKey: java.lang.String getGroup()>();
+
+        $r17 = virtualinvoke $r15.<java.util.HashMap: java.lang.Object get(java.lang.Object)>($r16);
+
+        r5 = (java.util.HashMap) $r17;
+
+        if r5 == null goto label05;
+
+        virtualinvoke r5.<java.util.HashMap: java.lang.Object remove(java.lang.Object)>(r1);
+
+        $i0 = virtualinvoke r5.<java.util.HashMap: int size()>();
+
+        if $i0 != 0 goto label05;
+
+        $r22 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByGroup>;
+
+        $r23 = virtualinvoke r1.<org.quartz.TriggerKey: java.lang.String getGroup()>();
+
+        virtualinvoke $r22.<java.util.HashMap: java.lang.Object remove(java.lang.Object)>($r23);
+
+     label05:
+        $r29 = r0.<org.quartz.simpl.RAMJobStore: java.util.Map triggersByJob>;
+
+        $r30 = r4.<org.quartz.simpl.TriggerWrapper: org.quartz.JobKey jobKey>;
+
+        $r31 = interfaceinvoke $r29.<java.util.Map: java.lang.Object get(java.lang.Object)>($r30);
+
+        r6 = (java.util.List) $r31;
+
+        if r6 == null goto label06;
+
+        interfaceinvoke r6.<java.util.List: boolean remove(java.lang.Object)>(r4);
+
+        $z4 = interfaceinvoke r6.<java.util.List: boolean isEmpty()>();
+
+        if $z4 == 0 goto label06;
+
+        $r19 = r0.<org.quartz.simpl.RAMJobStore: java.util.Map triggersByJob>;
+
+        $r18 = r4.<org.quartz.simpl.TriggerWrapper: org.quartz.JobKey jobKey>;
+
+        interfaceinvoke $r19.<java.util.Map: java.lang.Object remove(java.lang.Object)>($r18);
+
+     label06:
+        $r32 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r32.<java.util.TreeSet: boolean remove(java.lang.Object)>(r4);
+
+     label07:
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: void storeTrigger(org.quartz.spi.OperableTrigger,boolean)>(r2, 0);
+
+     label08:
+        goto label10;
+
+     label09:
+        $r27 := @caughtexception;
+
+        $r28 = virtualinvoke r4.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger getTrigger()>();
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: void storeTrigger(org.quartz.spi.OperableTrigger,boolean)>($r28, 0);
+
+        throw $r27;
+
+     label10:
+        exitmonitor $r9;
+
+     label11:
+        goto label14;
+
+     label12:
+        $r26 := @caughtexception;
+
+        exitmonitor $r9;
+
+     label13:
+        throw $r26;
+
+     label14:
+        return z0;
+
+        catch org.quartz.JobPersistenceException from label07 to label08 with label09;
+        catch java.lang.Throwable from label01 to label11 with label12;
+        catch java.lang.Throwable from label12 to label13 with label12;
+    }
+
+    public org.quartz.JobDetail retrieveJob(org.quartz.JobKey)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.JobKey r1;
+        org.quartz.simpl.JobWrapper r3;
+        java.lang.Object $r5, $r7, $r9;
+        java.util.HashMap $r6;
+        org.quartz.JobDetail $r8, $r11;
+        java.lang.Throwable $r10;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.JobKey;
+
+        $r5 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r5;
+
+     label1:
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByKey>;
+
+        $r7 = virtualinvoke $r6.<java.util.HashMap: java.lang.Object get(java.lang.Object)>(r1);
+
+        r3 = (org.quartz.simpl.JobWrapper) $r7;
+
+        if r3 == null goto label2;
+
+        $r8 = r3.<org.quartz.simpl.JobWrapper: org.quartz.JobDetail jobDetail>;
+
+        $r9 = interfaceinvoke $r8.<org.quartz.JobDetail: java.lang.Object clone()>();
+
+        $r11 = (org.quartz.JobDetail) $r9;
+
+        goto label3;
+
+     label2:
+        $r11 = null;
+
+     label3:
+        exitmonitor $r5;
+
+     label4:
+        return $r11;
+
+     label5:
+        $r10 := @caughtexception;
+
+        exitmonitor $r5;
+
+     label6:
+        throw $r10;
+
+        catch java.lang.Throwable from label1 to label4 with label5;
+        catch java.lang.Throwable from label5 to label6 with label5;
+    }
+
+    public org.quartz.spi.OperableTrigger retrieveTrigger(org.quartz.TriggerKey)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.TriggerKey r1;
+        org.quartz.simpl.TriggerWrapper r3;
+        java.lang.Object $r5, $r7, $r9;
+        java.util.HashMap $r6;
+        org.quartz.spi.OperableTrigger $r8, $r11;
+        java.lang.Throwable $r10;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.TriggerKey;
+
+        $r5 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r5;
+
+     label1:
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r7 = virtualinvoke $r6.<java.util.HashMap: java.lang.Object get(java.lang.Object)>(r1);
+
+        r3 = (org.quartz.simpl.TriggerWrapper) $r7;
+
+        if r3 == null goto label2;
+
+        $r8 = virtualinvoke r3.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger getTrigger()>();
+
+        $r9 = interfaceinvoke $r8.<org.quartz.spi.OperableTrigger: java.lang.Object clone()>();
+
+        $r11 = (org.quartz.spi.OperableTrigger) $r9;
+
+        goto label3;
+
+     label2:
+        $r11 = null;
+
+     label3:
+        exitmonitor $r5;
+
+     label4:
+        return $r11;
+
+     label5:
+        $r10 := @caughtexception;
+
+        exitmonitor $r5;
+
+     label6:
+        throw $r10;
+
+        catch java.lang.Throwable from label1 to label4 with label5;
+        catch java.lang.Throwable from label5 to label6 with label5;
+    }
+
+    public boolean checkExists(org.quartz.JobKey) throws org.quartz.JobPersistenceException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.JobKey r1;
+        org.quartz.simpl.JobWrapper r3;
+        java.lang.Object $r5, $r7;
+        java.util.HashMap $r6;
+        java.lang.Throwable $r8;
+        boolean $z0;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.JobKey;
+
+        $r5 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r5;
+
+     label1:
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByKey>;
+
+        $r7 = virtualinvoke $r6.<java.util.HashMap: java.lang.Object get(java.lang.Object)>(r1);
+
+        r3 = (org.quartz.simpl.JobWrapper) $r7;
+
+        if r3 == null goto label2;
+
+        $z0 = 1;
+
+        goto label3;
+
+     label2:
+        $z0 = 0;
+
+     label3:
+        exitmonitor $r5;
+
+     label4:
+        return $z0;
+
+     label5:
+        $r8 := @caughtexception;
+
+        exitmonitor $r5;
+
+     label6:
+        throw $r8;
+
+        catch java.lang.Throwable from label1 to label4 with label5;
+        catch java.lang.Throwable from label5 to label6 with label5;
+    }
+
+    public boolean checkExists(org.quartz.TriggerKey) throws org.quartz.JobPersistenceException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.TriggerKey r1;
+        org.quartz.simpl.TriggerWrapper r3;
+        java.lang.Object $r5, $r7;
+        java.util.HashMap $r6;
+        java.lang.Throwable $r8;
+        boolean $z0;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.TriggerKey;
+
+        $r5 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r5;
+
+     label1:
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r7 = virtualinvoke $r6.<java.util.HashMap: java.lang.Object get(java.lang.Object)>(r1);
+
+        r3 = (org.quartz.simpl.TriggerWrapper) $r7;
+
+        if r3 == null goto label2;
+
+        $z0 = 1;
+
+        goto label3;
+
+     label2:
+        $z0 = 0;
+
+     label3:
+        exitmonitor $r5;
+
+     label4:
+        return $z0;
+
+     label5:
+        $r8 := @caughtexception;
+
+        exitmonitor $r5;
+
+     label6:
+        throw $r8;
+
+        catch java.lang.Throwable from label1 to label4 with label5;
+        catch java.lang.Throwable from label5 to label6 with label5;
+    }
+
+    public org.quartz.Trigger$TriggerState getTriggerState(org.quartz.TriggerKey) throws org.quartz.JobPersistenceException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.TriggerKey r1;
+        org.quartz.simpl.TriggerWrapper r3;
+        java.lang.Object $r5, $r7;
+        java.util.HashMap $r6;
+        int $i0, $i1, $i2, $i3, $i4;
+        org.quartz.Trigger$TriggerState $r8, $r9, $r10, $r11, $r12, $r13, $r14;
+        java.lang.Throwable $r15;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.TriggerKey;
+
+        $r5 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r5;
+
+     label01:
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r7 = virtualinvoke $r6.<java.util.HashMap: java.lang.Object get(java.lang.Object)>(r1);
+
+        r3 = (org.quartz.simpl.TriggerWrapper) $r7;
+
+        if r3 != null goto label03;
+
+        $r14 = <org.quartz.Trigger$TriggerState: org.quartz.Trigger$TriggerState NONE>;
+
+        exitmonitor $r5;
+
+     label02:
+        return $r14;
+
+     label03:
+        $i0 = r3.<org.quartz.simpl.TriggerWrapper: int state>;
+
+        if $i0 != 3 goto label05;
+
+        $r13 = <org.quartz.Trigger$TriggerState: org.quartz.Trigger$TriggerState COMPLETE>;
+
+        exitmonitor $r5;
+
+     label04:
+        return $r13;
+
+     label05:
+        $i1 = r3.<org.quartz.simpl.TriggerWrapper: int state>;
+
+        if $i1 != 4 goto label07;
+
+        $r12 = <org.quartz.Trigger$TriggerState: org.quartz.Trigger$TriggerState PAUSED>;
+
+        exitmonitor $r5;
+
+     label06:
+        return $r12;
+
+     label07:
+        $i2 = r3.<org.quartz.simpl.TriggerWrapper: int state>;
+
+        if $i2 != 6 goto label09;
+
+        $r11 = <org.quartz.Trigger$TriggerState: org.quartz.Trigger$TriggerState PAUSED>;
+
+        exitmonitor $r5;
+
+     label08:
+        return $r11;
+
+     label09:
+        $i3 = r3.<org.quartz.simpl.TriggerWrapper: int state>;
+
+        if $i3 != 5 goto label11;
+
+        $r10 = <org.quartz.Trigger$TriggerState: org.quartz.Trigger$TriggerState BLOCKED>;
+
+        exitmonitor $r5;
+
+     label10:
+        return $r10;
+
+     label11:
+        $i4 = r3.<org.quartz.simpl.TriggerWrapper: int state>;
+
+        if $i4 != 7 goto label13;
+
+        $r9 = <org.quartz.Trigger$TriggerState: org.quartz.Trigger$TriggerState ERROR>;
+
+        exitmonitor $r5;
+
+     label12:
+        return $r9;
+
+     label13:
+        $r8 = <org.quartz.Trigger$TriggerState: org.quartz.Trigger$TriggerState NORMAL>;
+
+        exitmonitor $r5;
+
+     label14:
+        return $r8;
+
+     label15:
+        $r15 := @caughtexception;
+
+        exitmonitor $r5;
+
+     label16:
+        throw $r15;
+
+        catch java.lang.Throwable from label01 to label02 with label15;
+        catch java.lang.Throwable from label03 to label04 with label15;
+        catch java.lang.Throwable from label05 to label06 with label15;
+        catch java.lang.Throwable from label07 to label08 with label15;
+        catch java.lang.Throwable from label09 to label10 with label15;
+        catch java.lang.Throwable from label11 to label12 with label15;
+        catch java.lang.Throwable from label13 to label14 with label15;
+        catch java.lang.Throwable from label15 to label16 with label15;
+    }
+
+    public void resetTriggerFromErrorState(org.quartz.TriggerKey) throws org.quartz.JobPersistenceException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.TriggerKey r1;
+        org.quartz.simpl.TriggerWrapper r3;
+        java.lang.Object $r5, $r7;
+        java.util.HashMap $r6;
+        org.quartz.spi.OperableTrigger $r8;
+        int $i0;
+        java.util.HashSet $r9;
+        java.lang.String $r10;
+        boolean $z0;
+        java.util.TreeSet $r11;
+        java.lang.Throwable $r12;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.TriggerKey;
+
+        $r5 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r5;
+
+     label01:
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r7 = virtualinvoke $r6.<java.util.HashMap: java.lang.Object get(java.lang.Object)>(r1);
+
+        r3 = (org.quartz.simpl.TriggerWrapper) $r7;
+
+        if r3 == null goto label02;
+
+        $r8 = r3.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        if $r8 != null goto label04;
+
+     label02:
+        exitmonitor $r5;
+
+     label03:
+        return;
+
+     label04:
+        $i0 = r3.<org.quartz.simpl.TriggerWrapper: int state>;
+
+        if $i0 == 7 goto label06;
+
+        exitmonitor $r5;
+
+     label05:
+        return;
+
+     label06:
+        $r9 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet pausedTriggerGroups>;
+
+        $r10 = virtualinvoke r1.<org.quartz.TriggerKey: java.lang.String getGroup()>();
+
+        $z0 = virtualinvoke $r9.<java.util.HashSet: boolean contains(java.lang.Object)>($r10);
+
+        if $z0 == 0 goto label07;
+
+        r3.<org.quartz.simpl.TriggerWrapper: int state> = 4;
+
+        goto label08;
+
+     label07:
+        r3.<org.quartz.simpl.TriggerWrapper: int state> = 0;
+
+        $r11 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r11.<java.util.TreeSet: boolean add(java.lang.Object)>(r3);
+
+     label08:
+        exitmonitor $r5;
+
+     label09:
+        goto label12;
+
+     label10:
+        $r12 := @caughtexception;
+
+        exitmonitor $r5;
+
+     label11:
+        throw $r12;
+
+     label12:
+        return;
+
+        catch java.lang.Throwable from label01 to label03 with label10;
+        catch java.lang.Throwable from label04 to label05 with label10;
+        catch java.lang.Throwable from label06 to label09 with label10;
+        catch java.lang.Throwable from label10 to label11 with label10;
+    }
+
+    public void storeCalendar(java.lang.String, org.quartz.Calendar, boolean, boolean) throws org.quartz.ObjectAlreadyExistsException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.lang.String r1, $r24;
+        boolean z0, z1, z2, $z3;
+        java.lang.Object r3, $r8, $r9, $r14;
+        java.util.Iterator r4;
+        org.quartz.simpl.TriggerWrapper r5;
+        org.quartz.spi.OperableTrigger r6;
+        java.util.HashMap $r10, $r11, $r17;
+        java.util.ArrayList $r13;
+        java.util.TreeSet $r15, $r16;
+        long $l0;
+        org.quartz.ObjectAlreadyExistsException $r19;
+        java.lang.StringBuilder $r20, $r21, $r22, $r23;
+        java.lang.Throwable $r25;
+        org.quartz.Calendar r26, r27;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: java.lang.String;
+
+        r26 := @parameter1: org.quartz.Calendar;
+
+        z0 := @parameter2: boolean;
+
+        z1 := @parameter3: boolean;
+
+        $r8 = interfaceinvoke r26.<org.quartz.Calendar: java.lang.Object clone()>();
+
+        r27 = (org.quartz.Calendar) $r8;
+
+        $r9 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r9;
+
+     label01:
+        $r10 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap calendarsByName>;
+
+        r3 = virtualinvoke $r10.<java.util.HashMap: java.lang.Object get(java.lang.Object)>(r1);
+
+        if r3 == null goto label02;
+
+        if z0 != 0 goto label02;
+
+        $r19 = new org.quartz.ObjectAlreadyExistsException;
+
+        $r20 = new java.lang.StringBuilder;
+
+        specialinvoke $r20.<java.lang.StringBuilder: void <init>()>();
+
+        $r21 = virtualinvoke $r20.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Calendar with name \'");
+
+        $r22 = virtualinvoke $r21.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r1);
+
+        $r23 = virtualinvoke $r22.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("\' already exists.");
+
+        $r24 = virtualinvoke $r23.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r19.<org.quartz.ObjectAlreadyExistsException: void <init>(java.lang.String)>($r24);
+
+        throw $r19;
+
+     label02:
+        if r3 == null goto label03;
+
+        $r17 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap calendarsByName>;
+
+        virtualinvoke $r17.<java.util.HashMap: java.lang.Object remove(java.lang.Object)>(r1);
+
+     label03:
+        $r11 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap calendarsByName>;
+
+        virtualinvoke $r11.<java.util.HashMap: java.lang.Object put(java.lang.Object,java.lang.Object)>(r1, r27);
+
+        if r3 == null goto label06;
+
+        if z1 == 0 goto label06;
+
+        $r13 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.ArrayList getTriggerWrappersForCalendar(java.lang.String)>(r1);
+
+        r4 = virtualinvoke $r13.<java.util.ArrayList: java.util.Iterator iterator()>();
+
+     label04:
+        $z3 = interfaceinvoke r4.<java.util.Iterator: boolean hasNext()>();
+
+        if $z3 == 0 goto label06;
+
+        $r14 = interfaceinvoke r4.<java.util.Iterator: java.lang.Object next()>();
+
+        r5 = (org.quartz.simpl.TriggerWrapper) $r14;
+
+        r6 = virtualinvoke r5.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger getTrigger()>();
+
+        $r15 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        z2 = virtualinvoke $r15.<java.util.TreeSet: boolean remove(java.lang.Object)>(r5);
+
+        $l0 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: long getMisfireThreshold()>();
+
+        interfaceinvoke r6.<org.quartz.spi.OperableTrigger: void updateWithNewCalendar(org.quartz.Calendar,long)>(r27, $l0);
+
+        if z2 == 0 goto label05;
+
+        $r16 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r16.<java.util.TreeSet: boolean add(java.lang.Object)>(r5);
+
+     label05:
+        goto label04;
+
+     label06:
+        exitmonitor $r9;
+
+     label07:
+        goto label10;
+
+     label08:
+        $r25 := @caughtexception;
+
+        exitmonitor $r9;
+
+     label09:
+        throw $r25;
+
+     label10:
+        return;
+
+        catch java.lang.Throwable from label01 to label07 with label08;
+        catch java.lang.Throwable from label08 to label09 with label08;
+    }
+
+    public boolean removeCalendar(java.lang.String) throws org.quartz.JobPersistenceException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.lang.String r1, $r14, $r15;
+        java.util.Iterator r3;
+        org.quartz.simpl.TriggerWrapper r4;
+        org.quartz.spi.OperableTrigger r5;
+        java.lang.Object $r7, $r11, $r13;
+        java.util.HashMap $r8, $r10;
+        java.util.Collection $r9;
+        boolean $z0, $z1, $z2;
+        org.quartz.JobPersistenceException $r12;
+        java.lang.Throwable $r16;
+        int i0;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: java.lang.String;
+
+        i0 = 0;
+
+        $r7 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r7;
+
+     label01:
+        $r8 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r9 = virtualinvoke $r8.<java.util.HashMap: java.util.Collection values()>();
+
+        r3 = interfaceinvoke $r9.<java.util.Collection: java.util.Iterator iterator()>();
+
+     label02:
+        $z0 = interfaceinvoke r3.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label04;
+
+        $r13 = interfaceinvoke r3.<java.util.Iterator: java.lang.Object next()>();
+
+        r4 = (org.quartz.simpl.TriggerWrapper) $r13;
+
+        r5 = r4.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r14 = interfaceinvoke r5.<org.quartz.spi.OperableTrigger: java.lang.String getCalendarName()>();
+
+        if $r14 == null goto label03;
+
+        $r15 = interfaceinvoke r5.<org.quartz.spi.OperableTrigger: java.lang.String getCalendarName()>();
+
+        $z1 = virtualinvoke $r15.<java.lang.String: boolean equals(java.lang.Object)>(r1);
+
+        if $z1 == 0 goto label03;
+
+        i0 = i0 + 1;
+
+     label03:
+        goto label02;
+
+     label04:
+        exitmonitor $r7;
+
+     label05:
+        goto label08;
+
+     label06:
+        $r16 := @caughtexception;
+
+        exitmonitor $r7;
+
+     label07:
+        throw $r16;
+
+     label08:
+        if i0 <= 0 goto label09;
+
+        $r12 = new org.quartz.JobPersistenceException;
+
+        specialinvoke $r12.<org.quartz.JobPersistenceException: void <init>(java.lang.String)>("Calender cannot be removed if it referenced by a Trigger!");
+
+        throw $r12;
+
+     label09:
+        $r10 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap calendarsByName>;
+
+        $r11 = virtualinvoke $r10.<java.util.HashMap: java.lang.Object remove(java.lang.Object)>(r1);
+
+        if $r11 == null goto label10;
+
+        $z2 = 1;
+
+        goto label11;
+
+     label10:
+        $z2 = 0;
+
+     label11:
+        return $z2;
+
+        catch java.lang.Throwable from label01 to label05 with label06;
+        catch java.lang.Throwable from label06 to label07 with label06;
+    }
+
+    public org.quartz.Calendar retrieveCalendar(java.lang.String)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.lang.String r1;
+        org.quartz.Calendar r3, $r9;
+        java.lang.Object $r5, $r7, $r8;
+        java.util.HashMap $r6;
+        java.lang.Throwable $r10;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r5 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r5;
+
+     label1:
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap calendarsByName>;
+
+        $r7 = virtualinvoke $r6.<java.util.HashMap: java.lang.Object get(java.lang.Object)>(r1);
+
+        r3 = (org.quartz.Calendar) $r7;
+
+        if r3 == null goto label3;
+
+        $r8 = interfaceinvoke r3.<org.quartz.Calendar: java.lang.Object clone()>();
+
+        $r9 = (org.quartz.Calendar) $r8;
+
+        exitmonitor $r5;
+
+     label2:
+        return $r9;
+
+     label3:
+        exitmonitor $r5;
+
+     label4:
+        return null;
+
+     label5:
+        $r10 := @caughtexception;
+
+        exitmonitor $r5;
+
+     label6:
+        throw $r10;
+
+        catch java.lang.Throwable from label1 to label2 with label5;
+        catch java.lang.Throwable from label3 to label4 with label5;
+        catch java.lang.Throwable from label5 to label6 with label5;
+    }
+
+    public int getNumberOfJobs()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.lang.Object $r3;
+        java.util.HashMap $r4;
+        int $i0;
+        java.lang.Throwable $r5;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        $r3 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r3;
+
+     label1:
+        $r4 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByKey>;
+
+        $i0 = virtualinvoke $r4.<java.util.HashMap: int size()>();
+
+        exitmonitor $r3;
+
+     label2:
+        return $i0;
+
+     label3:
+        $r5 := @caughtexception;
+
+        exitmonitor $r3;
+
+     label4:
+        throw $r5;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+
+    public int getNumberOfTriggers()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.lang.Object $r3;
+        java.util.HashMap $r4;
+        int $i0;
+        java.lang.Throwable $r5;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        $r3 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r3;
+
+     label1:
+        $r4 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $i0 = virtualinvoke $r4.<java.util.HashMap: int size()>();
+
+        exitmonitor $r3;
+
+     label2:
+        return $i0;
+
+     label3:
+        $r5 := @caughtexception;
+
+        exitmonitor $r3;
+
+     label4:
+        throw $r5;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+
+    public int getNumberOfCalendars()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.lang.Object $r3;
+        java.util.HashMap $r4;
+        int $i0;
+        java.lang.Throwable $r5;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        $r3 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r3;
+
+     label1:
+        $r4 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap calendarsByName>;
+
+        $i0 = virtualinvoke $r4.<java.util.HashMap: int size()>();
+
+        exitmonitor $r3;
+
+     label2:
+        return $i0;
+
+     label3:
+        $r5 := @caughtexception;
+
+        exitmonitor $r3;
+
+     label4:
+        throw $r5;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+
+    public java.util.Set getJobKeys(org.quartz.impl.matchers.GroupMatcher)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.impl.matchers.GroupMatcher r1;
+        org.quartz.impl.matchers.StringMatcher$StringOperatorName r3;
+        java.lang.String r4, $r22;
+        java.util.HashMap r5, $r11, $r18, $r25;
+        java.util.Iterator r6, r33, r35;
+        org.quartz.simpl.JobWrapper r7, r34;
+        java.lang.Object $r9, $r12, $r15, $r20, $r21, $r23, $r24, $r27;
+        int[] $r10;
+        int $i0, $i1;
+        java.util.HashSet $r13, $r30, r32;
+        java.util.Collection $r14, $r26;
+        boolean $z0, $z2, $z3, $z5;
+        org.quartz.JobDetail $r16, $r28;
+        org.quartz.JobKey $r17, $r29;
+        java.util.Set $r19, $r37;
+        java.lang.Throwable $r31;
+        java.util.Map$Entry r36;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.impl.matchers.GroupMatcher;
+
+        r32 = null;
+
+        $r9 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r9;
+
+     label01:
+        r3 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: org.quartz.impl.matchers.StringMatcher$StringOperatorName getCompareWithOperator()>();
+
+        r4 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: java.lang.String getCompareToValue()>();
+
+        $r10 = <org.quartz.simpl.RAMJobStore$1: int[] $SwitchMap$org$quartz$impl$matchers$StringMatcher$StringOperatorName>;
+
+        $i0 = virtualinvoke r3.<org.quartz.impl.matchers.StringMatcher$StringOperatorName: int ordinal()>();
+
+        $i1 = $r10[$i0];
+
+        lookupswitch($i1)
+        {
+            case 1: goto label02;
+            default: goto label06;
+        };
+
+     label02:
+        $r11 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByGroup>;
+
+        $r12 = virtualinvoke $r11.<java.util.HashMap: java.lang.Object get(java.lang.Object)>(r4);
+
+        r5 = (java.util.HashMap) $r12;
+
+        if r5 == null goto label12;
+
+        $r13 = new java.util.HashSet;
+
+        specialinvoke $r13.<java.util.HashSet: void <init>()>();
+
+        r32 = $r13;
+
+        $r14 = virtualinvoke r5.<java.util.HashMap: java.util.Collection values()>();
+
+        r33 = interfaceinvoke $r14.<java.util.Collection: java.util.Iterator iterator()>();
+
+     label03:
+        $z0 = interfaceinvoke r33.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label05;
+
+        $r15 = interfaceinvoke r33.<java.util.Iterator: java.lang.Object next()>();
+
+        r34 = (org.quartz.simpl.JobWrapper) $r15;
+
+        if r34 == null goto label04;
+
+        $r16 = r34.<org.quartz.simpl.JobWrapper: org.quartz.JobDetail jobDetail>;
+
+        $r17 = interfaceinvoke $r16.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        interfaceinvoke $r13.<java.util.Set: boolean add(java.lang.Object)>($r17);
+
+     label04:
+        goto label03;
+
+     label05:
+        goto label12;
+
+     label06:
+        $r18 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByGroup>;
+
+        $r19 = virtualinvoke $r18.<java.util.HashMap: java.util.Set entrySet()>();
+
+        r35 = interfaceinvoke $r19.<java.util.Set: java.util.Iterator iterator()>();
+
+     label07:
+        $z2 = interfaceinvoke r35.<java.util.Iterator: boolean hasNext()>();
+
+        if $z2 == 0 goto label12;
+
+        $r20 = interfaceinvoke r35.<java.util.Iterator: java.lang.Object next()>();
+
+        r36 = (java.util.Map$Entry) $r20;
+
+        $r21 = interfaceinvoke r36.<java.util.Map$Entry: java.lang.Object getKey()>();
+
+        $r22 = (java.lang.String) $r21;
+
+        $z3 = virtualinvoke r3.<org.quartz.impl.matchers.StringMatcher$StringOperatorName: boolean evaluate(java.lang.String,java.lang.String)>($r22, r4);
+
+        if $z3 == 0 goto label11;
+
+        $r23 = interfaceinvoke r36.<java.util.Map$Entry: java.lang.Object getValue()>();
+
+        if $r23 == null goto label11;
+
+        if r32 != null goto label08;
+
+        $r30 = new java.util.HashSet;
+
+        specialinvoke $r30.<java.util.HashSet: void <init>()>();
+
+        r32 = $r30;
+
+     label08:
+        $r24 = interfaceinvoke r36.<java.util.Map$Entry: java.lang.Object getValue()>();
+
+        $r25 = (java.util.HashMap) $r24;
+
+        $r26 = virtualinvoke $r25.<java.util.HashMap: java.util.Collection values()>();
+
+        r6 = interfaceinvoke $r26.<java.util.Collection: java.util.Iterator iterator()>();
+
+     label09:
+        $z5 = interfaceinvoke r6.<java.util.Iterator: boolean hasNext()>();
+
+        if $z5 == 0 goto label11;
+
+        $r27 = interfaceinvoke r6.<java.util.Iterator: java.lang.Object next()>();
+
+        r7 = (org.quartz.simpl.JobWrapper) $r27;
+
+        if r7 == null goto label10;
+
+        $r28 = r7.<org.quartz.simpl.JobWrapper: org.quartz.JobDetail jobDetail>;
+
+        $r29 = interfaceinvoke $r28.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        interfaceinvoke r32.<java.util.Set: boolean add(java.lang.Object)>($r29);
+
+     label10:
+        goto label09;
+
+     label11:
+        goto label07;
+
+     label12:
+        exitmonitor $r9;
+
+     label13:
+        goto label16;
+
+     label14:
+        $r31 := @caughtexception;
+
+        exitmonitor $r9;
+
+     label15:
+        throw $r31;
+
+     label16:
+        if r32 != null goto label17;
+
+        $r37 = staticinvoke <java.util.Collections: java.util.Set emptySet()>();
+
+        goto label18;
+
+     label17:
+        $r37 = r32;
+
+     label18:
+        return $r37;
+
+        catch java.lang.Throwable from label01 to label13 with label14;
+        catch java.lang.Throwable from label14 to label15 with label14;
+    }
+
+    public java.util.List getCalendarNames()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.lang.Object $r3;
+        java.util.LinkedList $r4;
+        java.util.HashMap $r5;
+        java.util.Set $r6;
+        java.lang.Throwable $r7;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        $r3 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r3;
+
+     label1:
+        $r4 = new java.util.LinkedList;
+
+        $r5 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap calendarsByName>;
+
+        $r6 = virtualinvoke $r5.<java.util.HashMap: java.util.Set keySet()>();
+
+        specialinvoke $r4.<java.util.LinkedList: void <init>(java.util.Collection)>($r6);
+
+        exitmonitor $r3;
+
+     label2:
+        return $r4;
+
+     label3:
+        $r7 := @caughtexception;
+
+        exitmonitor $r3;
+
+     label4:
+        throw $r7;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+
+    public java.util.Set getTriggerKeys(org.quartz.impl.matchers.GroupMatcher)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.impl.matchers.GroupMatcher r1;
+        org.quartz.impl.matchers.StringMatcher$StringOperatorName r3;
+        java.lang.String r4, $r22;
+        java.util.HashMap r5, $r11, $r18, $r25;
+        java.util.Iterator r6, r33, r35;
+        org.quartz.simpl.TriggerWrapper r7, r34;
+        java.lang.Object $r9, $r12, $r15, $r20, $r21, $r23, $r24, $r27;
+        int[] $r10;
+        int $i0, $i1;
+        java.util.HashSet $r13, $r30, r32;
+        java.util.Collection $r14, $r26;
+        boolean $z0, $z2, $z3, $z5;
+        org.quartz.spi.OperableTrigger $r16, $r28;
+        org.quartz.TriggerKey $r17, $r29;
+        java.util.Set $r19, $r37;
+        java.lang.Throwable $r31;
+        java.util.Map$Entry r36;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.impl.matchers.GroupMatcher;
+
+        r32 = null;
+
+        $r9 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r9;
+
+     label01:
+        r3 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: org.quartz.impl.matchers.StringMatcher$StringOperatorName getCompareWithOperator()>();
+
+        r4 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: java.lang.String getCompareToValue()>();
+
+        $r10 = <org.quartz.simpl.RAMJobStore$1: int[] $SwitchMap$org$quartz$impl$matchers$StringMatcher$StringOperatorName>;
+
+        $i0 = virtualinvoke r3.<org.quartz.impl.matchers.StringMatcher$StringOperatorName: int ordinal()>();
+
+        $i1 = $r10[$i0];
+
+        lookupswitch($i1)
+        {
+            case 1: goto label02;
+            default: goto label06;
+        };
+
+     label02:
+        $r11 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByGroup>;
+
+        $r12 = virtualinvoke $r11.<java.util.HashMap: java.lang.Object get(java.lang.Object)>(r4);
+
+        r5 = (java.util.HashMap) $r12;
+
+        if r5 == null goto label12;
+
+        $r13 = new java.util.HashSet;
+
+        specialinvoke $r13.<java.util.HashSet: void <init>()>();
+
+        r32 = $r13;
+
+        $r14 = virtualinvoke r5.<java.util.HashMap: java.util.Collection values()>();
+
+        r33 = interfaceinvoke $r14.<java.util.Collection: java.util.Iterator iterator()>();
+
+     label03:
+        $z0 = interfaceinvoke r33.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label05;
+
+        $r15 = interfaceinvoke r33.<java.util.Iterator: java.lang.Object next()>();
+
+        r34 = (org.quartz.simpl.TriggerWrapper) $r15;
+
+        if r34 == null goto label04;
+
+        $r16 = r34.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r17 = interfaceinvoke $r16.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        interfaceinvoke $r13.<java.util.Set: boolean add(java.lang.Object)>($r17);
+
+     label04:
+        goto label03;
+
+     label05:
+        goto label12;
+
+     label06:
+        $r18 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByGroup>;
+
+        $r19 = virtualinvoke $r18.<java.util.HashMap: java.util.Set entrySet()>();
+
+        r35 = interfaceinvoke $r19.<java.util.Set: java.util.Iterator iterator()>();
+
+     label07:
+        $z2 = interfaceinvoke r35.<java.util.Iterator: boolean hasNext()>();
+
+        if $z2 == 0 goto label12;
+
+        $r20 = interfaceinvoke r35.<java.util.Iterator: java.lang.Object next()>();
+
+        r36 = (java.util.Map$Entry) $r20;
+
+        $r21 = interfaceinvoke r36.<java.util.Map$Entry: java.lang.Object getKey()>();
+
+        $r22 = (java.lang.String) $r21;
+
+        $z3 = virtualinvoke r3.<org.quartz.impl.matchers.StringMatcher$StringOperatorName: boolean evaluate(java.lang.String,java.lang.String)>($r22, r4);
+
+        if $z3 == 0 goto label11;
+
+        $r23 = interfaceinvoke r36.<java.util.Map$Entry: java.lang.Object getValue()>();
+
+        if $r23 == null goto label11;
+
+        if r32 != null goto label08;
+
+        $r30 = new java.util.HashSet;
+
+        specialinvoke $r30.<java.util.HashSet: void <init>()>();
+
+        r32 = $r30;
+
+     label08:
+        $r24 = interfaceinvoke r36.<java.util.Map$Entry: java.lang.Object getValue()>();
+
+        $r25 = (java.util.HashMap) $r24;
+
+        $r26 = virtualinvoke $r25.<java.util.HashMap: java.util.Collection values()>();
+
+        r6 = interfaceinvoke $r26.<java.util.Collection: java.util.Iterator iterator()>();
+
+     label09:
+        $z5 = interfaceinvoke r6.<java.util.Iterator: boolean hasNext()>();
+
+        if $z5 == 0 goto label11;
+
+        $r27 = interfaceinvoke r6.<java.util.Iterator: java.lang.Object next()>();
+
+        r7 = (org.quartz.simpl.TriggerWrapper) $r27;
+
+        if r7 == null goto label10;
+
+        $r28 = r7.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r29 = interfaceinvoke $r28.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        interfaceinvoke r32.<java.util.Set: boolean add(java.lang.Object)>($r29);
+
+     label10:
+        goto label09;
+
+     label11:
+        goto label07;
+
+     label12:
+        exitmonitor $r9;
+
+     label13:
+        goto label16;
+
+     label14:
+        $r31 := @caughtexception;
+
+        exitmonitor $r9;
+
+     label15:
+        throw $r31;
+
+     label16:
+        if r32 != null goto label17;
+
+        $r37 = staticinvoke <java.util.Collections: java.util.Set emptySet()>();
+
+        goto label18;
+
+     label17:
+        $r37 = r32;
+
+     label18:
+        return $r37;
+
+        catch java.lang.Throwable from label01 to label13 with label14;
+        catch java.lang.Throwable from label14 to label15 with label14;
+    }
+
+    public java.util.List getJobGroupNames()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.lang.Object $r4;
+        java.util.LinkedList $r5;
+        java.util.HashMap $r6;
+        java.util.Set $r7;
+        java.lang.Throwable $r8;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        $r4 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r4;
+
+     label1:
+        $r5 = new java.util.LinkedList;
+
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByGroup>;
+
+        $r7 = virtualinvoke $r6.<java.util.HashMap: java.util.Set keySet()>();
+
+        specialinvoke $r5.<java.util.LinkedList: void <init>(java.util.Collection)>($r7);
+
+        exitmonitor $r4;
+
+     label2:
+        goto label5;
+
+     label3:
+        $r8 := @caughtexception;
+
+        exitmonitor $r4;
+
+     label4:
+        throw $r8;
+
+     label5:
+        return $r5;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+
+    public java.util.List getTriggerGroupNames()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.lang.Object $r4;
+        java.util.LinkedList $r5;
+        java.util.HashMap $r6;
+        java.util.Set $r7;
+        java.lang.Throwable $r8;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        $r4 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r4;
+
+     label1:
+        $r5 = new java.util.LinkedList;
+
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByGroup>;
+
+        $r7 = virtualinvoke $r6.<java.util.HashMap: java.util.Set keySet()>();
+
+        specialinvoke $r5.<java.util.LinkedList: void <init>(java.util.Collection)>($r7);
+
+        exitmonitor $r4;
+
+     label2:
+        goto label5;
+
+     label3:
+        $r8 := @caughtexception;
+
+        exitmonitor $r4;
+
+     label4:
+        throw $r8;
+
+     label5:
+        return $r5;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+
+    public java.util.List getTriggersForJob(org.quartz.JobKey)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.JobKey r1;
+        java.util.List r4;
+        java.util.Iterator r5;
+        org.quartz.simpl.TriggerWrapper r6;
+        java.util.ArrayList $r8;
+        java.lang.Object $r9, $r11, $r12, $r14;
+        java.util.Map $r10;
+        boolean $z0;
+        org.quartz.spi.OperableTrigger $r13, $r15;
+        java.lang.Throwable $r16;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.JobKey;
+
+        $r8 = new java.util.ArrayList;
+
+        specialinvoke $r8.<java.util.ArrayList: void <init>()>();
+
+        $r9 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r9;
+
+     label1:
+        $r10 = r0.<org.quartz.simpl.RAMJobStore: java.util.Map triggersByJob>;
+
+        $r11 = interfaceinvoke $r10.<java.util.Map: java.lang.Object get(java.lang.Object)>(r1);
+
+        r4 = (java.util.List) $r11;
+
+        if r4 == null goto label3;
+
+        r5 = interfaceinvoke r4.<java.util.List: java.util.Iterator iterator()>();
+
+     label2:
+        $z0 = interfaceinvoke r5.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label3;
+
+        $r12 = interfaceinvoke r5.<java.util.Iterator: java.lang.Object next()>();
+
+        r6 = (org.quartz.simpl.TriggerWrapper) $r12;
+
+        $r13 = r6.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r14 = interfaceinvoke $r13.<org.quartz.spi.OperableTrigger: java.lang.Object clone()>();
+
+        $r15 = (org.quartz.spi.OperableTrigger) $r14;
+
+        virtualinvoke $r8.<java.util.ArrayList: boolean add(java.lang.Object)>($r15);
+
+        goto label2;
+
+     label3:
+        exitmonitor $r9;
+
+     label4:
+        goto label7;
+
+     label5:
+        $r16 := @caughtexception;
+
+        exitmonitor $r9;
+
+     label6:
+        throw $r16;
+
+     label7:
+        return $r8;
+
+        catch java.lang.Throwable from label1 to label4 with label5;
+        catch java.lang.Throwable from label5 to label6 with label5;
+    }
+
+    protected java.util.ArrayList getTriggerWrappersForJob(org.quartz.JobKey)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.JobKey r1;
+        java.util.List r4;
+        java.util.Iterator r5;
+        org.quartz.simpl.TriggerWrapper r6;
+        java.util.ArrayList $r8;
+        java.lang.Object $r9, $r11, $r12;
+        java.util.Map $r10;
+        boolean $z0;
+        java.lang.Throwable $r13;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.JobKey;
+
+        $r8 = new java.util.ArrayList;
+
+        specialinvoke $r8.<java.util.ArrayList: void <init>()>();
+
+        $r9 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r9;
+
+     label1:
+        $r10 = r0.<org.quartz.simpl.RAMJobStore: java.util.Map triggersByJob>;
+
+        $r11 = interfaceinvoke $r10.<java.util.Map: java.lang.Object get(java.lang.Object)>(r1);
+
+        r4 = (java.util.List) $r11;
+
+        if r4 == null goto label3;
+
+        r5 = interfaceinvoke r4.<java.util.List: java.util.Iterator iterator()>();
+
+     label2:
+        $z0 = interfaceinvoke r5.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label3;
+
+        $r12 = interfaceinvoke r5.<java.util.Iterator: java.lang.Object next()>();
+
+        r6 = (org.quartz.simpl.TriggerWrapper) $r12;
+
+        virtualinvoke $r8.<java.util.ArrayList: boolean add(java.lang.Object)>(r6);
+
+        goto label2;
+
+     label3:
+        exitmonitor $r9;
+
+     label4:
+        goto label7;
+
+     label5:
+        $r13 := @caughtexception;
+
+        exitmonitor $r9;
+
+     label6:
+        throw $r13;
+
+     label7:
+        return $r8;
+
+        catch java.lang.Throwable from label1 to label4 with label5;
+        catch java.lang.Throwable from label5 to label6 with label5;
+    }
+
+    protected java.util.ArrayList getTriggerWrappersForCalendar(java.lang.String)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.lang.String r1, r6;
+        java.util.Iterator r4;
+        org.quartz.simpl.TriggerWrapper r5;
+        java.util.ArrayList $r8;
+        java.lang.Object $r9, $r12;
+        java.util.HashMap $r10;
+        java.util.Collection $r11;
+        boolean $z0, $z1;
+        org.quartz.spi.OperableTrigger $r13;
+        java.lang.Throwable $r14;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r8 = new java.util.ArrayList;
+
+        specialinvoke $r8.<java.util.ArrayList: void <init>()>();
+
+        $r9 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r9;
+
+     label1:
+        $r10 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r11 = virtualinvoke $r10.<java.util.HashMap: java.util.Collection values()>();
+
+        r4 = interfaceinvoke $r11.<java.util.Collection: java.util.Iterator iterator()>();
+
+     label2:
+        $z0 = interfaceinvoke r4.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label4;
+
+        $r12 = interfaceinvoke r4.<java.util.Iterator: java.lang.Object next()>();
+
+        r5 = (org.quartz.simpl.TriggerWrapper) $r12;
+
+        $r13 = virtualinvoke r5.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger getTrigger()>();
+
+        r6 = interfaceinvoke $r13.<org.quartz.spi.OperableTrigger: java.lang.String getCalendarName()>();
+
+        if r6 == null goto label3;
+
+        $z1 = virtualinvoke r6.<java.lang.String: boolean equals(java.lang.Object)>(r1);
+
+        if $z1 == 0 goto label3;
+
+        virtualinvoke $r8.<java.util.ArrayList: boolean add(java.lang.Object)>(r5);
+
+     label3:
+        goto label2;
+
+     label4:
+        exitmonitor $r9;
+
+     label5:
+        goto label8;
+
+     label6:
+        $r14 := @caughtexception;
+
+        exitmonitor $r9;
+
+     label7:
+        throw $r14;
+
+     label8:
+        return $r8;
+
+        catch java.lang.Throwable from label1 to label5 with label6;
+        catch java.lang.Throwable from label6 to label7 with label6;
+    }
+
+    public void pauseTrigger(org.quartz.TriggerKey)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.TriggerKey r1;
+        org.quartz.simpl.TriggerWrapper r3;
+        java.lang.Object $r5, $r7;
+        java.util.HashMap $r6;
+        org.quartz.spi.OperableTrigger $r8;
+        int $i0, $i1;
+        java.util.TreeSet $r9;
+        java.lang.Throwable $r10;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.TriggerKey;
+
+        $r5 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r5;
+
+     label01:
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r7 = virtualinvoke $r6.<java.util.HashMap: java.lang.Object get(java.lang.Object)>(r1);
+
+        r3 = (org.quartz.simpl.TriggerWrapper) $r7;
+
+        if r3 == null goto label02;
+
+        $r8 = r3.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        if $r8 != null goto label04;
+
+     label02:
+        exitmonitor $r5;
+
+     label03:
+        return;
+
+     label04:
+        $i0 = r3.<org.quartz.simpl.TriggerWrapper: int state>;
+
+        if $i0 != 3 goto label06;
+
+        exitmonitor $r5;
+
+     label05:
+        return;
+
+     label06:
+        $i1 = r3.<org.quartz.simpl.TriggerWrapper: int state>;
+
+        if $i1 != 5 goto label07;
+
+        r3.<org.quartz.simpl.TriggerWrapper: int state> = 6;
+
+        goto label08;
+
+     label07:
+        r3.<org.quartz.simpl.TriggerWrapper: int state> = 4;
+
+     label08:
+        $r9 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r9.<java.util.TreeSet: boolean remove(java.lang.Object)>(r3);
+
+        exitmonitor $r5;
+
+     label09:
+        goto label12;
+
+     label10:
+        $r10 := @caughtexception;
+
+        exitmonitor $r5;
+
+     label11:
+        throw $r10;
+
+     label12:
+        return;
+
+        catch java.lang.Throwable from label01 to label03 with label10;
+        catch java.lang.Throwable from label04 to label05 with label10;
+        catch java.lang.Throwable from label06 to label09 with label10;
+        catch java.lang.Throwable from label10 to label11 with label10;
+    }
+
+    public java.util.List pauseTriggers(org.quartz.impl.matchers.GroupMatcher)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.impl.matchers.GroupMatcher r1, $r15;
+        org.quartz.impl.matchers.StringMatcher$StringOperatorName r4;
+        java.util.Set r5, $r19;
+        java.util.Iterator r6, r25, r27;
+        org.quartz.TriggerKey r7;
+        java.lang.Object $r9, $r14, $r16, $r20;
+        java.util.LinkedList $r10;
+        int[] $r11;
+        int $i0, $i1;
+        java.util.HashSet $r12, $r22;
+        java.lang.String $r13, $r17, $r21, $r23, r26, r28;
+        boolean $z0, $z1, $z3, $z4, $z5, $z7;
+        java.util.HashMap $r18;
+        java.lang.Throwable $r24;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.impl.matchers.GroupMatcher;
+
+        $r9 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r9;
+
+     label01:
+        $r10 = new java.util.LinkedList;
+
+        specialinvoke $r10.<java.util.LinkedList: void <init>()>();
+
+        r4 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: org.quartz.impl.matchers.StringMatcher$StringOperatorName getCompareWithOperator()>();
+
+        $r11 = <org.quartz.simpl.RAMJobStore$1: int[] $SwitchMap$org$quartz$impl$matchers$StringMatcher$StringOperatorName>;
+
+        $i0 = virtualinvoke r4.<org.quartz.impl.matchers.StringMatcher$StringOperatorName: int ordinal()>();
+
+        $i1 = $r11[$i0];
+
+        lookupswitch($i1)
+        {
+            case 1: goto label02;
+            default: goto label03;
+        };
+
+     label02:
+        $r12 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet pausedTriggerGroups>;
+
+        $r13 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: java.lang.String getCompareToValue()>();
+
+        $z0 = virtualinvoke $r12.<java.util.HashSet: boolean add(java.lang.Object)>($r13);
+
+        if $z0 == 0 goto label06;
+
+        $r17 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: java.lang.String getCompareToValue()>();
+
+        interfaceinvoke $r10.<java.util.List: boolean add(java.lang.Object)>($r17);
+
+        goto label06;
+
+     label03:
+        $r18 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByGroup>;
+
+        $r19 = virtualinvoke $r18.<java.util.HashMap: java.util.Set keySet()>();
+
+        r25 = interfaceinvoke $r19.<java.util.Set: java.util.Iterator iterator()>();
+
+     label04:
+        $z3 = interfaceinvoke r25.<java.util.Iterator: boolean hasNext()>();
+
+        if $z3 == 0 goto label06;
+
+        $r20 = interfaceinvoke r25.<java.util.Iterator: java.lang.Object next()>();
+
+        r26 = (java.lang.String) $r20;
+
+        $r21 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: java.lang.String getCompareToValue()>();
+
+        $z4 = virtualinvoke r4.<org.quartz.impl.matchers.StringMatcher$StringOperatorName: boolean evaluate(java.lang.String,java.lang.String)>(r26, $r21);
+
+        if $z4 == 0 goto label05;
+
+        $r22 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet pausedTriggerGroups>;
+
+        $r23 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: java.lang.String getCompareToValue()>();
+
+        $z5 = virtualinvoke $r22.<java.util.HashSet: boolean add(java.lang.Object)>($r23);
+
+        if $z5 == 0 goto label05;
+
+        interfaceinvoke $r10.<java.util.List: boolean add(java.lang.Object)>(r26);
+
+     label05:
+        goto label04;
+
+     label06:
+        r27 = interfaceinvoke $r10.<java.util.List: java.util.Iterator iterator()>();
+
+     label07:
+        $z7 = interfaceinvoke r27.<java.util.Iterator: boolean hasNext()>();
+
+        if $z7 == 0 goto label10;
+
+        $r14 = interfaceinvoke r27.<java.util.Iterator: java.lang.Object next()>();
+
+        r28 = (java.lang.String) $r14;
+
+        $r15 = staticinvoke <org.quartz.impl.matchers.GroupMatcher: org.quartz.impl.matchers.GroupMatcher triggerGroupEquals(java.lang.String)>(r28);
+
+        r5 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.Set getTriggerKeys(org.quartz.impl.matchers.GroupMatcher)>($r15);
+
+        r6 = interfaceinvoke r5.<java.util.Set: java.util.Iterator iterator()>();
+
+     label08:
+        $z1 = interfaceinvoke r6.<java.util.Iterator: boolean hasNext()>();
+
+        if $z1 == 0 goto label09;
+
+        $r16 = interfaceinvoke r6.<java.util.Iterator: java.lang.Object next()>();
+
+        r7 = (org.quartz.TriggerKey) $r16;
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: void pauseTrigger(org.quartz.TriggerKey)>(r7);
+
+        goto label08;
+
+     label09:
+        goto label07;
+
+     label10:
+        exitmonitor $r9;
+
+     label11:
+        goto label14;
+
+     label12:
+        $r24 := @caughtexception;
+
+        exitmonitor $r9;
+
+     label13:
+        throw $r24;
+
+     label14:
+        return $r10;
+
+        catch java.lang.Throwable from label01 to label11 with label12;
+        catch java.lang.Throwable from label12 to label13 with label12;
+    }
+
+    public void pauseJob(org.quartz.JobKey)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.JobKey r1;
+        java.util.List r3;
+        java.util.Iterator r4;
+        org.quartz.spi.OperableTrigger r5;
+        java.lang.Object $r7, $r8;
+        boolean $z0;
+        org.quartz.TriggerKey $r9;
+        java.lang.Throwable $r10;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.JobKey;
+
+        $r7 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r7;
+
+     label1:
+        r3 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.List getTriggersForJob(org.quartz.JobKey)>(r1);
+
+        r4 = interfaceinvoke r3.<java.util.List: java.util.Iterator iterator()>();
+
+     label2:
+        $z0 = interfaceinvoke r4.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label3;
+
+        $r8 = interfaceinvoke r4.<java.util.Iterator: java.lang.Object next()>();
+
+        r5 = (org.quartz.spi.OperableTrigger) $r8;
+
+        $r9 = interfaceinvoke r5.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: void pauseTrigger(org.quartz.TriggerKey)>($r9);
+
+        goto label2;
+
+     label3:
+        exitmonitor $r7;
+
+     label4:
+        goto label7;
+
+     label5:
+        $r10 := @caughtexception;
+
+        exitmonitor $r7;
+
+     label6:
+        throw $r10;
+
+     label7:
+        return;
+
+        catch java.lang.Throwable from label1 to label4 with label5;
+        catch java.lang.Throwable from label5 to label6 with label5;
+    }
+
+    public java.util.List pauseJobs(org.quartz.impl.matchers.GroupMatcher)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.impl.matchers.GroupMatcher r1, $r17;
+        org.quartz.impl.matchers.StringMatcher$StringOperatorName r4;
+        java.util.Iterator r5, r8, r29, r31;
+        org.quartz.JobKey r6;
+        java.util.List r7;
+        org.quartz.spi.OperableTrigger r9;
+        java.util.LinkedList $r11;
+        java.lang.Object $r12, $r16, $r19, $r20, $r25;
+        int[] $r13;
+        int $i0, $i1;
+        java.util.HashSet $r14, $r27;
+        java.lang.String $r15, $r22, $r26, r30, r32;
+        boolean $z0, $z1, $z2, $z4, $z5, $z6, $z8;
+        java.util.Set $r18, $r24;
+        org.quartz.TriggerKey $r21;
+        java.util.HashMap $r23;
+        java.lang.Throwable $r28;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.impl.matchers.GroupMatcher;
+
+        $r11 = new java.util.LinkedList;
+
+        specialinvoke $r11.<java.util.LinkedList: void <init>()>();
+
+        $r12 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r12;
+
+     label01:
+        r4 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: org.quartz.impl.matchers.StringMatcher$StringOperatorName getCompareWithOperator()>();
+
+        $r13 = <org.quartz.simpl.RAMJobStore$1: int[] $SwitchMap$org$quartz$impl$matchers$StringMatcher$StringOperatorName>;
+
+        $i0 = virtualinvoke r4.<org.quartz.impl.matchers.StringMatcher$StringOperatorName: int ordinal()>();
+
+        $i1 = $r13[$i0];
+
+        lookupswitch($i1)
+        {
+            case 1: goto label02;
+            default: goto label03;
+        };
+
+     label02:
+        $r14 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet pausedJobGroups>;
+
+        $r15 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: java.lang.String getCompareToValue()>();
+
+        $z0 = virtualinvoke $r14.<java.util.HashSet: boolean add(java.lang.Object)>($r15);
+
+        if $z0 == 0 goto label06;
+
+        $r22 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: java.lang.String getCompareToValue()>();
+
+        interfaceinvoke $r11.<java.util.List: boolean add(java.lang.Object)>($r22);
+
+        goto label06;
+
+     label03:
+        $r23 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByGroup>;
+
+        $r24 = virtualinvoke $r23.<java.util.HashMap: java.util.Set keySet()>();
+
+        r29 = interfaceinvoke $r24.<java.util.Set: java.util.Iterator iterator()>();
+
+     label04:
+        $z4 = interfaceinvoke r29.<java.util.Iterator: boolean hasNext()>();
+
+        if $z4 == 0 goto label06;
+
+        $r25 = interfaceinvoke r29.<java.util.Iterator: java.lang.Object next()>();
+
+        r30 = (java.lang.String) $r25;
+
+        $r26 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: java.lang.String getCompareToValue()>();
+
+        $z5 = virtualinvoke r4.<org.quartz.impl.matchers.StringMatcher$StringOperatorName: boolean evaluate(java.lang.String,java.lang.String)>(r30, $r26);
+
+        if $z5 == 0 goto label05;
+
+        $r27 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet pausedJobGroups>;
+
+        $z6 = virtualinvoke $r27.<java.util.HashSet: boolean add(java.lang.Object)>(r30);
+
+        if $z6 == 0 goto label05;
+
+        interfaceinvoke $r11.<java.util.List: boolean add(java.lang.Object)>(r30);
+
+     label05:
+        goto label04;
+
+     label06:
+        r31 = interfaceinvoke $r11.<java.util.List: java.util.Iterator iterator()>();
+
+     label07:
+        $z8 = interfaceinvoke r31.<java.util.Iterator: boolean hasNext()>();
+
+        if $z8 == 0 goto label12;
+
+        $r16 = interfaceinvoke r31.<java.util.Iterator: java.lang.Object next()>();
+
+        r32 = (java.lang.String) $r16;
+
+        $r17 = staticinvoke <org.quartz.impl.matchers.GroupMatcher: org.quartz.impl.matchers.GroupMatcher jobGroupEquals(java.lang.String)>(r32);
+
+        $r18 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.Set getJobKeys(org.quartz.impl.matchers.GroupMatcher)>($r17);
+
+        r5 = interfaceinvoke $r18.<java.util.Set: java.util.Iterator iterator()>();
+
+     label08:
+        $z1 = interfaceinvoke r5.<java.util.Iterator: boolean hasNext()>();
+
+        if $z1 == 0 goto label11;
+
+        $r19 = interfaceinvoke r5.<java.util.Iterator: java.lang.Object next()>();
+
+        r6 = (org.quartz.JobKey) $r19;
+
+        r7 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.List getTriggersForJob(org.quartz.JobKey)>(r6);
+
+        r8 = interfaceinvoke r7.<java.util.List: java.util.Iterator iterator()>();
+
+     label09:
+        $z2 = interfaceinvoke r8.<java.util.Iterator: boolean hasNext()>();
+
+        if $z2 == 0 goto label10;
+
+        $r20 = interfaceinvoke r8.<java.util.Iterator: java.lang.Object next()>();
+
+        r9 = (org.quartz.spi.OperableTrigger) $r20;
+
+        $r21 = interfaceinvoke r9.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: void pauseTrigger(org.quartz.TriggerKey)>($r21);
+
+        goto label09;
+
+     label10:
+        goto label08;
+
+     label11:
+        goto label07;
+
+     label12:
+        exitmonitor $r12;
+
+     label13:
+        goto label16;
+
+     label14:
+        $r28 := @caughtexception;
+
+        exitmonitor $r12;
+
+     label15:
+        throw $r28;
+
+     label16:
+        return $r11;
+
+        catch java.lang.Throwable from label01 to label13 with label14;
+        catch java.lang.Throwable from label14 to label15 with label14;
+    }
+
+    public void resumeTrigger(org.quartz.TriggerKey)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.TriggerKey r1;
+        org.quartz.simpl.TriggerWrapper r3;
+        org.quartz.spi.OperableTrigger r4, $r9;
+        java.lang.Object $r6, $r8;
+        java.util.HashMap $r7;
+        int $i0, $i1, $i2;
+        java.util.HashSet $r10;
+        org.quartz.JobKey $r11;
+        boolean $z0;
+        java.util.TreeSet $r12;
+        java.lang.Throwable $r13;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.TriggerKey;
+
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r6;
+
+     label01:
+        $r7 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r8 = virtualinvoke $r7.<java.util.HashMap: java.lang.Object get(java.lang.Object)>(r1);
+
+        r3 = (org.quartz.simpl.TriggerWrapper) $r8;
+
+        if r3 == null goto label02;
+
+        $r9 = r3.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        if $r9 != null goto label04;
+
+     label02:
+        exitmonitor $r6;
+
+     label03:
+        return;
+
+     label04:
+        r4 = virtualinvoke r3.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger getTrigger()>();
+
+        $i0 = r3.<org.quartz.simpl.TriggerWrapper: int state>;
+
+        if $i0 == 4 goto label06;
+
+        $i2 = r3.<org.quartz.simpl.TriggerWrapper: int state>;
+
+        if $i2 == 6 goto label06;
+
+        exitmonitor $r6;
+
+     label05:
+        return;
+
+     label06:
+        $r10 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet blockedJobs>;
+
+        $r11 = interfaceinvoke r4.<org.quartz.spi.OperableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $z0 = virtualinvoke $r10.<java.util.HashSet: boolean contains(java.lang.Object)>($r11);
+
+        if $z0 == 0 goto label07;
+
+        r3.<org.quartz.simpl.TriggerWrapper: int state> = 5;
+
+        goto label08;
+
+     label07:
+        r3.<org.quartz.simpl.TriggerWrapper: int state> = 0;
+
+     label08:
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: boolean applyMisfire(org.quartz.simpl.TriggerWrapper)>(r3);
+
+        $i1 = r3.<org.quartz.simpl.TriggerWrapper: int state>;
+
+        if $i1 != 0 goto label09;
+
+        $r12 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r12.<java.util.TreeSet: boolean add(java.lang.Object)>(r3);
+
+     label09:
+        exitmonitor $r6;
+
+     label10:
+        goto label13;
+
+     label11:
+        $r13 := @caughtexception;
+
+        exitmonitor $r6;
+
+     label12:
+        throw $r13;
+
+     label13:
+        return;
+
+        catch java.lang.Throwable from label01 to label03 with label11;
+        catch java.lang.Throwable from label04 to label05 with label11;
+        catch java.lang.Throwable from label06 to label10 with label11;
+        catch java.lang.Throwable from label11 to label12 with label11;
+    }
+
+    public java.util.List resumeTriggers(org.quartz.impl.matchers.GroupMatcher)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.impl.matchers.GroupMatcher r1;
+        java.util.Set r4;
+        java.util.HashSet $r6, $r10, $r13, $r15, $r25;
+        java.lang.Object $r7, $r12, $r16, $r17, $r20, $r22;
+        java.util.LinkedList $r8;
+        int[] $r9;
+        int $i0, $i1;
+        boolean $z0, $z3, $z4, $z7, $z8, $z9;
+        java.util.ArrayList $r11;
+        java.lang.String $r14, $r18, r29, r32, r34, r36;
+        java.util.HashMap $r19, $r21;
+        org.quartz.simpl.TriggerWrapper $r23;
+        org.quartz.JobKey $r24;
+        java.lang.Throwable $r26;
+        java.util.Iterator r27, r33, r35;
+        org.quartz.TriggerKey r28;
+        org.quartz.impl.matchers.StringMatcher$StringOperatorName r30;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.impl.matchers.GroupMatcher;
+
+        $r6 = new java.util.HashSet;
+
+        specialinvoke $r6.<java.util.HashSet: void <init>()>();
+
+        $r7 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r7;
+
+     label01:
+        r4 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.Set getTriggerKeys(org.quartz.impl.matchers.GroupMatcher)>(r1);
+
+        r27 = interfaceinvoke r4.<java.util.Set: java.util.Iterator iterator()>();
+
+     label02:
+        $z8 = interfaceinvoke r27.<java.util.Iterator: boolean hasNext()>();
+
+        if $z8 == 0 goto label04;
+
+        $r17 = interfaceinvoke r27.<java.util.Iterator: java.lang.Object next()>();
+
+        r28 = (org.quartz.TriggerKey) $r17;
+
+        $r18 = virtualinvoke r28.<org.quartz.TriggerKey: java.lang.String getGroup()>();
+
+        interfaceinvoke $r6.<java.util.Set: boolean add(java.lang.Object)>($r18);
+
+        $r19 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r20 = virtualinvoke $r19.<java.util.HashMap: java.lang.Object get(java.lang.Object)>(r28);
+
+        if $r20 == null goto label03;
+
+        $r21 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r22 = virtualinvoke $r21.<java.util.HashMap: java.lang.Object get(java.lang.Object)>(r28);
+
+        $r23 = (org.quartz.simpl.TriggerWrapper) $r22;
+
+        $r24 = $r23.<org.quartz.simpl.TriggerWrapper: org.quartz.JobKey jobKey>;
+
+        r29 = virtualinvoke $r24.<org.quartz.JobKey: java.lang.String getGroup()>();
+
+        $r25 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet pausedJobGroups>;
+
+        $z7 = virtualinvoke $r25.<java.util.HashSet: boolean contains(java.lang.Object)>(r29);
+
+        if $z7 == 0 goto label03;
+
+        goto label02;
+
+     label03:
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: void resumeTrigger(org.quartz.TriggerKey)>(r28);
+
+        goto label02;
+
+     label04:
+        r30 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: org.quartz.impl.matchers.StringMatcher$StringOperatorName getCompareWithOperator()>();
+
+        $r8 = new java.util.LinkedList;
+
+        specialinvoke $r8.<java.util.LinkedList: void <init>()>();
+
+        r32 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: java.lang.String getCompareToValue()>();
+
+        $r9 = <org.quartz.simpl.RAMJobStore$1: int[] $SwitchMap$org$quartz$impl$matchers$StringMatcher$StringOperatorName>;
+
+        $i0 = virtualinvoke r30.<org.quartz.impl.matchers.StringMatcher$StringOperatorName: int ordinal()>();
+
+        $i1 = $r9[$i0];
+
+        lookupswitch($i1)
+        {
+            case 1: goto label05;
+            default: goto label06;
+        };
+
+     label05:
+        $r10 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet pausedTriggerGroups>;
+
+        $z0 = virtualinvoke $r10.<java.util.HashSet: boolean contains(java.lang.Object)>(r32);
+
+        if $z0 == 0 goto label09;
+
+        $r14 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: java.lang.String getCompareToValue()>();
+
+        virtualinvoke $r8.<java.util.LinkedList: boolean add(java.lang.Object)>($r14);
+
+        goto label09;
+
+     label06:
+        $r15 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet pausedTriggerGroups>;
+
+        r33 = virtualinvoke $r15.<java.util.HashSet: java.util.Iterator iterator()>();
+
+     label07:
+        $z3 = interfaceinvoke r33.<java.util.Iterator: boolean hasNext()>();
+
+        if $z3 == 0 goto label09;
+
+        $r16 = interfaceinvoke r33.<java.util.Iterator: java.lang.Object next()>();
+
+        r34 = (java.lang.String) $r16;
+
+        $z4 = virtualinvoke r30.<org.quartz.impl.matchers.StringMatcher$StringOperatorName: boolean evaluate(java.lang.String,java.lang.String)>(r34, r32);
+
+        if $z4 == 0 goto label08;
+
+        virtualinvoke $r8.<java.util.LinkedList: boolean add(java.lang.Object)>(r34);
+
+     label08:
+        goto label07;
+
+     label09:
+        r35 = virtualinvoke $r8.<java.util.LinkedList: java.util.Iterator iterator()>();
+
+     label10:
+        $z9 = interfaceinvoke r35.<java.util.Iterator: boolean hasNext()>();
+
+        if $z9 == 0 goto label11;
+
+        $r12 = interfaceinvoke r35.<java.util.Iterator: java.lang.Object next()>();
+
+        r36 = (java.lang.String) $r12;
+
+        $r13 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet pausedTriggerGroups>;
+
+        virtualinvoke $r13.<java.util.HashSet: boolean remove(java.lang.Object)>(r36);
+
+        goto label10;
+
+     label11:
+        exitmonitor $r7;
+
+     label12:
+        goto label15;
+
+     label13:
+        $r26 := @caughtexception;
+
+        exitmonitor $r7;
+
+     label14:
+        throw $r26;
+
+     label15:
+        $r11 = new java.util.ArrayList;
+
+        specialinvoke $r11.<java.util.ArrayList: void <init>(java.util.Collection)>($r6);
+
+        return $r11;
+
+        catch java.lang.Throwable from label01 to label12 with label13;
+        catch java.lang.Throwable from label13 to label14 with label13;
+    }
+
+    public void resumeJob(org.quartz.JobKey)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.JobKey r1;
+        java.util.List r3;
+        java.util.Iterator r4;
+        org.quartz.spi.OperableTrigger r5;
+        java.lang.Object $r7, $r8;
+        boolean $z0;
+        org.quartz.TriggerKey $r9;
+        java.lang.Throwable $r10;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.JobKey;
+
+        $r7 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r7;
+
+     label1:
+        r3 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.List getTriggersForJob(org.quartz.JobKey)>(r1);
+
+        r4 = interfaceinvoke r3.<java.util.List: java.util.Iterator iterator()>();
+
+     label2:
+        $z0 = interfaceinvoke r4.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label3;
+
+        $r8 = interfaceinvoke r4.<java.util.Iterator: java.lang.Object next()>();
+
+        r5 = (org.quartz.spi.OperableTrigger) $r8;
+
+        $r9 = interfaceinvoke r5.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: void resumeTrigger(org.quartz.TriggerKey)>($r9);
+
+        goto label2;
+
+     label3:
+        exitmonitor $r7;
+
+     label4:
+        goto label7;
+
+     label5:
+        $r10 := @caughtexception;
+
+        exitmonitor $r7;
+
+     label6:
+        throw $r10;
+
+     label7:
+        return;
+
+        catch java.lang.Throwable from label1 to label4 with label5;
+        catch java.lang.Throwable from label5 to label6 with label5;
+    }
+
+    public java.util.Collection resumeJobs(org.quartz.impl.matchers.GroupMatcher)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.impl.matchers.GroupMatcher r1;
+        java.util.Set r4;
+        java.util.List r5;
+        java.util.Iterator r6, r21, r23, r25;
+        org.quartz.spi.OperableTrigger r7;
+        java.util.HashSet $r9, $r11, $r16;
+        java.lang.Object $r10, $r12, $r13, $r15, $r17;
+        boolean $z0, $z1, $z2, $z3, $z5;
+        org.quartz.TriggerKey $r14;
+        org.quartz.impl.matchers.StringMatcher$StringOperatorName $r18;
+        java.lang.String $r19, r22, r24;
+        java.lang.Throwable $r20;
+        org.quartz.JobKey r26;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.impl.matchers.GroupMatcher;
+
+        $r9 = new java.util.HashSet;
+
+        specialinvoke $r9.<java.util.HashSet: void <init>()>();
+
+        $r10 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r10;
+
+     label01:
+        r4 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.Set getJobKeys(org.quartz.impl.matchers.GroupMatcher)>(r1);
+
+        $r11 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet pausedJobGroups>;
+
+        r21 = virtualinvoke $r11.<java.util.HashSet: java.util.Iterator iterator()>();
+
+     label02:
+        $z0 = interfaceinvoke r21.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label04;
+
+        $r17 = interfaceinvoke r21.<java.util.Iterator: java.lang.Object next()>();
+
+        r22 = (java.lang.String) $r17;
+
+        $r18 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: org.quartz.impl.matchers.StringMatcher$StringOperatorName getCompareWithOperator()>();
+
+        $r19 = virtualinvoke r1.<org.quartz.impl.matchers.GroupMatcher: java.lang.String getCompareToValue()>();
+
+        $z5 = virtualinvoke $r18.<org.quartz.impl.matchers.StringMatcher$StringOperatorName: boolean evaluate(java.lang.String,java.lang.String)>(r22, $r19);
+
+        if $z5 == 0 goto label03;
+
+        interfaceinvoke $r9.<java.util.Set: boolean add(java.lang.Object)>(r22);
+
+     label03:
+        goto label02;
+
+     label04:
+        r23 = interfaceinvoke $r9.<java.util.Set: java.util.Iterator iterator()>();
+
+     label05:
+        $z1 = interfaceinvoke r23.<java.util.Iterator: boolean hasNext()>();
+
+        if $z1 == 0 goto label06;
+
+        $r15 = interfaceinvoke r23.<java.util.Iterator: java.lang.Object next()>();
+
+        r24 = (java.lang.String) $r15;
+
+        $r16 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet pausedJobGroups>;
+
+        virtualinvoke $r16.<java.util.HashSet: boolean remove(java.lang.Object)>(r24);
+
+        goto label05;
+
+     label06:
+        r25 = interfaceinvoke r4.<java.util.Set: java.util.Iterator iterator()>();
+
+     label07:
+        $z2 = interfaceinvoke r25.<java.util.Iterator: boolean hasNext()>();
+
+        if $z2 == 0 goto label10;
+
+        $r12 = interfaceinvoke r25.<java.util.Iterator: java.lang.Object next()>();
+
+        r26 = (org.quartz.JobKey) $r12;
+
+        r5 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.List getTriggersForJob(org.quartz.JobKey)>(r26);
+
+        r6 = interfaceinvoke r5.<java.util.List: java.util.Iterator iterator()>();
+
+     label08:
+        $z3 = interfaceinvoke r6.<java.util.Iterator: boolean hasNext()>();
+
+        if $z3 == 0 goto label09;
+
+        $r13 = interfaceinvoke r6.<java.util.Iterator: java.lang.Object next()>();
+
+        r7 = (org.quartz.spi.OperableTrigger) $r13;
+
+        $r14 = interfaceinvoke r7.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: void resumeTrigger(org.quartz.TriggerKey)>($r14);
+
+        goto label08;
+
+     label09:
+        goto label07;
+
+     label10:
+        exitmonitor $r10;
+
+     label11:
+        goto label14;
+
+     label12:
+        $r20 := @caughtexception;
+
+        exitmonitor $r10;
+
+     label13:
+        throw $r20;
+
+     label14:
+        return $r9;
+
+        catch java.lang.Throwable from label01 to label11 with label12;
+        catch java.lang.Throwable from label12 to label13 with label12;
+    }
+
+    public void pauseAll()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.util.List r2;
+        java.util.Iterator r3;
+        java.lang.String r4;
+        java.lang.Object $r6, $r7;
+        boolean $z0;
+        org.quartz.impl.matchers.GroupMatcher $r8;
+        java.lang.Throwable $r10;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r6;
+
+     label1:
+        r2 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.List getTriggerGroupNames()>();
+
+        r3 = interfaceinvoke r2.<java.util.List: java.util.Iterator iterator()>();
+
+     label2:
+        $z0 = interfaceinvoke r3.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label3;
+
+        $r7 = interfaceinvoke r3.<java.util.Iterator: java.lang.Object next()>();
+
+        r4 = (java.lang.String) $r7;
+
+        $r8 = staticinvoke <org.quartz.impl.matchers.GroupMatcher: org.quartz.impl.matchers.GroupMatcher triggerGroupEquals(java.lang.String)>(r4);
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.List pauseTriggers(org.quartz.impl.matchers.GroupMatcher)>($r8);
+
+        goto label2;
+
+     label3:
+        exitmonitor $r6;
+
+     label4:
+        goto label7;
+
+     label5:
+        $r10 := @caughtexception;
+
+        exitmonitor $r6;
+
+     label6:
+        throw $r10;
+
+     label7:
+        return;
+
+        catch java.lang.Throwable from label1 to label4 with label5;
+        catch java.lang.Throwable from label5 to label6 with label5;
+    }
+
+    public void resumeAll()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.lang.Object $r3;
+        java.util.HashSet $r4;
+        org.quartz.impl.matchers.GroupMatcher $r5;
+        java.lang.Throwable $r7;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        $r3 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r3;
+
+     label1:
+        $r4 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet pausedJobGroups>;
+
+        virtualinvoke $r4.<java.util.HashSet: void clear()>();
+
+        $r5 = staticinvoke <org.quartz.impl.matchers.GroupMatcher: org.quartz.impl.matchers.GroupMatcher anyTriggerGroup()>();
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.List resumeTriggers(org.quartz.impl.matchers.GroupMatcher)>($r5);
+
+        exitmonitor $r3;
+
+     label2:
+        goto label5;
+
+     label3:
+        $r7 := @caughtexception;
+
+        exitmonitor $r3;
+
+     label4:
+        throw $r7;
+
+     label5:
+        return;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+
+    protected boolean applyMisfire(org.quartz.simpl.TriggerWrapper)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.simpl.TriggerWrapper r1;
+        java.util.Date r2, $r15, $r17;
+        long $l0, $l2, $l5, l6;
+        byte $b1, $b3;
+        org.quartz.spi.OperableTrigger $r5, $r6, $r7, $r9, $r12, $r13, $r14, $r16, $r18, $r22;
+        int $i4;
+        java.lang.String $r8, $r23;
+        org.quartz.spi.SchedulerSignaler $r10, $r19;
+        java.lang.Object $r11, $r20;
+        boolean $z0;
+        java.util.TreeSet $r21;
+        java.lang.Throwable $r24;
+        org.quartz.Calendar r25;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.simpl.TriggerWrapper;
+
+        l6 = staticinvoke <java.lang.System: long currentTimeMillis()>();
+
+        $l0 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: long getMisfireThreshold()>();
+
+        $b1 = $l0 cmp 0L;
+
+        if $b1 <= 0 goto label01;
+
+        $l5 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: long getMisfireThreshold()>();
+
+        l6 = l6 - $l5;
+
+     label01:
+        $r5 = r1.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        r2 = interfaceinvoke $r5.<org.quartz.spi.OperableTrigger: java.util.Date getNextFireTime()>();
+
+        if r2 == null goto label02;
+
+        $l2 = virtualinvoke r2.<java.util.Date: long getTime()>();
+
+        $b3 = $l2 cmp l6;
+
+        if $b3 > 0 goto label02;
+
+        $r6 = r1.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $i4 = interfaceinvoke $r6.<org.quartz.spi.OperableTrigger: int getMisfireInstruction()>();
+
+        if $i4 != -1 goto label03;
+
+     label02:
+        return 0;
+
+     label03:
+        r25 = null;
+
+        $r7 = r1.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r8 = interfaceinvoke $r7.<org.quartz.spi.OperableTrigger: java.lang.String getCalendarName()>();
+
+        if $r8 == null goto label04;
+
+        $r22 = r1.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r23 = interfaceinvoke $r22.<org.quartz.spi.OperableTrigger: java.lang.String getCalendarName()>();
+
+        r25 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: org.quartz.Calendar retrieveCalendar(java.lang.String)>($r23);
+
+     label04:
+        $r10 = r0.<org.quartz.simpl.RAMJobStore: org.quartz.spi.SchedulerSignaler signaler>;
+
+        $r9 = r1.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r11 = interfaceinvoke $r9.<org.quartz.spi.OperableTrigger: java.lang.Object clone()>();
+
+        $r12 = (org.quartz.spi.OperableTrigger) $r11;
+
+        interfaceinvoke $r10.<org.quartz.spi.SchedulerSignaler: void notifyTriggerListenersMisfired(org.quartz.Trigger)>($r12);
+
+        $r13 = r1.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        interfaceinvoke $r13.<org.quartz.spi.OperableTrigger: void updateAfterMisfire(org.quartz.Calendar)>(r25);
+
+        $r14 = r1.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r15 = interfaceinvoke $r14.<org.quartz.spi.OperableTrigger: java.util.Date getNextFireTime()>();
+
+        if $r15 != null goto label10;
+
+        r1.<org.quartz.simpl.TriggerWrapper: int state> = 3;
+
+        $r19 = r0.<org.quartz.simpl.RAMJobStore: org.quartz.spi.SchedulerSignaler signaler>;
+
+        $r18 = r1.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        interfaceinvoke $r19.<org.quartz.spi.SchedulerSignaler: void notifySchedulerListenersFinalized(org.quartz.Trigger)>($r18);
+
+        $r20 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r20;
+
+     label05:
+        $r21 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r21.<java.util.TreeSet: boolean remove(java.lang.Object)>(r1);
+
+        exitmonitor $r20;
+
+     label06:
+        goto label09;
+
+     label07:
+        $r24 := @caughtexception;
+
+        exitmonitor $r20;
+
+     label08:
+        throw $r24;
+
+     label09:
+        goto label11;
+
+     label10:
+        $r16 = r1.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r17 = interfaceinvoke $r16.<org.quartz.spi.OperableTrigger: java.util.Date getNextFireTime()>();
+
+        $z0 = virtualinvoke r2.<java.util.Date: boolean equals(java.lang.Object)>($r17);
+
+        if $z0 == 0 goto label11;
+
+        return 0;
+
+     label11:
+        return 1;
+
+        catch java.lang.Throwable from label05 to label06 with label07;
+        catch java.lang.Throwable from label07 to label08 with label07;
+    }
+
+    protected java.lang.String getFiredTriggerRecordId()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.util.concurrent.atomic.AtomicLong $r1;
+        long $l0;
+        java.lang.String $r2;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        $r1 = <org.quartz.simpl.RAMJobStore: java.util.concurrent.atomic.AtomicLong ftrCtr>;
+
+        $l0 = virtualinvoke $r1.<java.util.concurrent.atomic.AtomicLong: long incrementAndGet()>();
+
+        $r2 = staticinvoke <java.lang.String: java.lang.String valueOf(long)>($l0);
+
+        return $r2;
+    }
+
+    public java.util.List acquireNextTriggers(long, int, long)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        long l0, l2, $l4, $l7, $l8, $l9, l10;
+        int i1, $i3, $i6, $i11;
+        org.quartz.simpl.TriggerWrapper r5;
+        org.quartz.JobDetail r6;
+        org.quartz.spi.OperableTrigger r7, $r15, $r17, $r19, $r20, $r25, $r27, $r31, $r34;
+        java.lang.Object $r9, $r23, $r28, $r40;
+        java.util.ArrayList $r10;
+        java.util.HashSet $r11, $r12;
+        java.util.TreeSet $r13, $r14, $r29, $r33, $r36, $r39;
+        java.util.Date $r16, $r18, $r32, $r35;
+        boolean $z1, $z2, $z3, $z6;
+        byte $b5;
+        java.util.HashMap $r21;
+        org.quartz.JobKey $r22, r42;
+        org.quartz.simpl.JobWrapper $r24;
+        java.lang.String $r26;
+        java.lang.Throwable $r37;
+        java.util.NoSuchElementException $r38;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        l0 := @parameter0: long;
+
+        i1 := @parameter1: int;
+
+        l2 := @parameter2: long;
+
+        $r9 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r9;
+
+     label01:
+        $r10 = new java.util.ArrayList;
+
+        specialinvoke $r10.<java.util.ArrayList: void <init>()>();
+
+        $r11 = new java.util.HashSet;
+
+        specialinvoke $r11.<java.util.HashSet: void <init>()>();
+
+        $r12 = new java.util.HashSet;
+
+        specialinvoke $r12.<java.util.HashSet: void <init>()>();
+
+        l10 = l0;
+
+        $r13 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        $i3 = virtualinvoke $r13.<java.util.TreeSet: int size()>();
+
+        if $i3 != 0 goto label03;
+
+        exitmonitor $r9;
+
+     label02:
+        return $r10;
+
+     label03:
+        $r39 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        $r40 = virtualinvoke $r39.<java.util.TreeSet: java.lang.Object first()>();
+
+        r5 = (org.quartz.simpl.TriggerWrapper) $r40;
+
+        if r5 != null goto label05;
+
+     label04:
+        goto label16;
+
+     label05:
+        $r14 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r14.<java.util.TreeSet: boolean remove(java.lang.Object)>(r5);
+
+     label06:
+        goto label08;
+
+     label07:
+        $r38 := @caughtexception;
+
+        goto label16;
+
+     label08:
+        $r15 = r5.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r16 = interfaceinvoke $r15.<org.quartz.spi.OperableTrigger: java.util.Date getNextFireTime()>();
+
+        if $r16 != null goto label09;
+
+        goto label03;
+
+     label09:
+        $z1 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: boolean applyMisfire(org.quartz.simpl.TriggerWrapper)>(r5);
+
+        if $z1 == 0 goto label10;
+
+        $r34 = r5.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r35 = interfaceinvoke $r34.<org.quartz.spi.OperableTrigger: java.util.Date getNextFireTime()>();
+
+        if $r35 == null goto label03;
+
+        $r36 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r36.<java.util.TreeSet: boolean add(java.lang.Object)>(r5);
+
+        goto label03;
+
+     label10:
+        $r17 = virtualinvoke r5.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger getTrigger()>();
+
+        $r18 = interfaceinvoke $r17.<org.quartz.spi.OperableTrigger: java.util.Date getNextFireTime()>();
+
+        $l4 = virtualinvoke $r18.<java.util.Date: long getTime()>();
+
+        $b5 = $l4 cmp l10;
+
+        if $b5 <= 0 goto label11;
+
+        $r33 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r33.<java.util.TreeSet: boolean add(java.lang.Object)>(r5);
+
+        goto label16;
+
+     label11:
+        $r19 = r5.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        r42 = interfaceinvoke $r19.<org.quartz.spi.OperableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $r21 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByKey>;
+
+        $r20 = r5.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r22 = interfaceinvoke $r20.<org.quartz.spi.OperableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $r23 = virtualinvoke $r21.<java.util.HashMap: java.lang.Object get(java.lang.Object)>($r22);
+
+        $r24 = (org.quartz.simpl.JobWrapper) $r23;
+
+        r6 = $r24.<org.quartz.simpl.JobWrapper: org.quartz.JobDetail jobDetail>;
+
+        $z2 = interfaceinvoke r6.<org.quartz.JobDetail: boolean isConcurrentExectionDisallowed()>();
+
+        if $z2 == 0 goto label13;
+
+        $z6 = interfaceinvoke $r11.<java.util.Set: boolean contains(java.lang.Object)>(r42);
+
+        if $z6 == 0 goto label12;
+
+        interfaceinvoke $r12.<java.util.Set: boolean add(java.lang.Object)>(r5);
+
+        goto label03;
+
+     label12:
+        interfaceinvoke $r11.<java.util.Set: boolean add(java.lang.Object)>(r42);
+
+     label13:
+        r5.<org.quartz.simpl.TriggerWrapper: int state> = 1;
+
+        $r25 = r5.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r26 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.lang.String getFiredTriggerRecordId()>();
+
+        interfaceinvoke $r25.<org.quartz.spi.OperableTrigger: void setFireInstanceId(java.lang.String)>($r26);
+
+        $r27 = r5.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r28 = interfaceinvoke $r27.<org.quartz.spi.OperableTrigger: java.lang.Object clone()>();
+
+        r7 = (org.quartz.spi.OperableTrigger) $r28;
+
+        $z3 = interfaceinvoke $r10.<java.util.List: boolean isEmpty()>();
+
+        if $z3 == 0 goto label14;
+
+        $r31 = r5.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r32 = interfaceinvoke $r31.<org.quartz.spi.OperableTrigger: java.util.Date getNextFireTime()>();
+
+        $l7 = virtualinvoke $r32.<java.util.Date: long getTime()>();
+
+        $l8 = staticinvoke <java.lang.System: long currentTimeMillis()>();
+
+        $l9 = staticinvoke <java.lang.Math: long max(long,long)>($l7, $l8);
+
+        l10 = $l9 + l2;
+
+     label14:
+        interfaceinvoke $r10.<java.util.List: boolean add(java.lang.Object)>(r7);
+
+        $i6 = interfaceinvoke $r10.<java.util.List: int size()>();
+
+        if $i6 != i1 goto label15;
+
+        goto label16;
+
+     label15:
+        goto label03;
+
+     label16:
+        $i11 = interfaceinvoke $r12.<java.util.Set: int size()>();
+
+        if $i11 <= 0 goto label17;
+
+        $r29 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r29.<java.util.TreeSet: boolean addAll(java.util.Collection)>($r12);
+
+     label17:
+        exitmonitor $r9;
+
+     label18:
+        return $r10;
+
+     label19:
+        $r37 := @caughtexception;
+
+        exitmonitor $r9;
+
+     label20:
+        throw $r37;
+
+        catch java.util.NoSuchElementException from label03 to label04 with label07;
+        catch java.util.NoSuchElementException from label05 to label06 with label07;
+        catch java.lang.Throwable from label01 to label02 with label19;
+        catch java.lang.Throwable from label03 to label18 with label19;
+        catch java.lang.Throwable from label19 to label20 with label19;
+    }
+
+    public void releaseAcquiredTrigger(org.quartz.spi.OperableTrigger)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.spi.OperableTrigger r1;
+        org.quartz.simpl.TriggerWrapper r3;
+        java.lang.Object $r5, $r8;
+        java.util.HashMap $r6;
+        org.quartz.TriggerKey $r7;
+        int $i0;
+        java.util.TreeSet $r9;
+        java.lang.Throwable $r10;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.spi.OperableTrigger;
+
+        $r5 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r5;
+
+     label1:
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r7 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r8 = virtualinvoke $r6.<java.util.HashMap: java.lang.Object get(java.lang.Object)>($r7);
+
+        r3 = (org.quartz.simpl.TriggerWrapper) $r8;
+
+        if r3 == null goto label2;
+
+        $i0 = r3.<org.quartz.simpl.TriggerWrapper: int state>;
+
+        if $i0 != 1 goto label2;
+
+        r3.<org.quartz.simpl.TriggerWrapper: int state> = 0;
+
+        $r9 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r9.<java.util.TreeSet: boolean add(java.lang.Object)>(r3);
+
+     label2:
+        exitmonitor $r5;
+
+     label3:
+        goto label6;
+
+     label4:
+        $r10 := @caughtexception;
+
+        exitmonitor $r5;
+
+     label5:
+        throw $r10;
+
+     label6:
+        return;
+
+        catch java.lang.Throwable from label1 to label3 with label4;
+        catch java.lang.Throwable from label4 to label5 with label4;
+    }
+
+    public java.util.List triggersFired(java.util.List)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.util.List r1;
+        java.util.Iterator r4, r10;
+        org.quartz.spi.OperableTrigger r5, $r20, $r21, $r24, $r31, $r40;
+        org.quartz.simpl.TriggerWrapper r6, r11;
+        java.util.Date r7, $r28, $r29, $r30, $r32;
+        org.quartz.JobDetail r9, $r27;
+        java.lang.Object $r14, $r16, $r19, $r33, $r38;
+        java.util.ArrayList $r15, r45;
+        java.util.HashMap $r17;
+        org.quartz.TriggerKey $r18;
+        int $i0, $i1, $i2;
+        java.lang.String $r22, $r41;
+        java.util.TreeSet $r23, $r34, $r39;
+        org.quartz.spi.TriggerFiredBundle $r25;
+        org.quartz.JobKey $r26, $r35, $r37;
+        boolean $z1, $z4, $z7;
+        java.util.HashSet $r36;
+        java.lang.Throwable $r42, $r43;
+        org.quartz.Calendar r44;
+        org.quartz.spi.TriggerFiredResult $r47;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: java.util.List;
+
+        $r14 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r14;
+
+     label01:
+        $r15 = new java.util.ArrayList;
+
+        specialinvoke $r15.<java.util.ArrayList: void <init>()>();
+
+        r4 = interfaceinvoke r1.<java.util.List: java.util.Iterator iterator()>();
+
+     label02:
+        $z7 = interfaceinvoke r4.<java.util.Iterator: boolean hasNext()>();
+
+        if $z7 == 0 goto label16;
+
+        $r16 = interfaceinvoke r4.<java.util.Iterator: java.lang.Object next()>();
+
+        r5 = (org.quartz.spi.OperableTrigger) $r16;
+
+        $r17 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r18 = interfaceinvoke r5.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r19 = virtualinvoke $r17.<java.util.HashMap: java.lang.Object get(java.lang.Object)>($r18);
+
+        r6 = (org.quartz.simpl.TriggerWrapper) $r19;
+
+        if r6 == null goto label02;
+
+        $r20 = r6.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        if $r20 != null goto label03;
+
+        goto label02;
+
+     label03:
+        $i0 = r6.<org.quartz.simpl.TriggerWrapper: int state>;
+
+        if $i0 == 1 goto label04;
+
+        goto label02;
+
+     label04:
+        r44 = null;
+
+        $r21 = r6.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r22 = interfaceinvoke $r21.<org.quartz.spi.OperableTrigger: java.lang.String getCalendarName()>();
+
+        if $r22 == null goto label05;
+
+        $r40 = r6.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r41 = interfaceinvoke $r40.<org.quartz.spi.OperableTrigger: java.lang.String getCalendarName()>();
+
+        r44 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: org.quartz.Calendar retrieveCalendar(java.lang.String)>($r41);
+
+        if r44 != null goto label05;
+
+        goto label02;
+
+     label05:
+        r7 = interfaceinvoke r5.<org.quartz.spi.OperableTrigger: java.util.Date getPreviousFireTime()>();
+
+        $r23 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r23.<java.util.TreeSet: boolean remove(java.lang.Object)>(r6);
+
+        $r24 = r6.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        interfaceinvoke $r24.<org.quartz.spi.OperableTrigger: void triggered(org.quartz.Calendar)>(r44);
+
+        interfaceinvoke r5.<org.quartz.spi.OperableTrigger: void triggered(org.quartz.Calendar)>(r44);
+
+        r6.<org.quartz.simpl.TriggerWrapper: int state> = 0;
+
+        $r25 = new org.quartz.spi.TriggerFiredBundle;
+
+        $r26 = r6.<org.quartz.simpl.TriggerWrapper: org.quartz.JobKey jobKey>;
+
+        $r27 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: org.quartz.JobDetail retrieveJob(org.quartz.JobKey)>($r26);
+
+        $r28 = new java.util.Date;
+
+        specialinvoke $r28.<java.util.Date: void <init>()>();
+
+        $r29 = interfaceinvoke r5.<org.quartz.spi.OperableTrigger: java.util.Date getPreviousFireTime()>();
+
+        $r30 = interfaceinvoke r5.<org.quartz.spi.OperableTrigger: java.util.Date getNextFireTime()>();
+
+        specialinvoke $r25.<org.quartz.spi.TriggerFiredBundle: void <init>(org.quartz.JobDetail,org.quartz.spi.OperableTrigger,org.quartz.Calendar,boolean,java.util.Date,java.util.Date,java.util.Date,java.util.Date)>($r27, r5, r44, 0, $r28, $r29, r7, $r30);
+
+        r9 = virtualinvoke $r25.<org.quartz.spi.TriggerFiredBundle: org.quartz.JobDetail getJobDetail()>();
+
+        $z1 = interfaceinvoke r9.<org.quartz.JobDetail: boolean isConcurrentExectionDisallowed()>();
+
+        if $z1 == 0 goto label10;
+
+        $r35 = interfaceinvoke r9.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        r45 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.ArrayList getTriggerWrappersForJob(org.quartz.JobKey)>($r35);
+
+        r10 = virtualinvoke r45.<java.util.ArrayList: java.util.Iterator iterator()>();
+
+     label06:
+        $z4 = interfaceinvoke r10.<java.util.Iterator: boolean hasNext()>();
+
+        if $z4 == 0 goto label09;
+
+        $r38 = interfaceinvoke r10.<java.util.Iterator: java.lang.Object next()>();
+
+        r11 = (org.quartz.simpl.TriggerWrapper) $r38;
+
+        $i1 = r11.<org.quartz.simpl.TriggerWrapper: int state>;
+
+        if $i1 != 0 goto label07;
+
+        r11.<org.quartz.simpl.TriggerWrapper: int state> = 5;
+
+     label07:
+        $i2 = r11.<org.quartz.simpl.TriggerWrapper: int state>;
+
+        if $i2 != 4 goto label08;
+
+        r11.<org.quartz.simpl.TriggerWrapper: int state> = 6;
+
+     label08:
+        $r39 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r39.<java.util.TreeSet: boolean remove(java.lang.Object)>(r11);
+
+        goto label06;
+
+     label09:
+        $r36 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet blockedJobs>;
+
+        $r37 = interfaceinvoke r9.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        virtualinvoke $r36.<java.util.HashSet: boolean add(java.lang.Object)>($r37);
+
+        goto label15;
+
+     label10:
+        $r31 = r6.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r32 = interfaceinvoke $r31.<org.quartz.spi.OperableTrigger: java.util.Date getNextFireTime()>();
+
+        if $r32 == null goto label15;
+
+        $r33 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r33;
+
+     label11:
+        $r34 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r34.<java.util.TreeSet: boolean add(java.lang.Object)>(r6);
+
+        exitmonitor $r33;
+
+     label12:
+        goto label15;
+
+     label13:
+        $r43 := @caughtexception;
+
+        exitmonitor $r33;
+
+     label14:
+        throw $r43;
+
+     label15:
+        $r47 = new org.quartz.spi.TriggerFiredResult;
+
+        specialinvoke $r47.<org.quartz.spi.TriggerFiredResult: void <init>(org.quartz.spi.TriggerFiredBundle)>($r25);
+
+        interfaceinvoke $r15.<java.util.List: boolean add(java.lang.Object)>($r47);
+
+        goto label02;
+
+     label16:
+        exitmonitor $r14;
+
+     label17:
+        return $r15;
+
+     label18:
+        $r42 := @caughtexception;
+
+        exitmonitor $r14;
+
+     label19:
+        throw $r42;
+
+        catch java.lang.Throwable from label11 to label12 with label13;
+        catch java.lang.Throwable from label13 to label14 with label13;
+        catch java.lang.Throwable from label01 to label17 with label18;
+        catch java.lang.Throwable from label18 to label19 with label18;
+    }
+
+    public void triggeredJobComplete(org.quartz.spi.OperableTrigger, org.quartz.JobDetail, org.quartz.Trigger$CompletedExecutionInstruction)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.spi.OperableTrigger r1, $r48;
+        org.quartz.JobDetail r2, r61;
+        org.quartz.Trigger$CompletedExecutionInstruction r3, $r19, $r20, $r21, $r22, $r23;
+        org.quartz.simpl.JobWrapper r5;
+        org.quartz.simpl.TriggerWrapper r6, r8;
+        java.util.Iterator r7;
+        java.lang.Object $r10, $r13, $r16, $r55, $r59;
+        java.util.HashMap $r11, $r14;
+        org.quartz.JobKey $r12, $r18, $r24, $r29, $r33, $r52, $r53;
+        org.quartz.TriggerKey $r15, $r38, $r46, $r50;
+        java.util.HashSet $r17, $r51;
+        org.quartz.spi.SchedulerSignaler $r25, $r34, $r42, $r44, $r47, $r54;
+        org.slf4j.Logger $r26, $r35;
+        java.lang.StringBuilder $r27, $r28, $r30, $r31, $r36, $r37, $r39, $r40;
+        java.lang.String $r32, $r41;
+        java.util.TreeSet $r43, $r56;
+        java.util.Date $r45, $r49;
+        boolean $z4, $z6, $z8;
+        int $i0, $i1;
+        org.quartz.JobBuilder $r57, $r58;
+        java.lang.Throwable $r60;
+        org.quartz.JobDataMap r62;
+        java.util.ArrayList r63;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.spi.OperableTrigger;
+
+        r2 := @parameter1: org.quartz.JobDetail;
+
+        r3 := @parameter2: org.quartz.Trigger$CompletedExecutionInstruction;
+
+        $r10 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r10;
+
+     label01:
+        $r11 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap jobsByKey>;
+
+        $r12 = interfaceinvoke r2.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r13 = virtualinvoke $r11.<java.util.HashMap: java.lang.Object get(java.lang.Object)>($r12);
+
+        r5 = (org.quartz.simpl.JobWrapper) $r13;
+
+        $r14 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r15 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r16 = virtualinvoke $r14.<java.util.HashMap: java.lang.Object get(java.lang.Object)>($r15);
+
+        r6 = (org.quartz.simpl.TriggerWrapper) $r16;
+
+        if r5 == null goto label09;
+
+        r61 = r5.<org.quartz.simpl.JobWrapper: org.quartz.JobDetail jobDetail>;
+
+        $z4 = interfaceinvoke r61.<org.quartz.JobDetail: boolean isPersistJobDataAfterExecution()>();
+
+        if $z4 == 0 goto label03;
+
+        r62 = interfaceinvoke r2.<org.quartz.JobDetail: org.quartz.JobDataMap getJobDataMap()>();
+
+        if r62 == null goto label02;
+
+        $r59 = virtualinvoke r62.<org.quartz.JobDataMap: java.lang.Object clone()>();
+
+        r62 = (org.quartz.JobDataMap) $r59;
+
+        virtualinvoke r62.<org.quartz.JobDataMap: void clearDirtyFlag()>();
+
+     label02:
+        $r57 = interfaceinvoke r61.<org.quartz.JobDetail: org.quartz.JobBuilder getJobBuilder()>();
+
+        $r58 = virtualinvoke $r57.<org.quartz.JobBuilder: org.quartz.JobBuilder setJobData(org.quartz.JobDataMap)>(r62);
+
+        r61 = virtualinvoke $r58.<org.quartz.JobBuilder: org.quartz.JobDetail build()>();
+
+        r5.<org.quartz.simpl.JobWrapper: org.quartz.JobDetail jobDetail> = r61;
+
+     label03:
+        $z8 = interfaceinvoke r61.<org.quartz.JobDetail: boolean isConcurrentExectionDisallowed()>();
+
+        if $z8 == 0 goto label08;
+
+        $r51 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet blockedJobs>;
+
+        $r52 = interfaceinvoke r61.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        virtualinvoke $r51.<java.util.HashSet: boolean remove(java.lang.Object)>($r52);
+
+        $r53 = interfaceinvoke r61.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        r63 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.ArrayList getTriggerWrappersForJob(org.quartz.JobKey)>($r53);
+
+        r7 = virtualinvoke r63.<java.util.ArrayList: java.util.Iterator iterator()>();
+
+     label04:
+        $z6 = interfaceinvoke r7.<java.util.Iterator: boolean hasNext()>();
+
+        if $z6 == 0 goto label07;
+
+        $r55 = interfaceinvoke r7.<java.util.Iterator: java.lang.Object next()>();
+
+        r8 = (org.quartz.simpl.TriggerWrapper) $r55;
+
+        $i0 = r8.<org.quartz.simpl.TriggerWrapper: int state>;
+
+        if $i0 != 5 goto label05;
+
+        r8.<org.quartz.simpl.TriggerWrapper: int state> = 0;
+
+        $r56 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r56.<java.util.TreeSet: boolean add(java.lang.Object)>(r8);
+
+     label05:
+        $i1 = r8.<org.quartz.simpl.TriggerWrapper: int state>;
+
+        if $i1 != 6 goto label06;
+
+        r8.<org.quartz.simpl.TriggerWrapper: int state> = 4;
+
+     label06:
+        goto label04;
+
+     label07:
+        $r54 = r0.<org.quartz.simpl.RAMJobStore: org.quartz.spi.SchedulerSignaler signaler>;
+
+        interfaceinvoke $r54.<org.quartz.spi.SchedulerSignaler: void signalSchedulingChange(long)>(0L);
+
+     label08:
+        goto label10;
+
+     label09:
+        $r17 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet blockedJobs>;
+
+        $r18 = interfaceinvoke r2.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        virtualinvoke $r17.<java.util.HashSet: boolean remove(java.lang.Object)>($r18);
+
+     label10:
+        if r6 == null goto label16;
+
+        $r19 = <org.quartz.Trigger$CompletedExecutionInstruction: org.quartz.Trigger$CompletedExecutionInstruction DELETE_TRIGGER>;
+
+        if r3 != $r19 goto label12;
+
+        $r45 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: java.util.Date getNextFireTime()>();
+
+        if $r45 != null goto label11;
+
+        $r48 = virtualinvoke r6.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger getTrigger()>();
+
+        $r49 = interfaceinvoke $r48.<org.quartz.spi.OperableTrigger: java.util.Date getNextFireTime()>();
+
+        if $r49 != null goto label16;
+
+        $r50 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: boolean removeTrigger(org.quartz.TriggerKey)>($r50);
+
+        goto label16;
+
+     label11:
+        $r46 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: boolean removeTrigger(org.quartz.TriggerKey)>($r46);
+
+        $r47 = r0.<org.quartz.simpl.RAMJobStore: org.quartz.spi.SchedulerSignaler signaler>;
+
+        interfaceinvoke $r47.<org.quartz.spi.SchedulerSignaler: void signalSchedulingChange(long)>(0L);
+
+        goto label16;
+
+     label12:
+        $r20 = <org.quartz.Trigger$CompletedExecutionInstruction: org.quartz.Trigger$CompletedExecutionInstruction SET_TRIGGER_COMPLETE>;
+
+        if r3 != $r20 goto label13;
+
+        r6.<org.quartz.simpl.TriggerWrapper: int state> = 3;
+
+        $r43 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r43.<java.util.TreeSet: boolean remove(java.lang.Object)>(r6);
+
+        $r44 = r0.<org.quartz.simpl.RAMJobStore: org.quartz.spi.SchedulerSignaler signaler>;
+
+        interfaceinvoke $r44.<org.quartz.spi.SchedulerSignaler: void signalSchedulingChange(long)>(0L);
+
+        goto label16;
+
+     label13:
+        $r21 = <org.quartz.Trigger$CompletedExecutionInstruction: org.quartz.Trigger$CompletedExecutionInstruction SET_TRIGGER_ERROR>;
+
+        if r3 != $r21 goto label14;
+
+        $r35 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: org.slf4j.Logger getLog()>();
+
+        $r36 = new java.lang.StringBuilder;
+
+        specialinvoke $r36.<java.lang.StringBuilder: void <init>()>();
+
+        $r37 = virtualinvoke $r36.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Trigger ");
+
+        $r38 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r39 = virtualinvoke $r37.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r38);
+
+        $r40 = virtualinvoke $r39.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" set to ERROR state.");
+
+        $r41 = virtualinvoke $r40.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r35.<org.slf4j.Logger: void info(java.lang.String)>($r41);
+
+        r6.<org.quartz.simpl.TriggerWrapper: int state> = 7;
+
+        $r42 = r0.<org.quartz.simpl.RAMJobStore: org.quartz.spi.SchedulerSignaler signaler>;
+
+        interfaceinvoke $r42.<org.quartz.spi.SchedulerSignaler: void signalSchedulingChange(long)>(0L);
+
+        goto label16;
+
+     label14:
+        $r22 = <org.quartz.Trigger$CompletedExecutionInstruction: org.quartz.Trigger$CompletedExecutionInstruction SET_ALL_JOB_TRIGGERS_ERROR>;
+
+        if r3 != $r22 goto label15;
+
+        $r26 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: org.slf4j.Logger getLog()>();
+
+        $r27 = new java.lang.StringBuilder;
+
+        specialinvoke $r27.<java.lang.StringBuilder: void <init>()>();
+
+        $r28 = virtualinvoke $r27.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("All triggers of Job ");
+
+        $r29 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $r30 = virtualinvoke $r28.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r29);
+
+        $r31 = virtualinvoke $r30.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" set to ERROR state.");
+
+        $r32 = virtualinvoke $r31.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r26.<org.slf4j.Logger: void info(java.lang.String)>($r32);
+
+        $r33 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: org.quartz.JobKey getJobKey()>();
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: void setAllTriggersOfJobToState(org.quartz.JobKey,int)>($r33, 7);
+
+        $r34 = r0.<org.quartz.simpl.RAMJobStore: org.quartz.spi.SchedulerSignaler signaler>;
+
+        interfaceinvoke $r34.<org.quartz.spi.SchedulerSignaler: void signalSchedulingChange(long)>(0L);
+
+        goto label16;
+
+     label15:
+        $r23 = <org.quartz.Trigger$CompletedExecutionInstruction: org.quartz.Trigger$CompletedExecutionInstruction SET_ALL_JOB_TRIGGERS_COMPLETE>;
+
+        if r3 != $r23 goto label16;
+
+        $r24 = interfaceinvoke r1.<org.quartz.spi.OperableTrigger: org.quartz.JobKey getJobKey()>();
+
+        virtualinvoke r0.<org.quartz.simpl.RAMJobStore: void setAllTriggersOfJobToState(org.quartz.JobKey,int)>($r24, 3);
+
+        $r25 = r0.<org.quartz.simpl.RAMJobStore: org.quartz.spi.SchedulerSignaler signaler>;
+
+        interfaceinvoke $r25.<org.quartz.spi.SchedulerSignaler: void signalSchedulingChange(long)>(0L);
+
+     label16:
+        exitmonitor $r10;
+
+     label17:
+        goto label20;
+
+     label18:
+        $r60 := @caughtexception;
+
+        exitmonitor $r10;
+
+     label19:
+        throw $r60;
+
+     label20:
+        return;
+
+        catch java.lang.Throwable from label01 to label17 with label18;
+        catch java.lang.Throwable from label18 to label19 with label18;
+    }
+
+    public long getAcquireRetryDelay(int)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        int i0;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        i0 := @parameter0: int;
+
+        return 20L;
+    }
+
+    protected void setAllTriggersOfJobToState(org.quartz.JobKey, int)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.JobKey r1;
+        int i0;
+        java.util.ArrayList r2;
+        java.util.Iterator r3;
+        org.quartz.simpl.TriggerWrapper r4;
+        boolean $z0;
+        java.lang.Object $r5;
+        java.util.TreeSet $r6;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.JobKey;
+
+        i0 := @parameter1: int;
+
+        r2 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.ArrayList getTriggerWrappersForJob(org.quartz.JobKey)>(r1);
+
+        r3 = virtualinvoke r2.<java.util.ArrayList: java.util.Iterator iterator()>();
+
+     label1:
+        $z0 = interfaceinvoke r3.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label3;
+
+        $r5 = interfaceinvoke r3.<java.util.Iterator: java.lang.Object next()>();
+
+        r4 = (org.quartz.simpl.TriggerWrapper) $r5;
+
+        r4.<org.quartz.simpl.TriggerWrapper: int state> = i0;
+
+        if i0 == 0 goto label2;
+
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        virtualinvoke $r6.<java.util.TreeSet: boolean remove(java.lang.Object)>(r4);
+
+     label2:
+        goto label1;
+
+     label3:
+        return;
+    }
+
+    protected java.lang.String peekTriggers()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.lang.StringBuilder $r4;
+        java.lang.Object $r5, $r9, $r12, $r18;
+        java.util.HashMap $r6;
+        java.util.Collection $r7;
+        boolean $z0, $z1;
+        java.util.TreeSet $r10;
+        java.lang.String $r11, $r15, $r21;
+        org.quartz.spi.OperableTrigger $r13, $r19;
+        org.quartz.TriggerKey $r14, $r20;
+        java.lang.Throwable $r24, $r25;
+        java.util.Iterator r27, r30;
+        org.quartz.simpl.TriggerWrapper r28, r31;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        $r4 = new java.lang.StringBuilder;
+
+        specialinvoke $r4.<java.lang.StringBuilder: void <init>()>();
+
+        $r5 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r5;
+
+     label01:
+        $r6 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashMap triggersByKey>;
+
+        $r7 = virtualinvoke $r6.<java.util.HashMap: java.util.Collection values()>();
+
+        r27 = interfaceinvoke $r7.<java.util.Collection: java.util.Iterator iterator()>();
+
+     label02:
+        $z0 = interfaceinvoke r27.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label03;
+
+        $r18 = interfaceinvoke r27.<java.util.Iterator: java.lang.Object next()>();
+
+        r28 = (org.quartz.simpl.TriggerWrapper) $r18;
+
+        $r19 = r28.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r20 = interfaceinvoke $r19.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r21 = virtualinvoke $r20.<org.quartz.TriggerKey: java.lang.String getName()>();
+
+        virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r21);
+
+        virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("/");
+
+        goto label02;
+
+     label03:
+        exitmonitor $r5;
+
+     label04:
+        goto label07;
+
+     label05:
+        $r25 := @caughtexception;
+
+        exitmonitor $r5;
+
+     label06:
+        throw $r25;
+
+     label07:
+        virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" | ");
+
+        $r9 = r0.<org.quartz.simpl.RAMJobStore: java.lang.Object lock>;
+
+        entermonitor $r9;
+
+     label08:
+        $r10 = r0.<org.quartz.simpl.RAMJobStore: java.util.TreeSet timeTriggers>;
+
+        r30 = virtualinvoke $r10.<java.util.TreeSet: java.util.Iterator iterator()>();
+
+     label09:
+        $z1 = interfaceinvoke r30.<java.util.Iterator: boolean hasNext()>();
+
+        if $z1 == 0 goto label10;
+
+        $r12 = interfaceinvoke r30.<java.util.Iterator: java.lang.Object next()>();
+
+        r31 = (org.quartz.simpl.TriggerWrapper) $r12;
+
+        $r13 = r31.<org.quartz.simpl.TriggerWrapper: org.quartz.spi.OperableTrigger trigger>;
+
+        $r14 = interfaceinvoke $r13.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r15 = virtualinvoke $r14.<org.quartz.TriggerKey: java.lang.String getName()>();
+
+        virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r15);
+
+        virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("->");
+
+        goto label09;
+
+     label10:
+        exitmonitor $r9;
+
+     label11:
+        goto label14;
+
+     label12:
+        $r24 := @caughtexception;
+
+        exitmonitor $r9;
+
+     label13:
+        throw $r24;
+
+     label14:
+        $r11 = virtualinvoke $r4.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        return $r11;
+
+        catch java.lang.Throwable from label01 to label04 with label05;
+        catch java.lang.Throwable from label05 to label06 with label05;
+        catch java.lang.Throwable from label08 to label11 with label12;
+        catch java.lang.Throwable from label12 to label13 with label12;
+    }
+
+    public java.util.Set getPausedTriggerGroups() throws org.quartz.JobPersistenceException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.util.HashSet $r2, $r3;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        $r2 = new java.util.HashSet;
+
+        specialinvoke $r2.<java.util.HashSet: void <init>()>();
+
+        $r3 = r0.<org.quartz.simpl.RAMJobStore: java.util.HashSet pausedTriggerGroups>;
+
+        virtualinvoke $r2.<java.util.HashSet: boolean addAll(java.util.Collection)>($r3);
+
+        return $r2;
+    }
+
+    public void setInstanceId(java.lang.String)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.lang.String r1;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: java.lang.String;
+
+        return;
+    }
+
+    public void setInstanceName(java.lang.String)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        java.lang.String r1;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: java.lang.String;
+
+        return;
+    }
+
+    public void setThreadPoolSize(int)
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        int i0;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        i0 := @parameter0: int;
+
+        return;
+    }
+
+    public long getEstimatedTimeToReleaseAndAcquireTrigger()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        return 5L;
+    }
+
+    public boolean isClustered()
+    {
+        org.quartz.simpl.RAMJobStore r0;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        return 0;
+    }
+
+    public volatile java.util.Collection resumeTriggers(org.quartz.impl.matchers.GroupMatcher) throws org.quartz.JobPersistenceException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.impl.matchers.GroupMatcher r1;
+        java.util.List $r2;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.impl.matchers.GroupMatcher;
+
+        $r2 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.List resumeTriggers(org.quartz.impl.matchers.GroupMatcher)>(r1);
+
+        return $r2;
+    }
+
+    public volatile java.util.Collection pauseJobs(org.quartz.impl.matchers.GroupMatcher) throws org.quartz.JobPersistenceException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.impl.matchers.GroupMatcher r1;
+        java.util.List $r2;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.impl.matchers.GroupMatcher;
+
+        $r2 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.List pauseJobs(org.quartz.impl.matchers.GroupMatcher)>(r1);
+
+        return $r2;
+    }
+
+    public volatile java.util.Collection pauseTriggers(org.quartz.impl.matchers.GroupMatcher) throws org.quartz.JobPersistenceException
+    {
+        org.quartz.simpl.RAMJobStore r0;
+        org.quartz.impl.matchers.GroupMatcher r1;
+        java.util.List $r2;
+
+        r0 := @this: org.quartz.simpl.RAMJobStore;
+
+        r1 := @parameter0: org.quartz.impl.matchers.GroupMatcher;
+
+        $r2 = virtualinvoke r0.<org.quartz.simpl.RAMJobStore: java.util.List pauseTriggers(org.quartz.impl.matchers.GroupMatcher)>(r1);
+
+        return $r2;
+    }
+
+    static void <clinit>()
+    {
+        java.util.concurrent.atomic.AtomicLong $r0;
+        long $l0;
+
+        $r0 = new java.util.concurrent.atomic.AtomicLong;
+
+        $l0 = staticinvoke <java.lang.System: long currentTimeMillis()>();
+
+        specialinvoke $r0.<java.util.concurrent.atomic.AtomicLong: void <init>(long)>($l0);
+
+        <org.quartz.simpl.RAMJobStore: java.util.concurrent.atomic.AtomicLong ftrCtr> = $r0;
+
+        return;
+    }
+}

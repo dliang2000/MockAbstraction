@@ -1,0 +1,334 @@
+public class org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore extends org.quartz.impl.jdbcjobstore.DBSemaphore
+{
+    public static final java.lang.String UPDATE_FOR_LOCK;
+    public static final java.lang.String INSERT_LOCK;
+    private static final int RETRY_COUNT;
+
+    public void <init>()
+    {
+        org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore r0;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore;
+
+        specialinvoke r0.<org.quartz.impl.jdbcjobstore.DBSemaphore: void <init>(java.lang.String,java.lang.String,java.lang.String,java.lang.String)>("QRTZ_", null, "UPDATE {0}LOCKS SET LOCK_NAME = LOCK_NAME WHERE SCHED_NAME = {1} AND LOCK_NAME = ? ", "INSERT INTO {0}LOCKS(SCHED_NAME, LOCK_NAME) VALUES ({1}, ?)");
+
+        return;
+    }
+
+    protected void executeSQL(java.sql.Connection, java.lang.String, java.lang.String, java.lang.String) throws org.quartz.impl.jdbcjobstore.LockException
+    {
+        org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore r0;
+        java.sql.Connection r1;
+        java.lang.String r2, r3, r4, $r10, $r12, $r16, $r19;
+        org.quartz.impl.jdbcjobstore.LockException $r7;
+        java.lang.StringBuilder $r8, $r9, $r11;
+        boolean $z0;
+        java.sql.SQLException $r13, r22;
+        int $i0, i1;
+        org.slf4j.Logger $r14, $r17;
+        java.lang.Thread $r15, $r18, $r21;
+        java.lang.InterruptedException $r20;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore;
+
+        r1 := @parameter0: java.sql.Connection;
+
+        r2 := @parameter1: java.lang.String;
+
+        r3 := @parameter2: java.lang.String;
+
+        r4 := @parameter3: java.lang.String;
+
+        r22 = null;
+
+        i1 = 0;
+
+     label01:
+        if i1 >= 2 goto label10;
+
+     label02:
+        $z0 = specialinvoke r0.<org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore: boolean lockViaUpdate(java.sql.Connection,java.lang.String,java.lang.String)>(r1, r2, r3);
+
+        if $z0 != 0 goto label03;
+
+        specialinvoke r0.<org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore: void lockViaInsert(java.sql.Connection,java.lang.String,java.lang.String)>(r1, r2, r4);
+
+     label03:
+        return;
+
+     label04:
+        $r13 := @caughtexception;
+
+        r22 = $r13;
+
+        $i0 = i1 + 1;
+
+        if $i0 != 2 goto label05;
+
+        $r17 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore: org.slf4j.Logger getLog()>();
+
+        $r18 = staticinvoke <java.lang.Thread: java.lang.Thread currentThread()>();
+
+        $r19 = virtualinvoke $r18.<java.lang.Thread: java.lang.String getName()>();
+
+        interfaceinvoke $r17.<org.slf4j.Logger: void debug(java.lang.String,java.lang.Object,java.lang.Object)>("Lock \'{}\' was not obtained by: {}", r2, $r19);
+
+        goto label06;
+
+     label05:
+        $r14 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore: org.slf4j.Logger getLog()>();
+
+        $r15 = staticinvoke <java.lang.Thread: java.lang.Thread currentThread()>();
+
+        $r16 = virtualinvoke $r15.<java.lang.Thread: java.lang.String getName()>();
+
+        interfaceinvoke $r14.<org.slf4j.Logger: void debug(java.lang.String,java.lang.Object,java.lang.Object)>("Lock \'{}\' was not obtained by: {} - will try again.", r2, $r16);
+
+     label06:
+        staticinvoke <java.lang.Thread: void sleep(long)>(1000L);
+
+     label07:
+        goto label09;
+
+     label08:
+        $r20 := @caughtexception;
+
+        $r21 = staticinvoke <java.lang.Thread: java.lang.Thread currentThread()>();
+
+        virtualinvoke $r21.<java.lang.Thread: void interrupt()>();
+
+     label09:
+        i1 = i1 + 1;
+
+        goto label01;
+
+     label10:
+        $r7 = new org.quartz.impl.jdbcjobstore.LockException;
+
+        $r8 = new java.lang.StringBuilder;
+
+        specialinvoke $r8.<java.lang.StringBuilder: void <init>()>();
+
+        $r9 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Failure obtaining db row lock: ");
+
+        $r10 = virtualinvoke r22.<java.sql.SQLException: java.lang.String getMessage()>();
+
+        $r11 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r10);
+
+        $r12 = virtualinvoke $r11.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r7.<org.quartz.impl.jdbcjobstore.LockException: void <init>(java.lang.String,java.lang.Throwable)>($r12, r22);
+
+        throw $r7;
+
+        catch java.sql.SQLException from label02 to label03 with label04;
+        catch java.lang.InterruptedException from label06 to label07 with label08;
+    }
+
+    protected java.lang.String getUpdateLockRowSQL()
+    {
+        org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore r0;
+        java.lang.String $r1;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore;
+
+        $r1 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore: java.lang.String getSQL()>();
+
+        return $r1;
+    }
+
+    public void setUpdateLockRowSQL(java.lang.String)
+    {
+        org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore r0;
+        java.lang.String r1;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore;
+
+        r1 := @parameter0: java.lang.String;
+
+        virtualinvoke r0.<org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore: void setSQL(java.lang.String)>(r1);
+
+        return;
+    }
+
+    private boolean lockViaUpdate(java.sql.Connection, java.lang.String, java.lang.String) throws java.sql.SQLException
+    {
+        org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore r0;
+        java.sql.Connection r1;
+        java.lang.String r2, r3, $r12, $r14;
+        java.sql.PreparedStatement r4;
+        org.slf4j.Logger $r6;
+        java.lang.StringBuilder $r7, $r8, $r9, $r10, $r13;
+        java.lang.Thread $r11;
+        int $i0;
+        java.lang.Throwable $r15;
+        boolean $z1;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore;
+
+        r1 := @parameter0: java.sql.Connection;
+
+        r2 := @parameter1: java.lang.String;
+
+        r3 := @parameter2: java.lang.String;
+
+        r4 = interfaceinvoke r1.<java.sql.Connection: java.sql.PreparedStatement prepareStatement(java.lang.String)>(r3);
+
+     label1:
+        interfaceinvoke r4.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(1, r2);
+
+        $r6 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore: org.slf4j.Logger getLog()>();
+
+        $r7 = new java.lang.StringBuilder;
+
+        specialinvoke $r7.<java.lang.StringBuilder: void <init>()>();
+
+        $r8 = virtualinvoke $r7.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Lock \'");
+
+        $r9 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r2);
+
+        $r10 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("\' is being obtained: ");
+
+        $r11 = staticinvoke <java.lang.Thread: java.lang.Thread currentThread()>();
+
+        $r12 = virtualinvoke $r11.<java.lang.Thread: java.lang.String getName()>();
+
+        $r13 = virtualinvoke $r10.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r12);
+
+        $r14 = virtualinvoke $r13.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r6.<org.slf4j.Logger: void debug(java.lang.String)>($r14);
+
+        $i0 = interfaceinvoke r4.<java.sql.PreparedStatement: int executeUpdate()>();
+
+        if $i0 < 1 goto label2;
+
+        $z1 = 1;
+
+        goto label3;
+
+     label2:
+        $z1 = 0;
+
+     label3:
+        interfaceinvoke r4.<java.sql.PreparedStatement: void close()>();
+
+        return $z1;
+
+     label4:
+        $r15 := @caughtexception;
+
+     label5:
+        interfaceinvoke r4.<java.sql.PreparedStatement: void close()>();
+
+        throw $r15;
+
+        catch java.lang.Throwable from label1 to label3 with label4;
+        catch java.lang.Throwable from label4 to label5 with label4;
+    }
+
+    private void lockViaInsert(java.sql.Connection, java.lang.String, java.lang.String) throws java.sql.SQLException
+    {
+        org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore r0;
+        java.sql.Connection r1;
+        java.lang.String r2, r3, $r12, $r14, $r19, $r20, $r21, $r22;
+        java.sql.PreparedStatement r4;
+        org.slf4j.Logger $r6;
+        java.lang.StringBuilder $r7, $r8, $r9, $r10, $r13, $r16, $r17, $r18;
+        java.lang.Thread $r11;
+        int $i0;
+        java.sql.SQLException $r15;
+        java.lang.Throwable $r23;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore;
+
+        r1 := @parameter0: java.sql.Connection;
+
+        r2 := @parameter1: java.lang.String;
+
+        r3 := @parameter2: java.lang.String;
+
+        $r6 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore: org.slf4j.Logger getLog()>();
+
+        $r7 = new java.lang.StringBuilder;
+
+        specialinvoke $r7.<java.lang.StringBuilder: void <init>()>();
+
+        $r8 = virtualinvoke $r7.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Inserting new lock row for lock: \'");
+
+        $r9 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r2);
+
+        $r10 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("\' being obtained by thread: ");
+
+        $r11 = staticinvoke <java.lang.Thread: java.lang.Thread currentThread()>();
+
+        $r12 = virtualinvoke $r11.<java.lang.Thread: java.lang.String getName()>();
+
+        $r13 = virtualinvoke $r10.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r12);
+
+        $r14 = virtualinvoke $r13.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r6.<org.slf4j.Logger: void debug(java.lang.String)>($r14);
+
+        r4 = interfaceinvoke r1.<java.sql.Connection: java.sql.PreparedStatement prepareStatement(java.lang.String)>(r3);
+
+     label1:
+        interfaceinvoke r4.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(1, r2);
+
+        $i0 = interfaceinvoke r4.<java.sql.PreparedStatement: int executeUpdate()>();
+
+        if $i0 == 1 goto label2;
+
+        $r15 = new java.sql.SQLException;
+
+        $r16 = new java.lang.StringBuilder;
+
+        specialinvoke $r16.<java.lang.StringBuilder: void <init>()>();
+
+        $r17 = virtualinvoke $r16.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("No row exists, and one could not be inserted in table {0}LOCKS for lock named: ");
+
+        $r18 = virtualinvoke $r17.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r2);
+
+        $r19 = virtualinvoke $r18.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        $r20 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore: java.lang.String getTablePrefix()>();
+
+        $r21 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore: java.lang.String getSchedulerNameLiteral()>();
+
+        $r22 = staticinvoke <org.quartz.impl.jdbcjobstore.Util: java.lang.String rtp(java.lang.String,java.lang.String,java.lang.String)>($r19, $r20, $r21);
+
+        specialinvoke $r15.<java.sql.SQLException: void <init>(java.lang.String)>($r22);
+
+        throw $r15;
+
+     label2:
+        interfaceinvoke r4.<java.sql.PreparedStatement: void close()>();
+
+        goto label5;
+
+     label3:
+        $r23 := @caughtexception;
+
+     label4:
+        interfaceinvoke r4.<java.sql.PreparedStatement: void close()>();
+
+        throw $r23;
+
+     label5:
+        return;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+
+    public static void <clinit>()
+    {
+        <org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore: int RETRY_COUNT> = 2;
+
+        <org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore: java.lang.String INSERT_LOCK> = "INSERT INTO {0}LOCKS(SCHED_NAME, LOCK_NAME) VALUES ({1}, ?)";
+
+        <org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphore: java.lang.String UPDATE_FOR_LOCK> = "UPDATE {0}LOCKS SET LOCK_NAME = LOCK_NAME WHERE SCHED_NAME = {1} AND LOCK_NAME = ? ";
+
+        return;
+    }
+}

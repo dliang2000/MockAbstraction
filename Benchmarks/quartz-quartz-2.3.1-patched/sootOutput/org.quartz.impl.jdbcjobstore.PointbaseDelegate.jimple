@@ -1,0 +1,928 @@
+public class org.quartz.impl.jdbcjobstore.PointbaseDelegate extends org.quartz.impl.jdbcjobstore.StdJDBCDelegate
+{
+
+    public void <init>()
+    {
+        org.quartz.impl.jdbcjobstore.PointbaseDelegate r0;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.PointbaseDelegate;
+
+        specialinvoke r0.<org.quartz.impl.jdbcjobstore.StdJDBCDelegate: void <init>()>();
+
+        return;
+    }
+
+    public int insertJobDetail(java.sql.Connection, org.quartz.JobDetail) throws java.io.IOException, java.sql.SQLException
+    {
+        org.quartz.impl.jdbcjobstore.PointbaseDelegate r0;
+        java.sql.Connection r1;
+        org.quartz.JobDetail r2;
+        java.io.ByteArrayOutputStream r3;
+        int i0, i1;
+        org.quartz.JobDataMap $r6;
+        byte[] $r7, $r9;
+        java.io.ByteArrayInputStream $r8;
+        java.lang.String $r10, $r12, $r14, $r15, $r17;
+        org.quartz.JobKey $r11, $r13;
+        java.lang.Class $r16;
+        boolean $z0, $z1, $z2, $z3;
+        java.lang.Throwable $r18;
+        java.sql.PreparedStatement r19;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.PointbaseDelegate;
+
+        r1 := @parameter0: java.sql.Connection;
+
+        r2 := @parameter1: org.quartz.JobDetail;
+
+        $r6 = interfaceinvoke r2.<org.quartz.JobDetail: org.quartz.JobDataMap getJobDataMap()>();
+
+        r3 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: java.io.ByteArrayOutputStream serializeJobData(org.quartz.JobDataMap)>($r6);
+
+        $r7 = virtualinvoke r3.<java.io.ByteArrayOutputStream: byte[] toByteArray()>();
+
+        i0 = lengthof $r7;
+
+        $r8 = new java.io.ByteArrayInputStream;
+
+        $r9 = virtualinvoke r3.<java.io.ByteArrayOutputStream: byte[] toByteArray()>();
+
+        specialinvoke $r8.<java.io.ByteArrayInputStream: void <init>(byte[])>($r9);
+
+        r19 = null;
+
+     label1:
+        $r10 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: java.lang.String rtp(java.lang.String)>("INSERT INTO {0}JOB_DETAILS (SCHED_NAME, JOB_NAME, JOB_GROUP, DESCRIPTION, JOB_CLASS_NAME, IS_DURABLE, IS_NONCONCURRENT, IS_UPDATE_DATA, REQUESTS_RECOVERY, JOB_DATA)  VALUES({1}, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+        r19 = interfaceinvoke r1.<java.sql.Connection: java.sql.PreparedStatement prepareStatement(java.lang.String)>($r10);
+
+        $r11 = interfaceinvoke r2.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r12 = virtualinvoke $r11.<org.quartz.JobKey: java.lang.String getName()>();
+
+        interfaceinvoke r19.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(1, $r12);
+
+        $r13 = interfaceinvoke r2.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r14 = virtualinvoke $r13.<org.quartz.JobKey: java.lang.String getGroup()>();
+
+        interfaceinvoke r19.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(2, $r14);
+
+        $r15 = interfaceinvoke r2.<org.quartz.JobDetail: java.lang.String getDescription()>();
+
+        interfaceinvoke r19.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(3, $r15);
+
+        $r16 = interfaceinvoke r2.<org.quartz.JobDetail: java.lang.Class getJobClass()>();
+
+        $r17 = virtualinvoke $r16.<java.lang.Class: java.lang.String getName()>();
+
+        interfaceinvoke r19.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(4, $r17);
+
+        $z0 = interfaceinvoke r2.<org.quartz.JobDetail: boolean isDurable()>();
+
+        virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: void setBoolean(java.sql.PreparedStatement,int,boolean)>(r19, 5, $z0);
+
+        $z1 = interfaceinvoke r2.<org.quartz.JobDetail: boolean isConcurrentExectionDisallowed()>();
+
+        virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: void setBoolean(java.sql.PreparedStatement,int,boolean)>(r19, 6, $z1);
+
+        $z2 = interfaceinvoke r2.<org.quartz.JobDetail: boolean isPersistJobDataAfterExecution()>();
+
+        virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: void setBoolean(java.sql.PreparedStatement,int,boolean)>(r19, 7, $z2);
+
+        $z3 = interfaceinvoke r2.<org.quartz.JobDetail: boolean requestsRecovery()>();
+
+        virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: void setBoolean(java.sql.PreparedStatement,int,boolean)>(r19, 8, $z3);
+
+        interfaceinvoke r19.<java.sql.PreparedStatement: void setBinaryStream(int,java.io.InputStream,int)>(9, $r8, i0);
+
+        i1 = interfaceinvoke r19.<java.sql.PreparedStatement: int executeUpdate()>();
+
+     label2:
+        staticinvoke <org.quartz.impl.jdbcjobstore.PointbaseDelegate: void closeStatement(java.sql.Statement)>(r19);
+
+        goto label5;
+
+     label3:
+        $r18 := @caughtexception;
+
+     label4:
+        staticinvoke <org.quartz.impl.jdbcjobstore.PointbaseDelegate: void closeStatement(java.sql.Statement)>(r19);
+
+        throw $r18;
+
+     label5:
+        return i1;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+
+    public int updateJobDetail(java.sql.Connection, org.quartz.JobDetail) throws java.io.IOException, java.sql.SQLException
+    {
+        org.quartz.impl.jdbcjobstore.PointbaseDelegate r0;
+        java.sql.Connection r1;
+        org.quartz.JobDetail r2;
+        java.io.ByteArrayOutputStream r3;
+        int i0, i1;
+        org.quartz.JobDataMap $r6;
+        byte[] $r7, $r9;
+        java.io.ByteArrayInputStream $r8;
+        java.lang.String $r10, $r11, $r13, $r15, $r17;
+        java.lang.Class $r12;
+        boolean $z0, $z1, $z2, $z3;
+        org.quartz.JobKey $r14, $r16;
+        java.lang.Throwable $r18;
+        java.sql.PreparedStatement r19;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.PointbaseDelegate;
+
+        r1 := @parameter0: java.sql.Connection;
+
+        r2 := @parameter1: org.quartz.JobDetail;
+
+        $r6 = interfaceinvoke r2.<org.quartz.JobDetail: org.quartz.JobDataMap getJobDataMap()>();
+
+        r3 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: java.io.ByteArrayOutputStream serializeJobData(org.quartz.JobDataMap)>($r6);
+
+        $r7 = virtualinvoke r3.<java.io.ByteArrayOutputStream: byte[] toByteArray()>();
+
+        i0 = lengthof $r7;
+
+        $r8 = new java.io.ByteArrayInputStream;
+
+        $r9 = virtualinvoke r3.<java.io.ByteArrayOutputStream: byte[] toByteArray()>();
+
+        specialinvoke $r8.<java.io.ByteArrayInputStream: void <init>(byte[])>($r9);
+
+        r19 = null;
+
+     label1:
+        $r10 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: java.lang.String rtp(java.lang.String)>("UPDATE {0}JOB_DETAILS SET DESCRIPTION = ?, JOB_CLASS_NAME = ?, IS_DURABLE = ?, IS_NONCONCURRENT = ?, IS_UPDATE_DATA = ?, REQUESTS_RECOVERY = ?, JOB_DATA = ?  WHERE SCHED_NAME = {1} AND JOB_NAME = ? AND JOB_GROUP = ?");
+
+        r19 = interfaceinvoke r1.<java.sql.Connection: java.sql.PreparedStatement prepareStatement(java.lang.String)>($r10);
+
+        $r11 = interfaceinvoke r2.<org.quartz.JobDetail: java.lang.String getDescription()>();
+
+        interfaceinvoke r19.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(1, $r11);
+
+        $r12 = interfaceinvoke r2.<org.quartz.JobDetail: java.lang.Class getJobClass()>();
+
+        $r13 = virtualinvoke $r12.<java.lang.Class: java.lang.String getName()>();
+
+        interfaceinvoke r19.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(2, $r13);
+
+        $z0 = interfaceinvoke r2.<org.quartz.JobDetail: boolean isDurable()>();
+
+        virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: void setBoolean(java.sql.PreparedStatement,int,boolean)>(r19, 3, $z0);
+
+        $z1 = interfaceinvoke r2.<org.quartz.JobDetail: boolean isConcurrentExectionDisallowed()>();
+
+        virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: void setBoolean(java.sql.PreparedStatement,int,boolean)>(r19, 4, $z1);
+
+        $z2 = interfaceinvoke r2.<org.quartz.JobDetail: boolean isPersistJobDataAfterExecution()>();
+
+        virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: void setBoolean(java.sql.PreparedStatement,int,boolean)>(r19, 5, $z2);
+
+        $z3 = interfaceinvoke r2.<org.quartz.JobDetail: boolean requestsRecovery()>();
+
+        virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: void setBoolean(java.sql.PreparedStatement,int,boolean)>(r19, 6, $z3);
+
+        interfaceinvoke r19.<java.sql.PreparedStatement: void setBinaryStream(int,java.io.InputStream,int)>(7, $r8, i0);
+
+        $r14 = interfaceinvoke r2.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r15 = virtualinvoke $r14.<org.quartz.JobKey: java.lang.String getName()>();
+
+        interfaceinvoke r19.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(8, $r15);
+
+        $r16 = interfaceinvoke r2.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r17 = virtualinvoke $r16.<org.quartz.JobKey: java.lang.String getGroup()>();
+
+        interfaceinvoke r19.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(9, $r17);
+
+        i1 = interfaceinvoke r19.<java.sql.PreparedStatement: int executeUpdate()>();
+
+     label2:
+        staticinvoke <org.quartz.impl.jdbcjobstore.PointbaseDelegate: void closeStatement(java.sql.Statement)>(r19);
+
+        goto label5;
+
+     label3:
+        $r18 := @caughtexception;
+
+     label4:
+        staticinvoke <org.quartz.impl.jdbcjobstore.PointbaseDelegate: void closeStatement(java.sql.Statement)>(r19);
+
+        throw $r18;
+
+     label5:
+        return i1;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+
+    public int insertTrigger(java.sql.Connection, org.quartz.spi.OperableTrigger, java.lang.String, org.quartz.JobDetail) throws java.sql.SQLException, java.io.IOException
+    {
+        org.quartz.impl.jdbcjobstore.PointbaseDelegate r0;
+        java.sql.Connection r1;
+        org.quartz.spi.OperableTrigger r2;
+        java.lang.String r3, $r13, $r15, $r17, $r19, $r21, $r22, $r25, $r28, $r31, $r34, $r35, r40;
+        org.quartz.JobDetail r4;
+        java.io.ByteArrayOutputStream r5;
+        int i0, $i3, $i4, i9;
+        org.quartz.impl.jdbcjobstore.TriggerPersistenceDelegate r7;
+        org.quartz.JobDataMap $r9;
+        byte[] $r10, $r12;
+        java.io.ByteArrayInputStream $r11;
+        org.quartz.TriggerKey $r14, $r16;
+        org.quartz.JobKey $r18, $r20;
+        java.math.BigDecimal $r23, $r27, $r29, $r33;
+        java.util.Date $r24, $r26, $r30, $r32, $r36, $r37;
+        long $l1, $l2, l7, l8;
+        java.lang.Throwable $r38;
+        java.sql.PreparedStatement r39;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.PointbaseDelegate;
+
+        r1 := @parameter0: java.sql.Connection;
+
+        r2 := @parameter1: org.quartz.spi.OperableTrigger;
+
+        r3 := @parameter2: java.lang.String;
+
+        r4 := @parameter3: org.quartz.JobDetail;
+
+        $r9 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: org.quartz.JobDataMap getJobDataMap()>();
+
+        r5 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: java.io.ByteArrayOutputStream serializeJobData(org.quartz.JobDataMap)>($r9);
+
+        $r10 = virtualinvoke r5.<java.io.ByteArrayOutputStream: byte[] toByteArray()>();
+
+        i0 = lengthof $r10;
+
+        $r11 = new java.io.ByteArrayInputStream;
+
+        $r12 = virtualinvoke r5.<java.io.ByteArrayOutputStream: byte[] toByteArray()>();
+
+        specialinvoke $r11.<java.io.ByteArrayInputStream: void <init>(byte[])>($r12);
+
+        r39 = null;
+
+     label1:
+        $r13 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: java.lang.String rtp(java.lang.String)>("INSERT INTO {0}TRIGGERS (SCHED_NAME, TRIGGER_NAME, TRIGGER_GROUP, JOB_NAME, JOB_GROUP, DESCRIPTION, NEXT_FIRE_TIME, PREV_FIRE_TIME, TRIGGER_STATE, TRIGGER_TYPE, START_TIME, END_TIME, CALENDAR_NAME, MISFIRE_INSTR, JOB_DATA, PRIORITY)  VALUES({1}, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+        r39 = interfaceinvoke r1.<java.sql.Connection: java.sql.PreparedStatement prepareStatement(java.lang.String)>($r13);
+
+        $r14 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r15 = virtualinvoke $r14.<org.quartz.TriggerKey: java.lang.String getName()>();
+
+        interfaceinvoke r39.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(1, $r15);
+
+        $r16 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r17 = virtualinvoke $r16.<org.quartz.TriggerKey: java.lang.String getGroup()>();
+
+        interfaceinvoke r39.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(2, $r17);
+
+        $r18 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $r19 = virtualinvoke $r18.<org.quartz.JobKey: java.lang.String getName()>();
+
+        interfaceinvoke r39.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(3, $r19);
+
+        $r20 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $r21 = virtualinvoke $r20.<org.quartz.JobKey: java.lang.String getGroup()>();
+
+        interfaceinvoke r39.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(4, $r21);
+
+        $r22 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: java.lang.String getDescription()>();
+
+        interfaceinvoke r39.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(5, $r22);
+
+        $r23 = new java.math.BigDecimal;
+
+        $r24 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: java.util.Date getNextFireTime()>();
+
+        $l1 = virtualinvoke $r24.<java.util.Date: long getTime()>();
+
+        $r25 = staticinvoke <java.lang.String: java.lang.String valueOf(long)>($l1);
+
+        specialinvoke $r23.<java.math.BigDecimal: void <init>(java.lang.String)>($r25);
+
+        interfaceinvoke r39.<java.sql.PreparedStatement: void setBigDecimal(int,java.math.BigDecimal)>(6, $r23);
+
+        l7 = -1L;
+
+        $r26 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: java.util.Date getPreviousFireTime()>();
+
+        if $r26 == null goto label2;
+
+        $r37 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: java.util.Date getPreviousFireTime()>();
+
+        l7 = virtualinvoke $r37.<java.util.Date: long getTime()>();
+
+     label2:
+        $r27 = new java.math.BigDecimal;
+
+        $r28 = staticinvoke <java.lang.String: java.lang.String valueOf(long)>(l7);
+
+        specialinvoke $r27.<java.math.BigDecimal: void <init>(java.lang.String)>($r28);
+
+        interfaceinvoke r39.<java.sql.PreparedStatement: void setBigDecimal(int,java.math.BigDecimal)>(7, $r27);
+
+        interfaceinvoke r39.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(8, r3);
+
+        r7 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: org.quartz.impl.jdbcjobstore.TriggerPersistenceDelegate findTriggerPersistenceDelegate(org.quartz.spi.OperableTrigger)>(r2);
+
+        r40 = "BLOB";
+
+        if r7 == null goto label3;
+
+        r40 = interfaceinvoke r7.<org.quartz.impl.jdbcjobstore.TriggerPersistenceDelegate: java.lang.String getHandledTriggerTypeDiscriminator()>();
+
+     label3:
+        interfaceinvoke r39.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(9, r40);
+
+        $r29 = new java.math.BigDecimal;
+
+        $r30 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: java.util.Date getStartTime()>();
+
+        $l2 = virtualinvoke $r30.<java.util.Date: long getTime()>();
+
+        $r31 = staticinvoke <java.lang.String: java.lang.String valueOf(long)>($l2);
+
+        specialinvoke $r29.<java.math.BigDecimal: void <init>(java.lang.String)>($r31);
+
+        interfaceinvoke r39.<java.sql.PreparedStatement: void setBigDecimal(int,java.math.BigDecimal)>(10, $r29);
+
+        l8 = 0L;
+
+        $r32 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: java.util.Date getEndTime()>();
+
+        if $r32 == null goto label4;
+
+        $r36 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: java.util.Date getEndTime()>();
+
+        l8 = virtualinvoke $r36.<java.util.Date: long getTime()>();
+
+     label4:
+        $r33 = new java.math.BigDecimal;
+
+        $r34 = staticinvoke <java.lang.String: java.lang.String valueOf(long)>(l8);
+
+        specialinvoke $r33.<java.math.BigDecimal: void <init>(java.lang.String)>($r34);
+
+        interfaceinvoke r39.<java.sql.PreparedStatement: void setBigDecimal(int,java.math.BigDecimal)>(11, $r33);
+
+        $r35 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: java.lang.String getCalendarName()>();
+
+        interfaceinvoke r39.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(12, $r35);
+
+        $i3 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: int getMisfireInstruction()>();
+
+        interfaceinvoke r39.<java.sql.PreparedStatement: void setInt(int,int)>(13, $i3);
+
+        interfaceinvoke r39.<java.sql.PreparedStatement: void setBinaryStream(int,java.io.InputStream,int)>(14, $r11, i0);
+
+        $i4 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: int getPriority()>();
+
+        interfaceinvoke r39.<java.sql.PreparedStatement: void setInt(int,int)>(15, $i4);
+
+        i9 = interfaceinvoke r39.<java.sql.PreparedStatement: int executeUpdate()>();
+
+        if r7 != null goto label5;
+
+        virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: int insertBlobTrigger(java.sql.Connection,org.quartz.spi.OperableTrigger)>(r1, r2);
+
+        goto label6;
+
+     label5:
+        interfaceinvoke r7.<org.quartz.impl.jdbcjobstore.TriggerPersistenceDelegate: int insertExtendedTriggerProperties(java.sql.Connection,org.quartz.spi.OperableTrigger,java.lang.String,org.quartz.JobDetail)>(r1, r2, r3, r4);
+
+     label6:
+        staticinvoke <org.quartz.impl.jdbcjobstore.PointbaseDelegate: void closeStatement(java.sql.Statement)>(r39);
+
+        goto label9;
+
+     label7:
+        $r38 := @caughtexception;
+
+     label8:
+        staticinvoke <org.quartz.impl.jdbcjobstore.PointbaseDelegate: void closeStatement(java.sql.Statement)>(r39);
+
+        throw $r38;
+
+     label9:
+        return i9;
+
+        catch java.lang.Throwable from label1 to label6 with label7;
+        catch java.lang.Throwable from label7 to label8 with label7;
+    }
+
+    public int updateTrigger(java.sql.Connection, org.quartz.spi.OperableTrigger, java.lang.String, org.quartz.JobDetail) throws java.sql.SQLException, java.io.IOException
+    {
+        org.quartz.impl.jdbcjobstore.PointbaseDelegate r0;
+        java.sql.Connection r1;
+        org.quartz.spi.OperableTrigger r2;
+        java.lang.String r3, $r13, $r15, $r17, $r18, $r21, $r24, $r27, $r30, $r31, $r33, $r35, r41;
+        org.quartz.JobDetail r4;
+        java.io.ByteArrayOutputStream r5;
+        int i0, $i2, $i3, i9;
+        org.quartz.impl.jdbcjobstore.TriggerPersistenceDelegate r7;
+        org.quartz.JobDataMap $r9;
+        byte[] $r10, $r12;
+        java.io.ByteArrayInputStream $r11;
+        org.quartz.JobKey $r14, $r16;
+        java.util.Date $r19, $r22, $r26, $r28, $r36, $r37, $r38;
+        java.math.BigDecimal $r20, $r23, $r25, $r29;
+        long $l1, l6, l7, l8;
+        org.quartz.TriggerKey $r32, $r34;
+        java.lang.Throwable $r39;
+        java.sql.PreparedStatement r40;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.PointbaseDelegate;
+
+        r1 := @parameter0: java.sql.Connection;
+
+        r2 := @parameter1: org.quartz.spi.OperableTrigger;
+
+        r3 := @parameter2: java.lang.String;
+
+        r4 := @parameter3: org.quartz.JobDetail;
+
+        $r9 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: org.quartz.JobDataMap getJobDataMap()>();
+
+        r5 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: java.io.ByteArrayOutputStream serializeJobData(org.quartz.JobDataMap)>($r9);
+
+        $r10 = virtualinvoke r5.<java.io.ByteArrayOutputStream: byte[] toByteArray()>();
+
+        i0 = lengthof $r10;
+
+        $r11 = new java.io.ByteArrayInputStream;
+
+        $r12 = virtualinvoke r5.<java.io.ByteArrayOutputStream: byte[] toByteArray()>();
+
+        specialinvoke $r11.<java.io.ByteArrayInputStream: void <init>(byte[])>($r12);
+
+        r40 = null;
+
+     label01:
+        $r13 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: java.lang.String rtp(java.lang.String)>("UPDATE {0}TRIGGERS SET JOB_NAME = ?, JOB_GROUP = ?, DESCRIPTION = ?, NEXT_FIRE_TIME = ?, PREV_FIRE_TIME = ?, TRIGGER_STATE = ?, TRIGGER_TYPE = ?, START_TIME = ?, END_TIME = ?, CALENDAR_NAME = ?, MISFIRE_INSTR = ?, PRIORITY = ?, JOB_DATA = ? WHERE SCHED_NAME = {1} AND TRIGGER_NAME = ? AND TRIGGER_GROUP = ?");
+
+        r40 = interfaceinvoke r1.<java.sql.Connection: java.sql.PreparedStatement prepareStatement(java.lang.String)>($r13);
+
+        $r14 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $r15 = virtualinvoke $r14.<org.quartz.JobKey: java.lang.String getName()>();
+
+        interfaceinvoke r40.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(1, $r15);
+
+        $r16 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $r17 = virtualinvoke $r16.<org.quartz.JobKey: java.lang.String getGroup()>();
+
+        interfaceinvoke r40.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(2, $r17);
+
+        $r18 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: java.lang.String getDescription()>();
+
+        interfaceinvoke r40.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(3, $r18);
+
+        l6 = -1L;
+
+        $r19 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: java.util.Date getNextFireTime()>();
+
+        if $r19 == null goto label02;
+
+        $r38 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: java.util.Date getNextFireTime()>();
+
+        l6 = virtualinvoke $r38.<java.util.Date: long getTime()>();
+
+     label02:
+        $r20 = new java.math.BigDecimal;
+
+        $r21 = staticinvoke <java.lang.String: java.lang.String valueOf(long)>(l6);
+
+        specialinvoke $r20.<java.math.BigDecimal: void <init>(java.lang.String)>($r21);
+
+        interfaceinvoke r40.<java.sql.PreparedStatement: void setBigDecimal(int,java.math.BigDecimal)>(4, $r20);
+
+        l7 = -1L;
+
+        $r22 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: java.util.Date getPreviousFireTime()>();
+
+        if $r22 == null goto label03;
+
+        $r37 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: java.util.Date getPreviousFireTime()>();
+
+        l7 = virtualinvoke $r37.<java.util.Date: long getTime()>();
+
+     label03:
+        $r23 = new java.math.BigDecimal;
+
+        $r24 = staticinvoke <java.lang.String: java.lang.String valueOf(long)>(l7);
+
+        specialinvoke $r23.<java.math.BigDecimal: void <init>(java.lang.String)>($r24);
+
+        interfaceinvoke r40.<java.sql.PreparedStatement: void setBigDecimal(int,java.math.BigDecimal)>(5, $r23);
+
+        interfaceinvoke r40.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(6, r3);
+
+        r7 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: org.quartz.impl.jdbcjobstore.TriggerPersistenceDelegate findTriggerPersistenceDelegate(org.quartz.spi.OperableTrigger)>(r2);
+
+        r41 = "BLOB";
+
+        if r7 == null goto label04;
+
+        r41 = interfaceinvoke r7.<org.quartz.impl.jdbcjobstore.TriggerPersistenceDelegate: java.lang.String getHandledTriggerTypeDiscriminator()>();
+
+     label04:
+        interfaceinvoke r40.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(7, r41);
+
+        $r25 = new java.math.BigDecimal;
+
+        $r26 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: java.util.Date getStartTime()>();
+
+        $l1 = virtualinvoke $r26.<java.util.Date: long getTime()>();
+
+        $r27 = staticinvoke <java.lang.String: java.lang.String valueOf(long)>($l1);
+
+        specialinvoke $r25.<java.math.BigDecimal: void <init>(java.lang.String)>($r27);
+
+        interfaceinvoke r40.<java.sql.PreparedStatement: void setBigDecimal(int,java.math.BigDecimal)>(8, $r25);
+
+        l8 = 0L;
+
+        $r28 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: java.util.Date getEndTime()>();
+
+        if $r28 == null goto label05;
+
+        $r36 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: java.util.Date getEndTime()>();
+
+        l8 = virtualinvoke $r36.<java.util.Date: long getTime()>();
+
+     label05:
+        $r29 = new java.math.BigDecimal;
+
+        $r30 = staticinvoke <java.lang.String: java.lang.String valueOf(long)>(l8);
+
+        specialinvoke $r29.<java.math.BigDecimal: void <init>(java.lang.String)>($r30);
+
+        interfaceinvoke r40.<java.sql.PreparedStatement: void setBigDecimal(int,java.math.BigDecimal)>(9, $r29);
+
+        $r31 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: java.lang.String getCalendarName()>();
+
+        interfaceinvoke r40.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(10, $r31);
+
+        $i2 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: int getMisfireInstruction()>();
+
+        interfaceinvoke r40.<java.sql.PreparedStatement: void setInt(int,int)>(11, $i2);
+
+        $i3 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: int getPriority()>();
+
+        interfaceinvoke r40.<java.sql.PreparedStatement: void setInt(int,int)>(12, $i3);
+
+        interfaceinvoke r40.<java.sql.PreparedStatement: void setBinaryStream(int,java.io.InputStream,int)>(13, $r11, i0);
+
+        $r32 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r33 = virtualinvoke $r32.<org.quartz.TriggerKey: java.lang.String getName()>();
+
+        interfaceinvoke r40.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(14, $r33);
+
+        $r34 = interfaceinvoke r2.<org.quartz.spi.OperableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r35 = virtualinvoke $r34.<org.quartz.TriggerKey: java.lang.String getGroup()>();
+
+        interfaceinvoke r40.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(15, $r35);
+
+        i9 = interfaceinvoke r40.<java.sql.PreparedStatement: int executeUpdate()>();
+
+        if r7 != null goto label06;
+
+        virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: int updateBlobTrigger(java.sql.Connection,org.quartz.spi.OperableTrigger)>(r1, r2);
+
+        goto label07;
+
+     label06:
+        interfaceinvoke r7.<org.quartz.impl.jdbcjobstore.TriggerPersistenceDelegate: int updateExtendedTriggerProperties(java.sql.Connection,org.quartz.spi.OperableTrigger,java.lang.String,org.quartz.JobDetail)>(r1, r2, r3, r4);
+
+     label07:
+        staticinvoke <org.quartz.impl.jdbcjobstore.PointbaseDelegate: void closeStatement(java.sql.Statement)>(r40);
+
+        goto label10;
+
+     label08:
+        $r39 := @caughtexception;
+
+     label09:
+        staticinvoke <org.quartz.impl.jdbcjobstore.PointbaseDelegate: void closeStatement(java.sql.Statement)>(r40);
+
+        throw $r39;
+
+     label10:
+        return i9;
+
+        catch java.lang.Throwable from label01 to label07 with label08;
+        catch java.lang.Throwable from label08 to label09 with label08;
+    }
+
+    public int updateJobData(java.sql.Connection, org.quartz.JobDetail) throws java.io.IOException, java.sql.SQLException
+    {
+        org.quartz.impl.jdbcjobstore.PointbaseDelegate r0;
+        java.sql.Connection r1;
+        org.quartz.JobDetail r2;
+        java.io.ByteArrayOutputStream r3;
+        int i0, i1;
+        org.quartz.JobDataMap $r6;
+        byte[] $r7, $r9;
+        java.io.ByteArrayInputStream $r8;
+        java.lang.String $r10, $r12, $r14;
+        org.quartz.JobKey $r11, $r13;
+        java.lang.Throwable $r15;
+        java.sql.PreparedStatement r16;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.PointbaseDelegate;
+
+        r1 := @parameter0: java.sql.Connection;
+
+        r2 := @parameter1: org.quartz.JobDetail;
+
+        $r6 = interfaceinvoke r2.<org.quartz.JobDetail: org.quartz.JobDataMap getJobDataMap()>();
+
+        r3 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: java.io.ByteArrayOutputStream serializeJobData(org.quartz.JobDataMap)>($r6);
+
+        $r7 = virtualinvoke r3.<java.io.ByteArrayOutputStream: byte[] toByteArray()>();
+
+        i0 = lengthof $r7;
+
+        $r8 = new java.io.ByteArrayInputStream;
+
+        $r9 = virtualinvoke r3.<java.io.ByteArrayOutputStream: byte[] toByteArray()>();
+
+        specialinvoke $r8.<java.io.ByteArrayInputStream: void <init>(byte[])>($r9);
+
+        r16 = null;
+
+     label1:
+        $r10 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: java.lang.String rtp(java.lang.String)>("UPDATE {0}JOB_DETAILS SET JOB_DATA = ?  WHERE SCHED_NAME = {1} AND JOB_NAME = ? AND JOB_GROUP = ?");
+
+        r16 = interfaceinvoke r1.<java.sql.Connection: java.sql.PreparedStatement prepareStatement(java.lang.String)>($r10);
+
+        interfaceinvoke r16.<java.sql.PreparedStatement: void setBinaryStream(int,java.io.InputStream,int)>(1, $r8, i0);
+
+        $r11 = interfaceinvoke r2.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r12 = virtualinvoke $r11.<org.quartz.JobKey: java.lang.String getName()>();
+
+        interfaceinvoke r16.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(2, $r12);
+
+        $r13 = interfaceinvoke r2.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r14 = virtualinvoke $r13.<org.quartz.JobKey: java.lang.String getGroup()>();
+
+        interfaceinvoke r16.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(3, $r14);
+
+        i1 = interfaceinvoke r16.<java.sql.PreparedStatement: int executeUpdate()>();
+
+     label2:
+        staticinvoke <org.quartz.impl.jdbcjobstore.PointbaseDelegate: void closeStatement(java.sql.Statement)>(r16);
+
+        return i1;
+
+     label3:
+        $r15 := @caughtexception;
+
+     label4:
+        staticinvoke <org.quartz.impl.jdbcjobstore.PointbaseDelegate: void closeStatement(java.sql.Statement)>(r16);
+
+        throw $r15;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+
+    public int insertCalendar(java.sql.Connection, java.lang.String, org.quartz.Calendar) throws java.io.IOException, java.sql.SQLException
+    {
+        org.quartz.impl.jdbcjobstore.PointbaseDelegate r0;
+        java.sql.Connection r1;
+        java.lang.String r2, $r9;
+        org.quartz.Calendar r3;
+        java.io.ByteArrayOutputStream r4;
+        byte[] r5;
+        int i0, $i1;
+        java.io.ByteArrayInputStream $r8;
+        java.lang.Throwable $r10;
+        java.sql.PreparedStatement r11;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.PointbaseDelegate;
+
+        r1 := @parameter0: java.sql.Connection;
+
+        r2 := @parameter1: java.lang.String;
+
+        r3 := @parameter2: org.quartz.Calendar;
+
+        r4 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: java.io.ByteArrayOutputStream serializeObject(java.lang.Object)>(r3);
+
+        r5 = virtualinvoke r4.<java.io.ByteArrayOutputStream: byte[] toByteArray()>();
+
+        $r8 = new java.io.ByteArrayInputStream;
+
+        specialinvoke $r8.<java.io.ByteArrayInputStream: void <init>(byte[])>(r5);
+
+        r11 = null;
+
+     label1:
+        $r9 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: java.lang.String rtp(java.lang.String)>("INSERT INTO {0}CALENDARS (SCHED_NAME, CALENDAR_NAME, CALENDAR)  VALUES({1}, ?, ?)");
+
+        r11 = interfaceinvoke r1.<java.sql.Connection: java.sql.PreparedStatement prepareStatement(java.lang.String)>($r9);
+
+        interfaceinvoke r11.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(1, r2);
+
+        $i1 = lengthof r5;
+
+        interfaceinvoke r11.<java.sql.PreparedStatement: void setBinaryStream(int,java.io.InputStream,int)>(2, $r8, $i1);
+
+        i0 = interfaceinvoke r11.<java.sql.PreparedStatement: int executeUpdate()>();
+
+     label2:
+        staticinvoke <org.quartz.impl.jdbcjobstore.PointbaseDelegate: void closeStatement(java.sql.Statement)>(r11);
+
+        return i0;
+
+     label3:
+        $r10 := @caughtexception;
+
+     label4:
+        staticinvoke <org.quartz.impl.jdbcjobstore.PointbaseDelegate: void closeStatement(java.sql.Statement)>(r11);
+
+        throw $r10;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+
+    public int updateCalendar(java.sql.Connection, java.lang.String, org.quartz.Calendar) throws java.io.IOException, java.sql.SQLException
+    {
+        org.quartz.impl.jdbcjobstore.PointbaseDelegate r0;
+        java.sql.Connection r1;
+        java.lang.String r2, $r9;
+        org.quartz.Calendar r3;
+        java.io.ByteArrayOutputStream r4;
+        byte[] r5;
+        int i0, $i1;
+        java.io.ByteArrayInputStream $r8;
+        java.lang.Throwable $r10;
+        java.sql.PreparedStatement r11;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.PointbaseDelegate;
+
+        r1 := @parameter0: java.sql.Connection;
+
+        r2 := @parameter1: java.lang.String;
+
+        r3 := @parameter2: org.quartz.Calendar;
+
+        r4 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: java.io.ByteArrayOutputStream serializeObject(java.lang.Object)>(r3);
+
+        r5 = virtualinvoke r4.<java.io.ByteArrayOutputStream: byte[] toByteArray()>();
+
+        $r8 = new java.io.ByteArrayInputStream;
+
+        specialinvoke $r8.<java.io.ByteArrayInputStream: void <init>(byte[])>(r5);
+
+        r11 = null;
+
+     label1:
+        $r9 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: java.lang.String rtp(java.lang.String)>("UPDATE {0}CALENDARS SET CALENDAR = ?  WHERE SCHED_NAME = {1} AND CALENDAR_NAME = ?");
+
+        r11 = interfaceinvoke r1.<java.sql.Connection: java.sql.PreparedStatement prepareStatement(java.lang.String)>($r9);
+
+        $i1 = lengthof r5;
+
+        interfaceinvoke r11.<java.sql.PreparedStatement: void setBinaryStream(int,java.io.InputStream,int)>(1, $r8, $i1);
+
+        interfaceinvoke r11.<java.sql.PreparedStatement: void setString(int,java.lang.String)>(2, r2);
+
+        i0 = interfaceinvoke r11.<java.sql.PreparedStatement: int executeUpdate()>();
+
+     label2:
+        staticinvoke <org.quartz.impl.jdbcjobstore.PointbaseDelegate: void closeStatement(java.sql.Statement)>(r11);
+
+        return i0;
+
+     label3:
+        $r10 := @caughtexception;
+
+     label4:
+        staticinvoke <org.quartz.impl.jdbcjobstore.PointbaseDelegate: void closeStatement(java.sql.Statement)>(r11);
+
+        throw $r10;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+
+    protected java.lang.Object getObjectFromBlob(java.sql.ResultSet, java.lang.String) throws java.lang.ClassNotFoundException, java.io.IOException, java.sql.SQLException
+    {
+        org.quartz.impl.jdbcjobstore.PointbaseDelegate r0;
+        java.sql.ResultSet r1;
+        java.lang.String r2;
+        byte[] r3;
+        java.io.ByteArrayInputStream $r7;
+        int $i0;
+        java.io.ObjectInputStream $r8;
+        java.lang.Throwable $r9;
+        java.lang.Object r10;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.PointbaseDelegate;
+
+        r1 := @parameter0: java.sql.ResultSet;
+
+        r2 := @parameter1: java.lang.String;
+
+        r10 = null;
+
+        r3 = interfaceinvoke r1.<java.sql.ResultSet: byte[] getBytes(java.lang.String)>(r2);
+
+        $r7 = new java.io.ByteArrayInputStream;
+
+        specialinvoke $r7.<java.io.ByteArrayInputStream: void <init>(byte[])>(r3);
+
+        if null == $r7 goto label5;
+
+        $i0 = virtualinvoke $r7.<java.io.InputStream: int available()>();
+
+        if $i0 == 0 goto label5;
+
+        $r8 = new java.io.ObjectInputStream;
+
+        specialinvoke $r8.<java.io.ObjectInputStream: void <init>(java.io.InputStream)>($r7);
+
+     label1:
+        r10 = virtualinvoke $r8.<java.io.ObjectInputStream: java.lang.Object readObject()>();
+
+     label2:
+        virtualinvoke $r8.<java.io.ObjectInputStream: void close()>();
+
+        goto label5;
+
+     label3:
+        $r9 := @caughtexception;
+
+     label4:
+        virtualinvoke $r8.<java.io.ObjectInputStream: void close()>();
+
+        throw $r9;
+
+     label5:
+        return r10;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+
+    protected java.lang.Object getJobDataFromBlob(java.sql.ResultSet, java.lang.String) throws java.lang.ClassNotFoundException, java.io.IOException, java.sql.SQLException
+    {
+        org.quartz.impl.jdbcjobstore.PointbaseDelegate r0;
+        java.sql.ResultSet r1;
+        java.lang.String r2;
+        byte[] r3;
+        boolean $z0;
+        java.lang.Object $r5;
+        java.io.ByteArrayInputStream $r6;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.PointbaseDelegate;
+
+        r1 := @parameter0: java.sql.ResultSet;
+
+        r2 := @parameter1: java.lang.String;
+
+        $z0 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: boolean canUseProperties()>();
+
+        if $z0 == 0 goto label2;
+
+        r3 = interfaceinvoke r1.<java.sql.ResultSet: byte[] getBytes(java.lang.String)>(r2);
+
+        if r3 != null goto label1;
+
+        return null;
+
+     label1:
+        $r6 = new java.io.ByteArrayInputStream;
+
+        specialinvoke $r6.<java.io.ByteArrayInputStream: void <init>(byte[])>(r3);
+
+        return $r6;
+
+     label2:
+        $r5 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.PointbaseDelegate: java.lang.Object getObjectFromBlob(java.sql.ResultSet,java.lang.String)>(r1, r2);
+
+        return $r5;
+    }
+}

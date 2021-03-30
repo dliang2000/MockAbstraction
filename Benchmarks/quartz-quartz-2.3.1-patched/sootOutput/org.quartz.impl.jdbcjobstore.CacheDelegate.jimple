@@ -1,0 +1,194 @@
+public class org.quartz.impl.jdbcjobstore.CacheDelegate extends org.quartz.impl.jdbcjobstore.StdJDBCDelegate
+{
+
+    public void <init>()
+    {
+        org.quartz.impl.jdbcjobstore.CacheDelegate r0;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.CacheDelegate;
+
+        specialinvoke r0.<org.quartz.impl.jdbcjobstore.StdJDBCDelegate: void <init>()>();
+
+        return;
+    }
+
+    protected void setBytes(java.sql.PreparedStatement, int, java.io.ByteArrayOutputStream) throws java.sql.SQLException
+    {
+        org.quartz.impl.jdbcjobstore.CacheDelegate r0;
+        java.sql.PreparedStatement r1;
+        int i0;
+        java.io.ByteArrayOutputStream r2;
+        byte[] $r4;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.CacheDelegate;
+
+        r1 := @parameter0: java.sql.PreparedStatement;
+
+        i0 := @parameter1: int;
+
+        r2 := @parameter2: java.io.ByteArrayOutputStream;
+
+        if r2 != null goto label1;
+
+        $r4 = null;
+
+        goto label2;
+
+     label1:
+        $r4 = virtualinvoke r2.<java.io.ByteArrayOutputStream: byte[] toByteArray()>();
+
+     label2:
+        interfaceinvoke r1.<java.sql.PreparedStatement: void setObject(int,java.lang.Object,int)>(i0, $r4, 2004);
+
+        return;
+    }
+
+    protected java.lang.Object getObjectFromBlob(java.sql.ResultSet, java.lang.String) throws java.lang.ClassNotFoundException, java.io.IOException, java.sql.SQLException
+    {
+        org.quartz.impl.jdbcjobstore.CacheDelegate r0;
+        java.sql.ResultSet r1;
+        java.lang.String r2;
+        java.sql.Blob r3;
+        java.lang.Object r4;
+        long $l0;
+        byte $b1;
+        boolean $z0;
+        java.io.ObjectInputStream $r7;
+        java.io.ByteArrayInputStream $r8;
+        int $i2;
+        java.lang.Throwable $r9, $r10;
+        java.io.InputStream r11;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.CacheDelegate;
+
+        r1 := @parameter0: java.sql.ResultSet;
+
+        r2 := @parameter1: java.lang.String;
+
+        r3 = interfaceinvoke r1.<java.sql.ResultSet: java.sql.Blob getBlob(java.lang.String)>(r2);
+
+        if r3 != null goto label01;
+
+        return null;
+
+     label01:
+        $l0 = interfaceinvoke r3.<java.sql.Blob: long length()>();
+
+        $b1 = $l0 cmp 0L;
+
+        if $b1 != 0 goto label03;
+
+     label02:
+        interfaceinvoke r3.<java.sql.Blob: void free()>();
+
+        return null;
+
+     label03:
+        r11 = interfaceinvoke r3.<java.sql.Blob: java.io.InputStream getBinaryStream()>();
+
+        if r11 != null goto label05;
+
+     label04:
+        interfaceinvoke r3.<java.sql.Blob: void free()>();
+
+        return null;
+
+     label05:
+        $z0 = r11 instanceof java.io.ByteArrayInputStream;
+
+        if $z0 == 0 goto label07;
+
+        $r8 = (java.io.ByteArrayInputStream) r11;
+
+        $i2 = virtualinvoke $r8.<java.io.ByteArrayInputStream: int available()>();
+
+        if $i2 != 0 goto label07;
+
+     label06:
+        interfaceinvoke r3.<java.sql.Blob: void free()>();
+
+        return null;
+
+     label07:
+        $r7 = new java.io.ObjectInputStream;
+
+        specialinvoke $r7.<java.io.ObjectInputStream: void <init>(java.io.InputStream)>(r11);
+
+     label08:
+        r4 = virtualinvoke $r7.<java.io.ObjectInputStream: java.lang.Object readObject()>();
+
+     label09:
+        virtualinvoke $r7.<java.io.ObjectInputStream: void close()>();
+
+     label10:
+        interfaceinvoke r3.<java.sql.Blob: void free()>();
+
+        return r4;
+
+     label11:
+        $r9 := @caughtexception;
+
+     label12:
+        virtualinvoke $r7.<java.io.ObjectInputStream: void close()>();
+
+        throw $r9;
+
+     label13:
+        $r10 := @caughtexception;
+
+     label14:
+        interfaceinvoke r3.<java.sql.Blob: void free()>();
+
+        throw $r10;
+
+        catch java.lang.Throwable from label08 to label09 with label11;
+        catch java.lang.Throwable from label11 to label12 with label11;
+        catch java.lang.Throwable from label01 to label02 with label13;
+        catch java.lang.Throwable from label03 to label04 with label13;
+        catch java.lang.Throwable from label05 to label06 with label13;
+        catch java.lang.Throwable from label07 to label10 with label13;
+        catch java.lang.Throwable from label11 to label14 with label13;
+    }
+
+    protected java.lang.Object getJobDataFromBlob(java.sql.ResultSet, java.lang.String) throws java.lang.ClassNotFoundException, java.io.IOException, java.sql.SQLException
+    {
+        org.quartz.impl.jdbcjobstore.CacheDelegate r0;
+        java.sql.ResultSet r1;
+        java.lang.String r2;
+        java.sql.Blob r3;
+        boolean $z0;
+        java.lang.Object $r4;
+        org.quartz.impl.jdbcjobstore.CacheDelegate$BlobFreeingStream $r5;
+        java.io.InputStream $r6;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.CacheDelegate;
+
+        r1 := @parameter0: java.sql.ResultSet;
+
+        r2 := @parameter1: java.lang.String;
+
+        $z0 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.CacheDelegate: boolean canUseProperties()>();
+
+        if $z0 == 0 goto label2;
+
+        r3 = interfaceinvoke r1.<java.sql.ResultSet: java.sql.Blob getBlob(java.lang.String)>(r2);
+
+        if r3 != null goto label1;
+
+        return null;
+
+     label1:
+        $r5 = new org.quartz.impl.jdbcjobstore.CacheDelegate$BlobFreeingStream;
+
+        $r6 = interfaceinvoke r3.<java.sql.Blob: java.io.InputStream getBinaryStream()>();
+
+        specialinvoke $r5.<org.quartz.impl.jdbcjobstore.CacheDelegate$BlobFreeingStream: void <init>(java.sql.Blob,java.io.InputStream,org.quartz.impl.jdbcjobstore.CacheDelegate$1)>(r3, $r6, null);
+
+        return $r5;
+
+     label2:
+        $r4 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.CacheDelegate: java.lang.Object getObjectFromBlob(java.sql.ResultSet,java.lang.String)>(r1, r2);
+
+        return $r4;
+    }
+}

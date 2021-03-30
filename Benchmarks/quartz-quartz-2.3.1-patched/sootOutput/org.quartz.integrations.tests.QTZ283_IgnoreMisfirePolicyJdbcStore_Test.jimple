@@ -1,0 +1,361 @@
+public class org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test extends java.lang.Object
+{
+    private static final long DURATION_OF_FIRST_SCHEDULING;
+    private static final org.slf4j.Logger LOG;
+    private static final int INTERVAL_IN_SECONDS;
+    private static org.apache.derby.drda.NetworkServerControl derbyServer;
+    private static org.quartz.Scheduler sched;
+
+    public void <init>()
+    {
+        org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test r0;
+
+        r0 := @this: org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test;
+
+        specialinvoke r0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public static void initialize() throws java.lang.Exception
+    {
+        org.quartz.JobDetail r1;
+        java.util.Date r2;
+        org.quartz.SimpleTrigger r3;
+        org.slf4j.Logger $r5, $r10, $r11, $r12, $r35, $r36, $r37, $r54;
+        org.apache.derby.drda.NetworkServerControl $r6, $r9, $r59;
+        java.io.PrintWriter $r7;
+        java.io.PrintStream $r8;
+        java.util.Properties $r13;
+        java.lang.String $r28;
+        org.quartz.impl.StdSchedulerFactory $r33;
+        org.quartz.Scheduler $r34, $r49, $r51, $r53, $r55;
+        org.quartz.JobBuilder $r38, $r39;
+        org.quartz.TriggerBuilder $r40, $r41, $r42, $r47;
+        org.quartz.SimpleScheduleBuilder $r43, $r44, $r45, $r46;
+        org.quartz.Trigger $r48;
+        org.quartz.JobKey $r50;
+        boolean $z0;
+        org.quartz.TriggerKey $r56;
+        java.lang.Exception $r58, $r60, $r63;
+        java.sql.SQLException $r61, $r62;
+        int i0;
+
+        $r5 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.slf4j.Logger LOG>;
+
+        interfaceinvoke $r5.<org.slf4j.Logger: void info(java.lang.String)>("------- Starting Database ---------------------");
+
+        $r6 = new org.apache.derby.drda.NetworkServerControl;
+
+        specialinvoke $r6.<org.apache.derby.drda.NetworkServerControl: void <init>()>();
+
+        <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.apache.derby.drda.NetworkServerControl derbyServer> = $r6;
+
+        $r9 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.apache.derby.drda.NetworkServerControl derbyServer>;
+
+        $r7 = new java.io.PrintWriter;
+
+        $r8 = <java.lang.System: java.io.PrintStream out>;
+
+        specialinvoke $r7.<java.io.PrintWriter: void <init>(java.io.OutputStream)>($r8);
+
+        virtualinvoke $r9.<org.apache.derby.drda.NetworkServerControl: void start(java.io.PrintWriter)>($r7);
+
+        i0 = 0;
+
+     label01:
+        if i0 >= 5 goto label05;
+
+     label02:
+        staticinvoke <java.lang.Thread: void sleep(long)>(500L);
+
+        $r59 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.apache.derby.drda.NetworkServerControl derbyServer>;
+
+        virtualinvoke $r59.<org.apache.derby.drda.NetworkServerControl: void ping()>();
+
+     label03:
+        goto label05;
+
+     label04:
+        $r60 := @caughtexception;
+
+        i0 = i0 + 1;
+
+        goto label01;
+
+     label05:
+        if i0 != 5 goto label06;
+
+        $r58 = new java.lang.Exception;
+
+        specialinvoke $r58.<java.lang.Exception: void <init>(java.lang.String)>("Failed to start Derby!");
+
+        throw $r58;
+
+     label06:
+        $r10 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.slf4j.Logger LOG>;
+
+        interfaceinvoke $r10.<org.slf4j.Logger: void info(java.lang.String)>("------- Database started ---------------------");
+
+     label07:
+        $r11 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.slf4j.Logger LOG>;
+
+        interfaceinvoke $r11.<org.slf4j.Logger: void info(java.lang.String)>("------- Creating Database tables ---------------------");
+
+        staticinvoke <org.quartz.integrations.tests.JdbcQuartzDerbyUtilities: void createDatabase()>();
+
+        $r12 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.slf4j.Logger LOG>;
+
+        interfaceinvoke $r12.<org.slf4j.Logger: void info(java.lang.String)>("------- Database tables created ---------------------");
+
+     label08:
+        goto label10;
+
+     label09:
+        $r61 := @caughtexception;
+
+        virtualinvoke $r61.<java.sql.SQLException: void printStackTrace()>();
+
+        $r62 = virtualinvoke $r61.<java.sql.SQLException: java.sql.SQLException getNextException()>();
+
+        virtualinvoke $r62.<java.sql.SQLException: void printStackTrace()>();
+
+     label10:
+        $r13 = new java.util.Properties;
+
+        specialinvoke $r13.<java.util.Properties: void <init>()>();
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.scheduler.instanceName", "TestScheduler");
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.scheduler.instanceId", "AUTO");
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.scheduler.skipUpdateCheck", "true");
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.threadPool.class", "org.quartz.simpl.SimpleThreadPool");
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.threadPool.threadCount", "12");
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.threadPool.threadPriority", "5");
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.jobStore.misfireThreshold", "10000");
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.jobStore.class", "org.quartz.impl.jdbcjobstore.JobStoreTX");
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.jobStore.driverDelegateClass", "org.quartz.impl.jdbcjobstore.StdJDBCDelegate");
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.jobStore.useProperties", "true");
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.jobStore.dataSource", "myDS");
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.jobStore.tablePrefix", "QRTZ_");
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.jobStore.isClustered", "false");
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.dataSource.myDS.driver", "org.apache.derby.jdbc.ClientDriver");
+
+        $r28 = <org.quartz.integrations.tests.JdbcQuartzDerbyUtilities: java.lang.String DATABASE_CONNECTION_PREFIX>;
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.dataSource.myDS.URL", $r28);
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.dataSource.myDS.user", "quartz");
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.dataSource.myDS.password", "quartz");
+
+        virtualinvoke $r13.<java.util.Properties: java.lang.Object put(java.lang.Object,java.lang.Object)>("org.quartz.dataSource.myDS.maxConnections", "5");
+
+        $r33 = new org.quartz.impl.StdSchedulerFactory;
+
+        specialinvoke $r33.<org.quartz.impl.StdSchedulerFactory: void <init>(java.util.Properties)>($r13);
+
+        $r34 = interfaceinvoke $r33.<org.quartz.SchedulerFactory: org.quartz.Scheduler getScheduler()>();
+
+        <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.quartz.Scheduler sched> = $r34;
+
+        $r35 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.slf4j.Logger LOG>;
+
+        interfaceinvoke $r35.<org.slf4j.Logger: void info(java.lang.String)>("------- Initializing ----------------------");
+
+        $r36 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.slf4j.Logger LOG>;
+
+        interfaceinvoke $r36.<org.slf4j.Logger: void info(java.lang.String)>("------- Initialization Complete -----------");
+
+        $r37 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.slf4j.Logger LOG>;
+
+        interfaceinvoke $r37.<org.slf4j.Logger: void info(java.lang.String)>("------- Scheduling Job  -------------------");
+
+        $r38 = staticinvoke <org.quartz.JobBuilder: org.quartz.JobBuilder newJob(java.lang.Class)>(class "Lorg/quartz/integrations/tests/HelloJob;");
+
+        $r39 = virtualinvoke $r38.<org.quartz.JobBuilder: org.quartz.JobBuilder withIdentity(java.lang.String,java.lang.String)>("job1", "group1");
+
+        r1 = virtualinvoke $r39.<org.quartz.JobBuilder: org.quartz.JobDetail build()>();
+
+        r2 = staticinvoke <org.quartz.DateBuilder: java.util.Date evenMinuteDateBefore(java.util.Date)>(null);
+
+        $r40 = staticinvoke <org.quartz.TriggerBuilder: org.quartz.TriggerBuilder newTrigger()>();
+
+        $r41 = virtualinvoke $r40.<org.quartz.TriggerBuilder: org.quartz.TriggerBuilder withIdentity(java.lang.String,java.lang.String)>("trigger1", "group1");
+
+        $r42 = virtualinvoke $r41.<org.quartz.TriggerBuilder: org.quartz.TriggerBuilder startAt(java.util.Date)>(r2);
+
+        $r43 = staticinvoke <org.quartz.SimpleScheduleBuilder: org.quartz.SimpleScheduleBuilder simpleSchedule()>();
+
+        $r44 = virtualinvoke $r43.<org.quartz.SimpleScheduleBuilder: org.quartz.SimpleScheduleBuilder withIntervalInSeconds(int)>(5);
+
+        $r45 = virtualinvoke $r44.<org.quartz.SimpleScheduleBuilder: org.quartz.SimpleScheduleBuilder repeatForever()>();
+
+        $r46 = virtualinvoke $r45.<org.quartz.SimpleScheduleBuilder: org.quartz.SimpleScheduleBuilder withMisfireHandlingInstructionIgnoreMisfires()>();
+
+        $r47 = virtualinvoke $r42.<org.quartz.TriggerBuilder: org.quartz.TriggerBuilder withSchedule(org.quartz.ScheduleBuilder)>($r46);
+
+        $r48 = virtualinvoke $r47.<org.quartz.TriggerBuilder: org.quartz.Trigger build()>();
+
+        r3 = (org.quartz.SimpleTrigger) $r48;
+
+        $r49 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.quartz.Scheduler sched>;
+
+        $r50 = interfaceinvoke r1.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $z0 = interfaceinvoke $r49.<org.quartz.Scheduler: boolean checkExists(org.quartz.JobKey)>($r50);
+
+        if $z0 == 0 goto label11;
+
+        $r55 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.quartz.Scheduler sched>;
+
+        $r56 = interfaceinvoke r3.<org.quartz.SimpleTrigger: org.quartz.TriggerKey getKey()>();
+
+        interfaceinvoke $r55.<org.quartz.Scheduler: java.util.Date rescheduleJob(org.quartz.TriggerKey,org.quartz.Trigger)>($r56, r3);
+
+        goto label12;
+
+     label11:
+        $r51 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.quartz.Scheduler sched>;
+
+        interfaceinvoke $r51.<org.quartz.Scheduler: java.util.Date scheduleJob(org.quartz.JobDetail,org.quartz.Trigger)>(r1, r3);
+
+     label12:
+        $r53 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.quartz.Scheduler sched>;
+
+        interfaceinvoke $r53.<org.quartz.Scheduler: void start()>();
+
+        $r54 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.slf4j.Logger LOG>;
+
+        interfaceinvoke $r54.<org.slf4j.Logger: void info(java.lang.String)>("------- Scheduler Started -----------------");
+
+     label13:
+        staticinvoke <java.lang.Thread: void sleep(long)>(10000L);
+
+     label14:
+        goto label16;
+
+     label15:
+        $r63 := @caughtexception;
+
+        virtualinvoke $r63.<java.lang.Exception: void printStackTrace()>();
+
+     label16:
+        return;
+
+        catch java.lang.Exception from label02 to label03 with label04;
+        catch java.sql.SQLException from label07 to label08 with label09;
+        catch java.lang.Exception from label13 to label14 with label15;
+    }
+
+    public void checkOldTriggerGetsFired() throws java.sql.SQLException
+    {
+        org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test r0;
+        java.math.BigDecimal r1, $r2;
+        org.hamcrest.Matcher $r3, $r4;
+
+        r0 := @this: org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test;
+
+        r1 = staticinvoke <org.quartz.integrations.tests.JdbcQuartzDerbyUtilities: java.math.BigDecimal timesTriggered(java.lang.String,java.lang.String)>("trigger1", "group1");
+
+        $r2 = <java.math.BigDecimal: java.math.BigDecimal ZERO>;
+
+        $r3 = staticinvoke <org.hamcrest.CoreMatchers: org.hamcrest.Matcher equalTo(java.lang.Object)>($r2);
+
+        $r4 = staticinvoke <org.hamcrest.CoreMatchers: org.hamcrest.Matcher not(org.hamcrest.Matcher)>($r3);
+
+        staticinvoke <org.junit.Assert: void assertThat(java.lang.String,java.lang.Object,org.hamcrest.Matcher)>("The old trigger has never been fired, even if the policy is ignore", r1, $r4);
+
+        return;
+    }
+
+    public static void shutdownDb() throws java.lang.Exception
+    {
+        org.slf4j.Logger $r1, $r3, $r4, $r5, $r7;
+        org.quartz.Scheduler $r2;
+        org.apache.derby.drda.NetworkServerControl $r6;
+        java.sql.SQLException $r8, $r9;
+        java.lang.AssertionError $r10;
+
+        $r1 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.slf4j.Logger LOG>;
+
+        interfaceinvoke $r1.<org.slf4j.Logger: void info(java.lang.String)>("------- Shutting Down Scheduler---------------------");
+
+        $r2 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.quartz.Scheduler sched>;
+
+        interfaceinvoke $r2.<org.quartz.Scheduler: void shutdown(boolean)>(1);
+
+        $r3 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.slf4j.Logger LOG>;
+
+        interfaceinvoke $r3.<org.slf4j.Logger: void info(java.lang.String)>("------- Shutdown Complete -----------------");
+
+     label1:
+        $r4 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.slf4j.Logger LOG>;
+
+        interfaceinvoke $r4.<org.slf4j.Logger: void info(java.lang.String)>("------- Destroying Database ---------------------");
+
+        staticinvoke <org.quartz.integrations.tests.JdbcQuartzDerbyUtilities: void destroyDatabase()>();
+
+        $r5 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.slf4j.Logger LOG>;
+
+        interfaceinvoke $r5.<org.slf4j.Logger: void info(java.lang.String)>("------- Database destroyed ---------------------");
+
+     label2:
+        goto label4;
+
+     label3:
+        $r8 := @caughtexception;
+
+        virtualinvoke $r8.<java.sql.SQLException: void printStackTrace()>();
+
+        $r9 = virtualinvoke $r8.<java.sql.SQLException: java.sql.SQLException getNextException()>();
+
+        virtualinvoke $r9.<java.sql.SQLException: void printStackTrace()>();
+
+        $r10 = new java.lang.AssertionError;
+
+        specialinvoke $r10.<java.lang.AssertionError: void <init>(java.lang.Object)>($r8);
+
+        throw $r10;
+
+     label4:
+        $r6 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.apache.derby.drda.NetworkServerControl derbyServer>;
+
+        virtualinvoke $r6.<org.apache.derby.drda.NetworkServerControl: void shutdown()>();
+
+        $r7 = <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.slf4j.Logger LOG>;
+
+        interfaceinvoke $r7.<org.slf4j.Logger: void info(java.lang.String)>("------- Database shutdown ---------------------");
+
+        return;
+
+        catch java.sql.SQLException from label1 to label2 with label3;
+    }
+
+    static void <clinit>()
+    {
+        org.slf4j.Logger $r0;
+
+        <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: int INTERVAL_IN_SECONDS> = 5;
+
+        <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: long DURATION_OF_FIRST_SCHEDULING> = 10L;
+
+        $r0 = staticinvoke <org.slf4j.LoggerFactory: org.slf4j.Logger getLogger(java.lang.Class)>(class "Lorg/quartz/integrations/tests/QTZ283_IgnoreMisfirePolicyJdbcStore_Test;");
+
+        <org.quartz.integrations.tests.QTZ283_IgnoreMisfirePolicyJdbcStore_Test: org.slf4j.Logger LOG> = $r0;
+
+        return;
+    }
+}

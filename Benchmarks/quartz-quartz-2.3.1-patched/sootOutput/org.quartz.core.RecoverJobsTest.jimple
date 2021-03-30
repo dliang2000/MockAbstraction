@@ -1,0 +1,190 @@
+public class org.quartz.core.RecoverJobsTest extends java.lang.Object
+{
+
+    public void <init>()
+    {
+        org.quartz.core.RecoverJobsTest r0;
+
+        r0 := @this: org.quartz.core.RecoverJobsTest;
+
+        specialinvoke r0.<java.lang.Object: void <init>()>();
+
+        return;
+    }
+
+    public void testRecoveringRepeatJobWhichIsFiredAndMisfiredAtTheSameTime() throws org.quartz.SchedulerException, java.sql.SQLException, java.lang.InterruptedException
+    {
+        org.quartz.core.RecoverJobsTest r0;
+        org.quartz.impl.DirectSchedulerFactory r3;
+        org.quartz.Scheduler r4, r33;
+        java.sql.Connection r5;
+        java.sql.ResultSet r6, r31;
+        org.quartz.impl.jdbcjobstore.JobStoreTX $r9;
+        org.quartz.simpl.SimpleThreadPool $r10, $r25;
+        org.quartz.JobBuilder $r11, $r12;
+        org.quartz.JobDetail $r13;
+        org.quartz.TriggerBuilder $r14, $r15, $r19;
+        org.quartz.SimpleScheduleBuilder $r16, $r17, $r18;
+        org.quartz.Trigger $r20;
+        org.quartz.utils.DBConnectionManager $r22;
+        java.lang.String $r23;
+        long $l0;
+        java.util.concurrent.atomic.AtomicBoolean $r24;
+        org.quartz.ListenerManager $r26;
+        org.quartz.core.RecoverJobsTest$1 $r27;
+        boolean $z2;
+        java.lang.Throwable $r28, $r29;
+        java.sql.Statement r30;
+
+        r0 := @this: org.quartz.core.RecoverJobsTest;
+
+        staticinvoke <org.quartz.impl.jdbcjobstore.JdbcQuartzTestUtilities: void createDatabase(java.lang.String)>("recoverJobsTest");
+
+     label01:
+        $r9 = new org.quartz.impl.jdbcjobstore.JobStoreTX;
+
+        specialinvoke $r9.<org.quartz.impl.jdbcjobstore.JobStoreTX: void <init>()>();
+
+        virtualinvoke $r9.<org.quartz.impl.jdbcjobstore.JobStoreTX: void setDataSource(java.lang.String)>("recoverJobsTest");
+
+        virtualinvoke $r9.<org.quartz.impl.jdbcjobstore.JobStoreTX: void setInstanceId(java.lang.String)>("SINGLE_NODE_TEST");
+
+        virtualinvoke $r9.<org.quartz.impl.jdbcjobstore.JobStoreTX: void setInstanceName(java.lang.String)>("recoverJobsTest");
+
+        virtualinvoke $r9.<org.quartz.impl.jdbcjobstore.JobStoreTX: void setMisfireThreshold(long)>(1000L);
+
+        r3 = staticinvoke <org.quartz.impl.DirectSchedulerFactory: org.quartz.impl.DirectSchedulerFactory getInstance()>();
+
+        $r10 = new org.quartz.simpl.SimpleThreadPool;
+
+        specialinvoke $r10.<org.quartz.simpl.SimpleThreadPool: void <init>(int,int)>(1, 5);
+
+        virtualinvoke r3.<org.quartz.impl.DirectSchedulerFactory: void createScheduler(org.quartz.spi.ThreadPool,org.quartz.spi.JobStore)>($r10, $r9);
+
+        r4 = virtualinvoke r3.<org.quartz.impl.DirectSchedulerFactory: org.quartz.Scheduler getScheduler()>();
+
+        <org.quartz.core.RecoverJobsTest$RecoverJobsTestJob: boolean runForever> = 1;
+
+        $r11 = staticinvoke <org.quartz.JobBuilder: org.quartz.JobBuilder newJob(java.lang.Class)>(class "Lorg/quartz/core/RecoverJobsTest$RecoverJobsTestJob;");
+
+        $r12 = virtualinvoke $r11.<org.quartz.JobBuilder: org.quartz.JobBuilder withIdentity(java.lang.String)>("test");
+
+        $r13 = virtualinvoke $r12.<org.quartz.JobBuilder: org.quartz.JobDetail build()>();
+
+        $r14 = staticinvoke <org.quartz.TriggerBuilder: org.quartz.TriggerBuilder newTrigger()>();
+
+        $r15 = virtualinvoke $r14.<org.quartz.TriggerBuilder: org.quartz.TriggerBuilder withIdentity(java.lang.String)>("test");
+
+        $r16 = staticinvoke <org.quartz.SimpleScheduleBuilder: org.quartz.SimpleScheduleBuilder simpleSchedule()>();
+
+        $r17 = virtualinvoke $r16.<org.quartz.SimpleScheduleBuilder: org.quartz.SimpleScheduleBuilder withIntervalInMilliseconds(long)>(1000L);
+
+        $r18 = virtualinvoke $r17.<org.quartz.SimpleScheduleBuilder: org.quartz.SimpleScheduleBuilder repeatForever()>();
+
+        $r19 = virtualinvoke $r15.<org.quartz.TriggerBuilder: org.quartz.TriggerBuilder withSchedule(org.quartz.ScheduleBuilder)>($r18);
+
+        $r20 = virtualinvoke $r19.<org.quartz.TriggerBuilder: org.quartz.Trigger build()>();
+
+        interfaceinvoke r4.<org.quartz.Scheduler: java.util.Date scheduleJob(org.quartz.JobDetail,org.quartz.Trigger)>($r13, $r20);
+
+        interfaceinvoke r4.<org.quartz.Scheduler: void start()>();
+
+        staticinvoke <java.lang.Thread: void sleep(long)>(2000L);
+
+        interfaceinvoke r4.<org.quartz.Scheduler: void shutdown(boolean)>(0);
+
+        $r22 = staticinvoke <org.quartz.utils.DBConnectionManager: org.quartz.utils.DBConnectionManager getInstance()>();
+
+        r5 = virtualinvoke $r22.<org.quartz.utils.DBConnectionManager: java.sql.Connection getConnection(java.lang.String)>("recoverJobsTest");
+
+     label02:
+        r30 = interfaceinvoke r5.<java.sql.Connection: java.sql.Statement createStatement()>();
+
+        r31 = interfaceinvoke r30.<java.sql.Statement: java.sql.ResultSet executeQuery(java.lang.String)>("SELECT TRIGGER_STATE from QRTZ_TRIGGERS");
+
+        interfaceinvoke r31.<java.sql.ResultSet: boolean next()>();
+
+        $r23 = interfaceinvoke r31.<java.sql.ResultSet: java.lang.String getString(int)>(1);
+
+        staticinvoke <org.junit.Assert: void assertEquals(java.lang.Object,java.lang.Object)>("BLOCKED", $r23);
+
+        r6 = interfaceinvoke r30.<java.sql.Statement: java.sql.ResultSet executeQuery(java.lang.String)>("SELECT count(*) from QRTZ_FIRED_TRIGGERS");
+
+        interfaceinvoke r6.<java.sql.ResultSet: boolean next()>();
+
+        $l0 = interfaceinvoke r6.<java.sql.ResultSet: long getLong(int)>(1);
+
+        staticinvoke <org.junit.Assert: void assertEquals(long,long)>(1L, $l0);
+
+        interfaceinvoke r30.<java.sql.Statement: void close()>();
+
+     label03:
+        interfaceinvoke r5.<java.sql.Connection: void close()>();
+
+        goto label06;
+
+     label04:
+        $r29 := @caughtexception;
+
+     label05:
+        interfaceinvoke r5.<java.sql.Connection: void close()>();
+
+        throw $r29;
+
+     label06:
+        <org.quartz.core.RecoverJobsTest$RecoverJobsTestJob: boolean runForever> = 0;
+
+        staticinvoke <java.lang.Thread: void sleep(long)>(4000L);
+
+        $r24 = new java.util.concurrent.atomic.AtomicBoolean;
+
+        specialinvoke $r24.<java.util.concurrent.atomic.AtomicBoolean: void <init>(boolean)>(0);
+
+        $r25 = new org.quartz.simpl.SimpleThreadPool;
+
+        specialinvoke $r25.<org.quartz.simpl.SimpleThreadPool: void <init>(int,int)>(1, 5);
+
+        virtualinvoke r3.<org.quartz.impl.DirectSchedulerFactory: void createScheduler(org.quartz.spi.ThreadPool,org.quartz.spi.JobStore)>($r25, $r9);
+
+        r33 = virtualinvoke r3.<org.quartz.impl.DirectSchedulerFactory: org.quartz.Scheduler getScheduler()>();
+
+        $r26 = interfaceinvoke r33.<org.quartz.Scheduler: org.quartz.ListenerManager getListenerManager()>();
+
+        $r27 = new org.quartz.core.RecoverJobsTest$1;
+
+        specialinvoke $r27.<org.quartz.core.RecoverJobsTest$1: void <init>(org.quartz.core.RecoverJobsTest,java.util.concurrent.atomic.AtomicBoolean)>(r0, $r24);
+
+        interfaceinvoke $r26.<org.quartz.ListenerManager: void addJobListener(org.quartz.JobListener)>($r27);
+
+        interfaceinvoke r33.<org.quartz.Scheduler: void start()>();
+
+        staticinvoke <java.lang.Thread: void sleep(long)>(2000L);
+
+        interfaceinvoke r33.<org.quartz.Scheduler: void shutdown(boolean)>(1);
+
+        $z2 = virtualinvoke $r24.<java.util.concurrent.atomic.AtomicBoolean: boolean get()>();
+
+        staticinvoke <org.junit.Assert: void assertTrue(boolean)>($z2);
+
+     label07:
+        staticinvoke <org.quartz.impl.jdbcjobstore.JdbcQuartzTestUtilities: void destroyDatabase(java.lang.String)>("recoverJobsTest");
+
+        goto label10;
+
+     label08:
+        $r28 := @caughtexception;
+
+     label09:
+        staticinvoke <org.quartz.impl.jdbcjobstore.JdbcQuartzTestUtilities: void destroyDatabase(java.lang.String)>("recoverJobsTest");
+
+        throw $r28;
+
+     label10:
+        return;
+
+        catch java.lang.Throwable from label02 to label03 with label04;
+        catch java.lang.Throwable from label04 to label05 with label04;
+        catch java.lang.Throwable from label01 to label07 with label08;
+        catch java.lang.Throwable from label08 to label09 with label08;
+    }
+}

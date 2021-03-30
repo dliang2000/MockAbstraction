@@ -1,0 +1,3187 @@
+public class org.quartz.xml.XMLSchedulingDataProcessor extends java.lang.Object implements org.xml.sax.ErrorHandler
+{
+    public static final java.lang.String QUARTZ_NS;
+    public static final java.lang.String QUARTZ_SCHEMA_WEB_URL;
+    public static final java.lang.String QUARTZ_XSD_PATH_IN_JAR;
+    public static final java.lang.String QUARTZ_XML_DEFAULT_FILE_NAME;
+    public static final java.lang.String QUARTZ_SYSTEM_ID_JAR_PREFIX;
+    protected java.util.List jobGroupsToDelete;
+    protected java.util.List triggerGroupsToDelete;
+    protected java.util.List jobsToDelete;
+    protected java.util.List triggersToDelete;
+    protected java.util.List loadedJobs;
+    protected java.util.List loadedTriggers;
+    private boolean overWriteExistingData;
+    private boolean ignoreDuplicates;
+    protected java.util.Collection validationExceptions;
+    protected org.quartz.spi.ClassLoadHelper classLoadHelper;
+    protected java.util.List jobGroupsToNeverDelete;
+    protected java.util.List triggerGroupsToNeverDelete;
+    private javax.xml.parsers.DocumentBuilder docBuilder;
+    private javax.xml.xpath.XPath xpath;
+    private final org.slf4j.Logger log;
+
+    public void <init>(org.quartz.spi.ClassLoadHelper) throws javax.xml.parsers.ParserConfigurationException
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        org.quartz.spi.ClassLoadHelper r1;
+        java.util.LinkedList $r2, $r3, $r4, $r5, $r6, $r7, $r9, $r10;
+        java.util.ArrayList $r8;
+        java.lang.Class $r11;
+        org.slf4j.Logger $r12;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: org.quartz.spi.ClassLoadHelper;
+
+        specialinvoke r0.<java.lang.Object: void <init>()>();
+
+        $r2 = new java.util.LinkedList;
+
+        specialinvoke $r2.<java.util.LinkedList: void <init>()>();
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List jobGroupsToDelete> = $r2;
+
+        $r3 = new java.util.LinkedList;
+
+        specialinvoke $r3.<java.util.LinkedList: void <init>()>();
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List triggerGroupsToDelete> = $r3;
+
+        $r4 = new java.util.LinkedList;
+
+        specialinvoke $r4.<java.util.LinkedList: void <init>()>();
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List jobsToDelete> = $r4;
+
+        $r5 = new java.util.LinkedList;
+
+        specialinvoke $r5.<java.util.LinkedList: void <init>()>();
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List triggersToDelete> = $r5;
+
+        $r6 = new java.util.LinkedList;
+
+        specialinvoke $r6.<java.util.LinkedList: void <init>()>();
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List loadedJobs> = $r6;
+
+        $r7 = new java.util.LinkedList;
+
+        specialinvoke $r7.<java.util.LinkedList: void <init>()>();
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List loadedTriggers> = $r7;
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: boolean overWriteExistingData> = 1;
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: boolean ignoreDuplicates> = 0;
+
+        $r8 = new java.util.ArrayList;
+
+        specialinvoke $r8.<java.util.ArrayList: void <init>()>();
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.Collection validationExceptions> = $r8;
+
+        $r9 = new java.util.LinkedList;
+
+        specialinvoke $r9.<java.util.LinkedList: void <init>()>();
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List jobGroupsToNeverDelete> = $r9;
+
+        $r10 = new java.util.LinkedList;
+
+        specialinvoke $r10.<java.util.LinkedList: void <init>()>();
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List triggerGroupsToNeverDelete> = $r10;
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.parsers.DocumentBuilder docBuilder> = null;
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath> = null;
+
+        $r11 = virtualinvoke r0.<java.lang.Object: java.lang.Class getClass()>();
+
+        $r12 = staticinvoke <org.slf4j.LoggerFactory: org.slf4j.Logger getLogger(java.lang.Class)>($r11);
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log> = $r12;
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.quartz.spi.ClassLoadHelper classLoadHelper> = r1;
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void initDocumentParser()>();
+
+        return;
+    }
+
+    protected void initDocumentParser() throws javax.xml.parsers.ParserConfigurationException
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        javax.xml.parsers.DocumentBuilderFactory r1;
+        java.lang.Object $r3;
+        javax.xml.parsers.DocumentBuilder $r4, $r5;
+        org.quartz.xml.XMLSchedulingDataProcessor$1 $r6;
+        javax.xml.xpath.XPathFactory $r7;
+        javax.xml.xpath.XPath $r8, $r9;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 = staticinvoke <javax.xml.parsers.DocumentBuilderFactory: javax.xml.parsers.DocumentBuilderFactory newInstance()>();
+
+        virtualinvoke r1.<javax.xml.parsers.DocumentBuilderFactory: void setNamespaceAware(boolean)>(1);
+
+        virtualinvoke r1.<javax.xml.parsers.DocumentBuilderFactory: void setValidating(boolean)>(1);
+
+        virtualinvoke r1.<javax.xml.parsers.DocumentBuilderFactory: void setAttribute(java.lang.String,java.lang.Object)>("http://java.sun.com/xml/jaxp/properties/schemaLanguage", "http://www.w3.org/2001/XMLSchema");
+
+        $r3 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.Object resolveSchemaSource()>();
+
+        virtualinvoke r1.<javax.xml.parsers.DocumentBuilderFactory: void setAttribute(java.lang.String,java.lang.Object)>("http://java.sun.com/xml/jaxp/properties/schemaSource", $r3);
+
+        $r4 = virtualinvoke r1.<javax.xml.parsers.DocumentBuilderFactory: javax.xml.parsers.DocumentBuilder newDocumentBuilder()>();
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.parsers.DocumentBuilder docBuilder> = $r4;
+
+        $r5 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.parsers.DocumentBuilder docBuilder>;
+
+        virtualinvoke $r5.<javax.xml.parsers.DocumentBuilder: void setErrorHandler(org.xml.sax.ErrorHandler)>(r0);
+
+        $r6 = new org.quartz.xml.XMLSchedulingDataProcessor$1;
+
+        specialinvoke $r6.<org.quartz.xml.XMLSchedulingDataProcessor$1: void <init>(org.quartz.xml.XMLSchedulingDataProcessor)>(r0);
+
+        $r7 = staticinvoke <javax.xml.xpath.XPathFactory: javax.xml.xpath.XPathFactory newInstance()>();
+
+        $r8 = virtualinvoke $r7.<javax.xml.xpath.XPathFactory: javax.xml.xpath.XPath newXPath()>();
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath> = $r8;
+
+        $r9 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        interfaceinvoke $r9.<javax.xml.xpath.XPath: void setNamespaceContext(javax.xml.namespace.NamespaceContext)>($r6);
+
+        return;
+    }
+
+    protected java.lang.Object resolveSchemaSource()
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        org.quartz.spi.ClassLoadHelper $r2;
+        org.slf4j.Logger $r3, $r5, $r7;
+        org.xml.sax.InputSource $r4;
+        java.lang.Throwable $r6;
+        java.io.InputStream r10;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+     label1:
+        $r2 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.quartz.spi.ClassLoadHelper classLoadHelper>;
+
+        r10 = interfaceinvoke $r2.<org.quartz.spi.ClassLoadHelper: java.io.InputStream getResourceAsStream(java.lang.String)>("org/quartz/xml/job_scheduling_data_2_0.xsd");
+
+     label2:
+        if r10 == null goto label3;
+
+        $r4 = new org.xml.sax.InputSource;
+
+        specialinvoke $r4.<org.xml.sax.InputSource: void <init>(java.io.InputStream)>(r10);
+
+        virtualinvoke $r4.<org.xml.sax.InputSource: void setSystemId(java.lang.String)>("http://www.quartz-scheduler.org/xml/job_scheduling_data_2_0.xsd");
+
+        $r5 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        interfaceinvoke $r5.<org.slf4j.Logger: void debug(java.lang.String)>("Utilizing schema packaged in local quartz distribution jar.");
+
+        goto label6;
+
+     label3:
+        $r3 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        interfaceinvoke $r3.<org.slf4j.Logger: void info(java.lang.String)>("Unable to load local schema packaged in quartz distribution jar. Utilizing schema online at http://www.quartz-scheduler.org/xml/job_scheduling_data_2_0.xsd");
+
+        return "http://www.quartz-scheduler.org/xml/job_scheduling_data_2_0.xsd";
+
+     label4:
+        $r6 := @caughtexception;
+
+        goto label5;
+
+     label5:
+        $r7 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        interfaceinvoke $r7.<org.slf4j.Logger: void info(java.lang.String)>("Unable to load local schema packaged in quartz distribution jar. Utilizing schema online at http://www.quartz-scheduler.org/xml/job_scheduling_data_2_0.xsd");
+
+        return "http://www.quartz-scheduler.org/xml/job_scheduling_data_2_0.xsd";
+
+     label6:
+        return $r4;
+
+        catch java.lang.Throwable from label1 to label2 with label4;
+    }
+
+    public boolean isOverWriteExistingData()
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        boolean $z0;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        $z0 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: boolean overWriteExistingData>;
+
+        return $z0;
+    }
+
+    protected void setOverWriteExistingData(boolean)
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        boolean z0;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        z0 := @parameter0: boolean;
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: boolean overWriteExistingData> = z0;
+
+        return;
+    }
+
+    public boolean isIgnoreDuplicates()
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        boolean $z0;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        $z0 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: boolean ignoreDuplicates>;
+
+        return $z0;
+    }
+
+    public void setIgnoreDuplicates(boolean)
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        boolean z0;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        z0 := @parameter0: boolean;
+
+        r0.<org.quartz.xml.XMLSchedulingDataProcessor: boolean ignoreDuplicates> = z0;
+
+        return;
+    }
+
+    public void addJobGroupToNeverDelete(java.lang.String)
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.lang.String r1;
+        java.util.List $r2;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: java.lang.String;
+
+        if r1 == null goto label1;
+
+        $r2 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List jobGroupsToNeverDelete>;
+
+        interfaceinvoke $r2.<java.util.List: boolean add(java.lang.Object)>(r1);
+
+     label1:
+        return;
+    }
+
+    public boolean removeJobGroupToNeverDelete(java.lang.String)
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.lang.String r1;
+        java.util.List $r2;
+        boolean $z0, $z1;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: java.lang.String;
+
+        if r1 == null goto label1;
+
+        $r2 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List jobGroupsToNeverDelete>;
+
+        $z0 = interfaceinvoke $r2.<java.util.List: boolean remove(java.lang.Object)>(r1);
+
+        if $z0 == 0 goto label1;
+
+        $z1 = 1;
+
+        goto label2;
+
+     label1:
+        $z1 = 0;
+
+     label2:
+        return $z1;
+    }
+
+    public java.util.List getJobGroupsToNeverDelete()
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.util.List $r1, $r2;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        $r1 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List jobGroupsToDelete>;
+
+        $r2 = staticinvoke <java.util.Collections: java.util.List unmodifiableList(java.util.List)>($r1);
+
+        return $r2;
+    }
+
+    public void addTriggerGroupToNeverDelete(java.lang.String)
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.lang.String r1;
+        java.util.List $r2;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: java.lang.String;
+
+        if r1 == null goto label1;
+
+        $r2 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List triggerGroupsToNeverDelete>;
+
+        interfaceinvoke $r2.<java.util.List: boolean add(java.lang.Object)>(r1);
+
+     label1:
+        return;
+    }
+
+    public boolean removeTriggerGroupToNeverDelete(java.lang.String)
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.lang.String r1;
+        java.util.List $r2;
+        boolean $z0;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: java.lang.String;
+
+        if r1 == null goto label1;
+
+        $r2 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List triggerGroupsToNeverDelete>;
+
+        $z0 = interfaceinvoke $r2.<java.util.List: boolean remove(java.lang.Object)>(r1);
+
+        return $z0;
+
+     label1:
+        return 0;
+    }
+
+    public java.util.List getTriggerGroupsToNeverDelete()
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.util.List $r1, $r2;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        $r1 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List triggerGroupsToDelete>;
+
+        $r2 = staticinvoke <java.util.Collections: java.util.List unmodifiableList(java.util.List)>($r1);
+
+        return $r2;
+    }
+
+    protected void processFile() throws java.lang.Exception
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void processFile(java.lang.String)>("quartz_data.xml");
+
+        return;
+    }
+
+    protected void processFile(java.lang.String) throws java.lang.Exception
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.lang.String r1, $r2;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r2 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getSystemIdForFileName(java.lang.String)>(r1);
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void processFile(java.lang.String,java.lang.String)>(r1, $r2);
+
+        return;
+    }
+
+    protected java.lang.String getSystemIdForFileName(java.lang.String)
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.lang.String r1, $r6, $r9;
+        java.io.File $r4;
+        boolean $z0;
+        java.io.InputStream $r5;
+        java.io.FileInputStream $r7;
+        java.net.URI $r8;
+        java.io.IOException $r10, $r11;
+        java.net.URL r13;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r4 = new java.io.File;
+
+        specialinvoke $r4.<java.io.File: void <init>(java.lang.String)>(r1);
+
+        $z0 = virtualinvoke $r4.<java.io.File: boolean exists()>();
+
+        if $z0 == 0 goto label4;
+
+     label1:
+        $r7 = new java.io.FileInputStream;
+
+        specialinvoke $r7.<java.io.FileInputStream: void <init>(java.io.File)>($r4);
+
+        virtualinvoke $r7.<java.io.FileInputStream: void close()>();
+
+        $r8 = virtualinvoke $r4.<java.io.File: java.net.URI toURI()>();
+
+        $r9 = virtualinvoke $r8.<java.net.URI: java.lang.String toString()>();
+
+     label2:
+        return $r9;
+
+     label3:
+        $r11 := @caughtexception;
+
+        return r1;
+
+     label4:
+        r13 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.net.URL getURL(java.lang.String)>(r1);
+
+        if r13 != null goto label5;
+
+        return r1;
+
+     label5:
+        $r5 = virtualinvoke r13.<java.net.URL: java.io.InputStream openStream()>();
+
+        virtualinvoke $r5.<java.io.InputStream: void close()>();
+
+        $r6 = virtualinvoke r13.<java.net.URL: java.lang.String toString()>();
+
+     label6:
+        return $r6;
+
+     label7:
+        $r10 := @caughtexception;
+
+        return r1;
+
+        catch java.io.IOException from label1 to label2 with label3;
+        catch java.io.IOException from label5 to label6 with label7;
+    }
+
+    protected java.net.URL getURL(java.lang.String)
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.lang.String r1;
+        org.quartz.spi.ClassLoadHelper $r2;
+        java.net.URL $r3;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r2 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.quartz.spi.ClassLoadHelper classLoadHelper>;
+
+        $r3 = interfaceinvoke $r2.<org.quartz.spi.ClassLoadHelper: java.net.URL getResource(java.lang.String)>(r1);
+
+        return $r3;
+    }
+
+    protected void prepForProcessing()
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.util.List $r1, $r2, $r3, $r4, $r5, $r6;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void clearValidationExceptions()>();
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void setOverWriteExistingData(boolean)>(1);
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void setIgnoreDuplicates(boolean)>(0);
+
+        $r1 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List jobGroupsToDelete>;
+
+        interfaceinvoke $r1.<java.util.List: void clear()>();
+
+        $r2 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List jobsToDelete>;
+
+        interfaceinvoke $r2.<java.util.List: void clear()>();
+
+        $r3 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List triggerGroupsToDelete>;
+
+        interfaceinvoke $r3.<java.util.List: void clear()>();
+
+        $r4 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List triggersToDelete>;
+
+        interfaceinvoke $r4.<java.util.List: void clear()>();
+
+        $r5 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List loadedJobs>;
+
+        interfaceinvoke $r5.<java.util.List: void clear()>();
+
+        $r6 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List loadedTriggers>;
+
+        interfaceinvoke $r6.<java.util.List: void clear()>();
+
+        return;
+    }
+
+    protected void processFile(java.lang.String, java.lang.String) throws org.quartz.xml.ValidationException, javax.xml.parsers.ParserConfigurationException, org.xml.sax.SAXException, java.io.IOException, org.quartz.SchedulerException, java.lang.ClassNotFoundException, java.text.ParseException, javax.xml.xpath.XPathException
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.lang.String r1, r2, $r10;
+        java.lang.StringBuilder $r4, $r6, $r7, $r8, $r9;
+        org.slf4j.Logger $r5;
+        org.xml.sax.InputSource $r11;
+        java.io.InputStream $r12;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: java.lang.String;
+
+        r2 := @parameter1: java.lang.String;
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void prepForProcessing()>();
+
+        $r5 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r4 = new java.lang.StringBuilder;
+
+        specialinvoke $r4.<java.lang.StringBuilder: void <init>()>();
+
+        $r6 = virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Parsing XML file: ");
+
+        $r7 = virtualinvoke $r6.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r1);
+
+        $r8 = virtualinvoke $r7.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" with systemId: ");
+
+        $r9 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r2);
+
+        $r10 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r5.<org.slf4j.Logger: void info(java.lang.String)>($r10);
+
+        $r11 = new org.xml.sax.InputSource;
+
+        $r12 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.io.InputStream getInputStream(java.lang.String)>(r1);
+
+        specialinvoke $r11.<org.xml.sax.InputSource: void <init>(java.io.InputStream)>($r12);
+
+        virtualinvoke $r11.<org.xml.sax.InputSource: void setSystemId(java.lang.String)>(r2);
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void process(org.xml.sax.InputSource)>($r11);
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void maybeThrowValidationException()>();
+
+        return;
+    }
+
+    public void processStreamAndScheduleJobs(java.io.InputStream, java.lang.String, org.quartz.Scheduler) throws org.quartz.xml.ValidationException, javax.xml.parsers.ParserConfigurationException, org.xml.sax.SAXException, javax.xml.xpath.XPathException, java.io.IOException, org.quartz.SchedulerException, java.lang.ClassNotFoundException, java.text.ParseException
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.io.InputStream r1;
+        java.lang.String r2, $r9;
+        org.quartz.Scheduler r3;
+        java.lang.StringBuilder $r5, $r7, $r8;
+        org.slf4j.Logger $r6;
+        org.xml.sax.InputSource $r10;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: java.io.InputStream;
+
+        r2 := @parameter1: java.lang.String;
+
+        r3 := @parameter2: org.quartz.Scheduler;
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void prepForProcessing()>();
+
+        $r6 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r5 = new java.lang.StringBuilder;
+
+        specialinvoke $r5.<java.lang.StringBuilder: void <init>()>();
+
+        $r7 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Parsing XML from stream with systemId: ");
+
+        $r8 = virtualinvoke $r7.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r2);
+
+        $r9 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r6.<org.slf4j.Logger: void info(java.lang.String)>($r9);
+
+        $r10 = new org.xml.sax.InputSource;
+
+        specialinvoke $r10.<org.xml.sax.InputSource: void <init>(java.io.InputStream)>(r1);
+
+        virtualinvoke $r10.<org.xml.sax.InputSource: void setSystemId(java.lang.String)>(r2);
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void process(org.xml.sax.InputSource)>($r10);
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void executePreProcessCommands(org.quartz.Scheduler)>(r3);
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void scheduleJobs(org.quartz.Scheduler)>(r3);
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void maybeThrowValidationException()>();
+
+        return;
+    }
+
+    protected void process(org.xml.sax.InputSource) throws org.xml.sax.SAXException, java.io.IOException, java.text.ParseException, javax.xml.xpath.XPathException, java.lang.ClassNotFoundException
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        org.xml.sax.InputSource r1;
+        org.w3c.dom.Document r2;
+        org.w3c.dom.NodeList r3, r190, r194, r198, r204, r224, r228, r268;
+        java.util.Date r4, $r146, r241, $r242, $r243;
+        org.quartz.TriggerKey r5, $r175;
+        java.lang.String r6, r7, $r17, $r26, $r35, $r44, $r50, $r56, $r65, $r74, $r86, $r87, $r88, $r92, $r94, $r103, $r113, $r125, $r138, $r159, $r167, $r172, $r183, $r185, r188, r192, r196, r197, r200, r201, r206, r207, r208, r209, r210, r212, r226, r227, r230, r231, r232, r233, r234, r235, r236, r237, r238, r239, r240, r244, r245, r247, r248, r251, r252;
+        javax.xml.parsers.DocumentBuilder $r8;
+        javax.xml.namespace.QName $r9, $r18, $r27, $r36, $r57, $r66, $r222, $r266;
+        javax.xml.xpath.XPath $r10, $r19, $r28, $r37, $r45, $r51, $r58, $r67, $r75, $r76, $r77, $r78, $r79, $r80, $r81, $r82, $r83, $r84, $r85, $r95, $r96, $r104, $r105, $r116, $r117, $r128, $r129, $r149, $r150, $r151, $r152, $r153, $r160, $r161, $r173, $r174, $r178, $r179, $r211, $r221, $r265;
+        java.lang.Object $r11, $r20, $r29, $r38, $r59, $r68, $r223, $r267;
+        java.lang.StringBuilder $r12, $r14, $r15, $r16, $r21, $r23, $r24, $r25, $r30, $r32, $r33, $r34, $r39, $r41, $r42, $r43, $r46, $r48, $r49, $r52, $r54, $r55, $r60, $r62, $r63, $r64, $r69, $r71, $r72, $r73, $r90, $r91, $r93, $r99, $r101, $r102, $r108, $r109, $r110, $r111, $r112, $r120, $r121, $r122, $r123, $r124, $r133, $r134, $r135, $r136, $r137, $r155, $r157, $r158, $r163, $r165, $r166, $r168, $r170, $r171;
+        org.slf4j.Logger $r13, $r22, $r31, $r40, $r47, $r53, $r61, $r70, $r98, $r100, $r154, $r156, $r164, $r169;
+        int $i0, $i1, $i2, $i3, $i4, $i5, $i6, $i7, $i8, $i9, $i10, $i11, $i12, $i13, $i14, $i15, $i20, $i21, i22, i23, i24, i25, i26, $i27, i28, $i29, i30, i31, $i32, i33, i36, i37, $i38;
+        boolean $z0, $z1, $z2, $z3, $z4, $z5, $z6, $z7, $z8, $z9, $z10, $z11, $z12, $z13, $z14, $z15, $z16, $z17, $z18, $z19, $z20, $z21, $z22, $z23, z24, $z25;
+        java.text.ParseException $r89, $r107, $r119, $r132, $r177, $r182;
+        org.quartz.CalendarIntervalScheduleBuilder $r97, $r114, $r115;
+        org.quartz.JobDataMap $r106, $r162;
+        org.quartz.CronScheduleBuilder $r118, $r126, $r127;
+        org.quartz.SimpleScheduleBuilder $r130, $r131, $r139, $r140, $r141, $r142, $r143;
+        java.util.Calendar $r144, $r145;
+        long $l16, $l17, $l18, $l19, $l34;
+        java.lang.Long $r147;
+        java.lang.Integer $r148;
+        java.util.List $r176, $r181, $r184, $r186;
+        org.quartz.JobKey $r180;
+        org.w3c.dom.Node r187, r191, r195, r199, r205, r225, r229, r269;
+        java.lang.Boolean r202, r203;
+        org.quartz.spi.ClassLoadHelper $r213;
+        java.lang.Class r214;
+        org.quartz.JobBuilder $r215, $r216, $r217, $r218, $r219;
+        org.quartz.JobDetail r220;
+        org.quartz.ScheduleBuilder r246;
+        java.util.TimeZone $r249;
+        org.quartz.DateBuilder$IntervalUnit r253;
+        org.quartz.TriggerBuilder $r254, $r255, $r256, $r257, $r258, $r259, $r260, $r261, $r262;
+        org.quartz.Trigger $r263;
+        org.quartz.spi.MutableTrigger r264;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: org.xml.sax.InputSource;
+
+        $r8 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.parsers.DocumentBuilder docBuilder>;
+
+        r2 = virtualinvoke $r8.<javax.xml.parsers.DocumentBuilder: org.w3c.dom.Document parse(org.xml.sax.InputSource)>(r1);
+
+        $r10 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        $r9 = <javax.xml.xpath.XPathConstants: javax.xml.namespace.QName NODESET>;
+
+        $r11 = interfaceinvoke $r10.<javax.xml.xpath.XPath: java.lang.Object evaluate(java.lang.String,java.lang.Object,javax.xml.namespace.QName)>("/q:job-scheduling-data/q:pre-processing-commands/q:delete-jobs-in-group", r2, $r9);
+
+        r3 = (org.w3c.dom.NodeList) $r11;
+
+        $r13 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r12 = new java.lang.StringBuilder;
+
+        specialinvoke $r12.<java.lang.StringBuilder: void <init>()>();
+
+        $r14 = virtualinvoke $r12.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Found ");
+
+        $i0 = interfaceinvoke r3.<org.w3c.dom.NodeList: int getLength()>();
+
+        $r15 = virtualinvoke $r14.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>($i0);
+
+        $r16 = virtualinvoke $r15.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" delete job group commands.");
+
+        $r17 = virtualinvoke $r16.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r13.<org.slf4j.Logger: void debug(java.lang.String)>($r17);
+
+        i22 = 0;
+
+     label01:
+        $i1 = interfaceinvoke r3.<org.w3c.dom.NodeList: int getLength()>();
+
+        if i22 >= $i1 goto label04;
+
+        r187 = interfaceinvoke r3.<org.w3c.dom.NodeList: org.w3c.dom.Node item(int)>(i22);
+
+        r188 = interfaceinvoke r187.<org.w3c.dom.Node: java.lang.String getTextContent()>();
+
+        if r188 == null goto label03;
+
+        $r185 = virtualinvoke r188.<java.lang.String: java.lang.String trim()>();
+
+        $i21 = virtualinvoke $r185.<java.lang.String: int length()>();
+
+        if $i21 != 0 goto label02;
+
+        goto label03;
+
+     label02:
+        $r186 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List jobGroupsToDelete>;
+
+        interfaceinvoke $r186.<java.util.List: boolean add(java.lang.Object)>($r185);
+
+     label03:
+        i22 = i22 + 1;
+
+        goto label01;
+
+     label04:
+        $r19 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        $r18 = <javax.xml.xpath.XPathConstants: javax.xml.namespace.QName NODESET>;
+
+        $r20 = interfaceinvoke $r19.<javax.xml.xpath.XPath: java.lang.Object evaluate(java.lang.String,java.lang.Object,javax.xml.namespace.QName)>("/q:job-scheduling-data/q:pre-processing-commands/q:delete-triggers-in-group", r2, $r18);
+
+        r190 = (org.w3c.dom.NodeList) $r20;
+
+        $r22 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r21 = new java.lang.StringBuilder;
+
+        specialinvoke $r21.<java.lang.StringBuilder: void <init>()>();
+
+        $r23 = virtualinvoke $r21.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Found ");
+
+        $i2 = interfaceinvoke r190.<org.w3c.dom.NodeList: int getLength()>();
+
+        $r24 = virtualinvoke $r23.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>($i2);
+
+        $r25 = virtualinvoke $r24.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" delete trigger group commands.");
+
+        $r26 = virtualinvoke $r25.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r22.<org.slf4j.Logger: void debug(java.lang.String)>($r26);
+
+        i23 = 0;
+
+     label05:
+        $i3 = interfaceinvoke r190.<org.w3c.dom.NodeList: int getLength()>();
+
+        if i23 >= $i3 goto label08;
+
+        r191 = interfaceinvoke r190.<org.w3c.dom.NodeList: org.w3c.dom.Node item(int)>(i23);
+
+        r192 = interfaceinvoke r191.<org.w3c.dom.Node: java.lang.String getTextContent()>();
+
+        if r192 == null goto label07;
+
+        $r183 = virtualinvoke r192.<java.lang.String: java.lang.String trim()>();
+
+        $i20 = virtualinvoke $r183.<java.lang.String: int length()>();
+
+        if $i20 != 0 goto label06;
+
+        goto label07;
+
+     label06:
+        $r184 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List triggerGroupsToDelete>;
+
+        interfaceinvoke $r184.<java.util.List: boolean add(java.lang.Object)>($r183);
+
+     label07:
+        i23 = i23 + 1;
+
+        goto label05;
+
+     label08:
+        $r28 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        $r27 = <javax.xml.xpath.XPathConstants: javax.xml.namespace.QName NODESET>;
+
+        $r29 = interfaceinvoke $r28.<javax.xml.xpath.XPath: java.lang.Object evaluate(java.lang.String,java.lang.Object,javax.xml.namespace.QName)>("/q:job-scheduling-data/q:pre-processing-commands/q:delete-job", r2, $r27);
+
+        r194 = (org.w3c.dom.NodeList) $r29;
+
+        $r31 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r30 = new java.lang.StringBuilder;
+
+        specialinvoke $r30.<java.lang.StringBuilder: void <init>()>();
+
+        $r32 = virtualinvoke $r30.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Found ");
+
+        $i4 = interfaceinvoke r194.<org.w3c.dom.NodeList: int getLength()>();
+
+        $r33 = virtualinvoke $r32.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>($i4);
+
+        $r34 = virtualinvoke $r33.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" delete job commands.");
+
+        $r35 = virtualinvoke $r34.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r31.<org.slf4j.Logger: void debug(java.lang.String)>($r35);
+
+        i24 = 0;
+
+     label09:
+        $i5 = interfaceinvoke r194.<org.w3c.dom.NodeList: int getLength()>();
+
+        if i24 >= $i5 goto label11;
+
+        r195 = interfaceinvoke r194.<org.w3c.dom.NodeList: org.w3c.dom.Node item(int)>(i24);
+
+        $r178 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r196 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r178, "q:name", r195);
+
+        $r179 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r197 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r179, "q:group", r195);
+
+        if r196 != null goto label10;
+
+        $r182 = new java.text.ParseException;
+
+        specialinvoke $r182.<java.text.ParseException: void <init>(java.lang.String,int)>("Encountered a \'delete-job\' command without a name specified.", -1);
+
+        throw $r182;
+
+     label10:
+        $r181 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List jobsToDelete>;
+
+        $r180 = new org.quartz.JobKey;
+
+        specialinvoke $r180.<org.quartz.JobKey: void <init>(java.lang.String,java.lang.String)>(r196, r197);
+
+        interfaceinvoke $r181.<java.util.List: boolean add(java.lang.Object)>($r180);
+
+        i24 = i24 + 1;
+
+        goto label09;
+
+     label11:
+        $r37 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        $r36 = <javax.xml.xpath.XPathConstants: javax.xml.namespace.QName NODESET>;
+
+        $r38 = interfaceinvoke $r37.<javax.xml.xpath.XPath: java.lang.Object evaluate(java.lang.String,java.lang.Object,javax.xml.namespace.QName)>("/q:job-scheduling-data/q:pre-processing-commands/q:delete-trigger", r2, $r36);
+
+        r198 = (org.w3c.dom.NodeList) $r38;
+
+        $r40 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r39 = new java.lang.StringBuilder;
+
+        specialinvoke $r39.<java.lang.StringBuilder: void <init>()>();
+
+        $r41 = virtualinvoke $r39.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Found ");
+
+        $i6 = interfaceinvoke r198.<org.w3c.dom.NodeList: int getLength()>();
+
+        $r42 = virtualinvoke $r41.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>($i6);
+
+        $r43 = virtualinvoke $r42.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" delete trigger commands.");
+
+        $r44 = virtualinvoke $r43.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r40.<org.slf4j.Logger: void debug(java.lang.String)>($r44);
+
+        i25 = 0;
+
+     label12:
+        $i7 = interfaceinvoke r198.<org.w3c.dom.NodeList: int getLength()>();
+
+        if i25 >= $i7 goto label14;
+
+        r199 = interfaceinvoke r198.<org.w3c.dom.NodeList: org.w3c.dom.Node item(int)>(i25);
+
+        $r173 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r200 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r173, "q:name", r199);
+
+        $r174 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r201 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r174, "q:group", r199);
+
+        if r200 != null goto label13;
+
+        $r177 = new java.text.ParseException;
+
+        specialinvoke $r177.<java.text.ParseException: void <init>(java.lang.String,int)>("Encountered a \'delete-trigger\' command without a name specified.", -1);
+
+        throw $r177;
+
+     label13:
+        $r176 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List triggersToDelete>;
+
+        $r175 = new org.quartz.TriggerKey;
+
+        specialinvoke $r175.<org.quartz.TriggerKey: void <init>(java.lang.String,java.lang.String)>(r200, r201);
+
+        interfaceinvoke $r176.<java.util.List: boolean add(java.lang.Object)>($r175);
+
+        i25 = i25 + 1;
+
+        goto label12;
+
+     label14:
+        $r45 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r202 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.Boolean getBoolean(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Document)>($r45, "/q:job-scheduling-data/q:processing-directives/q:overwrite-existing-data", r2);
+
+        if r202 != null goto label15;
+
+        $r169 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r168 = new java.lang.StringBuilder;
+
+        specialinvoke $r168.<java.lang.StringBuilder: void <init>()>();
+
+        $r170 = virtualinvoke $r168.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Directive \'overwrite-existing-data\' not specified, defaulting to ");
+
+        $z22 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: boolean isOverWriteExistingData()>();
+
+        $r171 = virtualinvoke $r170.<java.lang.StringBuilder: java.lang.StringBuilder append(boolean)>($z22);
+
+        $r172 = virtualinvoke $r171.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r169.<org.slf4j.Logger: void debug(java.lang.String)>($r172);
+
+        goto label16;
+
+     label15:
+        $r47 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r46 = new java.lang.StringBuilder;
+
+        specialinvoke $r46.<java.lang.StringBuilder: void <init>()>();
+
+        $r48 = virtualinvoke $r46.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Directive \'overwrite-existing-data\' specified as: ");
+
+        $r49 = virtualinvoke $r48.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>(r202);
+
+        $r50 = virtualinvoke $r49.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r47.<org.slf4j.Logger: void debug(java.lang.String)>($r50);
+
+        $z0 = virtualinvoke r202.<java.lang.Boolean: boolean booleanValue()>();
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void setOverWriteExistingData(boolean)>($z0);
+
+     label16:
+        $r51 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r203 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.Boolean getBoolean(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Document)>($r51, "/q:job-scheduling-data/q:processing-directives/q:ignore-duplicates", r2);
+
+        if r203 != null goto label17;
+
+        $r164 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r163 = new java.lang.StringBuilder;
+
+        specialinvoke $r163.<java.lang.StringBuilder: void <init>()>();
+
+        $r165 = virtualinvoke $r163.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Directive \'ignore-duplicates\' not specified, defaulting to ");
+
+        $z21 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: boolean isIgnoreDuplicates()>();
+
+        $r166 = virtualinvoke $r165.<java.lang.StringBuilder: java.lang.StringBuilder append(boolean)>($z21);
+
+        $r167 = virtualinvoke $r166.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r164.<org.slf4j.Logger: void debug(java.lang.String)>($r167);
+
+        goto label18;
+
+     label17:
+        $r53 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r52 = new java.lang.StringBuilder;
+
+        specialinvoke $r52.<java.lang.StringBuilder: void <init>()>();
+
+        $r54 = virtualinvoke $r52.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Directive \'ignore-duplicates\' specified as: ");
+
+        $r55 = virtualinvoke $r54.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>(r203);
+
+        $r56 = virtualinvoke $r55.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r53.<org.slf4j.Logger: void debug(java.lang.String)>($r56);
+
+        $z1 = virtualinvoke r203.<java.lang.Boolean: boolean booleanValue()>();
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void setIgnoreDuplicates(boolean)>($z1);
+
+     label18:
+        $r58 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        $r57 = <javax.xml.xpath.XPathConstants: javax.xml.namespace.QName NODESET>;
+
+        $r59 = interfaceinvoke $r58.<javax.xml.xpath.XPath: java.lang.Object evaluate(java.lang.String,java.lang.Object,javax.xml.namespace.QName)>("/q:job-scheduling-data/q:schedule/q:job", r2, $r57);
+
+        r204 = (org.w3c.dom.NodeList) $r59;
+
+        $r61 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r60 = new java.lang.StringBuilder;
+
+        specialinvoke $r60.<java.lang.StringBuilder: void <init>()>();
+
+        $r62 = virtualinvoke $r60.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Found ");
+
+        $i8 = interfaceinvoke r204.<org.w3c.dom.NodeList: int getLength()>();
+
+        $r63 = virtualinvoke $r62.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>($i8);
+
+        $r64 = virtualinvoke $r63.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" job definitions.");
+
+        $r65 = virtualinvoke $r64.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r61.<org.slf4j.Logger: void debug(java.lang.String)>($r65);
+
+        i26 = 0;
+
+     label19:
+        $i27 = interfaceinvoke r204.<org.w3c.dom.NodeList: int getLength()>();
+
+        if i26 >= $i27 goto label27;
+
+        r205 = interfaceinvoke r204.<org.w3c.dom.NodeList: org.w3c.dom.Node item(int)>(i26);
+
+        $r149 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r206 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r149, "q:name", r205);
+
+        $r150 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r207 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r150, "q:group", r205);
+
+        $r151 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r208 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r151, "q:description", r205);
+
+        $r152 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r209 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r152, "q:job-class", r205);
+
+        $r153 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r210 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r153, "q:durability", r205);
+
+        if r210 == null goto label20;
+
+        $z20 = virtualinvoke r210.<java.lang.String: boolean equals(java.lang.Object)>("true");
+
+        if $z20 == 0 goto label20;
+
+        $z23 = 1;
+
+        goto label21;
+
+     label20:
+        $z23 = 0;
+
+     label21:
+        z24 = $z23;
+
+        $r211 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r212 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r211, "q:recover", r205);
+
+        if r212 == null goto label22;
+
+        $z19 = virtualinvoke r212.<java.lang.String: boolean equals(java.lang.Object)>("true");
+
+        if $z19 == 0 goto label22;
+
+        $z25 = 1;
+
+        goto label23;
+
+     label22:
+        $z25 = 0;
+
+     label23:
+        $r213 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.quartz.spi.ClassLoadHelper classLoadHelper>;
+
+        r214 = interfaceinvoke $r213.<org.quartz.spi.ClassLoadHelper: java.lang.Class loadClass(java.lang.String,java.lang.Class)>(r209, class "Lorg/quartz/Job;");
+
+        $r215 = staticinvoke <org.quartz.JobBuilder: org.quartz.JobBuilder newJob(java.lang.Class)>(r214);
+
+        $r216 = virtualinvoke $r215.<org.quartz.JobBuilder: org.quartz.JobBuilder withIdentity(java.lang.String,java.lang.String)>(r206, r207);
+
+        $r217 = virtualinvoke $r216.<org.quartz.JobBuilder: org.quartz.JobBuilder withDescription(java.lang.String)>(r208);
+
+        $r218 = virtualinvoke $r217.<org.quartz.JobBuilder: org.quartz.JobBuilder storeDurably(boolean)>(z24);
+
+        $r219 = virtualinvoke $r218.<org.quartz.JobBuilder: org.quartz.JobBuilder requestRecovery(boolean)>($z25);
+
+        r220 = virtualinvoke $r219.<org.quartz.JobBuilder: org.quartz.JobDetail build()>();
+
+        $r221 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        $r222 = <javax.xml.xpath.XPathConstants: javax.xml.namespace.QName NODESET>;
+
+        $r223 = interfaceinvoke $r221.<javax.xml.xpath.XPath: java.lang.Object evaluate(java.lang.String,java.lang.Object,javax.xml.namespace.QName)>("q:job-data-map/q:entry", r205, $r222);
+
+        r224 = (org.w3c.dom.NodeList) $r223;
+
+        i28 = 0;
+
+     label24:
+        $i29 = interfaceinvoke r224.<org.w3c.dom.NodeList: int getLength()>();
+
+        if i28 >= $i29 goto label25;
+
+        r225 = interfaceinvoke r224.<org.w3c.dom.NodeList: org.w3c.dom.Node item(int)>(i28);
+
+        $r160 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r226 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r160, "q:key", r225);
+
+        $r161 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r227 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r161, "q:value", r225);
+
+        $r162 = interfaceinvoke r220.<org.quartz.JobDetail: org.quartz.JobDataMap getJobDataMap()>();
+
+        virtualinvoke $r162.<org.quartz.JobDataMap: void put(java.lang.String,java.lang.String)>(r226, r227);
+
+        i28 = i28 + 1;
+
+        goto label24;
+
+     label25:
+        $r154 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $z18 = interfaceinvoke $r154.<org.slf4j.Logger: boolean isDebugEnabled()>();
+
+        if $z18 == 0 goto label26;
+
+        $r156 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r155 = new java.lang.StringBuilder;
+
+        specialinvoke $r155.<java.lang.StringBuilder: void <init>()>();
+
+        $r157 = virtualinvoke $r155.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Parsed job definition: ");
+
+        $r158 = virtualinvoke $r157.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>(r220);
+
+        $r159 = virtualinvoke $r158.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r156.<org.slf4j.Logger: void debug(java.lang.String)>($r159);
+
+     label26:
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void addJobToSchedule(org.quartz.JobDetail)>(r220);
+
+        i26 = i26 + 1;
+
+        goto label19;
+
+     label27:
+        $r67 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        $r66 = <javax.xml.xpath.XPathConstants: javax.xml.namespace.QName NODESET>;
+
+        $r68 = interfaceinvoke $r67.<javax.xml.xpath.XPath: java.lang.Object evaluate(java.lang.String,java.lang.Object,javax.xml.namespace.QName)>("/q:job-scheduling-data/q:schedule/q:trigger/*", r2, $r66);
+
+        r228 = (org.w3c.dom.NodeList) $r68;
+
+        $r70 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r69 = new java.lang.StringBuilder;
+
+        specialinvoke $r69.<java.lang.StringBuilder: void <init>()>();
+
+        $r71 = virtualinvoke $r69.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Found ");
+
+        $i9 = interfaceinvoke r228.<org.w3c.dom.NodeList: int getLength()>();
+
+        $r72 = virtualinvoke $r71.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>($i9);
+
+        $r73 = virtualinvoke $r72.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" trigger definitions.");
+
+        $r74 = virtualinvoke $r73.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r70.<org.slf4j.Logger: void debug(java.lang.String)>($r74);
+
+        i30 = 0;
+
+     label28:
+        $i10 = interfaceinvoke r228.<org.w3c.dom.NodeList: int getLength()>();
+
+        if i30 >= $i10 goto label66;
+
+        r229 = interfaceinvoke r228.<org.w3c.dom.NodeList: org.w3c.dom.Node item(int)>(i30);
+
+        $r75 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r230 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r75, "q:name", r229);
+
+        $r76 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r231 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r76, "q:group", r229);
+
+        $r77 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r232 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r77, "q:description", r229);
+
+        $r78 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r233 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r78, "q:misfire-instruction", r229);
+
+        $r79 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r234 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r79, "q:priority", r229);
+
+        $r80 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r235 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r80, "q:calendar-name", r229);
+
+        $r81 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r236 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r81, "q:job-name", r229);
+
+        $r82 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r237 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r82, "q:job-group", r229);
+
+        i31 = 5;
+
+        if r234 == null goto label29;
+
+        $r148 = staticinvoke <java.lang.Integer: java.lang.Integer valueOf(java.lang.String)>(r234);
+
+        i31 = virtualinvoke $r148.<java.lang.Integer: int intValue()>();
+
+     label29:
+        $r83 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r238 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r83, "q:start-time", r229);
+
+        $r84 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r239 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r84, "q:start-time-seconds-in-future", r229);
+
+        $r85 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r240 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r85, "q:end-time", r229);
+
+        if r239 == null goto label30;
+
+        $r146 = new java.util.Date;
+
+        $l16 = staticinvoke <java.lang.System: long currentTimeMillis()>();
+
+        $r147 = staticinvoke <java.lang.Long: java.lang.Long valueOf(java.lang.String)>(r239);
+
+        $l17 = virtualinvoke $r147.<java.lang.Long: long longValue()>();
+
+        $l18 = $l17 * 1000L;
+
+        $l19 = $l16 + $l18;
+
+        specialinvoke $r146.<java.util.Date: void <init>(long)>($l19);
+
+        r241 = $r146;
+
+        goto label34;
+
+     label30:
+        if r238 == null goto label31;
+
+        $i15 = virtualinvoke r238.<java.lang.String: int length()>();
+
+        if $i15 != 0 goto label32;
+
+     label31:
+        $r242 = new java.util.Date;
+
+        specialinvoke $r242.<java.util.Date: void <init>()>();
+
+        goto label33;
+
+     label32:
+        $r145 = staticinvoke <javax.xml.bind.DatatypeConverter: java.util.Calendar parseDateTime(java.lang.String)>(r238);
+
+        $r242 = virtualinvoke $r145.<java.util.Calendar: java.util.Date getTime()>();
+
+     label33:
+        r241 = $r242;
+
+     label34:
+        if r240 == null goto label35;
+
+        $i14 = virtualinvoke r240.<java.lang.String: int length()>();
+
+        if $i14 != 0 goto label36;
+
+     label35:
+        $r243 = null;
+
+        goto label37;
+
+     label36:
+        $r144 = staticinvoke <javax.xml.bind.DatatypeConverter: java.util.Calendar parseDateTime(java.lang.String)>(r240);
+
+        $r243 = virtualinvoke $r144.<java.util.Calendar: java.util.Date getTime()>();
+
+     label37:
+        r4 = $r243;
+
+        r5 = staticinvoke <org.quartz.TriggerKey: org.quartz.TriggerKey triggerKey(java.lang.String,java.lang.String)>(r230, r231);
+
+        $r86 = interfaceinvoke r229.<org.w3c.dom.Node: java.lang.String getNodeName()>();
+
+        $z2 = virtualinvoke $r86.<java.lang.String: boolean equals(java.lang.Object)>("simple");
+
+        if $z2 == 0 goto label49;
+
+        $r128 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r244 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r128, "q:repeat-count", r229);
+
+        $r129 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r245 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r129, "q:repeat-interval", r229);
+
+        if r244 != null goto label38;
+
+        $i32 = 0;
+
+        goto label39;
+
+     label38:
+        $i32 = staticinvoke <java.lang.Integer: int parseInt(java.lang.String)>(r244);
+
+     label39:
+        i33 = $i32;
+
+        if r245 != null goto label40;
+
+        $l34 = 0L;
+
+        goto label41;
+
+     label40:
+        $l34 = staticinvoke <java.lang.Long: long parseLong(java.lang.String)>(r245);
+
+     label41:
+        $r130 = staticinvoke <org.quartz.SimpleScheduleBuilder: org.quartz.SimpleScheduleBuilder simpleSchedule()>();
+
+        $r131 = virtualinvoke $r130.<org.quartz.SimpleScheduleBuilder: org.quartz.SimpleScheduleBuilder withIntervalInMilliseconds(long)>($l34);
+
+        r246 = virtualinvoke $r131.<org.quartz.SimpleScheduleBuilder: org.quartz.SimpleScheduleBuilder withRepeatCount(int)>(i33);
+
+        if r233 == null goto label48;
+
+        $i13 = virtualinvoke r233.<java.lang.String: int length()>();
+
+        if $i13 == 0 goto label48;
+
+        $z12 = virtualinvoke r233.<java.lang.String: boolean equals(java.lang.Object)>("MISFIRE_INSTRUCTION_FIRE_NOW");
+
+        if $z12 == 0 goto label42;
+
+        $r143 = (org.quartz.SimpleScheduleBuilder) r246;
+
+        virtualinvoke $r143.<org.quartz.SimpleScheduleBuilder: org.quartz.SimpleScheduleBuilder withMisfireHandlingInstructionFireNow()>();
+
+        goto label48;
+
+     label42:
+        $z13 = virtualinvoke r233.<java.lang.String: boolean equals(java.lang.Object)>("MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_EXISTING_COUNT");
+
+        if $z13 == 0 goto label43;
+
+        $r142 = (org.quartz.SimpleScheduleBuilder) r246;
+
+        virtualinvoke $r142.<org.quartz.SimpleScheduleBuilder: org.quartz.SimpleScheduleBuilder withMisfireHandlingInstructionNextWithExistingCount()>();
+
+        goto label48;
+
+     label43:
+        $z14 = virtualinvoke r233.<java.lang.String: boolean equals(java.lang.Object)>("MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_REMAINING_COUNT");
+
+        if $z14 == 0 goto label44;
+
+        $r141 = (org.quartz.SimpleScheduleBuilder) r246;
+
+        virtualinvoke $r141.<org.quartz.SimpleScheduleBuilder: org.quartz.SimpleScheduleBuilder withMisfireHandlingInstructionNextWithRemainingCount()>();
+
+        goto label48;
+
+     label44:
+        $z15 = virtualinvoke r233.<java.lang.String: boolean equals(java.lang.Object)>("MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_EXISTING_REPEAT_COUNT");
+
+        if $z15 == 0 goto label45;
+
+        $r140 = (org.quartz.SimpleScheduleBuilder) r246;
+
+        virtualinvoke $r140.<org.quartz.SimpleScheduleBuilder: org.quartz.SimpleScheduleBuilder withMisfireHandlingInstructionNowWithExistingCount()>();
+
+        goto label48;
+
+     label45:
+        $z16 = virtualinvoke r233.<java.lang.String: boolean equals(java.lang.Object)>("MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_REMAINING_REPEAT_COUNT");
+
+        if $z16 == 0 goto label46;
+
+        $r139 = (org.quartz.SimpleScheduleBuilder) r246;
+
+        virtualinvoke $r139.<org.quartz.SimpleScheduleBuilder: org.quartz.SimpleScheduleBuilder withMisfireHandlingInstructionNowWithRemainingCount()>();
+
+        goto label48;
+
+     label46:
+        $z17 = virtualinvoke r233.<java.lang.String: boolean equals(java.lang.Object)>("MISFIRE_INSTRUCTION_SMART_POLICY");
+
+        if $z17 == 0 goto label47;
+
+        goto label48;
+
+     label47:
+        $r132 = new java.text.ParseException;
+
+        $r133 = new java.lang.StringBuilder;
+
+        specialinvoke $r133.<java.lang.StringBuilder: void <init>()>();
+
+        $r134 = virtualinvoke $r133.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Unexpected/Unhandlable Misfire Instruction encountered \'");
+
+        $r135 = virtualinvoke $r134.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r233);
+
+        $r136 = virtualinvoke $r135.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("\', for trigger: ");
+
+        $r137 = virtualinvoke $r136.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>(r5);
+
+        $r138 = virtualinvoke $r137.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r132.<java.text.ParseException: void <init>(java.lang.String,int)>($r138, -1);
+
+        throw $r132;
+
+     label48:
+        goto label62;
+
+     label49:
+        $r87 = interfaceinvoke r229.<org.w3c.dom.Node: java.lang.String getNodeName()>();
+
+        $z3 = virtualinvoke $r87.<java.lang.String: boolean equals(java.lang.Object)>("cron");
+
+        if $z3 == 0 goto label56;
+
+        $r116 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r247 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r116, "q:cron-expression", r229);
+
+        $r117 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r248 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r117, "q:time-zone", r229);
+
+        if r248 != null goto label50;
+
+        $r249 = null;
+
+        goto label51;
+
+     label50:
+        $r249 = staticinvoke <java.util.TimeZone: java.util.TimeZone getTimeZone(java.lang.String)>(r248);
+
+     label51:
+        $r118 = staticinvoke <org.quartz.CronScheduleBuilder: org.quartz.CronScheduleBuilder cronSchedule(java.lang.String)>(r247);
+
+        r246 = virtualinvoke $r118.<org.quartz.CronScheduleBuilder: org.quartz.CronScheduleBuilder inTimeZone(java.util.TimeZone)>($r249);
+
+        if r233 == null goto label55;
+
+        $i12 = virtualinvoke r233.<java.lang.String: int length()>();
+
+        if $i12 == 0 goto label55;
+
+        $z9 = virtualinvoke r233.<java.lang.String: boolean equals(java.lang.Object)>("MISFIRE_INSTRUCTION_DO_NOTHING");
+
+        if $z9 == 0 goto label52;
+
+        $r127 = (org.quartz.CronScheduleBuilder) r246;
+
+        virtualinvoke $r127.<org.quartz.CronScheduleBuilder: org.quartz.CronScheduleBuilder withMisfireHandlingInstructionDoNothing()>();
+
+        goto label55;
+
+     label52:
+        $z10 = virtualinvoke r233.<java.lang.String: boolean equals(java.lang.Object)>("MISFIRE_INSTRUCTION_FIRE_ONCE_NOW");
+
+        if $z10 == 0 goto label53;
+
+        $r126 = (org.quartz.CronScheduleBuilder) r246;
+
+        virtualinvoke $r126.<org.quartz.CronScheduleBuilder: org.quartz.CronScheduleBuilder withMisfireHandlingInstructionFireAndProceed()>();
+
+        goto label55;
+
+     label53:
+        $z11 = virtualinvoke r233.<java.lang.String: boolean equals(java.lang.Object)>("MISFIRE_INSTRUCTION_SMART_POLICY");
+
+        if $z11 == 0 goto label54;
+
+        goto label55;
+
+     label54:
+        $r119 = new java.text.ParseException;
+
+        $r120 = new java.lang.StringBuilder;
+
+        specialinvoke $r120.<java.lang.StringBuilder: void <init>()>();
+
+        $r121 = virtualinvoke $r120.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Unexpected/Unhandlable Misfire Instruction encountered \'");
+
+        $r122 = virtualinvoke $r121.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r233);
+
+        $r123 = virtualinvoke $r122.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("\', for trigger: ");
+
+        $r124 = virtualinvoke $r123.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>(r5);
+
+        $r125 = virtualinvoke $r124.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r119.<java.text.ParseException: void <init>(java.lang.String,int)>($r125, -1);
+
+        throw $r119;
+
+     label55:
+        goto label62;
+
+     label56:
+        $r88 = interfaceinvoke r229.<org.w3c.dom.Node: java.lang.String getNodeName()>();
+
+        $z4 = virtualinvoke $r88.<java.lang.String: boolean equals(java.lang.Object)>("calendar-interval");
+
+        if $z4 == 0 goto label61;
+
+        $r95 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r251 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r95, "q:repeat-interval", r229);
+
+        $r96 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r252 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r96, "q:repeat-interval-unit", r229);
+
+        i36 = staticinvoke <java.lang.Integer: int parseInt(java.lang.String)>(r251);
+
+        r253 = staticinvoke <org.quartz.DateBuilder$IntervalUnit: org.quartz.DateBuilder$IntervalUnit valueOf(java.lang.String)>(r252);
+
+        $r97 = staticinvoke <org.quartz.CalendarIntervalScheduleBuilder: org.quartz.CalendarIntervalScheduleBuilder calendarIntervalSchedule()>();
+
+        r246 = virtualinvoke $r97.<org.quartz.CalendarIntervalScheduleBuilder: org.quartz.CalendarIntervalScheduleBuilder withInterval(int,org.quartz.DateBuilder$IntervalUnit)>(i36, r253);
+
+        if r233 == null goto label60;
+
+        $i11 = virtualinvoke r233.<java.lang.String: int length()>();
+
+        if $i11 == 0 goto label60;
+
+        $z6 = virtualinvoke r233.<java.lang.String: boolean equals(java.lang.Object)>("MISFIRE_INSTRUCTION_DO_NOTHING");
+
+        if $z6 == 0 goto label57;
+
+        $r115 = (org.quartz.CalendarIntervalScheduleBuilder) r246;
+
+        virtualinvoke $r115.<org.quartz.CalendarIntervalScheduleBuilder: org.quartz.CalendarIntervalScheduleBuilder withMisfireHandlingInstructionDoNothing()>();
+
+        goto label60;
+
+     label57:
+        $z7 = virtualinvoke r233.<java.lang.String: boolean equals(java.lang.Object)>("MISFIRE_INSTRUCTION_FIRE_ONCE_NOW");
+
+        if $z7 == 0 goto label58;
+
+        $r114 = (org.quartz.CalendarIntervalScheduleBuilder) r246;
+
+        virtualinvoke $r114.<org.quartz.CalendarIntervalScheduleBuilder: org.quartz.CalendarIntervalScheduleBuilder withMisfireHandlingInstructionFireAndProceed()>();
+
+        goto label60;
+
+     label58:
+        $z8 = virtualinvoke r233.<java.lang.String: boolean equals(java.lang.Object)>("MISFIRE_INSTRUCTION_SMART_POLICY");
+
+        if $z8 == 0 goto label59;
+
+        goto label60;
+
+     label59:
+        $r107 = new java.text.ParseException;
+
+        $r108 = new java.lang.StringBuilder;
+
+        specialinvoke $r108.<java.lang.StringBuilder: void <init>()>();
+
+        $r109 = virtualinvoke $r108.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Unexpected/Unhandlable Misfire Instruction encountered \'");
+
+        $r110 = virtualinvoke $r109.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r233);
+
+        $r111 = virtualinvoke $r110.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("\', for trigger: ");
+
+        $r112 = virtualinvoke $r111.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>(r5);
+
+        $r113 = virtualinvoke $r112.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r107.<java.text.ParseException: void <init>(java.lang.String,int)>($r113, -1);
+
+        throw $r107;
+
+     label60:
+        goto label62;
+
+     label61:
+        $r89 = new java.text.ParseException;
+
+        $r90 = new java.lang.StringBuilder;
+
+        specialinvoke $r90.<java.lang.StringBuilder: void <init>()>();
+
+        $r91 = virtualinvoke $r90.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Unknown trigger type: ");
+
+        $r92 = interfaceinvoke r229.<org.w3c.dom.Node: java.lang.String getNodeName()>();
+
+        $r93 = virtualinvoke $r91.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r92);
+
+        $r94 = virtualinvoke $r93.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r89.<java.text.ParseException: void <init>(java.lang.String,int)>($r94, -1);
+
+        throw $r89;
+
+     label62:
+        $r254 = staticinvoke <org.quartz.TriggerBuilder: org.quartz.TriggerBuilder newTrigger()>();
+
+        $r255 = virtualinvoke $r254.<org.quartz.TriggerBuilder: org.quartz.TriggerBuilder withIdentity(java.lang.String,java.lang.String)>(r230, r231);
+
+        $r256 = virtualinvoke $r255.<org.quartz.TriggerBuilder: org.quartz.TriggerBuilder withDescription(java.lang.String)>(r232);
+
+        $r257 = virtualinvoke $r256.<org.quartz.TriggerBuilder: org.quartz.TriggerBuilder forJob(java.lang.String,java.lang.String)>(r236, r237);
+
+        $r258 = virtualinvoke $r257.<org.quartz.TriggerBuilder: org.quartz.TriggerBuilder startAt(java.util.Date)>(r241);
+
+        $r259 = virtualinvoke $r258.<org.quartz.TriggerBuilder: org.quartz.TriggerBuilder endAt(java.util.Date)>(r4);
+
+        $r260 = virtualinvoke $r259.<org.quartz.TriggerBuilder: org.quartz.TriggerBuilder withPriority(int)>(i31);
+
+        $r261 = virtualinvoke $r260.<org.quartz.TriggerBuilder: org.quartz.TriggerBuilder modifiedByCalendar(java.lang.String)>(r235);
+
+        $r262 = virtualinvoke $r261.<org.quartz.TriggerBuilder: org.quartz.TriggerBuilder withSchedule(org.quartz.ScheduleBuilder)>(r246);
+
+        $r263 = virtualinvoke $r262.<org.quartz.TriggerBuilder: org.quartz.Trigger build()>();
+
+        r264 = (org.quartz.spi.MutableTrigger) $r263;
+
+        $r265 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        $r266 = <javax.xml.xpath.XPathConstants: javax.xml.namespace.QName NODESET>;
+
+        $r267 = interfaceinvoke $r265.<javax.xml.xpath.XPath: java.lang.Object evaluate(java.lang.String,java.lang.Object,javax.xml.namespace.QName)>("q:job-data-map/q:entry", r229, $r266);
+
+        r268 = (org.w3c.dom.NodeList) $r267;
+
+        i37 = 0;
+
+     label63:
+        $i38 = interfaceinvoke r268.<org.w3c.dom.NodeList: int getLength()>();
+
+        if i37 >= $i38 goto label64;
+
+        r269 = interfaceinvoke r268.<org.w3c.dom.NodeList: org.w3c.dom.Node item(int)>(i37);
+
+        $r104 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r6 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r104, "q:key", r269);
+
+        $r105 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: javax.xml.xpath.XPath xpath>;
+
+        r7 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath,java.lang.String,org.w3c.dom.Node)>($r105, "q:value", r269);
+
+        $r106 = interfaceinvoke r264.<org.quartz.spi.MutableTrigger: org.quartz.JobDataMap getJobDataMap()>();
+
+        virtualinvoke $r106.<org.quartz.JobDataMap: void put(java.lang.String,java.lang.String)>(r6, r7);
+
+        i37 = i37 + 1;
+
+        goto label63;
+
+     label64:
+        $r98 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $z5 = interfaceinvoke $r98.<org.slf4j.Logger: boolean isDebugEnabled()>();
+
+        if $z5 == 0 goto label65;
+
+        $r100 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r99 = new java.lang.StringBuilder;
+
+        specialinvoke $r99.<java.lang.StringBuilder: void <init>()>();
+
+        $r101 = virtualinvoke $r99.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Parsed trigger definition: ");
+
+        $r102 = virtualinvoke $r101.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>(r264);
+
+        $r103 = virtualinvoke $r102.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r100.<org.slf4j.Logger: void debug(java.lang.String)>($r103);
+
+     label65:
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void addTriggerToSchedule(org.quartz.spi.MutableTrigger)>(r264);
+
+        i30 = i30 + 1;
+
+        goto label28;
+
+     label66:
+        return;
+    }
+
+    protected java.lang.String getTrimmedToNullString(javax.xml.xpath.XPath, java.lang.String, org.w3c.dom.Node) throws javax.xml.xpath.XPathExpressionException
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        javax.xml.xpath.XPath r1;
+        java.lang.String r2, r6;
+        org.w3c.dom.Node r3;
+        javax.xml.namespace.QName $r4;
+        java.lang.Object $r5;
+        int $i0;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: javax.xml.xpath.XPath;
+
+        r2 := @parameter1: java.lang.String;
+
+        r3 := @parameter2: org.w3c.dom.Node;
+
+        $r4 = <javax.xml.xpath.XPathConstants: javax.xml.namespace.QName STRING>;
+
+        $r5 = interfaceinvoke r1.<javax.xml.xpath.XPath: java.lang.Object evaluate(java.lang.String,java.lang.Object,javax.xml.namespace.QName)>(r2, r3, $r4);
+
+        r6 = (java.lang.String) $r5;
+
+        if r6 == null goto label1;
+
+        r6 = virtualinvoke r6.<java.lang.String: java.lang.String trim()>();
+
+     label1:
+        if r6 == null goto label2;
+
+        $i0 = virtualinvoke r6.<java.lang.String: int length()>();
+
+        if $i0 != 0 goto label2;
+
+        r6 = null;
+
+     label2:
+        return r6;
+    }
+
+    protected java.lang.Boolean getBoolean(javax.xml.xpath.XPath, java.lang.String, org.w3c.dom.Document) throws javax.xml.xpath.XPathExpressionException
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        javax.xml.xpath.XPath r1;
+        java.lang.String r2, r5, $r8;
+        org.w3c.dom.Document r3;
+        org.w3c.dom.Node r4;
+        javax.xml.namespace.QName $r6;
+        java.lang.Object $r7;
+        boolean $z0, $z1, $z2;
+        java.lang.Boolean $r9, $r10;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: javax.xml.xpath.XPath;
+
+        r2 := @parameter1: java.lang.String;
+
+        r3 := @parameter2: org.w3c.dom.Document;
+
+        $r6 = <javax.xml.xpath.XPathConstants: javax.xml.namespace.QName NODE>;
+
+        $r7 = interfaceinvoke r1.<javax.xml.xpath.XPath: java.lang.Object evaluate(java.lang.String,java.lang.Object,javax.xml.namespace.QName)>(r2, r3, $r6);
+
+        r4 = (org.w3c.dom.Node) $r7;
+
+        if r4 == null goto label1;
+
+        $r8 = interfaceinvoke r4.<org.w3c.dom.Node: java.lang.String getTextContent()>();
+
+        if $r8 != null goto label2;
+
+     label1:
+        return null;
+
+     label2:
+        r5 = interfaceinvoke r4.<org.w3c.dom.Node: java.lang.String getTextContent()>();
+
+        $z0 = virtualinvoke r5.<java.lang.String: boolean equalsIgnoreCase(java.lang.String)>("true");
+
+        if $z0 != 0 goto label3;
+
+        $z1 = virtualinvoke r5.<java.lang.String: boolean equalsIgnoreCase(java.lang.String)>("yes");
+
+        if $z1 != 0 goto label3;
+
+        $z2 = virtualinvoke r5.<java.lang.String: boolean equalsIgnoreCase(java.lang.String)>("y");
+
+        if $z2 == 0 goto label4;
+
+     label3:
+        $r10 = <java.lang.Boolean: java.lang.Boolean TRUE>;
+
+        return $r10;
+
+     label4:
+        $r9 = <java.lang.Boolean: java.lang.Boolean FALSE>;
+
+        return $r9;
+    }
+
+    public void processFileAndScheduleJobs(org.quartz.Scheduler, boolean) throws java.lang.Exception
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        org.quartz.Scheduler r1;
+        boolean z0;
+        java.lang.String $r3;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: org.quartz.Scheduler;
+
+        z0 := @parameter1: boolean;
+
+        $r3 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getSystemIdForFileName(java.lang.String)>("quartz_data.xml");
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void processFile(java.lang.String,java.lang.String)>("quartz_data.xml", $r3);
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void setOverWriteExistingData(boolean)>(z0);
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void executePreProcessCommands(org.quartz.Scheduler)>(r1);
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void scheduleJobs(org.quartz.Scheduler)>(r1);
+
+        return;
+    }
+
+    public void processFileAndScheduleJobs(java.lang.String, org.quartz.Scheduler) throws java.lang.Exception
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.lang.String r1, $r3;
+        org.quartz.Scheduler r2;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: java.lang.String;
+
+        r2 := @parameter1: org.quartz.Scheduler;
+
+        $r3 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String getSystemIdForFileName(java.lang.String)>(r1);
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void processFileAndScheduleJobs(java.lang.String,java.lang.String,org.quartz.Scheduler)>(r1, $r3, r2);
+
+        return;
+    }
+
+    public void processFileAndScheduleJobs(java.lang.String, java.lang.String, org.quartz.Scheduler) throws java.lang.Exception
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.lang.String r1, r2;
+        org.quartz.Scheduler r3;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: java.lang.String;
+
+        r2 := @parameter1: java.lang.String;
+
+        r3 := @parameter2: org.quartz.Scheduler;
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void processFile(java.lang.String,java.lang.String)>(r1, r2);
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void executePreProcessCommands(org.quartz.Scheduler)>(r3);
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void scheduleJobs(org.quartz.Scheduler)>(r3);
+
+        return;
+    }
+
+    protected java.util.List getLoadedJobs()
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.util.List $r1, $r2;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        $r1 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List loadedJobs>;
+
+        $r2 = staticinvoke <java.util.Collections: java.util.List unmodifiableList(java.util.List)>($r1);
+
+        return $r2;
+    }
+
+    protected java.util.List getLoadedTriggers()
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.util.List $r1, $r2;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        $r1 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List loadedTriggers>;
+
+        $r2 = staticinvoke <java.util.Collections: java.util.List unmodifiableList(java.util.List)>($r1);
+
+        return $r2;
+    }
+
+    protected java.io.InputStream getInputStream(java.lang.String)
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.lang.String r1;
+        org.quartz.spi.ClassLoadHelper $r2;
+        java.io.InputStream $r3;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r2 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.quartz.spi.ClassLoadHelper classLoadHelper>;
+
+        $r3 = interfaceinvoke $r2.<org.quartz.spi.ClassLoadHelper: java.io.InputStream getResourceAsStream(java.lang.String)>(r1);
+
+        return $r3;
+    }
+
+    protected void addJobToSchedule(org.quartz.JobDetail)
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        org.quartz.JobDetail r1;
+        java.util.List $r2;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: org.quartz.JobDetail;
+
+        $r2 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List loadedJobs>;
+
+        interfaceinvoke $r2.<java.util.List: boolean add(java.lang.Object)>(r1);
+
+        return;
+    }
+
+    protected void addTriggerToSchedule(org.quartz.spi.MutableTrigger)
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        org.quartz.spi.MutableTrigger r1;
+        java.util.List $r2;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: org.quartz.spi.MutableTrigger;
+
+        $r2 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List loadedTriggers>;
+
+        interfaceinvoke $r2.<java.util.List: boolean add(java.lang.Object)>(r1);
+
+        return;
+    }
+
+    private java.util.Map buildTriggersByFQJobNameMap(java.util.List)
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.util.List r1, r12;
+        java.util.Iterator r3;
+        org.quartz.spi.MutableTrigger r4;
+        java.util.HashMap $r5;
+        boolean $z0;
+        java.lang.Object $r6, $r8;
+        org.quartz.JobKey $r7, $r10;
+        java.util.LinkedList $r9;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: java.util.List;
+
+        $r5 = new java.util.HashMap;
+
+        specialinvoke $r5.<java.util.HashMap: void <init>()>();
+
+        r3 = interfaceinvoke r1.<java.util.List: java.util.Iterator iterator()>();
+
+     label1:
+        $z0 = interfaceinvoke r3.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label3;
+
+        $r6 = interfaceinvoke r3.<java.util.Iterator: java.lang.Object next()>();
+
+        r4 = (org.quartz.spi.MutableTrigger) $r6;
+
+        $r7 = interfaceinvoke r4.<org.quartz.spi.MutableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $r8 = interfaceinvoke $r5.<java.util.Map: java.lang.Object get(java.lang.Object)>($r7);
+
+        r12 = (java.util.List) $r8;
+
+        if r12 != null goto label2;
+
+        $r9 = new java.util.LinkedList;
+
+        specialinvoke $r9.<java.util.LinkedList: void <init>()>();
+
+        r12 = $r9;
+
+        $r10 = interfaceinvoke r4.<org.quartz.spi.MutableTrigger: org.quartz.JobKey getJobKey()>();
+
+        interfaceinvoke $r5.<java.util.Map: java.lang.Object put(java.lang.Object,java.lang.Object)>($r10, $r9);
+
+     label2:
+        interfaceinvoke r12.<java.util.List: boolean add(java.lang.Object)>(r4);
+
+        goto label1;
+
+     label3:
+        return $r5;
+    }
+
+    protected void executePreProcessCommands(org.quartz.Scheduler) throws org.quartz.SchedulerException
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        org.quartz.Scheduler r1;
+        java.util.List $r2, $r3, $r4, $r5, $r7, $r11, $r15, $r21, $r23, $r28, $r34, $r36;
+        boolean $z0, $z1, $z2, $z3, $z4, $z6, $z8, $z9, $z10, $z12, $z13, $z14, $z16, $z17, $z18, $z20, $z21, $z22;
+        java.lang.Object $r6, $r10, $r14, $r19, $r22, $r26, $r27, $r32, $r35, $r39;
+        java.lang.String $r8, $r12, r41, r43, r49, r51;
+        org.slf4j.Logger $r9, $r13, $r16, $r20, $r29, $r33;
+        org.quartz.impl.matchers.GroupMatcher $r17, $r24, $r30, $r37;
+        java.util.Set $r18, $r25, $r31, $r38;
+        java.util.Iterator r40, r42, r44, r46, r48, r50, r52, r54, r56, r58;
+        org.quartz.JobKey r45, r47, r57;
+        org.quartz.TriggerKey r53, r55, r59;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: org.quartz.Scheduler;
+
+        $r2 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List jobGroupsToDelete>;
+
+        r40 = interfaceinvoke $r2.<java.util.List: java.util.Iterator iterator()>();
+
+     label01:
+        $z0 = interfaceinvoke r40.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label09;
+
+        $r27 = interfaceinvoke r40.<java.util.Iterator: java.lang.Object next()>();
+
+        r41 = (java.lang.String) $r27;
+
+        $z16 = virtualinvoke r41.<java.lang.String: boolean equals(java.lang.Object)>("*");
+
+        if $z16 == 0 goto label06;
+
+        $r33 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        interfaceinvoke $r33.<org.slf4j.Logger: void info(java.lang.String)>("Deleting all jobs in ALL groups.");
+
+        $r34 = interfaceinvoke r1.<org.quartz.Scheduler: java.util.List getJobGroupNames()>();
+
+        r42 = interfaceinvoke $r34.<java.util.List: java.util.Iterator iterator()>();
+
+     label02:
+        $z20 = interfaceinvoke r42.<java.util.Iterator: boolean hasNext()>();
+
+        if $z20 == 0 goto label05;
+
+        $r35 = interfaceinvoke r42.<java.util.Iterator: java.lang.Object next()>();
+
+        r43 = (java.lang.String) $r35;
+
+        $r36 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List jobGroupsToNeverDelete>;
+
+        $z21 = interfaceinvoke $r36.<java.util.List: boolean contains(java.lang.Object)>(r43);
+
+        if $z21 != 0 goto label04;
+
+        $r37 = staticinvoke <org.quartz.impl.matchers.GroupMatcher: org.quartz.impl.matchers.GroupMatcher jobGroupEquals(java.lang.String)>(r43);
+
+        $r38 = interfaceinvoke r1.<org.quartz.Scheduler: java.util.Set getJobKeys(org.quartz.impl.matchers.GroupMatcher)>($r37);
+
+        r44 = interfaceinvoke $r38.<java.util.Set: java.util.Iterator iterator()>();
+
+     label03:
+        $z22 = interfaceinvoke r44.<java.util.Iterator: boolean hasNext()>();
+
+        if $z22 == 0 goto label04;
+
+        $r39 = interfaceinvoke r44.<java.util.Iterator: java.lang.Object next()>();
+
+        r45 = (org.quartz.JobKey) $r39;
+
+        interfaceinvoke r1.<org.quartz.Scheduler: boolean deleteJob(org.quartz.JobKey)>(r45);
+
+        goto label03;
+
+     label04:
+        goto label02;
+
+     label05:
+        goto label08;
+
+     label06:
+        $r28 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List jobGroupsToNeverDelete>;
+
+        $z17 = interfaceinvoke $r28.<java.util.List: boolean contains(java.lang.Object)>(r41);
+
+        if $z17 != 0 goto label08;
+
+        $r29 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        interfaceinvoke $r29.<org.slf4j.Logger: void info(java.lang.String,java.lang.Object)>("Deleting all jobs in group: {}", r41);
+
+        $r30 = staticinvoke <org.quartz.impl.matchers.GroupMatcher: org.quartz.impl.matchers.GroupMatcher jobGroupEquals(java.lang.String)>(r41);
+
+        $r31 = interfaceinvoke r1.<org.quartz.Scheduler: java.util.Set getJobKeys(org.quartz.impl.matchers.GroupMatcher)>($r30);
+
+        r46 = interfaceinvoke $r31.<java.util.Set: java.util.Iterator iterator()>();
+
+     label07:
+        $z18 = interfaceinvoke r46.<java.util.Iterator: boolean hasNext()>();
+
+        if $z18 == 0 goto label08;
+
+        $r32 = interfaceinvoke r46.<java.util.Iterator: java.lang.Object next()>();
+
+        r47 = (org.quartz.JobKey) $r32;
+
+        interfaceinvoke r1.<org.quartz.Scheduler: boolean deleteJob(org.quartz.JobKey)>(r47);
+
+        goto label07;
+
+     label08:
+        goto label01;
+
+     label09:
+        $r3 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List triggerGroupsToDelete>;
+
+        r48 = interfaceinvoke $r3.<java.util.List: java.util.Iterator iterator()>();
+
+     label10:
+        $z1 = interfaceinvoke r48.<java.util.Iterator: boolean hasNext()>();
+
+        if $z1 == 0 goto label18;
+
+        $r14 = interfaceinvoke r48.<java.util.Iterator: java.lang.Object next()>();
+
+        r49 = (java.lang.String) $r14;
+
+        $z8 = virtualinvoke r49.<java.lang.String: boolean equals(java.lang.Object)>("*");
+
+        if $z8 == 0 goto label15;
+
+        $r20 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        interfaceinvoke $r20.<org.slf4j.Logger: void info(java.lang.String)>("Deleting all triggers in ALL groups.");
+
+        $r21 = interfaceinvoke r1.<org.quartz.Scheduler: java.util.List getTriggerGroupNames()>();
+
+        r50 = interfaceinvoke $r21.<java.util.List: java.util.Iterator iterator()>();
+
+     label11:
+        $z12 = interfaceinvoke r50.<java.util.Iterator: boolean hasNext()>();
+
+        if $z12 == 0 goto label14;
+
+        $r22 = interfaceinvoke r50.<java.util.Iterator: java.lang.Object next()>();
+
+        r51 = (java.lang.String) $r22;
+
+        $r23 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List triggerGroupsToNeverDelete>;
+
+        $z13 = interfaceinvoke $r23.<java.util.List: boolean contains(java.lang.Object)>(r51);
+
+        if $z13 != 0 goto label13;
+
+        $r24 = staticinvoke <org.quartz.impl.matchers.GroupMatcher: org.quartz.impl.matchers.GroupMatcher triggerGroupEquals(java.lang.String)>(r51);
+
+        $r25 = interfaceinvoke r1.<org.quartz.Scheduler: java.util.Set getTriggerKeys(org.quartz.impl.matchers.GroupMatcher)>($r24);
+
+        r52 = interfaceinvoke $r25.<java.util.Set: java.util.Iterator iterator()>();
+
+     label12:
+        $z14 = interfaceinvoke r52.<java.util.Iterator: boolean hasNext()>();
+
+        if $z14 == 0 goto label13;
+
+        $r26 = interfaceinvoke r52.<java.util.Iterator: java.lang.Object next()>();
+
+        r53 = (org.quartz.TriggerKey) $r26;
+
+        interfaceinvoke r1.<org.quartz.Scheduler: boolean unscheduleJob(org.quartz.TriggerKey)>(r53);
+
+        goto label12;
+
+     label13:
+        goto label11;
+
+     label14:
+        goto label17;
+
+     label15:
+        $r15 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List triggerGroupsToNeverDelete>;
+
+        $z9 = interfaceinvoke $r15.<java.util.List: boolean contains(java.lang.Object)>(r49);
+
+        if $z9 != 0 goto label17;
+
+        $r16 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        interfaceinvoke $r16.<org.slf4j.Logger: void info(java.lang.String,java.lang.Object)>("Deleting all triggers in group: {}", r49);
+
+        $r17 = staticinvoke <org.quartz.impl.matchers.GroupMatcher: org.quartz.impl.matchers.GroupMatcher triggerGroupEquals(java.lang.String)>(r49);
+
+        $r18 = interfaceinvoke r1.<org.quartz.Scheduler: java.util.Set getTriggerKeys(org.quartz.impl.matchers.GroupMatcher)>($r17);
+
+        r54 = interfaceinvoke $r18.<java.util.Set: java.util.Iterator iterator()>();
+
+     label16:
+        $z10 = interfaceinvoke r54.<java.util.Iterator: boolean hasNext()>();
+
+        if $z10 == 0 goto label17;
+
+        $r19 = interfaceinvoke r54.<java.util.Iterator: java.lang.Object next()>();
+
+        r55 = (org.quartz.TriggerKey) $r19;
+
+        interfaceinvoke r1.<org.quartz.Scheduler: boolean unscheduleJob(org.quartz.TriggerKey)>(r55);
+
+        goto label16;
+
+     label17:
+        goto label10;
+
+     label18:
+        $r4 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List jobsToDelete>;
+
+        r56 = interfaceinvoke $r4.<java.util.List: java.util.Iterator iterator()>();
+
+     label19:
+        $z2 = interfaceinvoke r56.<java.util.Iterator: boolean hasNext()>();
+
+        if $z2 == 0 goto label21;
+
+        $r10 = interfaceinvoke r56.<java.util.Iterator: java.lang.Object next()>();
+
+        r57 = (org.quartz.JobKey) $r10;
+
+        $r11 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List jobGroupsToNeverDelete>;
+
+        $r12 = virtualinvoke r57.<org.quartz.JobKey: java.lang.String getGroup()>();
+
+        $z6 = interfaceinvoke $r11.<java.util.List: boolean contains(java.lang.Object)>($r12);
+
+        if $z6 != 0 goto label20;
+
+        $r13 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        interfaceinvoke $r13.<org.slf4j.Logger: void info(java.lang.String,java.lang.Object)>("Deleting job: {}", r57);
+
+        interfaceinvoke r1.<org.quartz.Scheduler: boolean deleteJob(org.quartz.JobKey)>(r57);
+
+     label20:
+        goto label19;
+
+     label21:
+        $r5 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List triggersToDelete>;
+
+        r58 = interfaceinvoke $r5.<java.util.List: java.util.Iterator iterator()>();
+
+     label22:
+        $z3 = interfaceinvoke r58.<java.util.Iterator: boolean hasNext()>();
+
+        if $z3 == 0 goto label24;
+
+        $r6 = interfaceinvoke r58.<java.util.Iterator: java.lang.Object next()>();
+
+        r59 = (org.quartz.TriggerKey) $r6;
+
+        $r7 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List triggerGroupsToNeverDelete>;
+
+        $r8 = virtualinvoke r59.<org.quartz.TriggerKey: java.lang.String getGroup()>();
+
+        $z4 = interfaceinvoke $r7.<java.util.List: boolean contains(java.lang.Object)>($r8);
+
+        if $z4 != 0 goto label23;
+
+        $r9 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        interfaceinvoke $r9.<org.slf4j.Logger: void info(java.lang.String,java.lang.Object)>("Deleting trigger: {}", r59);
+
+        interfaceinvoke r1.<org.quartz.Scheduler: boolean unscheduleJob(org.quartz.TriggerKey)>(r59);
+
+     label23:
+        goto label22;
+
+     label24:
+        return;
+    }
+
+    protected void scheduleJobs(org.quartz.Scheduler) throws org.quartz.SchedulerException
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        org.quartz.Scheduler r1;
+        java.util.Map r4;
+        java.util.Iterator r5, r6, r177;
+        org.quartz.spi.MutableTrigger r7, r178;
+        org.quartz.Trigger r8, r179;
+        java.util.LinkedList $r10, $r12;
+        java.util.List $r11, $r13, $r110, r176;
+        java.lang.StringBuilder $r14, $r16, $r17, $r18, $r19, $r20, $r27, $r29, $r31, $r32, $r34, $r37, $r39, $r41, $r50, $r52, $r54, $r55, $r57, $r62, $r64, $r66, $r76, $r78, $r80, $r81, $r83, $r86, $r88, $r90, $r99, $r101, $r103, $r104, $r106, $r112, $r113, $r115, $r118, $r119, $r121, $r123, $r125, $r127, $r130, $r132, $r134, $r140, $r142, $r144, $r145, $r147, $r148, $r154, $r156, $r158, $r159, $r161, $r162, $r166, $r168, $r170;
+        org.slf4j.Logger $r15, $r25, $r28, $r38, $r43, $r48, $r51, $r63, $r73, $r77, $r87, $r92, $r97, $r100, $r124, $r131, $r137, $r141, $r151, $r155, $r167;
+        int $i0, $i1, $i2, $i3, $i4;
+        java.lang.String $r21, $r35, $r42, $r58, $r67, $r84, $r91, $r107, $r116, $r122, $r128, $r135, $r149, $r163, $r171;
+        java.lang.Object $r22, $r60, $r69, $r70;
+        java.util.Date $r23, $r59, $r71, $r108;
+        org.quartz.TriggerKey $r24, $r33, $r40, $r46, $r49, $r56, $r72, $r82, $r89, $r95, $r98, $r105, $r138, $r143, $r152, $r157;
+        boolean $z0, $z1, $z2, $z3, $z4, $z5, $z6, $z8, $z9, $z10, $z11, $z12, $z13, $z14, $z15, $z16, $z17, $z18, $z19, $z20, $z21, $z23, z24, $z25, $z26;
+        org.quartz.JobKey $r30, $r44, $r45, $r53, $r61, $r65, $r68, $r79, $r93, $r94, $r102, $r109, $r114, $r120, $r126, $r133, $r146, $r160, $r169, $r172;
+        org.quartz.ObjectAlreadyExistsException $r36, $r85, $r129, $r136, $r150;
+        org.quartz.SchedulerException $r111, $r117;
+        org.quartz.JobPersistenceException $r164;
+        java.lang.Throwable $r165;
+        org.quartz.JobDetail r173, r174;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: org.quartz.Scheduler;
+
+        $r10 = new java.util.LinkedList;
+
+        $r11 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List getLoadedJobs()>();
+
+        specialinvoke $r10.<java.util.LinkedList: void <init>(java.util.Collection)>($r11);
+
+        $r12 = new java.util.LinkedList;
+
+        $r13 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.List getLoadedTriggers()>();
+
+        specialinvoke $r12.<java.util.LinkedList: void <init>(java.util.Collection)>($r13);
+
+        $r15 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r14 = new java.lang.StringBuilder;
+
+        specialinvoke $r14.<java.lang.StringBuilder: void <init>()>();
+
+        $r16 = virtualinvoke $r14.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Adding ");
+
+        $i0 = interfaceinvoke $r10.<java.util.List: int size()>();
+
+        $r17 = virtualinvoke $r16.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>($i0);
+
+        $r18 = virtualinvoke $r17.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" jobs, ");
+
+        $i1 = interfaceinvoke $r12.<java.util.List: int size()>();
+
+        $r19 = virtualinvoke $r18.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>($i1);
+
+        $r20 = virtualinvoke $r19.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" triggers.");
+
+        $r21 = virtualinvoke $r20.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r15.<org.slf4j.Logger: void info(java.lang.String)>($r21);
+
+        r4 = specialinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.Map buildTriggersByFQJobNameMap(java.util.List)>($r12);
+
+        r5 = interfaceinvoke $r10.<java.util.List: java.util.Iterator iterator()>();
+
+     label01:
+        $z23 = interfaceinvoke r5.<java.util.Iterator: boolean hasNext()>();
+
+        if $z23 == 0 goto label31;
+
+        $r60 = interfaceinvoke r5.<java.util.Iterator: java.lang.Object next()>();
+
+        r173 = (org.quartz.JobDetail) $r60;
+
+        interfaceinvoke r5.<java.util.Iterator: void remove()>();
+
+        r174 = null;
+
+     label02:
+        $r61 = interfaceinvoke r173.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        r174 = interfaceinvoke r1.<org.quartz.Scheduler: org.quartz.JobDetail getJobDetail(org.quartz.JobKey)>($r61);
+
+     label03:
+        goto label06;
+
+     label04:
+        $r164 := @caughtexception;
+
+        $r165 = virtualinvoke $r164.<org.quartz.JobPersistenceException: java.lang.Throwable getCause()>();
+
+        $z20 = $r165 instanceof java.lang.ClassNotFoundException;
+
+        if $z20 == 0 goto label05;
+
+        $z21 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: boolean isOverWriteExistingData()>();
+
+        if $z21 == 0 goto label05;
+
+        $r167 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r166 = new java.lang.StringBuilder;
+
+        specialinvoke $r166.<java.lang.StringBuilder: void <init>()>();
+
+        $r168 = virtualinvoke $r166.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Removing job: ");
+
+        $r169 = interfaceinvoke r173.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r170 = virtualinvoke $r168.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r169);
+
+        $r171 = virtualinvoke $r170.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r167.<org.slf4j.Logger: void info(java.lang.String)>($r171);
+
+        $r172 = interfaceinvoke r173.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        interfaceinvoke r1.<org.quartz.Scheduler: boolean deleteJob(org.quartz.JobKey)>($r172);
+
+        goto label06;
+
+     label05:
+        throw $r164;
+
+     label06:
+        if r174 == null goto label08;
+
+        $z14 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: boolean isOverWriteExistingData()>();
+
+        if $z14 != 0 goto label07;
+
+        $z17 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: boolean isIgnoreDuplicates()>();
+
+        if $z17 == 0 goto label07;
+
+        $r131 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r130 = new java.lang.StringBuilder;
+
+        specialinvoke $r130.<java.lang.StringBuilder: void <init>()>();
+
+        $r132 = virtualinvoke $r130.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Not overwriting existing job: ");
+
+        $r133 = interfaceinvoke r174.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r134 = virtualinvoke $r132.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r133);
+
+        $r135 = virtualinvoke $r134.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r131.<org.slf4j.Logger: void info(java.lang.String)>($r135);
+
+        goto label01;
+
+     label07:
+        $z15 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: boolean isOverWriteExistingData()>();
+
+        if $z15 != 0 goto label08;
+
+        $z16 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: boolean isIgnoreDuplicates()>();
+
+        if $z16 != 0 goto label08;
+
+        $r129 = new org.quartz.ObjectAlreadyExistsException;
+
+        specialinvoke $r129.<org.quartz.ObjectAlreadyExistsException: void <init>(org.quartz.JobDetail)>(r173);
+
+        throw $r129;
+
+     label08:
+        if r174 == null goto label09;
+
+        $r124 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r123 = new java.lang.StringBuilder;
+
+        specialinvoke $r123.<java.lang.StringBuilder: void <init>()>();
+
+        $r125 = virtualinvoke $r123.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Replacing job: ");
+
+        $r126 = interfaceinvoke r173.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r127 = virtualinvoke $r125.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r126);
+
+        $r128 = virtualinvoke $r127.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r124.<org.slf4j.Logger: void info(java.lang.String)>($r128);
+
+        goto label10;
+
+     label09:
+        $r63 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r62 = new java.lang.StringBuilder;
+
+        specialinvoke $r62.<java.lang.StringBuilder: void <init>()>();
+
+        $r64 = virtualinvoke $r62.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Adding job: ");
+
+        $r65 = interfaceinvoke r173.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r66 = virtualinvoke $r64.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r65);
+
+        $r67 = virtualinvoke $r66.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r63.<org.slf4j.Logger: void info(java.lang.String)>($r67);
+
+     label10:
+        $r68 = interfaceinvoke r173.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r69 = interfaceinvoke r4.<java.util.Map: java.lang.Object get(java.lang.Object)>($r68);
+
+        r176 = (java.util.List) $r69;
+
+        $z5 = interfaceinvoke r173.<org.quartz.JobDetail: boolean isDurable()>();
+
+        if $z5 != 0 goto label13;
+
+        if r176 == null goto label11;
+
+        $i4 = interfaceinvoke r176.<java.util.List: int size()>();
+
+        if $i4 != 0 goto label13;
+
+     label11:
+        if r174 != null goto label12;
+
+        $r117 = new org.quartz.SchedulerException;
+
+        $r118 = new java.lang.StringBuilder;
+
+        specialinvoke $r118.<java.lang.StringBuilder: void <init>()>();
+
+        $r119 = virtualinvoke $r118.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("A new job defined without any triggers must be durable: ");
+
+        $r120 = interfaceinvoke r173.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r121 = virtualinvoke $r119.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r120);
+
+        $r122 = virtualinvoke $r121.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r117.<org.quartz.SchedulerException: void <init>(java.lang.String)>($r122);
+
+        throw $r117;
+
+     label12:
+        $z13 = interfaceinvoke r174.<org.quartz.JobDetail: boolean isDurable()>();
+
+        if $z13 == 0 goto label13;
+
+        $r109 = interfaceinvoke r173.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r110 = interfaceinvoke r1.<org.quartz.Scheduler: java.util.List getTriggersOfJob(org.quartz.JobKey)>($r109);
+
+        $i3 = interfaceinvoke $r110.<java.util.List: int size()>();
+
+        if $i3 != 0 goto label13;
+
+        $r111 = new org.quartz.SchedulerException;
+
+        $r112 = new java.lang.StringBuilder;
+
+        specialinvoke $r112.<java.lang.StringBuilder: void <init>()>();
+
+        $r113 = virtualinvoke $r112.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Can\'t change existing durable job without triggers to non-durable: ");
+
+        $r114 = interfaceinvoke r173.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r115 = virtualinvoke $r113.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r114);
+
+        $r116 = virtualinvoke $r115.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r111.<org.quartz.SchedulerException: void <init>(java.lang.String)>($r116);
+
+        throw $r111;
+
+     label13:
+        if r174 != null goto label14;
+
+        $z6 = interfaceinvoke r173.<org.quartz.JobDetail: boolean isDurable()>();
+
+        if $z6 == 0 goto label16;
+
+     label14:
+        if r176 == null goto label15;
+
+        $i2 = interfaceinvoke r176.<java.util.List: int size()>();
+
+        if $i2 <= 0 goto label15;
+
+        interfaceinvoke r1.<org.quartz.Scheduler: void addJob(org.quartz.JobDetail,boolean,boolean)>(r173, 1, 1);
+
+        goto label30;
+
+     label15:
+        interfaceinvoke r1.<org.quartz.Scheduler: void addJob(org.quartz.JobDetail,boolean,boolean)>(r173, 1, 0);
+
+        goto label30;
+
+     label16:
+        z24 = 1;
+
+        r6 = interfaceinvoke r176.<java.util.List: java.util.Iterator iterator()>();
+
+     label17:
+        $z25 = interfaceinvoke r6.<java.util.Iterator: boolean hasNext()>();
+
+        if $z25 == 0 goto label30;
+
+        $r70 = interfaceinvoke r6.<java.util.Iterator: java.lang.Object next()>();
+
+        r7 = (org.quartz.spi.MutableTrigger) $r70;
+
+        interfaceinvoke $r12.<java.util.List: boolean remove(java.lang.Object)>(r7);
+
+        $r71 = interfaceinvoke r7.<org.quartz.spi.MutableTrigger: java.util.Date getStartTime()>();
+
+        if $r71 != null goto label18;
+
+        $r108 = new java.util.Date;
+
+        specialinvoke $r108.<java.util.Date: void <init>()>();
+
+        interfaceinvoke r7.<org.quartz.spi.MutableTrigger: void setStartTime(java.util.Date)>($r108);
+
+     label18:
+        $r72 = interfaceinvoke r7.<org.quartz.spi.MutableTrigger: org.quartz.TriggerKey getKey()>();
+
+        r8 = interfaceinvoke r1.<org.quartz.Scheduler: org.quartz.Trigger getTrigger(org.quartz.TriggerKey)>($r72);
+
+        if r8 == null goto label23;
+
+        $z9 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: boolean isOverWriteExistingData()>();
+
+        if $z9 == 0 goto label19;
+
+        $r92 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $z11 = interfaceinvoke $r92.<org.slf4j.Logger: boolean isDebugEnabled()>();
+
+        if $z11 == 0 goto label21;
+
+        $r100 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r99 = new java.lang.StringBuilder;
+
+        specialinvoke $r99.<java.lang.StringBuilder: void <init>()>();
+
+        $r101 = virtualinvoke $r99.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Rescheduling job: ");
+
+        $r102 = interfaceinvoke r7.<org.quartz.spi.MutableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $r103 = virtualinvoke $r101.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r102);
+
+        $r104 = virtualinvoke $r103.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" with updated trigger: ");
+
+        $r105 = interfaceinvoke r7.<org.quartz.spi.MutableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r106 = virtualinvoke $r104.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r105);
+
+        $r107 = virtualinvoke $r106.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r100.<org.slf4j.Logger: void debug(java.lang.String)>($r107);
+
+        goto label21;
+
+     label19:
+        $z10 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: boolean isIgnoreDuplicates()>();
+
+        if $z10 == 0 goto label20;
+
+        $r87 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r86 = new java.lang.StringBuilder;
+
+        specialinvoke $r86.<java.lang.StringBuilder: void <init>()>();
+
+        $r88 = virtualinvoke $r86.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Not overwriting existing trigger: ");
+
+        $r89 = interfaceinvoke r8.<org.quartz.Trigger: org.quartz.TriggerKey getKey()>();
+
+        $r90 = virtualinvoke $r88.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r89);
+
+        $r91 = virtualinvoke $r90.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r87.<org.slf4j.Logger: void info(java.lang.String)>($r91);
+
+        goto label17;
+
+     label20:
+        $r85 = new org.quartz.ObjectAlreadyExistsException;
+
+        specialinvoke $r85.<org.quartz.ObjectAlreadyExistsException: void <init>(org.quartz.Trigger)>(r7);
+
+        throw $r85;
+
+     label21:
+        $r93 = interfaceinvoke r8.<org.quartz.Trigger: org.quartz.JobKey getJobKey()>();
+
+        $r94 = interfaceinvoke r7.<org.quartz.spi.MutableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $z12 = virtualinvoke $r93.<org.quartz.JobKey: boolean equals(java.lang.Object)>($r94);
+
+        if $z12 != 0 goto label22;
+
+        $r97 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r98 = interfaceinvoke r7.<org.quartz.spi.MutableTrigger: org.quartz.TriggerKey getKey()>();
+
+        interfaceinvoke $r97.<org.slf4j.Logger: void warn(java.lang.String,java.lang.Object)>("Possibly duplicately named ({}) triggers in jobs xml file! ", $r98);
+
+     label22:
+        $r95 = interfaceinvoke r7.<org.quartz.spi.MutableTrigger: org.quartz.TriggerKey getKey()>();
+
+        interfaceinvoke r1.<org.quartz.Scheduler: java.util.Date rescheduleJob(org.quartz.TriggerKey,org.quartz.Trigger)>($r95, r7);
+
+        goto label29;
+
+     label23:
+        $r73 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $z8 = interfaceinvoke $r73.<org.slf4j.Logger: boolean isDebugEnabled()>();
+
+        if $z8 == 0 goto label24;
+
+        $r77 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r76 = new java.lang.StringBuilder;
+
+        specialinvoke $r76.<java.lang.StringBuilder: void <init>()>();
+
+        $r78 = virtualinvoke $r76.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Scheduling job: ");
+
+        $r79 = interfaceinvoke r7.<org.quartz.spi.MutableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $r80 = virtualinvoke $r78.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r79);
+
+        $r81 = virtualinvoke $r80.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" with trigger: ");
+
+        $r82 = interfaceinvoke r7.<org.quartz.spi.MutableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r83 = virtualinvoke $r81.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r82);
+
+        $r84 = virtualinvoke $r83.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r77.<org.slf4j.Logger: void debug(java.lang.String)>($r84);
+
+     label24:
+        if z24 == 0 goto label25;
+
+        interfaceinvoke r1.<org.quartz.Scheduler: java.util.Date scheduleJob(org.quartz.JobDetail,org.quartz.Trigger)>(r173, r7);
+
+        z24 = 0;
+
+        goto label26;
+
+     label25:
+        interfaceinvoke r1.<org.quartz.Scheduler: java.util.Date scheduleJob(org.quartz.Trigger)>(r7);
+
+     label26:
+        goto label29;
+
+     label27:
+        $r150 := @caughtexception;
+
+        $r151 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $z19 = interfaceinvoke $r151.<org.slf4j.Logger: boolean isDebugEnabled()>();
+
+        if $z19 == 0 goto label28;
+
+        $r155 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r154 = new java.lang.StringBuilder;
+
+        specialinvoke $r154.<java.lang.StringBuilder: void <init>()>();
+
+        $r156 = virtualinvoke $r154.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Adding trigger: ");
+
+        $r157 = interfaceinvoke r7.<org.quartz.spi.MutableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r158 = virtualinvoke $r156.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r157);
+
+        $r159 = virtualinvoke $r158.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" for job: ");
+
+        $r160 = interfaceinvoke r173.<org.quartz.JobDetail: org.quartz.JobKey getKey()>();
+
+        $r161 = virtualinvoke $r159.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r160);
+
+        $r162 = virtualinvoke $r161.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" failed because the trigger already existed.  This is likely due to a race condition between multiple instances in the cluster.  Will try to reschedule instead.");
+
+        $r163 = virtualinvoke $r162.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r155.<org.slf4j.Logger: void debug(java.lang.String)>($r163);
+
+     label28:
+        $r152 = interfaceinvoke r7.<org.quartz.spi.MutableTrigger: org.quartz.TriggerKey getKey()>();
+
+        interfaceinvoke r1.<org.quartz.Scheduler: java.util.Date rescheduleJob(org.quartz.TriggerKey,org.quartz.Trigger)>($r152, r7);
+
+     label29:
+        goto label17;
+
+     label30:
+        goto label01;
+
+     label31:
+        r177 = interfaceinvoke $r12.<java.util.List: java.util.Iterator iterator()>();
+
+     label32:
+        $z26 = interfaceinvoke r177.<java.util.Iterator: boolean hasNext()>();
+
+        if $z26 == 0 goto label44;
+
+        $r22 = interfaceinvoke r177.<java.util.Iterator: java.lang.Object next()>();
+
+        r178 = (org.quartz.spi.MutableTrigger) $r22;
+
+        $r23 = interfaceinvoke r178.<org.quartz.spi.MutableTrigger: java.util.Date getStartTime()>();
+
+        if $r23 != null goto label33;
+
+        $r59 = new java.util.Date;
+
+        specialinvoke $r59.<java.util.Date: void <init>()>();
+
+        interfaceinvoke r178.<org.quartz.spi.MutableTrigger: void setStartTime(java.util.Date)>($r59);
+
+     label33:
+        $r24 = interfaceinvoke r178.<org.quartz.spi.MutableTrigger: org.quartz.TriggerKey getKey()>();
+
+        r179 = interfaceinvoke r1.<org.quartz.Scheduler: org.quartz.Trigger getTrigger(org.quartz.TriggerKey)>($r24);
+
+        if r179 == null goto label38;
+
+        $z1 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: boolean isOverWriteExistingData()>();
+
+        if $z1 == 0 goto label34;
+
+        $r43 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $z3 = interfaceinvoke $r43.<org.slf4j.Logger: boolean isDebugEnabled()>();
+
+        if $z3 == 0 goto label36;
+
+        $r51 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r50 = new java.lang.StringBuilder;
+
+        specialinvoke $r50.<java.lang.StringBuilder: void <init>()>();
+
+        $r52 = virtualinvoke $r50.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Rescheduling job: ");
+
+        $r53 = interfaceinvoke r178.<org.quartz.spi.MutableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $r54 = virtualinvoke $r52.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r53);
+
+        $r55 = virtualinvoke $r54.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" with updated trigger: ");
+
+        $r56 = interfaceinvoke r178.<org.quartz.spi.MutableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r57 = virtualinvoke $r55.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r56);
+
+        $r58 = virtualinvoke $r57.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r51.<org.slf4j.Logger: void debug(java.lang.String)>($r58);
+
+        goto label36;
+
+     label34:
+        $z2 = virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: boolean isIgnoreDuplicates()>();
+
+        if $z2 == 0 goto label35;
+
+        $r38 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r37 = new java.lang.StringBuilder;
+
+        specialinvoke $r37.<java.lang.StringBuilder: void <init>()>();
+
+        $r39 = virtualinvoke $r37.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Not overwriting existing trigger: ");
+
+        $r40 = interfaceinvoke r179.<org.quartz.Trigger: org.quartz.TriggerKey getKey()>();
+
+        $r41 = virtualinvoke $r39.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r40);
+
+        $r42 = virtualinvoke $r41.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r38.<org.slf4j.Logger: void info(java.lang.String)>($r42);
+
+        goto label32;
+
+     label35:
+        $r36 = new org.quartz.ObjectAlreadyExistsException;
+
+        specialinvoke $r36.<org.quartz.ObjectAlreadyExistsException: void <init>(org.quartz.Trigger)>(r178);
+
+        throw $r36;
+
+     label36:
+        $r44 = interfaceinvoke r179.<org.quartz.Trigger: org.quartz.JobKey getJobKey()>();
+
+        $r45 = interfaceinvoke r178.<org.quartz.spi.MutableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $z4 = virtualinvoke $r44.<org.quartz.JobKey: boolean equals(java.lang.Object)>($r45);
+
+        if $z4 != 0 goto label37;
+
+        $r48 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r49 = interfaceinvoke r178.<org.quartz.spi.MutableTrigger: org.quartz.TriggerKey getKey()>();
+
+        interfaceinvoke $r48.<org.slf4j.Logger: void warn(java.lang.String,java.lang.Object)>("Possibly duplicately named ({}) triggers in jobs xml file! ", $r49);
+
+     label37:
+        $r46 = interfaceinvoke r178.<org.quartz.spi.MutableTrigger: org.quartz.TriggerKey getKey()>();
+
+        interfaceinvoke r1.<org.quartz.Scheduler: java.util.Date rescheduleJob(org.quartz.TriggerKey,org.quartz.Trigger)>($r46, r178);
+
+        goto label43;
+
+     label38:
+        $r25 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $z0 = interfaceinvoke $r25.<org.slf4j.Logger: boolean isDebugEnabled()>();
+
+        if $z0 == 0 goto label39;
+
+        $r28 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r27 = new java.lang.StringBuilder;
+
+        specialinvoke $r27.<java.lang.StringBuilder: void <init>()>();
+
+        $r29 = virtualinvoke $r27.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Scheduling job: ");
+
+        $r30 = interfaceinvoke r178.<org.quartz.spi.MutableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $r31 = virtualinvoke $r29.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r30);
+
+        $r32 = virtualinvoke $r31.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" with trigger: ");
+
+        $r33 = interfaceinvoke r178.<org.quartz.spi.MutableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r34 = virtualinvoke $r32.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r33);
+
+        $r35 = virtualinvoke $r34.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r28.<org.slf4j.Logger: void debug(java.lang.String)>($r35);
+
+     label39:
+        interfaceinvoke r1.<org.quartz.Scheduler: java.util.Date scheduleJob(org.quartz.Trigger)>(r178);
+
+     label40:
+        goto label43;
+
+     label41:
+        $r136 := @caughtexception;
+
+        $r137 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $z18 = interfaceinvoke $r137.<org.slf4j.Logger: boolean isDebugEnabled()>();
+
+        if $z18 == 0 goto label42;
+
+        $r141 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: org.slf4j.Logger log>;
+
+        $r140 = new java.lang.StringBuilder;
+
+        specialinvoke $r140.<java.lang.StringBuilder: void <init>()>();
+
+        $r142 = virtualinvoke $r140.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Adding trigger: ");
+
+        $r143 = interfaceinvoke r178.<org.quartz.spi.MutableTrigger: org.quartz.TriggerKey getKey()>();
+
+        $r144 = virtualinvoke $r142.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r143);
+
+        $r145 = virtualinvoke $r144.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" for job: ");
+
+        $r146 = interfaceinvoke r178.<org.quartz.spi.MutableTrigger: org.quartz.JobKey getJobKey()>();
+
+        $r147 = virtualinvoke $r145.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r146);
+
+        $r148 = virtualinvoke $r147.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" failed because the trigger already existed.  This is likely due to a race condition between multiple instances in the cluster.  Will try to reschedule instead.");
+
+        $r149 = virtualinvoke $r148.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r141.<org.slf4j.Logger: void debug(java.lang.String)>($r149);
+
+     label42:
+        $r138 = interfaceinvoke r178.<org.quartz.spi.MutableTrigger: org.quartz.TriggerKey getKey()>();
+
+        interfaceinvoke r1.<org.quartz.Scheduler: java.util.Date rescheduleJob(org.quartz.TriggerKey,org.quartz.Trigger)>($r138, r178);
+
+     label43:
+        goto label32;
+
+     label44:
+        return;
+
+        catch org.quartz.JobPersistenceException from label02 to label03 with label04;
+        catch org.quartz.ObjectAlreadyExistsException from label24 to label26 with label27;
+        catch org.quartz.ObjectAlreadyExistsException from label39 to label40 with label41;
+    }
+
+    public void warning(org.xml.sax.SAXParseException) throws org.xml.sax.SAXException
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        org.xml.sax.SAXParseException r1;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: org.xml.sax.SAXParseException;
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void addValidationException(org.xml.sax.SAXException)>(r1);
+
+        return;
+    }
+
+    public void error(org.xml.sax.SAXParseException) throws org.xml.sax.SAXException
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        org.xml.sax.SAXParseException r1;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: org.xml.sax.SAXParseException;
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void addValidationException(org.xml.sax.SAXException)>(r1);
+
+        return;
+    }
+
+    public void fatalError(org.xml.sax.SAXParseException) throws org.xml.sax.SAXException
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        org.xml.sax.SAXParseException r1;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: org.xml.sax.SAXParseException;
+
+        virtualinvoke r0.<org.quartz.xml.XMLSchedulingDataProcessor: void addValidationException(org.xml.sax.SAXException)>(r1);
+
+        return;
+    }
+
+    protected void addValidationException(org.xml.sax.SAXException)
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        org.xml.sax.SAXException r1;
+        java.util.Collection $r2;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        r1 := @parameter0: org.xml.sax.SAXException;
+
+        $r2 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.Collection validationExceptions>;
+
+        interfaceinvoke $r2.<java.util.Collection: boolean add(java.lang.Object)>(r1);
+
+        return;
+    }
+
+    protected void clearValidationExceptions()
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.util.Collection $r1;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        $r1 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.Collection validationExceptions>;
+
+        interfaceinvoke $r1.<java.util.Collection: void clear()>();
+
+        return;
+    }
+
+    protected void maybeThrowValidationException() throws org.quartz.xml.ValidationException
+    {
+        org.quartz.xml.XMLSchedulingDataProcessor r0;
+        java.util.Collection $r1, $r5, $r9;
+        int $i0, $i1;
+        org.quartz.xml.ValidationException $r2;
+        java.lang.StringBuilder $r3, $r4, $r6, $r7;
+        java.lang.String $r8;
+
+        r0 := @this: org.quartz.xml.XMLSchedulingDataProcessor;
+
+        $r1 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.Collection validationExceptions>;
+
+        $i0 = interfaceinvoke $r1.<java.util.Collection: int size()>();
+
+        if $i0 <= 0 goto label1;
+
+        $r2 = new org.quartz.xml.ValidationException;
+
+        $r3 = new java.lang.StringBuilder;
+
+        specialinvoke $r3.<java.lang.StringBuilder: void <init>()>();
+
+        $r4 = virtualinvoke $r3.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Encountered ");
+
+        $r5 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.Collection validationExceptions>;
+
+        $i1 = interfaceinvoke $r5.<java.util.Collection: int size()>();
+
+        $r6 = virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>($i1);
+
+        $r7 = virtualinvoke $r6.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" validation exceptions.");
+
+        $r8 = virtualinvoke $r7.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        $r9 = r0.<org.quartz.xml.XMLSchedulingDataProcessor: java.util.Collection validationExceptions>;
+
+        specialinvoke $r2.<org.quartz.xml.ValidationException: void <init>(java.lang.String,java.util.Collection)>($r8, $r9);
+
+        throw $r2;
+
+     label1:
+        return;
+    }
+
+    public static void <clinit>()
+    {
+        <org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String QUARTZ_SYSTEM_ID_JAR_PREFIX> = "jar:";
+
+        <org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String QUARTZ_XML_DEFAULT_FILE_NAME> = "quartz_data.xml";
+
+        <org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String QUARTZ_XSD_PATH_IN_JAR> = "org/quartz/xml/job_scheduling_data_2_0.xsd";
+
+        <org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String QUARTZ_SCHEMA_WEB_URL> = "http://www.quartz-scheduler.org/xml/job_scheduling_data_2_0.xsd";
+
+        <org.quartz.xml.XMLSchedulingDataProcessor: java.lang.String QUARTZ_NS> = "http://www.quartz-scheduler.org/xml/JobSchedulingData";
+
+        return;
+    }
+}

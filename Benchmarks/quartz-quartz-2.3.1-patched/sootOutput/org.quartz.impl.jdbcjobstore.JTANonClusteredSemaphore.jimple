@@ -1,0 +1,637 @@
+public class org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore extends java.lang.Object implements org.quartz.impl.jdbcjobstore.Semaphore
+{
+    public static final java.lang.String DEFAULT_TRANSACTION_MANANGER_LOCATION;
+    java.lang.ThreadLocal lockOwners;
+    java.util.HashSet locks;
+    private final org.slf4j.Logger log;
+    private java.lang.String transactionManagerJNDIName;
+
+    public void <init>()
+    {
+        org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore r0;
+        java.lang.ThreadLocal $r1;
+        java.util.HashSet $r2;
+        java.lang.Class $r3;
+        org.slf4j.Logger $r4;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore;
+
+        specialinvoke r0.<java.lang.Object: void <init>()>();
+
+        $r1 = new java.lang.ThreadLocal;
+
+        specialinvoke $r1.<java.lang.ThreadLocal: void <init>()>();
+
+        r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: java.lang.ThreadLocal lockOwners> = $r1;
+
+        $r2 = new java.util.HashSet;
+
+        specialinvoke $r2.<java.util.HashSet: void <init>()>();
+
+        r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: java.util.HashSet locks> = $r2;
+
+        $r3 = virtualinvoke r0.<java.lang.Object: java.lang.Class getClass()>();
+
+        $r4 = staticinvoke <org.slf4j.LoggerFactory: org.slf4j.Logger getLogger(java.lang.Class)>($r3);
+
+        r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger log> = $r4;
+
+        r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: java.lang.String transactionManagerJNDIName> = "java:TransactionManager";
+
+        return;
+    }
+
+    protected org.slf4j.Logger getLog()
+    {
+        org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore r0;
+        org.slf4j.Logger $r1;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore;
+
+        $r1 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger log>;
+
+        return $r1;
+    }
+
+    public void setTransactionManagerJNDIName(java.lang.String)
+    {
+        org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore r0;
+        java.lang.String r1;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore;
+
+        r1 := @parameter0: java.lang.String;
+
+        r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: java.lang.String transactionManagerJNDIName> = r1;
+
+        return;
+    }
+
+    private java.util.HashSet getThreadLocks()
+    {
+        org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore r0;
+        java.lang.ThreadLocal $r1, $r4;
+        java.lang.Object $r2;
+        java.util.HashSet $r3, r5;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore;
+
+        $r1 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: java.lang.ThreadLocal lockOwners>;
+
+        $r2 = virtualinvoke $r1.<java.lang.ThreadLocal: java.lang.Object get()>();
+
+        r5 = (java.util.HashSet) $r2;
+
+        if r5 != null goto label1;
+
+        $r3 = new java.util.HashSet;
+
+        specialinvoke $r3.<java.util.HashSet: void <init>()>();
+
+        r5 = $r3;
+
+        $r4 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: java.lang.ThreadLocal lockOwners>;
+
+        virtualinvoke $r4.<java.lang.ThreadLocal: void set(java.lang.Object)>($r3);
+
+     label1:
+        return r5;
+    }
+
+    public synchronized boolean obtainLock(java.sql.Connection, java.lang.String) throws org.quartz.impl.jdbcjobstore.LockException
+    {
+        org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore r0;
+        java.sql.Connection r1;
+        org.slf4j.Logger $r3, $r4, $r6, $r16, $r17, $r21, $r31, $r40, $r49, $r51;
+        boolean $z0, $z1, $z2, $z3, $z4, $z7, $z8;
+        java.lang.StringBuilder $r5, $r7, $r8, $r9, $r12, $r13, $r20, $r22, $r23, $r24, $r27, $r30, $r32, $r33, $r34, $r37, $r39, $r41, $r42, $r43, $r46, $r50, $r52, $r53, $r54, $r57;
+        java.lang.Thread $r10, $r25, $r35, $r44, $r55;
+        java.lang.String $r11, $r14, $r26, $r28, $r36, $r38, $r45, $r47, $r56, $r58, r61, r62;
+        java.lang.Exception $r15, $r59;
+        java.util.HashSet $r18, $r19, $r63;
+        org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore$SemaphoreSynchronization $r29;
+        java.lang.InterruptedException $r48;
+        org.quartz.impl.jdbcjobstore.LockException $r60;
+        javax.transaction.Transaction r65;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore;
+
+        r1 := @parameter0: java.sql.Connection;
+
+        r61 := @parameter1: java.lang.String;
+
+        r62 = virtualinvoke r61.<java.lang.String: java.lang.String intern()>();
+
+        $r3 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger log>;
+
+        $z0 = interfaceinvoke $r3.<org.slf4j.Logger: boolean isDebugEnabled()>();
+
+        if $z0 == 0 goto label01;
+
+        $r40 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger log>;
+
+        $r39 = new java.lang.StringBuilder;
+
+        specialinvoke $r39.<java.lang.StringBuilder: void <init>()>();
+
+        $r41 = virtualinvoke $r39.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Lock \'");
+
+        $r42 = virtualinvoke $r41.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r62);
+
+        $r43 = virtualinvoke $r42.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("\' is desired by: ");
+
+        $r44 = staticinvoke <java.lang.Thread: java.lang.Thread currentThread()>();
+
+        $r45 = virtualinvoke $r44.<java.lang.Thread: java.lang.String getName()>();
+
+        $r46 = virtualinvoke $r43.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r45);
+
+        $r47 = virtualinvoke $r46.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r40.<org.slf4j.Logger: void debug(java.lang.String)>($r47);
+
+     label01:
+        $z1 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: boolean isLockOwner(java.sql.Connection,java.lang.String)>(r1, r62);
+
+        if $z1 != 0 goto label13;
+
+        $r16 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger log>;
+
+        $z3 = interfaceinvoke $r16.<org.slf4j.Logger: boolean isDebugEnabled()>();
+
+        if $z3 == 0 goto label02;
+
+        $r31 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger log>;
+
+        $r30 = new java.lang.StringBuilder;
+
+        specialinvoke $r30.<java.lang.StringBuilder: void <init>()>();
+
+        $r32 = virtualinvoke $r30.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Lock \'");
+
+        $r33 = virtualinvoke $r32.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r62);
+
+        $r34 = virtualinvoke $r33.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("\' is being obtained: ");
+
+        $r35 = staticinvoke <java.lang.Thread: java.lang.Thread currentThread()>();
+
+        $r36 = virtualinvoke $r35.<java.lang.Thread: java.lang.String getName()>();
+
+        $r37 = virtualinvoke $r34.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r36);
+
+        $r38 = virtualinvoke $r37.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r31.<org.slf4j.Logger: void debug(java.lang.String)>($r38);
+
+     label02:
+        $r63 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: java.util.HashSet locks>;
+
+        $z8 = virtualinvoke $r63.<java.util.HashSet: boolean contains(java.lang.Object)>(r62);
+
+        if $z8 == 0 goto label07;
+
+     label03:
+        virtualinvoke r0.<java.lang.Object: void wait()>();
+
+     label04:
+        goto label02;
+
+     label05:
+        $r48 := @caughtexception;
+
+        $r49 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger log>;
+
+        $z7 = interfaceinvoke $r49.<org.slf4j.Logger: boolean isDebugEnabled()>();
+
+        if $z7 == 0 goto label06;
+
+        $r51 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger log>;
+
+        $r50 = new java.lang.StringBuilder;
+
+        specialinvoke $r50.<java.lang.StringBuilder: void <init>()>();
+
+        $r52 = virtualinvoke $r50.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Lock \'");
+
+        $r53 = virtualinvoke $r52.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r62);
+
+        $r54 = virtualinvoke $r53.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("\' was not obtained by: ");
+
+        $r55 = staticinvoke <java.lang.Thread: java.lang.Thread currentThread()>();
+
+        $r56 = virtualinvoke $r55.<java.lang.Thread: java.lang.String getName()>();
+
+        $r57 = virtualinvoke $r54.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r56);
+
+        $r58 = virtualinvoke $r57.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r51.<org.slf4j.Logger: void debug(java.lang.String)>($r58);
+
+     label06:
+        goto label02;
+
+     label07:
+        r65 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: javax.transaction.Transaction getTransaction()>();
+
+        if r65 == null goto label11;
+
+     label08:
+        $r29 = new org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore$SemaphoreSynchronization;
+
+        specialinvoke $r29.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore$SemaphoreSynchronization: void <init>(org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore,java.lang.String)>(r0, r62);
+
+        interfaceinvoke r65.<javax.transaction.Transaction: void registerSynchronization(javax.transaction.Synchronization)>($r29);
+
+     label09:
+        goto label11;
+
+     label10:
+        $r59 := @caughtexception;
+
+        $r60 = new org.quartz.impl.jdbcjobstore.LockException;
+
+        specialinvoke $r60.<org.quartz.impl.jdbcjobstore.LockException: void <init>(java.lang.String,java.lang.Throwable)>("Failed to register semaphore with Transaction.", $r59);
+
+        throw $r60;
+
+     label11:
+        $r17 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger log>;
+
+        $z4 = interfaceinvoke $r17.<org.slf4j.Logger: boolean isDebugEnabled()>();
+
+        if $z4 == 0 goto label12;
+
+        $r21 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger log>;
+
+        $r20 = new java.lang.StringBuilder;
+
+        specialinvoke $r20.<java.lang.StringBuilder: void <init>()>();
+
+        $r22 = virtualinvoke $r20.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Lock \'");
+
+        $r23 = virtualinvoke $r22.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r62);
+
+        $r24 = virtualinvoke $r23.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("\' given to: ");
+
+        $r25 = staticinvoke <java.lang.Thread: java.lang.Thread currentThread()>();
+
+        $r26 = virtualinvoke $r25.<java.lang.Thread: java.lang.String getName()>();
+
+        $r27 = virtualinvoke $r24.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r26);
+
+        $r28 = virtualinvoke $r27.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r21.<org.slf4j.Logger: void debug(java.lang.String)>($r28);
+
+     label12:
+        $r18 = specialinvoke r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: java.util.HashSet getThreadLocks()>();
+
+        virtualinvoke $r18.<java.util.HashSet: boolean add(java.lang.Object)>(r62);
+
+        $r19 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: java.util.HashSet locks>;
+
+        virtualinvoke $r19.<java.util.HashSet: boolean add(java.lang.Object)>(r62);
+
+        goto label14;
+
+     label13:
+        $r4 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger log>;
+
+        $z2 = interfaceinvoke $r4.<org.slf4j.Logger: boolean isDebugEnabled()>();
+
+        if $z2 == 0 goto label14;
+
+        $r6 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger log>;
+
+        $r5 = new java.lang.StringBuilder;
+
+        specialinvoke $r5.<java.lang.StringBuilder: void <init>()>();
+
+        $r7 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Lock \'");
+
+        $r8 = virtualinvoke $r7.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r62);
+
+        $r9 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("\' already owned by: ");
+
+        $r10 = staticinvoke <java.lang.Thread: java.lang.Thread currentThread()>();
+
+        $r11 = virtualinvoke $r10.<java.lang.Thread: java.lang.String getName()>();
+
+        $r12 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r11);
+
+        $r13 = virtualinvoke $r12.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" -- but not owner!");
+
+        $r14 = virtualinvoke $r13.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        $r15 = new java.lang.Exception;
+
+        specialinvoke $r15.<java.lang.Exception: void <init>(java.lang.String)>("stack-trace of wrongful returner");
+
+        interfaceinvoke $r6.<org.slf4j.Logger: void debug(java.lang.String,java.lang.Throwable)>($r14, $r15);
+
+     label14:
+        return 1;
+
+        catch java.lang.InterruptedException from label03 to label04 with label05;
+        catch java.lang.Exception from label08 to label09 with label10;
+    }
+
+    protected javax.transaction.Transaction getTransaction() throws org.quartz.impl.jdbcjobstore.LockException
+    {
+        org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore r0;
+        javax.transaction.Transaction r1;
+        javax.naming.InitialContext $r5, r20;
+        java.lang.String $r6, $r15, $r17;
+        java.lang.Object $r7;
+        javax.naming.NamingException $r8, $r9, $r11;
+        java.lang.Throwable $r10;
+        org.quartz.impl.jdbcjobstore.LockException $r12, $r19;
+        java.lang.StringBuilder $r13, $r14, $r16;
+        javax.transaction.SystemException $r18;
+        javax.transaction.TransactionManager r21;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore;
+
+        r20 = null;
+
+     label01:
+        $r5 = new javax.naming.InitialContext;
+
+        specialinvoke $r5.<javax.naming.InitialContext: void <init>()>();
+
+        r20 = $r5;
+
+        $r6 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: java.lang.String transactionManagerJNDIName>;
+
+        $r7 = virtualinvoke $r5.<javax.naming.InitialContext: java.lang.Object lookup(java.lang.String)>($r6);
+
+        r21 = (javax.transaction.TransactionManager) $r7;
+
+        r1 = interfaceinvoke r21.<javax.transaction.TransactionManager: javax.transaction.Transaction getTransaction()>();
+
+     label02:
+        if $r5 == null goto label06;
+
+     label03:
+        virtualinvoke $r5.<javax.naming.InitialContext: void close()>();
+
+     label04:
+        goto label06;
+
+     label05:
+        $r8 := @caughtexception;
+
+     label06:
+        return r1;
+
+     label07:
+        $r18 := @caughtexception;
+
+        $r19 = new org.quartz.impl.jdbcjobstore.LockException;
+
+        specialinvoke $r19.<org.quartz.impl.jdbcjobstore.LockException: void <init>(java.lang.String,java.lang.Throwable)>("Failed to get Transaction from TransactionManager", $r18);
+
+        throw $r19;
+
+     label08:
+        $r11 := @caughtexception;
+
+        $r12 = new org.quartz.impl.jdbcjobstore.LockException;
+
+        $r13 = new java.lang.StringBuilder;
+
+        specialinvoke $r13.<java.lang.StringBuilder: void <init>()>();
+
+        $r14 = virtualinvoke $r13.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Failed to find TransactionManager in JNDI under name: ");
+
+        $r15 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: java.lang.String transactionManagerJNDIName>;
+
+        $r16 = virtualinvoke $r14.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r15);
+
+        $r17 = virtualinvoke $r16.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r12.<org.quartz.impl.jdbcjobstore.LockException: void <init>(java.lang.String,java.lang.Throwable)>($r17, $r11);
+
+        throw $r12;
+
+     label09:
+        $r10 := @caughtexception;
+
+     label10:
+        if r20 == null goto label14;
+
+     label11:
+        virtualinvoke r20.<javax.naming.InitialContext: void close()>();
+
+     label12:
+        goto label14;
+
+     label13:
+        $r9 := @caughtexception;
+
+     label14:
+        throw $r10;
+
+        catch javax.naming.NamingException from label03 to label04 with label05;
+        catch javax.transaction.SystemException from label01 to label02 with label07;
+        catch javax.naming.NamingException from label01 to label02 with label08;
+        catch java.lang.Throwable from label01 to label02 with label09;
+        catch javax.naming.NamingException from label11 to label12 with label13;
+        catch java.lang.Throwable from label07 to label10 with label09;
+    }
+
+    public synchronized void releaseLock(java.lang.String) throws org.quartz.impl.jdbcjobstore.LockException
+    {
+        org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore r0;
+        java.lang.String r1;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore;
+
+        r1 := @parameter0: java.lang.String;
+
+        virtualinvoke r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: void releaseLock(java.lang.String,boolean)>(r1, 0);
+
+        return;
+    }
+
+    protected synchronized void releaseLock(java.lang.String, boolean) throws org.quartz.impl.jdbcjobstore.LockException
+    {
+        org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore r0;
+        boolean z0, $z1, $z2, $z3, $z6;
+        javax.transaction.Transaction r1;
+        org.slf4j.Logger $r2, $r3, $r14, $r17, $r26, $r27;
+        java.lang.StringBuilder $r4, $r5, $r6, $r7, $r10, $r11, $r18, $r19, $r20, $r21, $r24, $r28, $r29, $r30, $r31, $r34;
+        java.lang.Thread $r8, $r22, $r32;
+        java.lang.String $r9, $r12, $r23, $r25, $r33, $r35, r36, r37;
+        java.lang.Exception $r13;
+        java.util.HashSet $r15, $r16;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore;
+
+        r36 := @parameter0: java.lang.String;
+
+        z0 := @parameter1: boolean;
+
+        r37 = virtualinvoke r36.<java.lang.String: java.lang.String intern()>();
+
+        $z1 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: boolean isLockOwner(java.sql.Connection,java.lang.String)>(null, r37);
+
+        if $z1 == 0 goto label4;
+
+        if z0 != 0 goto label2;
+
+        r1 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: javax.transaction.Transaction getTransaction()>();
+
+        if r1 == null goto label2;
+
+        $r26 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger getLog()>();
+
+        $z6 = interfaceinvoke $r26.<org.slf4j.Logger: boolean isDebugEnabled()>();
+
+        if $z6 == 0 goto label1;
+
+        $r27 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger getLog()>();
+
+        $r28 = new java.lang.StringBuilder;
+
+        specialinvoke $r28.<java.lang.StringBuilder: void <init>()>();
+
+        $r29 = virtualinvoke $r28.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Lock \'");
+
+        $r30 = virtualinvoke $r29.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r37);
+
+        $r31 = virtualinvoke $r30.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("\' is in a JTA transaction.  Return deferred by: ");
+
+        $r32 = staticinvoke <java.lang.Thread: java.lang.Thread currentThread()>();
+
+        $r33 = virtualinvoke $r32.<java.lang.Thread: java.lang.String getName()>();
+
+        $r34 = virtualinvoke $r31.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r33);
+
+        $r35 = virtualinvoke $r34.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r27.<org.slf4j.Logger: void debug(java.lang.String)>($r35);
+
+     label1:
+        return;
+
+     label2:
+        $r14 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger getLog()>();
+
+        $z3 = interfaceinvoke $r14.<org.slf4j.Logger: boolean isDebugEnabled()>();
+
+        if $z3 == 0 goto label3;
+
+        $r17 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger getLog()>();
+
+        $r18 = new java.lang.StringBuilder;
+
+        specialinvoke $r18.<java.lang.StringBuilder: void <init>()>();
+
+        $r19 = virtualinvoke $r18.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Lock \'");
+
+        $r20 = virtualinvoke $r19.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r37);
+
+        $r21 = virtualinvoke $r20.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("\' returned by: ");
+
+        $r22 = staticinvoke <java.lang.Thread: java.lang.Thread currentThread()>();
+
+        $r23 = virtualinvoke $r22.<java.lang.Thread: java.lang.String getName()>();
+
+        $r24 = virtualinvoke $r21.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r23);
+
+        $r25 = virtualinvoke $r24.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r17.<org.slf4j.Logger: void debug(java.lang.String)>($r25);
+
+     label3:
+        $r15 = specialinvoke r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: java.util.HashSet getThreadLocks()>();
+
+        virtualinvoke $r15.<java.util.HashSet: boolean remove(java.lang.Object)>(r37);
+
+        $r16 = r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: java.util.HashSet locks>;
+
+        virtualinvoke $r16.<java.util.HashSet: boolean remove(java.lang.Object)>(r37);
+
+        virtualinvoke r0.<java.lang.Object: void notify()>();
+
+        goto label5;
+
+     label4:
+        $r2 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger getLog()>();
+
+        $z2 = interfaceinvoke $r2.<org.slf4j.Logger: boolean isDebugEnabled()>();
+
+        if $z2 == 0 goto label5;
+
+        $r3 = virtualinvoke r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: org.slf4j.Logger getLog()>();
+
+        $r4 = new java.lang.StringBuilder;
+
+        specialinvoke $r4.<java.lang.StringBuilder: void <init>()>();
+
+        $r5 = virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Lock \'");
+
+        $r6 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r37);
+
+        $r7 = virtualinvoke $r6.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("\' attempt to return by: ");
+
+        $r8 = staticinvoke <java.lang.Thread: java.lang.Thread currentThread()>();
+
+        $r9 = virtualinvoke $r8.<java.lang.Thread: java.lang.String getName()>();
+
+        $r10 = virtualinvoke $r7.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r9);
+
+        $r11 = virtualinvoke $r10.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" -- but not owner!");
+
+        $r12 = virtualinvoke $r11.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        $r13 = new java.lang.Exception;
+
+        specialinvoke $r13.<java.lang.Exception: void <init>(java.lang.String)>("stack-trace of wrongful returner");
+
+        interfaceinvoke $r3.<org.slf4j.Logger: void debug(java.lang.String,java.lang.Throwable)>($r12, $r13);
+
+     label5:
+        return;
+    }
+
+    public synchronized boolean isLockOwner(java.sql.Connection, java.lang.String)
+    {
+        org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore r0;
+        java.sql.Connection r1;
+        java.util.HashSet $r2;
+        boolean $z0;
+        java.lang.String r3, r4;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore;
+
+        r1 := @parameter0: java.sql.Connection;
+
+        r3 := @parameter1: java.lang.String;
+
+        r4 = virtualinvoke r3.<java.lang.String: java.lang.String intern()>();
+
+        $r2 = specialinvoke r0.<org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: java.util.HashSet getThreadLocks()>();
+
+        $z0 = virtualinvoke $r2.<java.util.HashSet: boolean contains(java.lang.Object)>(r4);
+
+        return $z0;
+    }
+
+    public boolean requiresConnection()
+    {
+        org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore r0;
+
+        r0 := @this: org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore;
+
+        return 0;
+    }
+
+    public static void <clinit>()
+    {
+        <org.quartz.impl.jdbcjobstore.JTANonClusteredSemaphore: java.lang.String DEFAULT_TRANSACTION_MANANGER_LOCATION> = "java:TransactionManager";
+
+        return;
+    }
+}
