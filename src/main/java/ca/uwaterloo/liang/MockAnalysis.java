@@ -21,6 +21,7 @@ package ca.uwaterloo.liang;
 import java.util.*;
 
 import soot.*;
+import soot.jimple.ArrayRef;
 import soot.jimple.InvokeExpr;
 import soot.jimple.Stmt;
 import soot.options.*;
@@ -85,6 +86,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, T
     protected void flowThrough(FlowSet<Map<Local, TripleBoolean>> in, Unit unit, FlowSet<Map<Local, TripleBoolean>> out) {
         Stmt aStmt = (Stmt) unit;
         
+        determineMockObjectInArray(aStmt);
+        
         //TODO: check that no library classes methods are put in the
         //invoked methods list
         if (notMock(aStmt)) {
@@ -128,6 +131,18 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, T
     
     public ArrayList<SootMethod> getInvokedMethods() {
         return myInvokedMethods;
+    }
+    
+    private static void determineMockObjectInArray(Stmt stmt) {
+        if (stmt.containsArrayRef()) {
+            ArrayRef arrayRef = stmt.getArrayRef();
+            List<ValueBox> indexUseBoxes = arrayRef.getIndex().getUseBoxes();
+            for (ValueBox ub: indexUseBoxes) {
+                System.out.println("index UseBox Value: " + ub.getValue());
+            }
+            ValueBox baseBox = arrayRef.getBaseBox();
+            System.out.println("baseBox: " + baseBox.toString());
+        }
     }
     
     @Override
