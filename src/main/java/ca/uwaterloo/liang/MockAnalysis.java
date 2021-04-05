@@ -22,6 +22,7 @@ import java.util.*;
 
 import soot.*;
 import soot.jimple.ArrayRef;
+import soot.jimple.AssignStmt;
 import soot.jimple.InvokeExpr;
 import soot.jimple.Stmt;
 import soot.options.*;
@@ -134,14 +135,13 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, T
     }
     
     private static void determineMockObjectInArray(Stmt stmt) {
-        if (stmt.containsArrayRef()) {
+        if (stmt.containsArrayRef() && stmt instanceof AssignStmt) {
+            System.out.println(stmt);
             ArrayRef arrayRef = stmt.getArrayRef();
-            List<ValueBox> indexUseBoxes = arrayRef.getIndex().getUseBoxes();
-            for (ValueBox ub: indexUseBoxes) {
-                System.out.println("index UseBox Value: " + ub.getValue());
-            }
-            ValueBox baseBox = arrayRef.getBaseBox();
-            System.out.println("baseBox: " + baseBox.toString());
+            
+            Value right = ((AssignStmt) stmt).getRightOp();
+            System.out.println("Right: " + right);
+            System.out.println("Right Type: " + right.getType());
         }
     }
     
