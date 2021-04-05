@@ -86,8 +86,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, T
     @Override
     protected void flowThrough(FlowSet<Map<Local, TripleBoolean>> in, Unit unit, FlowSet<Map<Local, TripleBoolean>> out) {
         Stmt aStmt = (Stmt) unit;
-        
-        determineMockObjectInArray(aStmt);
+        HashMap<Local, TripleBoolean> running_result;
         
         //TODO: check that no library classes methods are put in the
         //invoked methods list
@@ -97,7 +96,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, T
             // Scenario 1: x = y; || Scenario 2: x = new Object();
             // In both scenarios, the local defbox x was a mock object in line 1, but no longer
             // a mock object after line 2 (Missing: Still need to check for the useBox y)
-            HashMap<Local, TripleBoolean> running_result = new HashMap<Local, TripleBoolean>();
+            running_result = new HashMap<Local, TripleBoolean>();
             List<ValueBox> defBoxes = unit.getDefBoxes();
             List<ValueBox> useBoxes = unit.getUseBoxes();
             for (ValueBox vb: defBoxes) {
@@ -114,7 +113,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, T
             myInvokedMethods.add(sootMethod);
             
             if (isMockAPI(sootMethod)) {
-                HashMap<Local, TripleBoolean> running_result = new HashMap<Local, TripleBoolean>();
+                running_result = new HashMap<Local, TripleBoolean>();
                 List<ValueBox> defBoxes = unit.getDefBoxes();
                 for (ValueBox vb: defBoxes) {
                     Local l = (Local) vb.getValue();
@@ -126,6 +125,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, T
             }
         }
         
+        List<Local> locals = findAllLocalsInArray(aStmt);
         // Remove the local from out FlowSet with the following 
         myMocksInfo.union(out);
     }
@@ -134,15 +134,16 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, T
         return myInvokedMethods;
     }
     
-    private static void determineMockObjectInArray(Stmt stmt) {
+    private List<Local> findAllLocalsInArray(Stmt stmt) {
+        List<Local> locals = new ArrayList<Local>();
         if (stmt.containsArrayRef() && stmt instanceof AssignStmt) {
             System.out.println(stmt);
             ArrayRef arrayRef = stmt.getArrayRef();
             
-            Value right = ((AssignStmt) stmt).getRightOp();
-            System.out.println("Right: " + right);
-            System.out.println("Right Type: " + right.getType());
+            Local local = (Local) ((AssignStmt) stmt).getRightOp();
+            locals.add(local);
         }
+        return locals;
     }
     
     @Override
