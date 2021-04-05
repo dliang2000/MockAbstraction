@@ -1,6 +1,6 @@
 package ca.uwaterloo.liang;
 
-public class TripleBoolean {
+public class MockStatus {
     // Determines if the object is a possible Mock. The "possible" here considers for the branch condition.
     private boolean possibleMock;
     
@@ -10,11 +10,11 @@ public class TripleBoolean {
     // Determine if a collection contains any "possible" mock objects.
     private boolean collectionMock;
     
-    public TripleBoolean(boolean possibleMock) {
+    public MockStatus(boolean possibleMock) {
         this(possibleMock, false, false);
     }
     
-    public TripleBoolean(boolean possibleMock, boolean arrayMock, boolean collectionMock) {
+    public MockStatus(boolean possibleMock, boolean arrayMock, boolean collectionMock) {
         this.possibleMock = possibleMock;
         this.arrayMock = arrayMock;
         this.collectionMock = collectionMock;

@@ -42,20 +42,20 @@ import soot.toolkits.scalar.ForwardFlowAnalysis;
  * Flow analysis to determine all locals guaranteed to be defined at a
  * given program point.
  **/
-public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, TripleBoolean>>> {
+public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, MockStatus>>> {
 
     private static ArrayList<SootMethod> emptyInvokedMethods = new ArrayList<SootMethod>();
     
-    private static FlowSet<Map<Local, TripleBoolean>> emptyFlowSet = new ArraySparseSet() ;
+    private static FlowSet<Map<Local, MockStatus>> emptyFlowSet = new ArraySparseSet() ;
     
-    private static HashMap<Unit, HashMap<Local, TripleBoolean>> emptyPossiblyMocks = new HashMap<Unit, HashMap<Local, TripleBoolean>>();
+    private static HashMap<Unit, HashMap<Local, MockStatus>> emptyPossiblyMocks = new HashMap<Unit, HashMap<Local, MockStatus>>();
     
     //Contains all the invoked methods by the method under analysis
     private ArrayList<SootMethod> myInvokedMethods;
     
     // For each unit x local, will store a boolean for if it is a possible mock,
     // if is a possible mock within Collection, or if it is a possible mock within Array.
-    private HashMap<Unit, HashMap<Local, TripleBoolean>> possiblyMocks;
+    private HashMap<Unit, HashMap<Local, MockStatus>> possiblyMocks;
     
     @SuppressWarnings("unchecked")
     public MockAnalysis(UnitGraph graph) {
@@ -63,25 +63,25 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, T
         
         myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
         
-        possiblyMocks = (HashMap<Unit, HashMap<Local, TripleBoolean>>) emptyPossiblyMocks.clone();
+        possiblyMocks = (HashMap<Unit, HashMap<Local, MockStatus>>) emptyPossiblyMocks.clone();
         
         doAnalysis();
     }
     
     @Override
-    protected FlowSet<Map<Local, TripleBoolean>> newInitialFlow() { 
+    protected FlowSet<Map<Local, MockStatus>> newInitialFlow() { 
         return emptyFlowSet.clone();
     }
     
     @Override
-    protected FlowSet<Map<Local, TripleBoolean>> entryInitialFlow() { 
+    protected FlowSet<Map<Local, MockStatus>> entryInitialFlow() { 
         return emptyFlowSet.clone();
     }
     
     @Override
-    protected void flowThrough(FlowSet<Map<Local, TripleBoolean>> in, Unit unit, FlowSet<Map<Local, TripleBoolean>> out) {
+    protected void flowThrough(FlowSet<Map<Local, MockStatus>> in, Unit unit, FlowSet<Map<Local, MockStatus>> out) {
         Stmt aStmt = (Stmt) unit;
-        HashMap<Local, TripleBoolean> running_result;
+        HashMap<Local, MockStatus> running_result;
         
         //TODO: check that no library classes methods are put in the
         //invoked methods list
@@ -91,12 +91,12 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, T
             // Scenario 1: x = y; || Scenario 2: x = new Object();
             // In both scenarios, the local defbox x was a mock object in line 1, but no longer
             // a mock object after line 2 (Missing: Still need to check for the useBox y)
-            running_result = new HashMap<Local, TripleBoolean>();
+            running_result = new HashMap<Local, MockStatus>();
             List<ValueBox> defBoxes = unit.getDefBoxes();
             List<ValueBox> useBoxes = unit.getUseBoxes();
             for (ValueBox vb: defBoxes) {
                 Local l = (Local) vb.getValue();
-                TripleBoolean trip = new TripleBoolean(false);
+                MockStatus trip = new MockStatus(false);
                 running_result.put(l, trip);
             }
             possiblyMocks.put(unit, running_result);
@@ -108,11 +108,11 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, T
             myInvokedMethods.add(sootMethod);
             
             if (isMockAPI(sootMethod)) {
-                running_result = new HashMap<Local, TripleBoolean>();
+                running_result = new HashMap<Local, MockStatus>();
                 List<ValueBox> defBoxes = unit.getDefBoxes();
                 for (ValueBox vb: defBoxes) {
                     Local l = (Local) vb.getValue();
-                    TripleBoolean trip = new TripleBoolean(true);
+                    MockStatus trip = new MockStatus(true);
                     running_result.put(l, trip);
                 }
                 out.add(running_result);
@@ -140,12 +140,12 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, T
     }
     
     @Override
-    protected void merge(FlowSet<Map<Local, TripleBoolean>> in1, FlowSet<Map<Local, TripleBoolean>> in2, FlowSet<Map<Local, TripleBoolean>> out) {
+    protected void merge(FlowSet<Map<Local, MockStatus>> in1, FlowSet<Map<Local, MockStatus>> in2, FlowSet<Map<Local, MockStatus>> out) {
         in1.union(in2, out);
     }
     
     @Override
-    protected void copy(FlowSet<Map<Local, TripleBoolean>> srcSet, FlowSet<Map<Local, TripleBoolean>> destSet) {
+    protected void copy(FlowSet<Map<Local, MockStatus>> srcSet, FlowSet<Map<Local, MockStatus>> destSet) {
         srcSet.copy(destSet);
     }
     
