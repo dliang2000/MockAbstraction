@@ -50,9 +50,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, T
     
     private static HashMap<Unit, HashMap<Local, TripleBoolean>> emptyPossiblyMocks = new HashMap<Unit, HashMap<Local, TripleBoolean>>();
     
-    //Contains all the affects information of the analyzed method
-    private FlowSet<Map<Local, TripleBoolean>> myMocksInfo;
-    
     //Contains all the invoked methods by the method under analysis
     private ArrayList<SootMethod> myInvokedMethods;
     
@@ -67,8 +64,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, T
         myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
         
         possiblyMocks = (HashMap<Unit, HashMap<Local, TripleBoolean>>) emptyPossiblyMocks.clone();
-        
-        myMocksInfo = emptyFlowSet.clone();
         
         doAnalysis();
     }
@@ -90,7 +85,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, T
         
         //TODO: check that no library classes methods are put in the
         //invoked methods list
-        if (notMock(aStmt)) {
+        if (doesNotCreateMock(aStmt)) {
             // This part tries to consider for the following two scenarios:
             // X x = mock(...);
             // Scenario 1: x = y; || Scenario 2: x = new Object();
@@ -126,8 +121,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, T
         }
         
         List<Local> locals = findAllLocalsInArray(aStmt);
-        // Remove the local from out FlowSet with the following 
-        myMocksInfo.union(out);
     }
     
     public ArrayList<SootMethod> getInvokedMethods() {
@@ -156,7 +149,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, T
         srcSet.copy(destSet);
     }
     
-    private static boolean notMock(Stmt stmt) {
+    private static boolean doesNotCreateMock(Stmt stmt) {
         return (!stmt.containsInvokeExpr() || !isMockAPI(stmt.getInvokeExpr().getMethod()));
     }
     
