@@ -58,7 +58,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
     private HashMap<Unit, HashMap<Local, MockStatus>> possiblyMocks;
     
     @SuppressWarnings("unchecked")
-    public MockAnalysis(UnitGraph graph) {
+    public MockAnalysis(DirectedGraph graph) {
         super(graph);
         
         myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
@@ -66,6 +66,17 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         possiblyMocks = (HashMap<Unit, HashMap<Local, MockStatus>>) emptyPossiblyMocks.clone();
         
         doAnalysis();
+    }
+    
+    public void analyze(DirectedGraph graph, SootMethod aCurrentSootMethod) {
+        this.graph = graph;
+        
+        myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
+        
+        possiblyMocks = (HashMap<Unit, HashMap<Local, MockStatus>>) emptyPossiblyMocks.clone();
+        
+        doAnalysis();
+    
     }
     
     @Override
@@ -175,8 +186,13 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
             }
         }
     }
+    
     public ArrayList<SootMethod> getInvokedMethods() {
         return myInvokedMethods;
+    }
+    
+    public HashMap<Unit, HashMap<Local, MockStatus>> getPossiblyMocks() {
+        return possiblyMocks;
     }
     
     @Override

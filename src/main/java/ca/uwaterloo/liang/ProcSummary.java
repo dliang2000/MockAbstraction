@@ -13,26 +13,17 @@ import soot.toolkits.scalar.FlowSet;
 
 public class ProcSummary {
     
-    private static FlowSet<Local> emptyFlowSet = new ArraySparseSet();
+    private static FlowSet<Map<Local, MockStatus>> emptyFlowSet = new ArraySparseSet();
     
-    private FlowSet<Local> myMocks;
+    private static HashMap<Unit, HashMap<Local, MockStatus>> emptyPossiblyMocks = new HashMap<Unit, HashMap<Local, MockStatus>>();
+    
     private ArrayList<SootMethod> myInvokedMethods;
-    private HashMap<Unit, HashMap<Local, Boolean>> possiblyMocks;
-    private HashMap<Unit, HashMap<Local, Boolean>> mayBeCollectionMocks;
-    private HashMap<Unit, HashMap<Local, Boolean>> mayBeArrayMocks;
+    private HashMap<Unit, HashMap<Local, MockStatus>> possiblyMocks;
     private SootMethod mySootMethod;
     
     public ProcSummary(SootMethod aSootMethod) {
         mySootMethod = aSootMethod;
-        myMocks = emptyFlowSet.clone();
-    }
-    
-    public FlowSet<Local> getMocks() {
-        return myMocks;
-    }
-    
-    public void setMocks(FlowSet<Local> myMocks) {
-        this.myMocks = myMocks;
+        possiblyMocks = (HashMap<Unit, HashMap<Local, MockStatus>>) emptyPossiblyMocks.clone();
     }
     
     public SootMethod getSootMethod() {
@@ -51,28 +42,12 @@ public class ProcSummary {
         this.myInvokedMethods = myInvokedMethods;
     }
     
-    public HashMap<Unit, HashMap<Local, Boolean>> getPossiblyMocks() {
+    public HashMap<Unit, HashMap<Local, MockStatus>> getPossiblyMocks() {
         return possiblyMocks;
     }
 
-    public void setPossiblyMocks(HashMap<Unit, HashMap<Local, Boolean>> possiblyMocks) {
+    public void setPossiblyMocks(HashMap<Unit, HashMap<Local, MockStatus>> possiblyMocks) {
         this.possiblyMocks = possiblyMocks;
-    }
-    
-    public HashMap<Unit, HashMap<Local, Boolean>> getMayBeCollectionMocks() {
-        return mayBeCollectionMocks;
-    }
-
-    public void setMayBeCollectionMocks(HashMap<Unit, HashMap<Local, Boolean>> mayBeCollectionMocks) {
-        this.mayBeCollectionMocks = mayBeCollectionMocks;
-    }
-        
-    public HashMap<Unit, HashMap<Local, Boolean>> getMayBeArrayMock() {
-        return mayBeArrayMocks;
-    }
-
-    public void setMayBeArrayMock(HashMap<Unit, HashMap<Local, Boolean>> mayBeArrayMocks) {
-        this.mayBeArrayMocks = mayBeArrayMocks;
     }
     
 }
