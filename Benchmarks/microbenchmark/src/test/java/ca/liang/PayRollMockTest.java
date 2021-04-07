@@ -1,4 +1,4 @@
-package ca.uwaterloo.liang;
+package ca.liang;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.*;
@@ -13,7 +13,7 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
-public class PayRollTest {
+public class PayRollMockTest {
 
     private PayRoll payRoll;
 
@@ -27,17 +27,8 @@ public class PayRollTest {
     public void init() {
         employees = new ArrayList<Employee>();
         
-        List<Employee> employee_List = new ArrayList<>();
-
-        employee_List.add(createTestEmployee("Test Employee1", "ID0", 1000));
-        employee_List.add(createTestEmployee("Test Employee2", "ID1", 2000));
-        
-        employeeList = new EmployeeList(employee_List);
-        
-        Map<String, Integer> employee_salary = new HashMap<String, Integer>();
-        employee_salary.put("ID0", 1000);
-        employee_salary.put("ID1", 2000);
-        bankService = new BankService(employee_salary);
+        employeeList = mock(EmployeeList.class);
+        bankService = mock(BankService.class);
 
         when(employeeList.getAllEmployees()).thenReturn(employees);
 
@@ -73,14 +64,14 @@ public class PayRollTest {
 
     @Test
     public void testEmployeeIsPaid() {
-        String employeeId = "ID0";
+        String bankId = "ID0";
         int salary = 1000;
 
-        employees.add(createTestEmployee("Test Employee", employeeId, salary));
+        employees.add(createTestEmployee("Test Employee", bankId, salary));
 
         assertNumberOfPayments(1);
 
-        verify(bankService, times(1)).makePayment(employeeId, salary);
+        verify(bankService, times(1)).makePayment(bankId, salary);
     }
 
     @Test

@@ -3,15 +3,15 @@
 source ../../../config.sh
 echo $MACHINE_SPECIFIC_PATH
 
-PACKAGE="org.apache.commons.collections4"
+PACKAGE="ca.liang"
 SOOT_JAR="$MACHINE_SPECIFIC_PATH/soot_jar/sootclasses-trunk-jar-with-dependencies.jar"
 JAVA_PATH="$MACHINE_SPECIFIC_PATH/target/classes"
 CC_CLASS="ca.uwaterloo.liang.MockRunner"
-BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/commons-collections-collections-4.3"
+BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/microbenchmark"
 TARGET_PATH="target/classes"
 TARGET_TEST_PATH="target/test-classes"
-BENCHMARK="commons_collections_4.3"
-DRIVER_PATH="org.apache.commons.collections4.Driver"
+BENCHMARK="microbenchmark"
+DRIVER_PATH="ca.liang.Driver"
 OUTPUT_PATH="$MACHINE_SPECIFIC_PATH/analysis_output/MockAnalysis"
 
 MVN_DEPENDENCY_PATH="$BENCHMARK_PATH/mvn_dependencies"

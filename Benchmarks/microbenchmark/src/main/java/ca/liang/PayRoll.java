@@ -1,4 +1,4 @@
-package ca.uwaterloo.liang;
+package ca.liang;
 
 import java.util.Arrays;
 import java.util.List;

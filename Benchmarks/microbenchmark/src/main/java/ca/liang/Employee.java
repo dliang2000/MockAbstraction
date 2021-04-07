@@ -1,4 +1,4 @@
-package ca.uwaterloo.liang;
+package ca.liang;
 
 public class Employee {
     private String name;
