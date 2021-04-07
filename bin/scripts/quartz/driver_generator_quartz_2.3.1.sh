@@ -7,7 +7,7 @@ SOOT_JAR="$MACHINE_SPECIFIC_PATH/soot_jar/sootclasses-trunk-jar-with-dependencie
 JAVA_PATH="$MACHINE_SPECIFIC_PATH/target/classes"
 CC_CLASS="ca.uwaterloo.liang.DriverGenerator"
 BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/quartz-quartz-2.3.1-patched"
-TEXT_PATH="benchmark_info.txt"
+TEXT_PATH="benchmark_info.config"
 
 MVN_DEPENDENCY_PATH="$BENCHMARK_PATH/quartz-core/mvn_dependencies"
 
