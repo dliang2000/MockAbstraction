@@ -17,13 +17,13 @@ public class PayRoll {
     
     public PayRoll(Employee[] employeeArr, BankService bankService) {
         super();
-        this.employeeList = (EmployeeList)  Arrays.asList(employeeArr);
+        this.employeeList = new EmployeeList(Arrays.asList(employeeArr));
         this.bankService = bankService;
     }
     
     public int monthlyPayment() {
         List<Employee> employees = employeeList.getAllEmployees();
-
+        
         for (Employee employee : employees) {
             bankService.makePayment(employee.getBankId(), employee.getSalary());
         }

@@ -76,9 +76,15 @@ public class PayRollMockTest {
 
     @Test
     public void testAllEmployeesArePaid() {
-        employees.add(createTestEmployee("Test Employee1", "ID0", 1000));
-        employees.add(createTestEmployee("Test Employee2", "ID1", 2000));
+        employees = createEmployees();
+        
+        employeeList = mock(EmployeeList.class);
+        bankService = mock(BankService.class);
 
+        when(employeeList.getAllEmployees()).thenReturn(employees);
+
+        payRoll = new PayRoll(employeeList, bankService);
+        
         assertNumberOfPayments(2);
 
         ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);
@@ -86,10 +92,10 @@ public class PayRollMockTest {
 
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
-        assertEquals("ID0", idCaptor.getAllValues().get(0));
-        assertEquals("ID1", idCaptor.getAllValues().get(1));
-        assertEquals(1000, salaryCaptor.getAllValues().get(0).intValue());
-        assertEquals(2000, salaryCaptor.getAllValues().get(1).intValue());
+        assertEquals(employees.get(0).getBankId(), idCaptor.getAllValues().get(0));
+        assertEquals(employees.get(1).getBankId(), idCaptor.getAllValues().get(1));
+        assertEquals(employees.get(0).getSalary(), salaryCaptor.getAllValues().get(0).intValue());
+        assertEquals(employees.get(1).getSalary(), salaryCaptor.getAllValues().get(1).intValue());
     }
     
     
@@ -114,5 +120,14 @@ public class PayRollMockTest {
 
     private Employee createTestEmployee(String name, String id, int salary) {
         return new Employee(name, id, salary);
+    }
+    
+    private List<Employee> createEmployees() {
+    	List<Employee> employee_list = new ArrayList<Employee>();
+        Employee employee1 = mock(Employee.class);
+        Employee employee2 = mock(Employee.class);
+        employee_list.add(employee1);
+        employee_list.add(employee2);
+        return employee_list;
     }
 }

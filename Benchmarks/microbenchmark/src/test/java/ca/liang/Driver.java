@@ -4,7 +4,7 @@ public class Driver {
 	public static void main(String[] argv) {
 		ca.liang.PayRollArrayMockTest class1 = new ca.liang.PayRollArrayMockTest();
 		class1.testNoEmployees();
-		class1.testNoEmployeesIntra();
+		class1.testEmployeesPaidIntra();
 		class1.testSingleEmployee();
 		class1.testEmployeeIsPaid();
 		class1.testAllEmployeesArePaidArray();
@@ -21,12 +21,12 @@ public class Driver {
 		class3.testSingleEmployee();
 		class3.testEmployeeIsPaid();
 		class3.testAllEmployeesArePaid();
-		class3.testInteractionOrder();
-		ca.liang.PayRollArrayTest class4 = new ca.liang.PayRollArrayTest();
-		class4.testNoEmployees();
-		class4.testNoEmployeesIntra();
-		class4.testSingleEmployee();
-		class4.testEmployeeIsPaid();
-		class4.testAllEmployeesArePaidArray();
+		ca.liang.Driver class4 = new ca.liang.Driver();
+		ca.liang.PayRollArrayTest class5 = new ca.liang.PayRollArrayTest();
+		class5.testNoEmployees();
+		class5.testEmployeesPaidIntra();
+		class5.testSingleEmployee();
+		class5.testEmployeeIsPaid();
+		class5.testAllEmployeesArePaidArray();
 	}
 }

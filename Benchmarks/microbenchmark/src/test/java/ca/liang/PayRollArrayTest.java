@@ -32,18 +32,12 @@ public class PayRollArrayTest {
         employees = new Employee[2];
         
         List<Employee> employee_List = new ArrayList<>();
-
-        employee_List.add(createTestEmployee("Test Employee1", "ID0", 1000));
-        employee_List.add(createTestEmployee("Test Employee2", "ID1", 2000));
         
         employeeList = new EmployeeList(employee_List);
         
         Map<String, Integer> employee_salary = new HashMap<String, Integer>();
-        employee_salary.put("ID0", 1000);
-        employee_salary.put("ID1", 2000);
+        
         bankService = new BankService(employee_salary);
-
-        //when(employeeList.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
 
         payRoll = new PayRoll(employeeList, bankService);
     }
@@ -54,45 +48,71 @@ public class PayRollArrayTest {
     }
     
     @Test
-    public void testNoEmployeesIntra() {
+    public void testEmployeesPaidIntra() {
         Employee[] employees_intra = new Employee[2];
         employees_intra[0] = mock(Employee.class);
         employees_intra[1] = mock(Employee.class);
         
-        EmployeeList emplyeeList_intra = (EmployeeList) Arrays.asList(employees_intra);
+        EmployeeList employeeList_intra = mock(EmployeeList.class);
         
         BankService bankService_intra = mock(BankService.class);
 
-        when(emplyeeList_intra.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_intra));
+        when(employeeList_intra.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_intra));
 
         PayRoll payRoll_intra = new PayRoll(employees_intra, bankService_intra);
         
         int numberOfPayments = payRoll_intra.monthlyPayment();
-        assertEquals(0, numberOfPayments);
+        assertEquals(2, numberOfPayments);
     }
     
     @Test
     public void testSingleEmployee() {
-        employees[0] = createTestEmployee("Test Employee", "ID0", 1000);
+    	employees = new Employee[1];
+        employees[0] = mock(Employee.class);
+        
+        employeeList = mock(EmployeeList.class);
+        
+        bankService = mock(BankService.class);
 
+        when(employeeList.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
+
+        payRoll = new PayRoll(employeeList, bankService);
+        
         assertNumberOfPayments(1);
     }
 
     @Test
     public void testEmployeeIsPaid() {
-        String employeeId = "ID0";
+    	employees = new Employee[1];
+        String bankId = "ID0";
         int salary = 1000;
-        employees[0] = createTestEmployee("Test Employee", "ID1", 1000);
+        employees[0] = createTestEmployee("Test Employee", "ID0", 1000);
+        
+        employeeList = mock(EmployeeList.class);
+        
+        bankService = mock(BankService.class);
 
+        when(employeeList.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
+
+        payRoll = new PayRoll(employeeList, bankService);
         assertNumberOfPayments(1);
 
-        verify(bankService, times(1)).makePayment(employeeId, salary);
+        verify(bankService, times(1)).makePayment(bankId, salary);
     }
     
     @Test
     public void testAllEmployeesArePaidArray() {
         employees = createEmployees();
+        
+        List<Employee> employee_List = new ArrayList<>();
+        employee_List.add(employees[0]);
+        employee_List.add(employees[1]);
+        
+        employeeList = new EmployeeList(employee_List);
+        
+        bankService = mock(BankService.class);
 
+        payRoll = new PayRoll(employeeList, bankService);
         assertNumberOfPayments(2);
 
         ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);
@@ -100,10 +120,10 @@ public class PayRollArrayTest {
 
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
-        assertEquals("ID0", idCaptor.getAllValues().get(0));
-        assertEquals("ID1", idCaptor.getAllValues().get(1));
-        assertEquals(1000, salaryCaptor.getAllValues().get(0).intValue());
-        assertEquals(2000, salaryCaptor.getAllValues().get(1).intValue());
+        assertEquals(employees[0].getBankId(), idCaptor.getAllValues().get(0));
+        assertEquals(employees[1].getBankId(), idCaptor.getAllValues().get(1));
+        assertEquals(employees[0].getSalary(), salaryCaptor.getAllValues().get(0).intValue());
+        assertEquals(employees[1].getSalary(), salaryCaptor.getAllValues().get(1).intValue());
     }
 
     private void assertNumberOfPayments(int expected) {

@@ -28,18 +28,12 @@ public class PayRollTest {
         employees = new ArrayList<Employee>();
         
         List<Employee> employee_List = new ArrayList<>();
-
-        employee_List.add(createTestEmployee("Test Employee1", "ID0", 1000));
-        employee_List.add(createTestEmployee("Test Employee2", "ID1", 2000));
         
         employeeList = new EmployeeList(employee_List);
         
         Map<String, Integer> employee_salary = new HashMap<String, Integer>();
-        employee_salary.put("ID0", 1000);
-        employee_salary.put("ID1", 2000);
+        
         bankService = new BankService(employee_salary);
-
-        //when(employeeList.getAllEmployees()).thenReturn(employees);
 
         payRoll = new PayRoll(employeeList, bankService);
     }
@@ -66,28 +60,59 @@ public class PayRollTest {
     
     @Test
     public void testSingleEmployee() {
-        employees.add(createTestEmployee("Test Employee", "ID0", 1000));
+    	Employee test_employee = createTestEmployee("Test Employee", "ID0", 1000);
+        employees.add(test_employee);
+        
+        List<Employee> employee_List = new ArrayList<>();
+        employee_List.add(test_employee);
+        employeeList = new EmployeeList(employee_List);
+        
+        Map<String, Integer> employee_salary = new HashMap<String, Integer>();
+        
+        bankService = new BankService(employee_salary);
+        employee_salary.put("ID0", 1000);
+
+        payRoll = new PayRoll(employeeList, bankService);
 
         assertNumberOfPayments(1);
     }
 
     @Test
     public void testEmployeeIsPaid() {
-        String employeeId = "ID0";
+        String bankId = "ID0";
         int salary = 1000;
+        
+        employees.add(createTestEmployee("Test Employee", bankId, salary));;
+        
+        List<Employee> employee_List = new ArrayList<>();
+        employee_List.add(createTestEmployee("Test Employee1", bankId, salary));
+        employeeList = new EmployeeList(employee_List);
+        
+        Map<String, Integer> employee_salary = new HashMap<String, Integer>();
+        
+        bankService = mock(BankService.class);
 
-        employees.add(createTestEmployee("Test Employee", employeeId, salary));
+        payRoll = new PayRoll(employeeList, bankService);
 
         assertNumberOfPayments(1);
 
-        verify(bankService, times(1)).makePayment(employeeId, salary);
+        verify(bankService, times(1)).makePayment(bankId, salary);
     }
 
     @Test
     public void testAllEmployeesArePaid() {
         employees.add(createTestEmployee("Test Employee1", "ID0", 1000));
         employees.add(createTestEmployee("Test Employee2", "ID1", 2000));
+        
+        List<Employee> employee_List = new ArrayList<>();
+        employee_List.add(employees.get(0));
+        employee_List.add(employees.get(1));
+        employeeList = new EmployeeList(employee_List);
+        
+        bankService = mock(BankService.class);
 
+        payRoll = new PayRoll(employeeList, bankService);
+        
         assertNumberOfPayments(2);
 
         ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);
@@ -95,27 +120,12 @@ public class PayRollTest {
 
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
-        assertEquals("ID0", idCaptor.getAllValues().get(0));
-        assertEquals("ID1", idCaptor.getAllValues().get(1));
-        assertEquals(1000, salaryCaptor.getAllValues().get(0).intValue());
-        assertEquals(2000, salaryCaptor.getAllValues().get(1).intValue());
+        assertEquals(employees.get(0).getBankId(), idCaptor.getAllValues().get(0));
+        assertEquals(employees.get(1).getBankId(), idCaptor.getAllValues().get(1));
+        assertEquals(employees.get(0).getSalary(), salaryCaptor.getAllValues().get(0).intValue());
+        assertEquals(employees.get(1).getSalary(), salaryCaptor.getAllValues().get(1).intValue());
     }
     
-    
-    @Test
-    public void testInteractionOrder() {
-        String bankId = "ID0";
-        int salary = 1000;
-
-        employees.add(createTestEmployee("Test Employee", bankId, salary));
-
-        assertNumberOfPayments(1);
-        
-        InOrder inOrder = inOrder(employeeList, bankService);
-        inOrder.verify(employeeList).getAllEmployees();
-        inOrder.verify(bankService).makePayment(bankId, salary);
-    }
-
     private void assertNumberOfPayments(int expected) {
         int numberOfPayments = payRoll.monthlyPayment();
         assertEquals(expected, numberOfPayments);
