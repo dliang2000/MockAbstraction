@@ -13,8 +13,6 @@ import soot.toolkits.scalar.FlowSet;
 
 public class ProcSummary {
     
-    private static FlowSet<Map<Local, MockStatus>> emptyFlowSet = new ArraySparseSet();
-    
     private static HashMap<Unit, HashMap<Local, MockStatus>> emptyPossiblyMocks = new HashMap<Unit, HashMap<Local, MockStatus>>();
     
     private ArrayList<SootMethod> myInvokedMethods;

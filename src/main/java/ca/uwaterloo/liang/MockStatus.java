@@ -2,7 +2,7 @@ package ca.uwaterloo.liang;
 
 public class MockStatus {
     // Determines if the object is a possible Mock. The "possible" here considers for the branch condition.
-    private boolean possibleMock;
+    private boolean possiblyMock;
     
     // Determine if an array contains any "possible" mock objects.
     private boolean arrayMock;
@@ -14,17 +14,33 @@ public class MockStatus {
         this(possibleMock, false, false);
     }
     
-    public MockStatus(boolean possibleMock, boolean arrayMock, boolean collectionMock) {
-        this.possibleMock = possibleMock;
+    public MockStatus(boolean possiblyMock, boolean arrayMock, boolean collectionMock) {
+        this.possiblyMock = possiblyMock;
         this.arrayMock = arrayMock;
         this.collectionMock = collectionMock;
     }
 
-    public void setPossibleMock(boolean possibleMock) {
-        this.possibleMock = possibleMock;
+    public void setPossiblyMock(boolean possiblyMock) {
+        this.possiblyMock = possiblyMock;
     }
     
-    public boolean getPossibleMock() {
-        return possibleMock;
+    public boolean getPossiblyMock() {
+        return possiblyMock;
+    }
+    
+    public void setArrayMock(boolean arrayMock) {
+        this.arrayMock = arrayMock;
+    }
+    
+    public boolean getArrayMock() {
+        return arrayMock;
+    }
+    
+    public void setCollectionMock(boolean collectionMock) {
+        this.collectionMock = collectionMock;
+    }
+    
+    public boolean getCollectionMock() {
+        return collectionMock;
     }
 }

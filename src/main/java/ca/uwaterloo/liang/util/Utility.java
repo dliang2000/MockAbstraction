@@ -69,7 +69,27 @@ public class Utility {
             for (Map.Entry<Unit, HashMap<Local, MockStatus>> entry : mocks.entrySet()) {
                 // How to print output?
                 Unit u = entry.getKey();
+                msg.append("Unit: ").append(u).append("\n"); 
+                
                 HashMap<Local, MockStatus> val = entry.getValue();
+                
+                
+                for (Map.Entry<Local, MockStatus> curr : val.entrySet()) {
+                    Local l = curr.getKey();
+                    MockStatus ms = curr.getValue();
+                    
+                    msg.append("Local: ").append(l).append("\n");
+                    
+                    if (ms.getPossiblyMock()) {
+                        msg.append("Possibly Mock: true").append("\n");
+                    }
+                    if (ms.getArrayMock()) {
+                        msg.append("Array Mock: true").append("\n");
+                    }
+                    if (ms.getCollectionMock()) {
+                        msg.append("Collection Mock: true").append("\n");
+                    }
+                }
             }   
             
         }
