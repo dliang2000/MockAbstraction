@@ -11,7 +11,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import ca.uwaterloo.liang.MockRunner.MockTransformer;
+import ca.uwaterloo.liang.util.Utility;
 import soot.G;
 import soot.PackManager;
 import soot.PointsToAnalysis;
@@ -21,17 +21,20 @@ import soot.SootClass;
 import soot.SootMethod;
 import soot.Transform;
 import soot.Transformer;
+import soot.Unit;
+import soot.jimple.JimpleBody;
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.options.Options;
+import soot.tagkit.AnnotationTag;
 import soot.toolkits.graph.ExceptionalUnitGraph;
 
-public class MockAnalysisMain {
+public class MockAnalysisMain extends SceneTransformer {
     private static String benchmark;
     private static String output_path;
     
     private static final Logger logger = LoggerFactory.getLogger(PackManager.class);
     public static void main(String[] args) throws IOException {
-        PackManager.v().getPack("wjtp").add(new Transform("wjtp.myTransform", MockMainTransformer.v()) {
+        PackManager.v().getPack("wjtp").add(new Transform("wjtp.myTransform", new MockAnalysisMain()) {
         });
         Options.v().set_prepend_classpath(true);
         Options.v().set_verbose(true);
@@ -56,117 +59,159 @@ public class MockAnalysisMain {
         System.out.println("args[5]: " + args[5]);
         soot.Main.main(pd.toArray(new String[0]));
     }
-    
-    static class MockMainTransformer extends SceneTransformer {
         
-        private CallGraph myCallGraph;
+    private CallGraph myCallGraph;
     
-        private PointsToAnalysis myPointsToAnalysis;
+    private PointsToAnalysis myPointsToAnalysis;
     
-        /**
-         * All the classes of the application to analyze
-         */ 
-        private HashMap<String, SootClass> myAppClasses;
-        private Collection<SootClass> colAppClasses;
+    /**
+     * All the classes of the application to analyze
+     */ 
+    private HashMap<String, SootClass> myAppClasses;
+    private Collection<SootClass> colAppClasses;
     
-        /**
-         * All the methods of the applications classes to analyze
-         */
-        private ArrayList<SootMethod> myAppMethods;
+    /**
+     * All the methods of the applications classes to analyze
+     */
+    private ArrayList<SootMethod> myAppMethods;
     
-
-        /**
-         * Each class mapped to its corresponding methods
-         */
-        private HashMap<String, ArrayList<SootMethod>> myClassMethods;
+    /**
+     * Each class mapped to its corresponding methods
+     */
+    private HashMap<String, ArrayList<SootMethod>> myClassMethods;
     
     
-        /**
-         * Each method mapped to its summary
-         */
-        private HashMap<SootMethod, ProcSummary> myProcSummaries;
+    /**
+     * Each method mapped to its summary
+     */
+    private HashMap<SootMethod, ProcSummary> myProcSummaries;
         
-        /**
-         * Each method mapped to its callees
-         */
-        private HashMap<String, ArrayList<SootMethod> > myCallees;
+    /**
+     * Each method mapped to its callees
+     */
+    private HashMap<String, ArrayList<SootMethod> > myCallees;
         
-        private MockAnalysis myMAnalysis;
+    private MockAnalysis myMAnalysis;
         
-        public MockMainTransformer() {
-            super();
+    public MockAnalysisMain() {
+        super();
         
-            myProcSummaries = new HashMap<SootMethod, ProcSummary>();
+        myProcSummaries = new HashMap<SootMethod, ProcSummary>();
             
-            myClassMethods = new HashMap<String, ArrayList<SootMethod> >();
+        myClassMethods = new HashMap<String, ArrayList<SootMethod> >();
             
-            myCallees = new HashMap<String, ArrayList<SootMethod> >();
+        myCallees = new HashMap<String, ArrayList<SootMethod> >();
                 
-            myAppMethods = new ArrayList<SootMethod>();
+        myAppMethods = new ArrayList<SootMethod>();
         
-            myAppClasses = new HashMap<String, SootClass>();
+        myAppClasses = new HashMap<String, SootClass>();
+    }
+
+
+    @Override
+    protected void internalTransform(String phaseName, Map<String, String> options) {
+        // TODO Auto-generated method stub
+        Iterator<SootClass> itAppClasses = Scene.v().getApplicationClasses().iterator();
+        while(itAppClasses.hasNext()) {
+            SootClass nextClass = itAppClasses.next();
+            myAppClasses.put(nextClass.getName(), nextClass);
         }
-
-
-        public static Transformer v() {
-            // TODO Auto-generated method stub
-            return null;
-        }
-
-
-        @Override
-        protected void internalTransform(String phaseName, Map<String, String> options) {
-            // TODO Auto-generated method stub
-            Iterator<SootClass> itAppClasses = Scene.v().getApplicationClasses().iterator();
-            while(itAppClasses.hasNext()) {
-                SootClass nextClass = itAppClasses.next();
-                myAppClasses.put(nextClass.getName(), nextClass);
-            }
-            colAppClasses = myAppClasses.values();
+        colAppClasses = myAppClasses.values();
+    
+        myCallGraph = Scene.v().getCallGraph();
+     
+        // get points to analysis object
+        myPointsToAnalysis = Scene.v().getPointsToAnalysis();
         
-            myCallGraph = Scene.v().getCallGraph();
+        //Compute summaries of all methods present in the call graph
         
-            // get points to analysis object
-            myPointsToAnalysis = Scene.v().getPointsToAnalysis();
+        for (SootClass sc : colAppClasses) {
+            myAppMethods.addAll(sc.getMethods());           
+            myClassMethods.put(sc.getName(), new ArrayList<SootMethod>(sc.getMethods()) );
+        } 
         
-            //Compute summaries of all methods present in the call graph
-        
-            for (SootClass sc : colAppClasses) {
-                myAppMethods.addAll(sc.getMethods());           
-                myClassMethods.put(sc.getName(), new ArrayList<SootMethod>(sc.getMethods()) );
-            } 
-                        
-            ProcSummary mockSummary = null;  
-        
-            ExceptionalUnitGraph aCfg = null;
+        ProcSummary mockSummary = null;  
+           
+        ExceptionalUnitGraph aCfg = null;
             
-            boolean mySAInst = false;
+        boolean mySAInst = false;
             
-            G.v().out.println("Number of methods to analyzed: " + myAppMethods.size() );
+        G.v().out.println("Number of methods to be analyzed: " + myAppMethods.size() );
         
-            for (SootMethod method : myAppMethods) {   
-                if (method.hasActiveBody()) {
-                    mockSummary = new ProcSummary(method);
-                    
-                    aCfg = new ExceptionalUnitGraph(method.getActiveBody());
-                    
-                    if (mySAInst){
-                        myMAnalysis.analyze(aCfg, method);
-                    } else {
-                        myMAnalysis = new MockAnalysis(aCfg);
-                        mySAInst = true;
-                    }
+        for (SootMethod method : myAppMethods) {   
+            if (method.hasActiveBody() && isTestCase(method)) {
+                JimpleBody body = (JimpleBody) method.getActiveBody();
+                
+                System.out.println("Test Method Body: ");
+                for(Unit u : body.getUnits()){
+                    System.out.println(u.toString());
+                }
+                mockSummary = new ProcSummary(method);
+                
+                aCfg = new ExceptionalUnitGraph(method.getActiveBody());
+                
+                if (mySAInst){
+                     myMAnalysis.analyze(aCfg, method);
+                } else {
+                     myMAnalysis = new MockAnalysis(aCfg);
+                     mySAInst = true;
                 }
                 
-                mockSummary.setPossiblyMocks( myMAnalysis.getPossiblyMocks() );     
+                mockSummary.setPossiblyMocks( myMAnalysis.getPossiblyMocks() );           
                 
                 mockSummary.setInvokedMethods( myMAnalysis.getInvokedMethods() );
-                
+                    
                 myCallees.put(method.getSignature(), myMAnalysis.getInvokedMethods());
                 
                 myProcSummaries.put(method, mockSummary);
             }
         }
+            
+        printOutput();
+    }
+        
+    private void printOutput() {
+        StringBuffer msg = new StringBuffer();
+                    
+        for(SootClass nc : colAppClasses) {     
+            msg.append( Utility.printPossiblyMocks(nc, myProcSummaries) );
+        }   
+            
+        G.v().out.println(msg);
+                    
+        /*try 
+            {
+                //FileWriter f = new FileWriter ("callgraph.txt");
+                //f.write(myCallGraph.toString());
+                //f.close();
+                Utility.generateDOTOutput(colAppClasses, myProcSummaries, "analysis.dot");
+            }
+            catch(Exception e) {
+                e.printStackTrace();
+                G.v().out.println(e.toString());
+            }*/
+    }
     
+    private static boolean isTestCase(SootMethod sm) {
+        // JUnit 3
+        if (sm.getName().toLowerCase().startsWith("test") && sm.getParameterCount() == 0 && sm.getReturnType().toString() == "void") {
+            //System.out.println("Test case found: " + sm.getSubSignature());
+            return true;
+        }
+
+        // JUnit 4+
+
+        List<soot.tagkit.Tag> smTags = sm.getTags();
+        soot.tagkit.VisibilityAnnotationTag tag = (soot.tagkit.VisibilityAnnotationTag) sm
+                .getTag("VisibilityAnnotationTag");
+        if (tag != null) {
+            for (AnnotationTag annotation : tag.getAnnotations()) {
+                if (annotation.getType().equals("Lorg/junit/Test;")) {
+                    //System.out.println("Test case found: " + sm.getSignature());
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }
