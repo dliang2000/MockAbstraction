@@ -25,6 +25,7 @@ import soot.jimple.ArrayRef;
 import soot.jimple.AssignStmt;
 import soot.jimple.InvokeExpr;
 import soot.jimple.Stmt;
+import soot.jimple.internal.JArrayRef;
 import soot.options.*;
 import soot.toolkits.graph.*;
 import soot.toolkits.scalar.ArraySparseSet;
@@ -163,18 +164,72 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         List<Local> locals = new ArrayList<Local>();
         if (aStmt.containsArrayRef() && aStmt instanceof AssignStmt) {
             System.out.println(aStmt);
-            ArrayRef arrayRef = aStmt.getArrayRef();
+            ValueBox arrayRef = aStmt.getArrayRefBox();
+            //ValueBox fieldRef = aStmt.getFieldRefBox();
             
-            Local local = (Local) ((AssignStmt) aStmt).getRightOp();
-            locals.add(local);
+            if (arrayRef.getValue() instanceof Local) {
+                Local local = (Local) arrayRef.getValue();
+                System.out.println("JArrayRef Array Ref value: " + arrayRef.getValue());
+                locals.add(local);
+            }
+            
+            /*if (fieldRef.getValue() instanceof Local) {
+                Local local = (Local) fieldRef.getValue();
+                System.out.println("JArrayRef Field Ref value: " + fieldRef.getValue());
+                locals.add(local);
+            }*/
+            
+            List<ValueBox> db = aStmt.getDefBoxes();
+            for (ValueBox box : db) {
+                List<ValueBox> innerBoxes = box.getValue().getUseBoxes();
+                for (ValueBox innerBox : innerBoxes) {
+                    if (innerBox.getValue() instanceof Local) {
+                        Local local = (Local) innerBox.getValue();
+                        System.out.println("Def Inner Use Box value: " + innerBox.getValue());
+                        locals.add(local);
+                    }
+                }
+            }
+            
+            List<ValueBox> ub = aStmt.getUseBoxes();
+            for (ValueBox box : ub) {
+                List<ValueBox> innerBoxes = box.getValue().getUseBoxes();
+                for (ValueBox innerBox : innerBoxes) {
+                    if (innerBox.getValue() instanceof Local) {
+                        Local local = (Local) innerBox.getValue();
+                        System.out.println("Use Inner Use Box value: " + innerBox.getValue());
+                        locals.add(local);
+                    }
+                }
+            }
+                
+            // Value right_op = ((AssignStmt) aStmt).getRightOp();
+            /*if (right_op instanceof JArrayRef) {
+                JArrayRef jArrayRef = (JArrayRef) right_op;
+                
+                ValueBox indexBox = jArrayRef.getIndexBox();
+                if (indexBox.getValue() instanceof Local) {
+                    Local local = (Local) indexBox.getValue();
+                    System.out.println("JArrayRef Index Box value: " + indexBox.getValue());
+                    locals.add(local);
+                }
+                
+                ValueBox baseBox = jArrayRef.getBaseBox();
+                if (baseBox.getValue() instanceof Local) {
+                    Local local = (Local) baseBox.getValue();
+                    System.out.println("JArrayRef Base Box value: " + baseBox.getValue());
+                    locals.add(local);
+                }
+            }*/
         }
         
         HashMap<Local, MockStatus> running_result;
         for (Local l: locals) {
             for (Map<Local, MockStatus> element : in) {
-                if (element.containsKey(l) && element.get(l).getPossibleMock()) {
+                if (element.containsKey(l) && element.get(l).getPossiblyMock()) {
                     running_result = new HashMap<Local, MockStatus>();
                     Value val = aStmt.getArrayRef().getBase();
+                    System.out.println("ArrayRef Base Val: " + val);
                     if (val instanceof Local) {
                         Local arrayBaseLocal = (Local) val;
                         MockStatus status = new MockStatus(false, true, false);
