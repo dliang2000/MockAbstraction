@@ -23,6 +23,7 @@ import java.util.*;
 import soot.*;
 import soot.jimple.ArrayRef;
 import soot.jimple.AssignStmt;
+import soot.jimple.CastExpr;
 import soot.jimple.InvokeExpr;
 import soot.jimple.Stmt;
 import soot.jimple.internal.JArrayRef;
@@ -96,6 +97,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         kill(in, unit, out);
         // Performs gens
         gen(unit, out);
+        // Perform gens for casted expr
+        genCastExprLocal(in, unit, out);
         // Find array container stores possiblyMock objects.
         propagateMocknessToContainingArray(in, unit, out);
     }
@@ -156,6 +159,36 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
     }
     
     /**
+     * Add locals that are CastExpr of PossiblyMock locals
+     * to the out FlowSet
+     */
+    private void genCastExprLocal(FlowSet<Map<Local, MockStatus>> in, Unit unit, FlowSet<Map<Local, MockStatus>> out) {
+        HashMap<Local, MockStatus> running_result;
+        if (unit instanceof AssignStmt) {
+            AssignStmt assign = (AssignStmt) unit;
+            if (assign.getRightOp() instanceof CastExpr) {
+                //System.out.println("Assignment: " + assign);
+                CastExpr ce = (CastExpr) assign.getRightOp();
+                if (ce.getOp() instanceof Local) {
+                    Local right_op_local = (Local) ce.getOp();
+                    for (Map<Local, MockStatus> element : in) {
+                        if (element.containsKey(right_op_local) && element.get(right_op_local).getPossiblyMock() 
+                                && assign.getLeftOp() instanceof Local) {
+                            running_result = new HashMap<Local, MockStatus>();
+                            MockStatus status = new MockStatus(true);
+                            Local left_op_local = (Local) assign.getLeftOp();
+                            //System.out.println("Casted Local: " + left_op_local);
+                            running_result.put(left_op_local, status);
+                            out.add(running_result);
+                            possiblyMocks.put(unit, running_result); 
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
      * When unit writes to an Array, propagates mockness 
      * from the local being written to the array to the array itself.
      */
@@ -163,64 +196,21 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         Stmt aStmt = (Stmt) unit;
         List<Local> locals = new ArrayList<Local>();
         if (aStmt.containsArrayRef() && aStmt instanceof AssignStmt) {
-            System.out.println(aStmt);
+            //System.out.println("ArrayRef Statement: " + aStmt);
             ValueBox arrayRef = aStmt.getArrayRefBox();
-            //ValueBox fieldRef = aStmt.getFieldRefBox();
+            /*//ValueBox fieldRef = aStmt.getFieldRefBox();
             
             if (arrayRef.getValue() instanceof Local) {
                 Local local = (Local) arrayRef.getValue();
                 System.out.println("JArrayRef Array Ref value: " + arrayRef.getValue());
                 locals.add(local);
-            }
-            
-            /*if (fieldRef.getValue() instanceof Local) {
-                Local local = (Local) fieldRef.getValue();
-                System.out.println("JArrayRef Field Ref value: " + fieldRef.getValue());
+            }*/
+            AssignStmt assign = (AssignStmt) aStmt;
+            if (assign.getRightOp() instanceof Local) {
+                Local local = (Local) assign.getRightOp();
+                //System.out.println("Assignment right op: " + local);
                 locals.add(local);
-            }*/
-            
-            List<ValueBox> db = aStmt.getDefBoxes();
-            for (ValueBox box : db) {
-                List<ValueBox> innerBoxes = box.getValue().getUseBoxes();
-                for (ValueBox innerBox : innerBoxes) {
-                    if (innerBox.getValue() instanceof Local) {
-                        Local local = (Local) innerBox.getValue();
-                        System.out.println("Def Inner Use Box value: " + innerBox.getValue());
-                        locals.add(local);
-                    }
-                }
             }
-            
-            List<ValueBox> ub = aStmt.getUseBoxes();
-            for (ValueBox box : ub) {
-                List<ValueBox> innerBoxes = box.getValue().getUseBoxes();
-                for (ValueBox innerBox : innerBoxes) {
-                    if (innerBox.getValue() instanceof Local) {
-                        Local local = (Local) innerBox.getValue();
-                        System.out.println("Use Inner Use Box value: " + innerBox.getValue());
-                        locals.add(local);
-                    }
-                }
-            }
-                
-            // Value right_op = ((AssignStmt) aStmt).getRightOp();
-            /*if (right_op instanceof JArrayRef) {
-                JArrayRef jArrayRef = (JArrayRef) right_op;
-                
-                ValueBox indexBox = jArrayRef.getIndexBox();
-                if (indexBox.getValue() instanceof Local) {
-                    Local local = (Local) indexBox.getValue();
-                    System.out.println("JArrayRef Index Box value: " + indexBox.getValue());
-                    locals.add(local);
-                }
-                
-                ValueBox baseBox = jArrayRef.getBaseBox();
-                if (baseBox.getValue() instanceof Local) {
-                    Local local = (Local) baseBox.getValue();
-                    System.out.println("JArrayRef Base Box value: " + baseBox.getValue());
-                    locals.add(local);
-                }
-            }*/
         }
         
         HashMap<Local, MockStatus> running_result;
@@ -228,15 +218,20 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
             for (Map<Local, MockStatus> element : in) {
                 if (element.containsKey(l) && element.get(l).getPossiblyMock()) {
                     running_result = new HashMap<Local, MockStatus>();
-                    Value val = aStmt.getArrayRef().getBase();
-                    System.out.println("ArrayRef Base Val: " + val);
-                    if (val instanceof Local) {
-                        Local arrayBaseLocal = (Local) val;
-                        MockStatus status = new MockStatus(false, true, false);
-                        running_result.put(arrayBaseLocal, status);
+                    List<ValueBox> db = aStmt.getDefBoxes();
+                    for (ValueBox box : db) {
+                        List<ValueBox> innerBoxes = box.getValue().getUseBoxes();
+                        for (ValueBox innerBox : innerBoxes) {
+                            if (innerBox.getValue() instanceof Local) {
+                                Local arrayBaseLocal = (Local) innerBox.getValue();
+                                //System.out.println("Def Inner Use Box value: " + innerBox.getValue());
+                                MockStatus status = new MockStatus(false, true, false);
+                                running_result.put(arrayBaseLocal, status);
+                            }
+                            out.add(running_result);
+                            possiblyMocks.put(unit, running_result); 
+                        }
                     }
-                    out.add(running_result);
-                    possiblyMocks.put(unit, running_result); 
                 }
             }
         }
