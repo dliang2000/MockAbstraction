@@ -142,10 +142,6 @@ public class MockAnalysisMain extends SceneTransformer {
             if (method.hasActiveBody() && isTestCase(method)) {
                 JimpleBody body = (JimpleBody) method.getActiveBody();
                 
-                System.out.println("Test Method Body: ");
-                for(Unit u : body.getUnits()){
-                    System.out.println(u.toString());
-                }
                 mockSummary = new ProcSummary(method);
                 
                 aCfg = new ExceptionalUnitGraph(method.getActiveBody());
@@ -168,8 +164,57 @@ public class MockAnalysisMain extends SceneTransformer {
         }
             
         printOutput();
-    }
         
+        int[] benchmark_mock_stats = calculateMockStats();
+        StringBuffer msg = new StringBuffer();
+        msg.append(" ====================================== \n")
+        .append("Benchmark ").append(MockAnalysisMain.benchmark).append(" Mock Stats")
+        .append("\n");
+        msg.append("Total Number of Test Methods with PossiblyMock: ").append(benchmark_mock_stats[0])
+        .append("\n");
+        msg.append("Total Number of Test Methods with ArrayMock in class: ").append(benchmark_mock_stats[1])
+        .append("\n");
+        msg.append("Total Number of Test Methods with Collection in class: ").append(benchmark_mock_stats[2])
+        .append("\n");
+        G.v().out.println(msg);
+    }
+    
+    private int[] calculateMockStats() {
+        int[] class_mocks = new int[3];
+        int[] benchmark_mock_stats = new int[3];
+                    
+        for(SootClass nc : colAppClasses) {     
+            List<int[]> mockStats = Utility.gatherMocksStats(nc, myProcSummaries);
+            StringBuffer msg = new StringBuffer();
+            class_mocks = new int[3];
+            if (mockStats.isEmpty() || mockStats.size() == 0)
+                continue;
+            for (int[] mock : mockStats) {
+                msg.append(" ====================================== \n")
+                .append("** CLASS ").append(nc.toString())
+                .append("\n");  
+                // # of methods in the class with PossiblyMock
+                class_mocks[0] += mock[0];
+                // # of methods in the class with ArrayMock
+                class_mocks[1] += mock[1];
+                // # of methods in the class with CollectionMock
+                class_mocks[2] += mock[2];
+            }
+            msg.append("Number of Methods with PossiblyMock in class: ").append(class_mocks[0])
+            .append("\n");
+            msg.append("Number of Methods with ArrayMock in class: ").append(class_mocks[1])
+            .append("\n");
+            msg.append("Number of Methods with Collection in class: ").append(class_mocks[2])
+            .append("\n");
+            G.v().out.println(msg);
+            benchmark_mock_stats[0] += class_mocks[0];
+            benchmark_mock_stats[1] += class_mocks[1];
+            benchmark_mock_stats[2] += class_mocks[2];
+        }
+        
+        return benchmark_mock_stats;
+    }
+    
     private void printOutput() {
         StringBuffer msg = new StringBuffer();
                     
@@ -178,18 +223,6 @@ public class MockAnalysisMain extends SceneTransformer {
         }   
             
         G.v().out.println(msg);
-                    
-        /*try 
-            {
-                //FileWriter f = new FileWriter ("callgraph.txt");
-                //f.write(myCallGraph.toString());
-                //f.close();
-                Utility.generateDOTOutput(colAppClasses, myProcSummaries, "analysis.dot");
-            }
-            catch(Exception e) {
-                e.printStackTrace();
-                G.v().out.println(e.toString());
-            }*/
     }
     
     private static boolean isTestCase(SootMethod sm) {

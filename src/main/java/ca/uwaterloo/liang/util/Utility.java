@@ -1,6 +1,7 @@
 package ca.uwaterloo.liang.util;
 
 import java.io.FileWriter;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -43,6 +44,50 @@ public class Utility {
         return yes;
     }
     
+    public static List<int[]> gatherMocksStats(SootClass aClass, HashMap<SootMethod, ProcSummary> procSummaries) {
+           
+        List<SootMethod> ncM = aClass.getMethods();
+        List<int[]> mocksStats = new ArrayList<>();
+        
+        ProcSummary pSmy = null;
+        
+        for(SootMethod m : ncM) {
+            pSmy = procSummaries.get(m);
+            
+            if (null == pSmy) 
+                continue;
+            
+            HashMap<Unit, HashMap<Local, MockStatus>> mocks = pSmy.getPossiblyMocks();
+            
+            int[] curr_method_mock_info = new int[3];
+            
+            for (Map.Entry<Unit, HashMap<Local, MockStatus>> entry : mocks.entrySet()) {
+                
+                HashMap<Local, MockStatus> val = entry.getValue();
+                                
+                for (Map.Entry<Local, MockStatus> curr : val.entrySet()) {
+                    Local l = curr.getKey();
+                    MockStatus ms = curr.getValue();
+                    if (ms.getPossiblyMock()) {
+                        curr_method_mock_info[0] = 1;
+                    }
+                    if (ms.getArrayMock()) {
+                        curr_method_mock_info[1] = 1;
+                    }
+                    if (ms.getCollectionMock()) {
+                        curr_method_mock_info[2] = 1;
+                    }
+                }
+            }
+            
+            if (curr_method_mock_info[0] == 1 || curr_method_mock_info[1] == 1 || curr_method_mock_info[2] == 1) {
+                mocksStats.add(curr_method_mock_info);
+            }
+        }
+        
+        return mocksStats;
+    }
+    
     public static StringBuffer printPossiblyMocks
                         (SootClass aClass, HashMap<SootMethod, ProcSummary> procSummaries) {
         StringBuffer msg = new StringBuffer();
@@ -81,13 +126,13 @@ public class Utility {
                     msg.append("Local: ").append(l).append("\n");
                     
                     if (ms.getPossiblyMock()) {
-                        msg.append("Possibly Mock: true").append("\n");
+                        msg.append("Possibly Mock: true").append("\n\n");
                     }
                     if (ms.getArrayMock()) {
-                        msg.append("Array Mock: true").append("\n");
+                        msg.append("Array Mock: true").append("\n\n");
                     }
                     if (ms.getCollectionMock()) {
-                        msg.append("Collection Mock: true").append("\n");
+                        msg.append("Collection Mock: true").append("\n\n");
                     }
                 }
             }   
