@@ -247,7 +247,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
     
     @Override
     protected void merge(FlowSet<Map<Local, MockStatus>> in1, FlowSet<Map<Local, MockStatus>> in2, FlowSet<Map<Local, MockStatus>> out) {
-        in1.union(in2, out);
+        in1.intersection(in2, out);
     }
     
     @Override
