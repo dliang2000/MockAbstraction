@@ -41,6 +41,7 @@ public class MockAnalysisMain extends SceneTransformer {
         Options.v().set_whole_program(true);
         Options.v().set_output_format(1); // Output format in .jimple file
         Options.v().set_allow_phantom_refs(true);
+        Options.v().set_xml_attributes(true);
         List<String> pd = new ArrayList<>();
         pd.add("-main-class");
         pd.add(args[0]);
@@ -48,6 +49,9 @@ public class MockAnalysisMain extends SceneTransformer {
         pd.add(args[1]);
         pd.add("-process-dir");
         pd.add(args[2]);
+        pd.add("-p");
+        pd.add("jj.tr");
+        pd.add("enabled:true");
         Options.v().set_soot_classpath(args[3]);
         MockAnalysisMain.benchmark = args[4];
         MockAnalysisMain.output_path = args[5];
@@ -153,7 +157,7 @@ public class MockAnalysisMain extends SceneTransformer {
                      mySAInst = true;
                 }
                 
-                mockSummary.setPossiblyMocks( myMAnalysis.getPossiblyMocks() );           
+                mockSummary.setMustMocks( myMAnalysis.getMustMocks() );           
                 
                 mockSummary.setInvokedMethods( myMAnalysis.getInvokedMethods() );
                     
@@ -186,13 +190,13 @@ public class MockAnalysisMain extends SceneTransformer {
         for(SootClass nc : colAppClasses) {     
             List<int[]> mockStats = Utility.gatherMocksStats(nc, myProcSummaries);
             StringBuffer msg = new StringBuffer();
+            msg.append(" ====================================== \n")
+            .append("** CLASS ").append(nc.toString())
+            .append("\n");  
             class_mocks = new int[3];
             if (mockStats.isEmpty() || mockStats.size() == 0)
                 continue;
             for (int[] mock : mockStats) {
-                msg.append(" ====================================== \n")
-                .append("** CLASS ").append(nc.toString())
-                .append("\n");  
                 // # of methods in the class with PossiblyMock
                 class_mocks[0] += mock[0];
                 // # of methods in the class with ArrayMock

@@ -54,10 +54,10 @@ public class Utility {
         for(SootMethod m : ncM) {
             pSmy = procSummaries.get(m);
             
-            if (null == pSmy) 
+            if (pSmy == null) 
                 continue;
             
-            HashMap<Unit, HashMap<Local, MockStatus>> mocks = pSmy.getPossiblyMocks();
+            HashMap<Unit, HashMap<Local, MockStatus>> mocks = pSmy.getMustMocks();
             
             int[] curr_method_mock_info = new int[3];
             
@@ -68,7 +68,7 @@ public class Utility {
                 for (Map.Entry<Local, MockStatus> curr : val.entrySet()) {
                     Local l = curr.getKey();
                     MockStatus ms = curr.getValue();
-                    if (ms.getPossiblyMock()) {
+                    if (ms.getMustMock()) {
                         curr_method_mock_info[0] = 1;
                     }
                     if (ms.getArrayMock()) {
@@ -106,10 +106,10 @@ public class Utility {
             
             pSmy = procSummaries.get(m);
             
-            if (null == pSmy) 
+            if (pSmy == null) 
                 continue;
             
-            HashMap<Unit, HashMap<Local, MockStatus>> mocks = pSmy.getPossiblyMocks();
+            HashMap<Unit, HashMap<Local, MockStatus>> mocks = pSmy.getMustMocks();
             
             for (Map.Entry<Unit, HashMap<Local, MockStatus>> entry : mocks.entrySet()) {
                 // How to print output?
@@ -125,7 +125,7 @@ public class Utility {
                     
                     msg.append("Local: ").append(l).append("\n");
                     
-                    if (ms.getPossiblyMock()) {
+                    if (ms.getMustMock()) {
                         msg.append("Possibly Mock: true").append("\n\n");
                     }
                     if (ms.getArrayMock()) {

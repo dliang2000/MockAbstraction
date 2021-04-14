@@ -57,7 +57,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
     
     // For each unit x local, will store a boolean for if it is a possible mock,
     // if is a possible mock within Collection, or if it is a possible mock within Array.
-    private HashMap<Unit, HashMap<Local, MockStatus>> possiblyMocks;
+    private HashMap<Unit, HashMap<Local, MockStatus>> mustMocks;
     
     @SuppressWarnings("unchecked")
     public MockAnalysis(DirectedGraph graph) {
@@ -65,7 +65,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         
         myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
         
-        possiblyMocks = (HashMap<Unit, HashMap<Local, MockStatus>>) emptyPossiblyMocks.clone();
+        mustMocks = (HashMap<Unit, HashMap<Local, MockStatus>>) emptyPossiblyMocks.clone();
         
         doAnalysis();
     }
@@ -75,7 +75,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         
         myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
         
-        possiblyMocks = (HashMap<Unit, HashMap<Local, MockStatus>>) emptyPossiblyMocks.clone();
+        mustMocks = (HashMap<Unit, HashMap<Local, MockStatus>>) emptyPossiblyMocks.clone();
         
         doAnalysis();
     
@@ -127,7 +127,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                     }
                 }
             }
-            possiblyMocks.put(unit, running_result);
+            mustMocks.put(unit, running_result);
         }
         in.difference(killSet, out);
     }
@@ -153,7 +153,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                     running_result.put(l, status);
                 }
                 out.add(running_result);
-                possiblyMocks.put(unit, running_result); 
+                mustMocks.put(unit, running_result); 
             }
         }
     }
@@ -172,7 +172,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                 if (ce.getOp() instanceof Local) {
                     Local right_op_local = (Local) ce.getOp();
                     for (Map<Local, MockStatus> element : in) {
-                        if (element.containsKey(right_op_local) && element.get(right_op_local).getPossiblyMock() 
+                        if (element.containsKey(right_op_local) && element.get(right_op_local).getMustMock() 
                                 && assign.getLeftOp() instanceof Local) {
                             running_result = new HashMap<Local, MockStatus>();
                             MockStatus status = new MockStatus(true);
@@ -180,7 +180,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                             //System.out.println("Casted Local: " + left_op_local);
                             running_result.put(left_op_local, status);
                             out.add(running_result);
-                            possiblyMocks.put(unit, running_result); 
+                            mustMocks.put(unit, running_result); 
                         }
                     }
                 }
@@ -216,7 +216,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         HashMap<Local, MockStatus> running_result;
         for (Local l: locals) {
             for (Map<Local, MockStatus> element : in) {
-                if (element.containsKey(l) && element.get(l).getPossiblyMock()) {
+                if (element.containsKey(l) && element.get(l).getMustMock()) {
                     running_result = new HashMap<Local, MockStatus>();
                     List<ValueBox> db = aStmt.getDefBoxes();
                     for (ValueBox box : db) {
@@ -229,7 +229,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                                 running_result.put(arrayBaseLocal, status);
                             }
                             out.add(running_result);
-                            possiblyMocks.put(unit, running_result); 
+                            mustMocks.put(unit, running_result); 
                         }
                     }
                 }
@@ -241,8 +241,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         return myInvokedMethods;
     }
     
-    public HashMap<Unit, HashMap<Local, MockStatus>> getPossiblyMocks() {
-        return possiblyMocks;
+    public HashMap<Unit, HashMap<Local, MockStatus>> getMustMocks() {
+        return mustMocks;
     }
     
     @Override

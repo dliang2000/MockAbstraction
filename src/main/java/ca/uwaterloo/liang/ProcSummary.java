@@ -16,12 +16,12 @@ public class ProcSummary {
     private static HashMap<Unit, HashMap<Local, MockStatus>> emptyPossiblyMocks = new HashMap<Unit, HashMap<Local, MockStatus>>();
     
     private ArrayList<SootMethod> myInvokedMethods;
-    private HashMap<Unit, HashMap<Local, MockStatus>> possiblyMocks;
+    private HashMap<Unit, HashMap<Local, MockStatus>> mustMocks;
     private SootMethod mySootMethod;
     
     public ProcSummary(SootMethod aSootMethod) {
         mySootMethod = aSootMethod;
-        possiblyMocks = (HashMap<Unit, HashMap<Local, MockStatus>>) emptyPossiblyMocks.clone();
+        mustMocks = (HashMap<Unit, HashMap<Local, MockStatus>>) emptyPossiblyMocks.clone();
     }
     
     public SootMethod getSootMethod() {
@@ -40,12 +40,12 @@ public class ProcSummary {
         this.myInvokedMethods = myInvokedMethods;
     }
     
-    public HashMap<Unit, HashMap<Local, MockStatus>> getPossiblyMocks() {
-        return possiblyMocks;
+    public HashMap<Unit, HashMap<Local, MockStatus>> getMustMocks() {
+        return mustMocks;
     }
 
-    public void setPossiblyMocks(HashMap<Unit, HashMap<Local, MockStatus>> possiblyMocks) {
-        this.possiblyMocks = possiblyMocks;
+    public void setMustMocks(HashMap<Unit, HashMap<Local, MockStatus>> mustMocks) {
+        this.mustMocks = mustMocks;
     }
     
 }
