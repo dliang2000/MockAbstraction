@@ -50,13 +50,13 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
     
     private static FlowSet<Map<Local, MockStatus>> emptyFlowSet = new ArraySparseSet() ;
     
-    private static HashMap<Unit, HashMap<Local, MockStatus>> emptyPossiblyMocks = new HashMap<Unit, HashMap<Local, MockStatus>>();
+    private static HashMap<Unit, HashMap<Local, MockStatus>> emptyMustMocks = new HashMap<Unit, HashMap<Local, MockStatus>>();
     
     //Contains all the invoked methods by the method under analysis
     private ArrayList<SootMethod> myInvokedMethods;
     
-    // For each unit x local, will store a boolean for if it is a possible mock,
-    // if is a possible mock within Collection, or if it is a possible mock within Array.
+    // For each unit x local, will store a boolean for if it is a must mock,
+    // if is a must mock within Collection, or if it is a must mock within Array.
     private HashMap<Unit, HashMap<Local, MockStatus>> mustMocks;
     
     @SuppressWarnings("unchecked")
@@ -65,7 +65,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         
         myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
         
-        mustMocks = (HashMap<Unit, HashMap<Local, MockStatus>>) emptyPossiblyMocks.clone();
+        mustMocks = (HashMap<Unit, HashMap<Local, MockStatus>>) emptyMustMocks.clone();
         
         doAnalysis();
     }
@@ -75,7 +75,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         
         myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
         
-        mustMocks = (HashMap<Unit, HashMap<Local, MockStatus>>) emptyPossiblyMocks.clone();
+        mustMocks = (HashMap<Unit, HashMap<Local, MockStatus>>) emptyMustMocks.clone();
         
         doAnalysis();
     
@@ -99,7 +99,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         gen(unit, out);
         // Perform gens for casted expr
         genCastExprLocal(in, unit, out);
-        // Find array container stores possiblyMock objects.
+        // Find array container stores mustMock objects.
         propagateMocknessToContainingArray(in, unit, out);
     }
 
@@ -159,7 +159,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
     }
     
     /**
-     * Add locals that are CastExpr of PossiblyMock locals
+     * Add locals that are CastExpr of mustMock locals
      * to the out FlowSet
      */
     private void genCastExprLocal(FlowSet<Map<Local, MockStatus>> in, Unit unit, FlowSet<Map<Local, MockStatus>> out) {

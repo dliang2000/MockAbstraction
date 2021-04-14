@@ -174,7 +174,7 @@ public class MockAnalysisMain extends SceneTransformer {
         msg.append(" ====================================== \n")
         .append("Benchmark ").append(MockAnalysisMain.benchmark).append(" Mock Stats")
         .append("\n");
-        msg.append("Total Number of Test Methods with PossiblyMock: ").append(benchmark_mock_stats[0])
+        msg.append("Total Number of Test Methods with MustMock: ").append(benchmark_mock_stats[0])
         .append("\n");
         msg.append("Total Number of Test Methods with ArrayMock in class: ").append(benchmark_mock_stats[1])
         .append("\n");
@@ -197,14 +197,14 @@ public class MockAnalysisMain extends SceneTransformer {
             if (mockStats.isEmpty() || mockStats.size() == 0)
                 continue;
             for (int[] mock : mockStats) {
-                // # of methods in the class with PossiblyMock
+                // # of methods in the class with MustMock
                 class_mocks[0] += mock[0];
                 // # of methods in the class with ArrayMock
                 class_mocks[1] += mock[1];
                 // # of methods in the class with CollectionMock
                 class_mocks[2] += mock[2];
             }
-            msg.append("Number of Methods with PossiblyMock in class: ").append(class_mocks[0])
+            msg.append("Number of Methods with MustMock in class: ").append(class_mocks[0])
             .append("\n");
             msg.append("Number of Methods with ArrayMock in class: ").append(class_mocks[1])
             .append("\n");
@@ -223,7 +223,7 @@ public class MockAnalysisMain extends SceneTransformer {
         StringBuffer msg = new StringBuffer();
                     
         for(SootClass nc : colAppClasses) {     
-            msg.append( Utility.printPossiblyMocks(nc, myProcSummaries) );
+            msg.append( Utility.printMustMocks(nc, myProcSummaries) );
         }   
             
         G.v().out.println(msg);

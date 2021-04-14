@@ -88,7 +88,7 @@ public class Utility {
         return mocksStats;
     }
     
-    public static StringBuffer printPossiblyMocks
+    public static StringBuffer printMustMocks
                         (SootClass aClass, HashMap<SootMethod, ProcSummary> procSummaries) {
         StringBuffer msg = new StringBuffer();
         
