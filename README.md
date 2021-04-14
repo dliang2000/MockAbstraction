@@ -12,11 +12,13 @@ This repository focuses on analyzing for mock objects created and used in unit t
 ## Manual Inspection on microbenchmark  (Intraprocedural)
 
 | Benchmark | Number of Test Methods with MustMock | Number of Test Methods with ArrayMock (Intra) | Number of Test Methods with CollectionMock |
+| --- | --- | --- | --- |
 | microbenchmark | 13 | 4 | 0 |
 
 For PayRollTest:
 
 | Test Method | MustMock | ArrayMock | CollectionMock |
+| --- | --- | --- | --- |
 | testNoEmployees | 0 | 0 | 0 |
 | testNoEmployeesIntra | 1 | 0 | 0 |
 | testSingleEmployee | 0 | 0 | 0 |
@@ -27,6 +29,7 @@ For PayRollTest:
 For PayRollMockTest:
 
 | Test Method | MustMock | ArrayMock | CollectionMock |
+| --- | --- | --- | --- |
 | testNoEmployees | 0 | 0 | 0 |
 | testNoEmployeesIntra | 1 | 0 | 0 |
 | testSingleEmployee | 0 | 0 | 0 |
@@ -38,6 +41,7 @@ For PayRollMockTest:
 For PayRollArrayTest:
 
 | Test Method | MustMock | ArrayMock | CollectionMock |
+| --- | --- | --- | --- |
 | testNoEmployees | 0 | 0 | 0 |
 | testNoEmployeesIntra | 1 | 1 | 0 |
 | testSingleEmployee | 1 | 1 | 0 |
@@ -48,6 +52,7 @@ For PayRollArrayTest:
 For PayRollArrayMockTest:
 
 | Test Method | MustMock | ArrayMock | CollectionMock |
+| --- | --- | --- | --- |
 | testNoEmployees | 0 | 0 | 0 |
 | testNoEmployeesIntra | 1 | 1 | 0 |
 | testSingleEmployee | 1 | 0 | 0 |
