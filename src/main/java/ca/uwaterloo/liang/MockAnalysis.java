@@ -101,6 +101,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         genCastExprLocal(in, unit, out);
         // Find array container stores mustMock objects.
         propagateMocknessToContainingArray(in, unit, out);
+        // Find collection container stores mustMock objects.
+        propagateMocknessToContainingCollection(in, unit, out);
     }
 
     /**
@@ -192,7 +194,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
      * When unit writes to an Array, propagates mockness 
      * from the local being written to the array to the array itself.
      */
-    private void propagateMocknessToContainingArray(FlowSet<Map<Local, MockStatus>> in, Unit unit, FlowSet<Map<Local, MockStatus>> out) {
+    private void propagateMocknessToContainingArray(FlowSet<Map<Local, MockStatus>> in, 
+                                Unit unit, FlowSet<Map<Local, MockStatus>> out) {
         Stmt aStmt = (Stmt) unit;
         List<Local> locals = new ArrayList<Local>();
         if (aStmt.containsArrayRef() && aStmt instanceof AssignStmt) {
@@ -235,6 +238,15 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                 }
             }
         }
+    }
+    
+    /**
+     * When unit writes to a Collection, propagates mockness 
+     * from the local being written to the Collection to the Collection itself.
+     */
+    private void propagateMocknessToContainingCollection(FlowSet<Map<Local, MockStatus>> in, 
+                                Unit unit, FlowSet<Map<Local, MockStatus>> out) {
+        
     }
     
     public ArrayList<SootMethod> getInvokedMethods() {
