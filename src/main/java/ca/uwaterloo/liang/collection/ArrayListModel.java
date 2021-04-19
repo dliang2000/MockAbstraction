@@ -5,27 +5,28 @@ import java.util.ArrayList;
 
 import soot.SootMethod;
 
-public class ArrayListModel<E> extends ListModel {
+public class ArrayListModel<E> extends ArrayList<E> implements ListModel<E> {
     
     /**
-     * Constructs a list containing the elements of the specified collection,
-     * in the order they are returned by the collection's iterator.
-     * The {@code ArrayListModel} instance has an initial capacity of
-     * 110% the size of the specified collection.
-     *
-     * @param c the collection whose elements are to be placed into this list.
-     * @throws NullPointerException if the specified collection is
-     *     {@code null}
+     * Constructs an empty list with an initial capacity of ten.
      */
+    public ArrayListModel() {
+        this(10);
+    }
+    
     public ArrayListModel(Collection<? extends E> c) {
         super(c);
+    }
+    
+    public ArrayListModel(int initialCapacity) {
+        super(initialCapacity);
     }
     
     public Effect getEffect(SootMethod m) {
         if (m.getName().startsWith("get(")) {
             return Effect.READ;
         }
-        if (m.getName().startsWith("add(")) {
+        if (m.getName().startsWith("add(") || m.getName().startsWith("addAll(")) {
             return Effect.WRITE;
         }
         return null;

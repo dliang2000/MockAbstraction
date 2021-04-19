@@ -1,6 +1,6 @@
 package ca.uwaterloo.liang.collection;
 
-public class CollectionModel {
+public interface CollectionModel<E> {
 
 
 }

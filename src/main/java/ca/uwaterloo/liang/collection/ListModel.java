@@ -2,10 +2,8 @@ package ca.uwaterloo.liang.collection;
 
 import java.util.Collection;
 
-public class ListModel<E> extends CollectionModel{
+import soot.SootMethod;
 
-    public ListModel(Collection<? extends E> c) {
-        // TODO Auto-generated constructor stub
-    }
-
+public interface ListModel<E> extends CollectionModel<E> {
+    Effect getEffect(SootMethod m);
 }
