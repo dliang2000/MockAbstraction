@@ -2,7 +2,7 @@ package ca.uwaterloo.liang.collection;
 
 import soot.SootMethod;
 
-public interface CollectionModel<E> {
+public abstract class CollectionModel<E> {
 
-    Effect getEffect(SootMethod m);
+    public abstract Effect getEffect(SootMethod m);
 }

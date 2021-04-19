@@ -4,6 +4,6 @@ import java.util.Collection;
 
 import soot.SootMethod;
 
-public interface ListModel<E> extends CollectionModel<E> {
-    Effect getEffect(SootMethod m);
+public abstract class ListModel<E> extends CollectionModel<E> {
+
 }
