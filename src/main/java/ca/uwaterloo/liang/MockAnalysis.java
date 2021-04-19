@@ -247,6 +247,60 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
     private void propagateMocknessToContainingCollection(FlowSet<Map<Local, MockStatus>> in, 
                                 Unit unit, FlowSet<Map<Local, MockStatus>> out) {
         
+        Stmt aStmt = (Stmt) unit;
+        List<Local> locals = new ArrayList<Local>();
+        HashMap<Local, MockStatus> running_result;
+        boolean isCollection = false;
+        if (aStmt.containsInvokeExpr()) {
+            List<ValueBox> ub = aStmt.getUseBoxes();
+            for (ValueBox box : ub) {
+                List<ValueBox> innerBoxes = box.getValue().getUseBoxes();
+                for (ValueBox innerBox : innerBoxes) {
+                    // The useBox that is a container (to be refined)
+                    if (innerBox.getValue().getType().toString().contains("java.util.") && innerBox.getValue() instanceof Local) {
+                        System.out.println("CollectionMock: True " + "Local: " + (Local) innerBox.getValue());
+                        isCollection = true;
+                        locals.add((Local) innerBox.getValue());
+                    }
+                    // The unit has a container useBox, now we check if the non-container useBox 
+                    // is a mustMock local
+                    if (isCollection && !innerBox.getValue().getType().toString().contains("java.util.")) {
+                        if (innerBox.getValue() instanceof Local) {
+                            Local col_local = (Local) innerBox.getValue();
+                            for (Map<Local, MockStatus> element : in) {
+                                if (element.containsKey(col_local) && element.get(col_local).getMustMock()) {
+                                    running_result = new HashMap<Local, MockStatus>();
+                                    for (Local local: locals) {
+                                      //System.out.println("Def Inner Use Box value: " + innerBox.getValue());
+                                        MockStatus status = new MockStatus(false, false, true);
+                                        running_result.put(local, status);
+                                    }
+                                    out.add(running_result);
+                                    mustMocks.put(unit, running_result);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            /*if (sm.getName().contains("add(")) {
+                System.out.println("InvokeExpr:" + aStmt.getInvokeExpr());
+                System.out.println("SootClass:" + aStmt.getInvokeExpr().getMethod().getDeclaringClass().getPackageName());
+            }*/
+            List<Value> vals =  aStmt.getInvokeExpr().getArgs();
+            for (Value val: vals) {
+                if (val instanceof Local) {
+                    Local l = (Local) val;
+                    for (Map<Local, MockStatus> element : in) {
+                        if (element.containsKey(l) && element.get(l).getMustMock()) {
+                            break;
+                        }
+                    }
+                }
+            }
+            
+        }
+        
     }
     
     public ArrayList<SootMethod> getInvokedMethods() {
