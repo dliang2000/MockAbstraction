@@ -31,9 +31,9 @@ public class PayRollArrayTest {
     public void init() {
         employees = new Employee[2];
         
-        List<Employee> employee_List = new ArrayList<>();
+        List<Employee> mockEmployessList = new ArrayList<>();
         
-        employeeList = new EmployeeList(employee_List);
+        employeeList = new EmployeeList(mockEmployessList);
         
         Map<String, Integer> employee_salary = new HashMap<String, Integer>();
         
@@ -104,11 +104,11 @@ public class PayRollArrayTest {
     public void testAllEmployeesArePaidArray() {
         employees = createEmployees();
         
-        List<Employee> employee_List = new ArrayList<>();
-        employee_List.add(employees[0]);
-        employee_List.add(employees[1]);
+        List<Employee> mockEmployessList = new ArrayList<>();
+        mockEmployessList.add(employees[0]);
+        mockEmployessList.add(employees[1]);
         
-        employeeList = new EmployeeList(employee_List);
+        employeeList = new EmployeeList(mockEmployessList);
         
         bankService = mock(BankService.class);
 

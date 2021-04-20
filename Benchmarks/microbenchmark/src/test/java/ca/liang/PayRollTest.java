@@ -27,9 +27,9 @@ public class PayRollTest {
     public void init() {
         employees = new ArrayList<Employee>();
         
-        List<Employee> employee_List = new ArrayList<>();
+        List<Employee> mockEmployessList = new ArrayList<>();
         
-        employeeList = new EmployeeList(employee_List);
+        employeeList = new EmployeeList(mockEmployessList);
         
         Map<String, Integer> employee_salary = new HashMap<String, Integer>();
         
@@ -63,9 +63,9 @@ public class PayRollTest {
     	Employee test_employee = createTestEmployee("Test Employee", "ID0", 1000);
         employees.add(test_employee);
         
-        List<Employee> employee_List = new ArrayList<>();
-        employee_List.add(test_employee);
-        employeeList = new EmployeeList(employee_List);
+        List<Employee> mockEmployessList = new ArrayList<>();
+        mockEmployessList.add(test_employee);
+        employeeList = new EmployeeList(mockEmployessList);
         
         Map<String, Integer> employee_salary = new HashMap<String, Integer>();
         
@@ -84,9 +84,9 @@ public class PayRollTest {
         
         employees.add(createTestEmployee("Test Employee", bankId, salary));;
         
-        List<Employee> employee_List = new ArrayList<>();
-        employee_List.add(createTestEmployee("Test Employee1", bankId, salary));
-        employeeList = new EmployeeList(employee_List);
+        List<Employee> mockEmployessList = new ArrayList<>();
+        mockEmployessList.add(createTestEmployee("Test Employee1", bankId, salary));
+        employeeList = new EmployeeList(mockEmployessList);
         
         Map<String, Integer> employee_salary = new HashMap<String, Integer>();
         
@@ -104,10 +104,10 @@ public class PayRollTest {
         employees.add(createTestEmployee("Test Employee1", "ID0", 1000));
         employees.add(createTestEmployee("Test Employee2", "ID1", 2000));
         
-        List<Employee> employee_List = new ArrayList<>();
-        employee_List.add(employees.get(0));
-        employee_List.add(employees.get(1));
-        employeeList = new EmployeeList(employee_List);
+        List<Employee> mockEmployessList = new ArrayList<>();
+        mockEmployessList.add(employees.get(0));
+        mockEmployessList.add(employees.get(1));
+        employeeList = new EmployeeList(mockEmployessList);
         
         bankService = mock(BankService.class);
 

@@ -78,13 +78,13 @@ public class PayRollMockTest {
     public void testAllEmployeesArePaid() {
         employees = createEmployees();
         
-        List<Employee> employee_list = new ArrayList<Employee>();
+        List<Employee> mockEmployessList = new ArrayList<Employee>();
         Employee employee1 = mock(Employee.class);
         Employee employee2 = mock(Employee.class);
-        employee_list.add(employee1);
-        employee_list.add(employee2);
+        mockEmployessList.add(employee1);
+        mockEmployessList.add(employee2);
         
-        employees = employee_list;
+        employees = mockEmployessList;
         
         employeeList = mock(EmployeeList.class);
         bankService = mock(BankService.class);
