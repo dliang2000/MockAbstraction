@@ -266,24 +266,19 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                         RefType ref = (RefType) innerBox.getValue().getType();
                         SootClass sc = ref.getSootClass();
                         List<SootClass> classes;
-                        // If sc is an interface, then we gather all the sub interfaces of "java.util.Co
+                        
                         if (sc.isInterface()) {
-                            classes = hierarchy.getSuperinterfacesOf(sc);
-                            for (SootClass curr_class : classes) {
-                                if (curr_class.getType().equals(target)) {
-                                  //System.out.println("CollectionMock: True " + "Local: " + (Local) innerBox.getValue());
-                                    isCollection = true;
-                                    locals.add((Local) innerBox.getValue());
-                                    G.v().out.println("Statement: " + aStmt.toString());
-                                    G.v().out.println("InnerBox value: " + (Local) innerBox.getValue());
-                                    G.v().out.println("SootClass Type: " + sc.getType());
-                                }
+                            if (isCollectionASuperInterface(hierarchy, sc)) {
+                                isCollection = true;
+                                locals.add((Local) innerBox.getValue());
+                                G.v().out.println("Statement: " + aStmt.toString());
+                                G.v().out.println("InnerBox value: " + (Local) innerBox.getValue());
+                                G.v().out.println("SootClass Type: " + sc.getType());
                             }
                         } else {
                             Chain<SootClass> interfaces = sc.getInterfaces();
                             for (SootClass curr_interface : interfaces) {
-                                G.v().out.println("Current interface type: " + curr_interface);
-                                if(curr_interface.getType().equals(target)) {
+                                if(isCollectionASuperInterface(hierarchy, curr_interface)) {
                                     isCollection = true;
                                     locals.add((Local) innerBox.getValue());
                                     G.v().out.println("Statement: " + aStmt.toString());
@@ -308,7 +303,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                                 System.out.println("col_local found in hashmap: " + col_local);
                                 running_result = new HashMap<Local, MockStatus>();
                                 for (Local local: locals) {
-                                    //System.out.println("Def Inner Use Box value: " + innerBox.getValue());
                                     MockStatus status = new MockStatus(false, false, true);
                                     running_result.put(local, status);
                                 }
@@ -319,22 +313,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                     }
                 }
             }
-            /*if (sm.getName().contains("add(")) {
-                System.out.println("InvokeExpr:" + aStmt.getInvokeExpr());
-                System.out.println("SootClass:" + aStmt.getInvokeExpr().getMethod().getDeclaringClass().getPackageName());
-            }
-            List<Value> vals =  aStmt.getInvokeExpr().getArgs();
-            for (Value val: vals) {
-                if (val instanceof Local) {
-                    Local l = (Local) val;
-                    for (Map<Local, MockStatus> element : in) {
-                        if (element.containsKey(l) && element.get(l).getMustMock()) {
-                            break;
-                        }
-                    }
-                }
-            }*/
-            
         }
         
     }
@@ -355,6 +333,18 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
     @Override
     protected void copy(FlowSet<Map<Local, MockStatus>> srcSet, FlowSet<Map<Local, MockStatus>> destSet) {
         srcSet.copy(destSet);
+    }
+    
+    private static boolean isCollectionASuperInterface(Hierarchy hierarchy, SootClass sc) {
+        RefType collection = RefType.v("java.util.Collection");
+        
+        List<SootClass> classes = hierarchy.getSuperinterfacesOf(sc);
+        for (SootClass curr_class : classes) {
+            if (curr_class.getType().equals(collection)) {
+                return true;
+            }
+        }
+        return false;
     }
     
     private static boolean doesNotCreateMock(Stmt stmt) {
