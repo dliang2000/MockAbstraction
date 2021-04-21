@@ -13,7 +13,8 @@ public class Driver {
 		class2.testNoEmployeesIntra();
 		class2.testSingleEmployee();
 		class2.testEmployeeIsPaid();
-		class2.testAllEmployeesArePaid();
+		class2.testAllEmployeesArePaid1();
+		class2.testAllEmployeesArePaid2();
 		class2.testInteractionOrder();
 		ca.liang.PayRollTest class3 = new ca.liang.PayRollTest();
 		class3.testNoEmployees();

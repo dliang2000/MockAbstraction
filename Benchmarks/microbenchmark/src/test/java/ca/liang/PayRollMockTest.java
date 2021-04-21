@@ -75,7 +75,7 @@ public class PayRollMockTest {
     }
 
     @Test
-    public void testAllEmployeesArePaid() {
+    public void testAllEmployeesArePaid1() {
         employees = createEmployees();
         
         List<Employee> mockEmployessList = new ArrayList<Employee>();
@@ -106,6 +106,37 @@ public class PayRollMockTest {
         assertEquals(employees.get(1).getSalary(), salaryCaptor.getAllValues().get(1).intValue());
     }
     
+    @Test
+    public void testAllEmployeesArePaid2() {
+        employees = createEmployees();
+        
+        ArrayList<Employee> mockEmployessList = new ArrayList<Employee>();
+        Employee employee1 = mock(Employee.class);
+        Employee employee2 = mock(Employee.class);
+        mockEmployessList.add(employee1);
+        mockEmployessList.add(employee2);
+        
+        employees = mockEmployessList;
+        
+        employeeList = mock(EmployeeList.class);
+        bankService = mock(BankService.class);
+
+        when(employeeList.getAllEmployees()).thenReturn(employees);
+
+        payRoll = new PayRoll(employeeList, bankService);
+        
+        assertNumberOfPayments(2);
+
+        ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Integer> salaryCaptor = ArgumentCaptor.forClass(Integer.class);
+
+        verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
+
+        assertEquals(employees.get(0).getBankId(), idCaptor.getAllValues().get(0));
+        assertEquals(employees.get(1).getBankId(), idCaptor.getAllValues().get(1));
+        assertEquals(employees.get(0).getSalary(), salaryCaptor.getAllValues().get(0).intValue());
+        assertEquals(employees.get(1).getSalary(), salaryCaptor.getAllValues().get(1).intValue());
+    }
     
     @Test
     public void testInteractionOrder() {
