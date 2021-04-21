@@ -7,12 +7,12 @@ import soot.SootMethod;
 
 public class ArrayListModel<E> extends ListModel<E> {
    
-    public Effect getEffect(SootMethod m) {
+    public CollectionModelEffect getEffect(SootMethod m) {
         if (m.getName().startsWith("get(")) {
-            return Effect.READ;
+            return CollectionModelEffect.READ;
         }
         if (m.getName().startsWith("add(") || m.getName().startsWith("addAll(")) {
-            return Effect.WRITE;
+            return CollectionModelEffect.WRITE;
         }
         return null;
     }
