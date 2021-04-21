@@ -17,7 +17,7 @@ public class PayRollMockTest {
 
     private PayRoll payRoll;
 
-    private EmployeeList employeeList;
+    private EmployeeDB employeeDB;
 
     private BankService bankService;
 
@@ -27,12 +27,12 @@ public class PayRollMockTest {
     public void init() {
         employees = new ArrayList<Employee>();
         
-        employeeList = mock(EmployeeList.class);
+        employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
-        when(employeeList.getAllEmployees()).thenReturn(employees);
+        when(employeeDB.getAllEmployees()).thenReturn(employees);
 
-        payRoll = new PayRoll(employeeList, bankService);
+        payRoll = new PayRoll(employeeDB, bankService);
     }
 
     @Test
@@ -44,12 +44,12 @@ public class PayRollMockTest {
     public void testNoEmployeesIntra() {
         List<Employee> employees_intra = new ArrayList<Employee>();
 
-        EmployeeList employeeList_intra = mock(EmployeeList.class);
+        EmployeeDB employeeDB_intra = mock(EmployeeDB.class);
         BankService bankService_intra = mock(BankService.class);
 
-        when(employeeList_intra.getAllEmployees()).thenReturn(employees_intra);
+        when(employeeDB_intra.getAllEmployees()).thenReturn(employees_intra);
 
-        PayRoll payRoll_intra = new PayRoll(employeeList_intra, bankService_intra);
+        PayRoll payRoll_intra = new PayRoll(employeeDB_intra, bankService_intra);
         
         int numberOfPayments = payRoll_intra.monthlyPayment();
         assertEquals(0, numberOfPayments);
@@ -86,12 +86,12 @@ public class PayRollMockTest {
         
         employees = mockEmployessList;
         
-        employeeList = mock(EmployeeList.class);
+        employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
-        when(employeeList.getAllEmployees()).thenReturn(employees);
+        when(employeeDB.getAllEmployees()).thenReturn(employees);
 
-        payRoll = new PayRoll(employeeList, bankService);
+        payRoll = new PayRoll(employeeDB, bankService);
         
         assertNumberOfPayments(2);
 
@@ -118,12 +118,12 @@ public class PayRollMockTest {
         
         employees = mockEmployessList;
         
-        employeeList = mock(EmployeeList.class);
+        employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
-        when(employeeList.getAllEmployees()).thenReturn(employees);
+        when(employeeDB.getAllEmployees()).thenReturn(employees);
 
-        payRoll = new PayRoll(employeeList, bankService);
+        payRoll = new PayRoll(employeeDB, bankService);
         
         assertNumberOfPayments(2);
 
@@ -147,8 +147,8 @@ public class PayRollMockTest {
 
         assertNumberOfPayments(1);
         
-        InOrder inOrder = inOrder(employeeList, bankService);
-        inOrder.verify(employeeList).getAllEmployees();
+        InOrder inOrder = inOrder(employeeDB, bankService);
+        inOrder.verify(employeeDB).getAllEmployees();
         inOrder.verify(bankService).makePayment(bankId, salary);
     }
 

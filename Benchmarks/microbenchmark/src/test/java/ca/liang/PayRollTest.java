@@ -17,7 +17,7 @@ public class PayRollTest {
 
     private PayRoll payRoll;
 
-    private EmployeeList employeeList;
+    private EmployeeDB employeeDB;
 
     private BankService bankService;
 
@@ -29,13 +29,13 @@ public class PayRollTest {
         
         List<Employee> mockEmployessList = new ArrayList<>();
         
-        employeeList = new EmployeeList(mockEmployessList);
+        employeeDB = new EmployeeDB(mockEmployessList);
         
         Map<String, Integer> employee_salary = new HashMap<String, Integer>();
         
         bankService = new BankService(employee_salary);
 
-        payRoll = new PayRoll(employeeList, bankService);
+        payRoll = new PayRoll(employeeDB, bankService);
     }
 
     @Test
@@ -47,12 +47,12 @@ public class PayRollTest {
     public void testNoEmployeesIntra() {
         List<Employee> employees_intra = new ArrayList<Employee>();
 
-        EmployeeList employeeList_intra = mock(EmployeeList.class);
+        EmployeeDB employeeDB_intra = mock(EmployeeDB.class);
         BankService bankService_intra = mock(BankService.class);
 
-        when(employeeList_intra.getAllEmployees()).thenReturn(employees_intra);
+        when(employeeDB_intra.getAllEmployees()).thenReturn(employees_intra);
 
-        PayRoll payRoll_intra = new PayRoll(employeeList_intra, bankService_intra);
+        PayRoll payRoll_intra = new PayRoll(employeeDB_intra, bankService_intra);
         
         int numberOfPayments = payRoll_intra.monthlyPayment();
         assertEquals(0, numberOfPayments);
@@ -65,14 +65,14 @@ public class PayRollTest {
         
         List<Employee> mockEmployessList = new ArrayList<>();
         mockEmployessList.add(test_employee);
-        employeeList = new EmployeeList(mockEmployessList);
+        employeeDB = new EmployeeDB(mockEmployessList);
         
         Map<String, Integer> employee_salary = new HashMap<String, Integer>();
         
         bankService = new BankService(employee_salary);
         employee_salary.put("ID0", 1000);
 
-        payRoll = new PayRoll(employeeList, bankService);
+        payRoll = new PayRoll(employeeDB, bankService);
 
         assertNumberOfPayments(1);
     }
@@ -86,13 +86,13 @@ public class PayRollTest {
         
         List<Employee> mockEmployessList = new ArrayList<>();
         mockEmployessList.add(createTestEmployee("Test Employee1", bankId, salary));
-        employeeList = new EmployeeList(mockEmployessList);
+        employeeDB = new EmployeeDB(mockEmployessList);
         
         Map<String, Integer> employee_salary = new HashMap<String, Integer>();
         
         bankService = mock(BankService.class);
 
-        payRoll = new PayRoll(employeeList, bankService);
+        payRoll = new PayRoll(employeeDB, bankService);
 
         assertNumberOfPayments(1);
 
@@ -107,11 +107,11 @@ public class PayRollTest {
         List<Employee> mockEmployessList = new ArrayList<>();
         mockEmployessList.add(employees.get(0));
         mockEmployessList.add(employees.get(1));
-        employeeList = new EmployeeList(mockEmployessList);
+        employeeDB = new EmployeeDB(mockEmployessList);
         
         bankService = mock(BankService.class);
 
-        payRoll = new PayRoll(employeeList, bankService);
+        payRoll = new PayRoll(employeeDB, bankService);
         
         assertNumberOfPayments(2);
 

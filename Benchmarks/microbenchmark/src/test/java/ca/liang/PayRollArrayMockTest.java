@@ -21,7 +21,7 @@ import org.mockito.InOrder;
 public class PayRollArrayMockTest {
     private PayRoll payRoll;
 
-    private EmployeeList employeeList;
+    private EmployeeDB employeeDB;
 
     private BankService bankService;
 
@@ -31,12 +31,12 @@ public class PayRollArrayMockTest {
     public void init() {
         employees = new Employee[0];
         
-        employeeList = mock(EmployeeList.class);
+        employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
-        when(employeeList.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
+        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
 
-        payRoll = new PayRoll(employeeList, bankService);
+        payRoll = new PayRoll(employeeDB, bankService);
     }
 
     @Test
@@ -50,7 +50,7 @@ public class PayRollArrayMockTest {
         employees_intra[0] = mock(Employee.class);
         employees_intra[1] = mock(Employee.class);
         
-        EmployeeList emplyeeList_intra = new EmployeeList(Arrays.asList(employees_intra));
+        EmployeeDB employeeDB_intra = new EmployeeDB(Arrays.asList(employees_intra));
         
         BankService bankService_intra = mock(BankService.class);
 
@@ -68,12 +68,12 @@ public class PayRollArrayMockTest {
     	String employeeId = "ID0";
         int salary = 1000;
         employees[0] = createTestEmployee("Test Employee", "ID0", 1000);
-    	employeeList = mock(EmployeeList.class);
+    	employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
-        when(employeeList.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
+        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
 
-        payRoll = new PayRoll(employeeList, bankService);
+        payRoll = new PayRoll(employeeDB, bankService);
 
         assertNumberOfPayments(1);
     }
@@ -86,12 +86,12 @@ public class PayRollArrayMockTest {
         int salary = 1000;
         employees[0] = createTestEmployee("Test Employee", "ID0", 1000);
 
-        employeeList = mock(EmployeeList.class);
+        employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
-        when(employeeList.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
+        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
 
-        payRoll = new PayRoll(employeeList, bankService);
+        payRoll = new PayRoll(employeeDB, bankService);
         
         assertNumberOfPayments(1);
 
@@ -102,12 +102,12 @@ public class PayRollArrayMockTest {
     public void testAllEmployeesArePaidArray() {
         employees = createEmployees();
         
-        employeeList = mock(EmployeeList.class);
+        employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
-        when(employeeList.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
+        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
 
-        payRoll = new PayRoll(employeeList, bankService);
+        payRoll = new PayRoll(employeeDB, bankService);
         
         assertNumberOfPayments(2);
 
