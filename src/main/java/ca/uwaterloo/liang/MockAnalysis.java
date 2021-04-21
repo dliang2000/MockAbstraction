@@ -32,6 +32,7 @@ import soot.toolkits.graph.*;
 import soot.toolkits.scalar.ArraySparseSet;
 import soot.toolkits.scalar.FlowSet;
 import soot.toolkits.scalar.ForwardFlowAnalysis;
+import soot.util.Chain;
 
 /**
  * Find all locals that are mocks
@@ -183,6 +184,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                             running_result.put(left_op_local, status);
                             out.add(running_result);
                             mustMocks.put(unit, running_result); 
+                            System.out.println("MustMock Local: " + right_op_local);
+                            System.out.println("MustMock Casted Local: " + left_op_local);
                         }
                     }
                 }
@@ -246,10 +249,12 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
      */
     private void propagateMocknessToContainingCollection(FlowSet<Map<Local, MockStatus>> in, 
                                 Unit unit, FlowSet<Map<Local, MockStatus>> out) {
-        
         Stmt aStmt = (Stmt) unit;
         List<Local> locals = new ArrayList<Local>();
         HashMap<Local, MockStatus> running_result;
+        
+        Hierarchy hierarchy = Scene.v().getActiveHierarchy();
+        RefType target = RefType.v("java.util.Collection");
         boolean isCollection = false;
         if (aStmt.containsInvokeExpr()) {
             List<ValueBox> ub = aStmt.getUseBoxes();
@@ -257,27 +262,58 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                 List<ValueBox> innerBoxes = box.getValue().getUseBoxes();
                 for (ValueBox innerBox : innerBoxes) {
                     // The useBox that is a container (to be refined)
-                    if (innerBox.getValue().getType().toString().contains("java.util.") && innerBox.getValue() instanceof Local) {
-                        System.out.println("CollectionMock: True " + "Local: " + (Local) innerBox.getValue());
-                        isCollection = true;
-                        locals.add((Local) innerBox.getValue());
-                    }
-                    // The unit has a container useBox, now we check if the non-container useBox 
-                    // is a mustMock local
-                    if (isCollection && !innerBox.getValue().getType().toString().contains("java.util.")) {
-                        if (innerBox.getValue() instanceof Local) {
-                            Local col_local = (Local) innerBox.getValue();
-                            for (Map<Local, MockStatus> element : in) {
-                                if (element.containsKey(col_local) && element.get(col_local).getMustMock()) {
-                                    running_result = new HashMap<Local, MockStatus>();
-                                    for (Local local: locals) {
-                                      //System.out.println("Def Inner Use Box value: " + innerBox.getValue());
-                                        MockStatus status = new MockStatus(false, false, true);
-                                        running_result.put(local, status);
-                                    }
-                                    out.add(running_result);
-                                    mustMocks.put(unit, running_result);
+                    if (innerBox.getValue().getType() instanceof RefType && innerBox.getValue() instanceof Local) {
+                        RefType ref = (RefType) innerBox.getValue().getType();
+                        SootClass sc = ref.getSootClass();
+                        List<SootClass> classes;
+                        // If sc is an interface, then we gather all the sub interfaces of "java.util.Co
+                        if (sc.isInterface()) {
+                            classes = hierarchy.getSuperinterfacesOf(sc);
+                            for (SootClass curr_class : classes) {
+                                if (curr_class.getType().equals(target)) {
+                                  //System.out.println("CollectionMock: True " + "Local: " + (Local) innerBox.getValue());
+                                    isCollection = true;
+                                    locals.add((Local) innerBox.getValue());
+                                    G.v().out.println("Statement: " + aStmt.toString());
+                                    G.v().out.println("InnerBox value: " + (Local) innerBox.getValue());
+                                    G.v().out.println("SootClass Type: " + sc.getType());
                                 }
+                            }
+                        } else {
+                            Chain<SootClass> interfaces = sc.getInterfaces();
+                            for (SootClass curr_interface : interfaces) {
+                                G.v().out.println("Current interface type: " + curr_interface);
+                                if(curr_interface.getType().equals(target)) {
+                                    isCollection = true;
+                                    locals.add((Local) innerBox.getValue());
+                                    G.v().out.println("Statement: " + aStmt.toString());
+                                    G.v().out.println("InnerBox value: " + (Local) innerBox.getValue());
+                                    G.v().out.println("SootClass Type: " + sc.getType());
+                                }
+                            }
+                        }                        
+                    }
+                }
+            }
+            // The unit has a container useBox, now we check if the non-container useBox 
+            // is a mustMock local
+            List<ValueBox> invoke_ub = aStmt.getInvokeExpr().getUseBoxes();
+            if (isCollection) {
+                for (ValueBox box : invoke_ub) {
+                    if (box.getValue() instanceof Local) {
+                        Local col_local = (Local) box.getValue();
+                        System.out.println("col_local: " + col_local);
+                        for (Map<Local, MockStatus> element : in) {
+                            if (element.containsKey(col_local) && element.get(col_local).getMustMock()) {
+                                System.out.println("col_local found in hashmap: " + col_local);
+                                running_result = new HashMap<Local, MockStatus>();
+                                for (Local local: locals) {
+                                    //System.out.println("Def Inner Use Box value: " + innerBox.getValue());
+                                    MockStatus status = new MockStatus(false, false, true);
+                                    running_result.put(local, status);
+                                }
+                                out.add(running_result);
+                                mustMocks.put(unit, running_result);
                             }
                         }
                     }
@@ -286,7 +322,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
             /*if (sm.getName().contains("add(")) {
                 System.out.println("InvokeExpr:" + aStmt.getInvokeExpr());
                 System.out.println("SootClass:" + aStmt.getInvokeExpr().getMethod().getDeclaringClass().getPackageName());
-            }*/
+            }
             List<Value> vals =  aStmt.getInvokeExpr().getArgs();
             for (Value val: vals) {
                 if (val instanceof Local) {
@@ -297,7 +333,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                         }
                     }
                 }
-            }
+            }*/
             
         }
         
