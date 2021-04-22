@@ -4,5 +4,5 @@ import soot.SootMethod;
 
 public abstract class CollectionModel<E> {
 
-    public abstract Effect getEffect(SootMethod m);
+    public abstract CollectionModelEffect getEffect(SootMethod m);
 }

@@ -20,6 +20,7 @@ package ca.uwaterloo.liang;
 
 import java.util.*;
 
+import ca.uwaterloo.liang.collection.CollectionModelEffect;
 import soot.*;
 import soot.jimple.ArrayRef;
 import soot.jimple.AssignStmt;
@@ -28,6 +29,7 @@ import soot.jimple.InvokeExpr;
 import soot.jimple.Stmt;
 import soot.jimple.internal.JArrayRef;
 import soot.options.*;
+import soot.tagkit.AnnotationTag;
 import soot.toolkits.graph.*;
 import soot.toolkits.scalar.ArraySparseSet;
 import soot.toolkits.scalar.FlowSet;
@@ -258,6 +260,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         boolean isCollection = false;
         if (aStmt.containsInvokeExpr()) {
             List<ValueBox> ub = aStmt.getUseBoxes();
+            SootMethod sm = aStmt.getInvokeExpr().getMethod();
+            
             for (ValueBox box : ub) {
                 List<ValueBox> innerBoxes = box.getValue().getUseBoxes();
                 for (ValueBox innerBox : innerBoxes) {
@@ -268,7 +272,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                         List<SootClass> classes;
                         
                         if (sc.isInterface()) {
-                            if (isCollectionASuperInterface(hierarchy, sc)) {
+                            if (isCollectionASuperInterface(hierarchy, sc) && isReadEffect(sm)) {
                                 isCollection = true;
                                 locals.add((Local) innerBox.getValue());
                                 G.v().out.println("Statement: " + aStmt.toString());
@@ -278,7 +282,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                         } else {
                             Chain<SootClass> interfaces = sc.getInterfaces();
                             for (SootClass curr_interface : interfaces) {
-                                if(isCollectionASuperInterface(hierarchy, curr_interface)) {
+                                if(isCollectionASuperInterface(hierarchy, curr_interface) && isReadEffect(sm)) {
                                     isCollection = true;
                                     locals.add((Local) innerBox.getValue());
                                     G.v().out.println("Statement: " + aStmt.toString());
@@ -303,8 +307,10 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                                 System.out.println("col_local found in hashmap: " + col_local);
                                 running_result = new HashMap<Local, MockStatus>();
                                 for (Local local: locals) {
-                                    MockStatus status = new MockStatus(false, false, true);
-                                    running_result.put(local, status);
+                                    if (!local.equals(col_local)) {
+                                        MockStatus status = new MockStatus(false, false, true);
+                                        running_result.put(local, status);
+                                    }
                                 }
                                 out.add(running_result);
                                 mustMocks.put(unit, running_result);
@@ -335,6 +341,17 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         srcSet.copy(destSet);
     }
     
+    
+    private static boolean isReadEffect(SootMethod sm) {
+        List<String> reads = CollectionModelEffect.READ.getMethods();
+        
+        for (String read : reads) {
+            if (sm.getSubSignature().contains(read))
+                return true;
+        }
+        return false;
+    }
+    
     private static boolean isCollectionASuperInterface(Hierarchy hierarchy, SootClass sc) {
         RefType collection = RefType.v("java.util.Collection");
         
@@ -352,6 +369,17 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
     }
     
     private static boolean isMockAPI(SootMethod method) {
+        /*List<soot.tagkit.Tag> smTags = method.getTags();
+        soot.tagkit.VisibilityAnnotationTag tag = (soot.tagkit.VisibilityAnnotationTag) method
+                .getTag("VisibilityAnnotationTag");
+        if (tag != null) {
+            for (AnnotationTag annotation : tag.getAnnotations()) {
+                if (annotation.getType().equals("Lorg/mockito/Mock;")) {
+                    //System.out.println("Test case found: " + sm.getSignature());
+                    return true;
+                }
+            }
+        }*/
         return (method.getSubSignature().equals(MockLibrary.EASYMOCK.subSignature()) 
                                 || method.getSubSignature().equals(MockLibrary.MOCKITO.subSignature())
                                 || method.getSubSignature().equals(MockLibrary.POWERMOCK.subSignature()));

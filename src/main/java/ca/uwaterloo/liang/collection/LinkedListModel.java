@@ -7,14 +7,14 @@ import soot.SootMethod;
 
 public class LinkedListModel<E> extends ListModel<E>{  
     
-    public Effect getEffect(SootMethod m) {
+    public CollectionModelEffect getEffect(SootMethod m) {
         if (m.getName().startsWith("getFirst(") || m.getName().startsWith("getLast(") 
                 || m.getName().startsWith("get(")) {
-            return Effect.READ;
+            return CollectionModelEffect.READ;
         }
         if (m.getName().startsWith("add(") || m.getName().startsWith("addAll(")
                 || m.getName().startsWith("addFirst(") || m.getName().startsWith("addLast(")) {
-            return Effect.WRITE;
+            return CollectionModelEffect.WRITE;
         }
         return null;
     }
