@@ -248,7 +248,8 @@ public class MockAnalysisMain extends SceneTransformer {
                 .getTag("VisibilityAnnotationTag");
         if (tag != null) {
             for (AnnotationTag annotation : tag.getAnnotations()) {
-                if (annotation.getType().equals("Lorg/junit/Test;")) {
+                if (annotation.getType().equals("Lorg/junit/Test;") 
+                        || annotation.getType().equals("Lorg/junit/jupiter/api/Test;")) {
                     //System.out.println("Test case found: " + sm.getSignature());
                     return true;
                 }

@@ -21,11 +21,9 @@ public class MockAnnotationTransformer extends SceneTransformer {
     protected void internalTransform(String phaseName, Map<String, String> options) {
         // TODO Auto-generated method stub
         
-     // TODO Auto-generated method stub
-        Iterator<SootClass> itAppClasses = Scene.v().getApplicationClasses().iterator();
-        while(itAppClasses.hasNext()) {
-            SootClass nextClass = itAppClasses.next();
-            Chain<SootField> fields = nextClass.getFields();
+        Chain<SootClass> appClasses = Scene.v().getApplicationClasses();
+        for (SootClass appClass : appClasses) {
+            Chain<SootField> fields = appClass.getFields();
             
             for (SootField field : fields) {
                 if (isAnnotatedMock(field)) {
