@@ -11,7 +11,7 @@ BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/microbenchmark"
 TARGET_PATH="target/classes"
 TARGET_TEST_PATH="target/test-classes"
 BENCHMARK="microbenchmark"
-DRIVER_PATH="ca.liang.Driver"
+DRIVER_PATH="ca.liang.RootDriver"
 OUTPUT_PATH="$MACHINE_SPECIFIC_PATH/analysis_output/MockAnalysis"
 
 MVN_DEPENDENCY_PATH="$BENCHMARK_PATH/mvn_dependencies"

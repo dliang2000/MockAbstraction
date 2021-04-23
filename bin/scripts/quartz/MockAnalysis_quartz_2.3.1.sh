@@ -11,7 +11,7 @@ BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/quartz-quartz-2.3.1-patched"
 TARGET_PATH="quartz-core/target/classes"
 TARGET_TEST_PATH="quartz-core/target/test-classes"
 BENCHMARK="quartz_quartz_core_2.3.1"
-DRIVER_PATH="org.quartz.Driver"
+DRIVER_PATH="org.quartz.RootDriver"
 OUTPUT_PATH="$MACHINE_SPECIFIC_PATH/analysis_output/MockAnalysis"
 
 MVN_DEPENDENCY_PATH="$BENCHMARK_PATH/quartz-core/mvn_dependencies"

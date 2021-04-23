@@ -5,7 +5,7 @@ echo $MACHINE_SPECIFIC_PATH
 
 SOOT_JAR="$MACHINE_SPECIFIC_PATH/soot_jar/sootclasses-trunk-jar-with-dependencies.jar"
 JAVA_PATH="$MACHINE_SPECIFIC_PATH/target/classes"
-CC_CLASS="ca.uwaterloo.liang.DriverGenerator"
+CC_CLASS="ca.uwaterloo.liang.RootDriverGenerator"
 BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/quartz-quartz-2.3.1-patched"
 TEXT_PATH="benchmark_info.config"
 
