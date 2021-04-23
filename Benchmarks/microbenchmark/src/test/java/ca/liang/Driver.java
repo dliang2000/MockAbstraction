@@ -22,11 +22,16 @@ public class Driver {
 		class3.testSingleEmployee();
 		class3.testEmployeeIsPaid();
 		class3.testAllEmployeesArePaid();
-		ca.liang.PayRollArrayTest class4 = new ca.liang.PayRollArrayTest();
+		ca.liang.PayRollAnnotationMockTest class4 = new ca.liang.PayRollAnnotationMockTest();
 		class4.testNoEmployees();
 		class4.testEmployeesPaidIntra();
 		class4.testSingleEmployee();
 		class4.testEmployeeIsPaid();
-		class4.testAllEmployeesArePaidArray();
+		ca.liang.PayRollArrayTest class5 = new ca.liang.PayRollArrayTest();
+		class5.testNoEmployees();
+		class5.testEmployeesPaidIntra();
+		class5.testSingleEmployee();
+		class5.testEmployeeIsPaid();
+		class5.testAllEmployeesArePaidArray();
 	}
 }

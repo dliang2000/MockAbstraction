@@ -34,6 +34,8 @@ public class MockAnalysisMain extends SceneTransformer {
     
     private static final Logger logger = LoggerFactory.getLogger(PackManager.class);
     public static void main(String[] args) throws IOException {
+        PackManager.v().getPack("wjtp").add(new Transform("wjtp.initialTransform", new MockAnnotationTransformer()) {
+        });
         PackManager.v().getPack("wjtp").add(new Transform("wjtp.myTransform", new MockAnalysisMain()) {
         });
         Options.v().set_prepend_classpath(true);
@@ -146,6 +148,9 @@ public class MockAnalysisMain extends SceneTransformer {
             if (method.hasActiveBody() && isTestCase(method)) {
                 JimpleBody body = (JimpleBody) method.getActiveBody();
                 
+                if (method.getDeclaringClass().getName().contains("PayRollAnnotationMockTest")) {
+                    G.v().out.println(body);
+                }
                 mockSummary = new ProcSummary(method);
                 
                 aCfg = new ExceptionalUnitGraph(method.getActiveBody());

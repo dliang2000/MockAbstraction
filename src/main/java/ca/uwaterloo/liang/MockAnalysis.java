@@ -58,10 +58,13 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
     //Contains all the invoked methods by the method under analysis
     private ArrayList<SootMethod> myInvokedMethods;
     
+  //Contains all the invoked methods by the method under analysis
+   // private HashSet<SootField> myAnnotatedMocks;
+    
     // For each unit x local, will store a boolean for if it is a must mock,
     // if is a must mock within Collection, or if it is a must mock within Array.
     private HashMap<Unit, HashMap<Local, MockStatus>> mustMocks;
-    
+
     @SuppressWarnings("unchecked")
     public MockAnalysis(DirectedGraph graph) {
         super(graph);
@@ -144,6 +147,26 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
     private void gen(Unit unit, FlowSet<Map<Local, MockStatus>> out) {
         HashMap<Local, MockStatus> running_result;
         Stmt aStmt = (Stmt) unit;
+        
+        // First way to create mock: Mock Annotation
+        if (aStmt.containsFieldRef()) {
+            SootField sf = aStmt.getFieldRef().getField();
+            //System.out.println("SootField: " + sf);
+            if (MockAnnotationTransformer.getAnnotatedMocks().contains(sf)) {
+                //System.out.println("myAnnotatedMocks contain the mock wanted");
+                running_result = new HashMap<Local, MockStatus>();
+                List<ValueBox> defBoxes = unit.getDefBoxes();
+                for (ValueBox vb: defBoxes) {
+                    Local l = (Local) vb.getValue();
+                    MockStatus status = new MockStatus(true);
+                    running_result.put(l, status);
+                }
+                out.add(running_result);
+                mustMocks.put(unit, running_result); 
+            }
+        }
+        
+        // Second way to create mock: Mock libraries' API. Example: mock(A.class)
         if (aStmt.containsInvokeExpr()) {
             InvokeExpr invkExpr = aStmt.getInvokeExpr();
             SootMethod sootMethod = invkExpr.getMethod();
@@ -186,8 +209,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                             running_result.put(left_op_local, status);
                             out.add(running_result);
                             mustMocks.put(unit, running_result); 
-                            System.out.println("MustMock Local: " + right_op_local);
-                            System.out.println("MustMock Casted Local: " + left_op_local);
+                            //System.out.println("MustMock Local: " + right_op_local);
+                            //System.out.println("MustMock Casted Local: " + left_op_local);
                         }
                     }
                 }
@@ -301,10 +324,10 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                 for (ValueBox box : invoke_ub) {
                     if (box.getValue() instanceof Local) {
                         Local col_local = (Local) box.getValue();
-                        System.out.println("col_local: " + col_local);
+                        //System.out.println("col_local: " + col_local);
                         for (Map<Local, MockStatus> element : in) {
                             if (element.containsKey(col_local) && element.get(col_local).getMustMock()) {
-                                System.out.println("col_local found in hashmap: " + col_local);
+                                //System.out.println("col_local found in hashmap: " + col_local);
                                 running_result = new HashMap<Local, MockStatus>();
                                 for (Local local: locals) {
                                     if (!local.equals(col_local)) {
@@ -369,17 +392,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
     }
     
     private static boolean isMockAPI(SootMethod method) {
-        /*List<soot.tagkit.Tag> smTags = method.getTags();
-        soot.tagkit.VisibilityAnnotationTag tag = (soot.tagkit.VisibilityAnnotationTag) method
-                .getTag("VisibilityAnnotationTag");
-        if (tag != null) {
-            for (AnnotationTag annotation : tag.getAnnotations()) {
-                if (annotation.getType().equals("Lorg/mockito/Mock;")) {
-                    //System.out.println("Test case found: " + sm.getSignature());
-                    return true;
-                }
-            }
-        }*/
         return (method.getSubSignature().equals(MockLibrary.EASYMOCK.subSignature()) 
                                 || method.getSubSignature().equals(MockLibrary.MOCKITO.subSignature())
                                 || method.getSubSignature().equals(MockLibrary.POWERMOCK.subSignature()));
