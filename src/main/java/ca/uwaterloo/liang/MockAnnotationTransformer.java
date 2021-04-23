@@ -15,7 +15,7 @@ import soot.util.Chain;
 
 public class MockAnnotationTransformer extends SceneTransformer {
     
-    private HashSet<SootField> annotatedMocks;
+    private static HashSet<SootField> annotatedMocks = new HashSet<>();;
     
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
@@ -29,13 +29,14 @@ public class MockAnnotationTransformer extends SceneTransformer {
             
             for (SootField field : fields) {
                 if (isAnnotatedMock(field)) {
+                    System.out.println(field);
                     annotatedMocks.add(field);
                 }
             }
         }
     }
     
-    public HashSet<SootField> getAnnotatedMocks() {
+    public static HashSet<SootField> getAnnotatedMocks() {
         return annotatedMocks;
     }
     
