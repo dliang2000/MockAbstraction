@@ -1,0 +1,126 @@
+// ./doop -a context-insensitive -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT-tests.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/mvn_dependencies/ --id context-insensitive-with-mocks --souffle-jobs 32 --main ca.liang.Driver --extra-logic souffle-logic/analyses/mocks/mocks.dl
+
+// This builds on the Doop context-sensitive pointer analysis.
+// The relation isMockInvocation identifies calls to mock objects.
+// This analysis doesn't remember that you put a mock into a collection when you pull an object out of that collection again.
+// If you put a mock into a field it remembers that and every other time you pull something out of the field it's a mock.
+
+// m: Method
+.decl MockSourceMethod(m: Method)
+MockSourceMethod("<org.easymock.EasyMock: java.lang.Object createMock(java.lang.Class)>").
+MockSourceMethod("<org.mockito.Mockito: java.lang.Object mock(java.lang.Class)>").
+MockSourceMethod("<org.powermock.api.mockito.PowerMockito: java.lang.Object mock(java.lang.Class)>").
+MockSourceMethod("<org.mockito.Mockito: java.lang.Object verify(java.lang.Object,org.mockito.verification.VerificationMode)>").
+MockSourceMethod("<org.mockito.internal.MockitoCore: java.lang.Object verify(java.lang.Object)>").
+MockSourceMethod("<org.mockito.internal.InOrderImpl: java.lang.Object verify(java.lang.Object)>").
+MockSourceMethod("<org.mockito.internal.MockitoCore: java.lang.Object verify(java.lang.Object,org.mockito.verification.VerificationMode)>").
+MockSourceMethod("<org.mockito.internal.InOrderImpl: java.lang.Object verify(java.lang.Object,org.mockito.verification.VerificationMode)>").
+
+.decl CallGraphEdge(c1:symbol, invocation:symbol, c2:symbol, meth:symbol)
+.input CallGraphEdge(IO="file", filename="CallGraphEdge.csv", delimiter="\t")
+
+// mi: MethodInvocation
+.decl callsMockSource(mi: MethodInvocation)
+callsMockSource(mi) :-
+  MockSourceMethod(ms),
+  CallGraphEdge(_, mi, _, ms).
+.output callsMockSource
+
+// v:Var
+.decl isMockVar(v: Var)
+isMockVar(v) :-
+  AssignReturnValue(mi, v),
+  callsMockSource(mi).
+isMockVar(v) :-
+  AssignCast(_ /* type */, from, v, _ /* inmethod */),
+  isMockVar(from).
+isMockVar(v) :-
+  isMockVar(from),
+  AssignLocal_From(insn, from),
+  AssignInstruction_To(insn, v).
+isMockVar(v) :-
+  LoadInstanceField(_, field, v, _),
+  fieldContainsMock(field).
+.output isMockVar
+
+.decl isMockInvocation(mi: MethodInvocation, signature:Method, inMethod:Method, line: number, receiver: symbol)
+isMockInvocation(mi, signature, inmethod, line, receiver) :-
+  _MethodInvocation_Line(mi, line),
+  VirtualMethodInvocation(mi, signature, inmethod),
+  VirtualMethodInvocation_Base(mi, receiver),
+  isMockVar(receiver).
+.output isMockInvocation
+
+// .decl LoadInstanceField(?base:Var, ?sig:Field, ?to:Var, ?inmethod:Method)
+// .decl StoreInstanceField(?from:Var, ?base:Var, ?signature:Field, ?inmethod: Method)
+.decl fieldContainsMock(signature: Field)
+fieldContainsMock(signature) :-
+  StoreInstanceField(from, _, signature, _),
+  isMockVar(from).
+.output fieldContainsMock
+
+/* other todo is annotations, we'll handle that later */
+
+// -- cut here --
+
+// reference info
+//  VirtualMethodInvocation(?invocation:MethodInvocation, ?signature:Method, ?inmethod:Method)  
+
+// we want this to be identified as mock
+// AssignReturnValue.facts:<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/ca.liang.EmployeeDB.getAllEmployees/0   <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/$stack9
+// VirtualMethodInvocation.facts:<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/ca.liang.EmployeeDB.getAllEmployees/0     11      <ca.liang.EmployeeDB: java.util.List getAllEmployees()> <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/employeeDB_intra#_47    <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>
+// yet stack9 isn't a mock, why?
+// we don't have any assignments to it here
+// and it's not at all in VarPointsTo
+
+
+// ok let's debug the different meanings of methodinvocation
+// line, receiver  54      <ca.liang.PayRollArrayMockTest: void testEmployeesPaidIntra()>/bankService_intra#_55
+// VirtualMethodInvocation:
+//  <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/ca.liang.PayRoll.monthlyPayment/0       <ca.liang.PayRoll: int monthlyPayment()>        <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>
+// ActualParam:
+//  <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/ca.liang.PayRoll.<init>/0
+// 
+
+
+/* identifying employeeDB.getAllEmployees() as a call to a mock:
+it is a VirtualMethodInvocation on employeeDB_intra#_47 as follows,
+* <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/ca.liang.EmployeeDB.getAllEmployees/0   11      <ca.liang.EmployeeDB: java.util.List getAllEmployees()> <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/employeeDB_intra#_47    <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>
+intra#_47 is assigned from AssignCast from <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/\$stack7
+* OK <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/assign/instruction7	7	<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/$stack7	<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/employeeDB_intra#_47	ca.liang.EmployeeDB	<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>
+stack7 is assigned in AssignReturnValue:
+<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/org.mockito.Mockito.mock/0	<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/$stack7
+and the method occurs in both CallGraphEdge and StaticMethodInvocation
+* OK CallGraphEdge: <<immutable-context>>	    <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/org.mockito.Mockito.mock/0	<<immutable-context>>	<org.mockito.Mockito: java.lang.Object mock(java.lang.Class)>
+* OK StaticMethodInvocation: <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/org.mockito.Mockito.mock/0			5			<org.mockito.Mockito: java.lang.Object mock(java.lang.Class)>	<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>
+*/
+
+// ok, so we start with the staticmethodinvocation, then we look for an assignreturnvalue, then assigncast, through the virtualmethodinvocation of interest
+// basically this is pretty equivalent to doing the flow analysis
+
+
+/*
+// experimenting with points-to
+.decl Var_DeclaringMethod(v: symbol, m: symbol)
+.input Var_DeclaringMethod(IO="file", filename="Var-DeclaringMethod.facts", delimiter="\t")
+
+// VarPointsTo: hctx:HContext, heap:HeapAllocation, ctx:Context, var:Var
+.decl VarPointsTo(c1: symbol, h: symbol, c2: symbol, v: symbol)
+.input VarPointsTo(IO="file", filename="VarPointsTo.csv", delimiter="\t")
+
+.decl Temp(v: symbol, h: symbol)
+Temp(v,h) :-
+  VarPointsTo(_, h, _, v),
+  Var_DeclaringMethod(v, "<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>").
+.output Temp
+*/
+
+/*
+.decl thisIsMock(mi: MethodInvocation, receiver: symbol)
+thisIsMock(mi, receiver) :-
+  ActualParam(0, mi, receiver),
+  // oops assign isn't actually a relation
+  //Move(intermediate, receiver),
+  isMockVar(receiver).
+.output thisIsMock
+*/
