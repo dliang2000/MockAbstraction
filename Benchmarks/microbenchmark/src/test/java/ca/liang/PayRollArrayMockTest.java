@@ -34,6 +34,7 @@ public class PayRollArrayMockTest {
         employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
+        // *mock*
         when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
 
         payRoll = new PayRoll(employeeDB, bankService);
@@ -54,7 +55,7 @@ public class PayRollArrayMockTest {
         
         BankService bankService_intra = mock(BankService.class);
 
-        //when(emplyeeList_intra.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_intra));
+        //when(employeeDB_intra.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_intra));
 
         PayRoll payRoll_intra = new PayRoll(employees_intra, bankService_intra);
         
@@ -64,13 +65,14 @@ public class PayRollArrayMockTest {
     
     @Test
     public void testSingleEmployee() {
-    	employees = new Employee[1];
-    	String employeeId = "ID0";
+        employees = new Employee[1];
+        String employeeId = "ID0";
         int salary = 1000;
         employees[0] = createTestEmployee("Test Employee", "ID0", 1000);
-    	employeeDB = mock(EmployeeDB.class);
+        employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
+        // *mock*
         when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
 
         payRoll = new PayRoll(employeeDB, bankService);
@@ -80,15 +82,17 @@ public class PayRollArrayMockTest {
 
     @Test
     public void testEmployeeIsPaid() {
-    	employees = new Employee[1];
-    	
+        employees = new Employee[1];
+
         String employeeId = "ID0";
         int salary = 1000;
         employees[0] = createTestEmployee("Test Employee", "ID0", 1000);
+        // but we don't read the thing we put into employees anywhere??!!
 
         employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
+        // *mock*
         when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
 
         payRoll = new PayRoll(employeeDB, bankService);
@@ -98,6 +102,34 @@ public class PayRollArrayMockTest {
         verify(bankService, times(1)).makePayment(employeeId, salary);
     }
     
+    @Test
+    public void testAllEmployeesArePaidArrayIntra() {
+        Employee employee1 = mock(Employee.class);
+        Employee employee2 = mock(Employee.class);
+
+        employees = new Employee[]{employee1, employee2};
+
+        employeeDB = mock(EmployeeDB.class);
+        bankService = mock(BankService.class);
+
+        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
+
+        payRoll = new PayRoll(employeeDB, bankService);
+
+        assertNumberOfPayments(2);
+
+        ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Integer> salaryCaptor = ArgumentCaptor.forClass(Integer.class);
+
+        verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
+
+        // ok but this is interprocedural, we should have an intraprocedural test
+        assertEquals(employees[0].getBankId(), idCaptor.getAllValues().get(0));
+        assertEquals(employees[1].getBankId(), idCaptor.getAllValues().get(1));
+        assertEquals(employees[0].getSalary(), salaryCaptor.getAllValues().get(0).intValue());
+        assertEquals(employees[1].getSalary(), salaryCaptor.getAllValues().get(1).intValue());
+    }
+
     @Test
     public void testAllEmployeesArePaidArray() {
         employees = createEmployees();
@@ -116,6 +148,7 @@ public class PayRollArrayMockTest {
 
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
+        // ok but this is interprocedural, I also added an intraprocedural test
         assertEquals(employees[0].getBankId(), idCaptor.getAllValues().get(0));
         assertEquals(employees[1].getBankId(), idCaptor.getAllValues().get(1));
         assertEquals(employees[0].getSalary(), salaryCaptor.getAllValues().get(0).intValue());

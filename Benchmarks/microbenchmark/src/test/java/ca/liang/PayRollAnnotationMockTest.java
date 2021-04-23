@@ -18,7 +18,7 @@ import java.util.List;
 //@RunWith(MockitoJUnitRunner.class)
 public class PayRollAnnotationMockTest {
     
-	private PayRoll payRoll;
+    private PayRoll payRoll;
     
     @Mock
     private EmployeeDB employeeDB;
@@ -46,8 +46,9 @@ public class PayRollAnnotationMockTest {
         employees_intra[1] = mock(Employee.class);
         
         EmployeeDB employeeDB_intra = new EmployeeDB(Arrays.asList(employees_intra));
-        
-        //when(emplyeeList_intra.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_intra));
+
+        // would be *mock* if uncommented
+        //when(employeeDB_intra.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_intra));
 
         PayRoll payRoll_intra = new PayRoll(employees_intra, bankService);
         
@@ -57,9 +58,10 @@ public class PayRollAnnotationMockTest {
     
     @Test
     public void testSingleEmployee() {
-    	employees = new Employee[1];
+        employees = new Employee[1];
         employees[0] = createTestEmployee("Test Employee", "ID0", 1000);
 
+        // *mock*
         when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
 
         payRoll = new PayRoll(employeeDB, bankService);
@@ -69,19 +71,22 @@ public class PayRollAnnotationMockTest {
 
     @Test
     public void testEmployeeIsPaid() {
-    	employees = new Employee[1];
+        employees = new Employee[1];
         String employeeId = "ID0";
         int salary = 1000;
         employees[0] = createTestEmployee("Test Employee", employeeId, salary);
 
+        // *mock*
         when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
 
         payRoll = new PayRoll(employeeDB, bankService);
         
         assertNumberOfPayments(1);
 
+        // *mock*
         verify(bankService, times(1)).makePayment(employeeId, salary);
     }
+    // total mocks: 2
     
     private void assertNumberOfPayments(int expected) {
         int numberOfPayments = payRoll.monthlyPayment();
