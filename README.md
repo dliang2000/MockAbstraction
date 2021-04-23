@@ -7,6 +7,7 @@ This repository focuses on analyzing for mock objects created and used in unit t
 | --- | --- | --- | --- |
 | commons-collections-4.3 | 3 | 1 | 0 |
 | microbenchmark | 14 | 4 | 2 |
+| mybatis_3.5.6 | 324 | 2 | 0 |
 | quartz-core | 7 | 0 | 0 |
 
 ## Manual Inspection on microbenchmark  (Intraprocedural)
