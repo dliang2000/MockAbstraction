@@ -137,10 +137,9 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
      */
     private void kill(FlowSet<Map<Local, MockStatus>> in, Unit unit, FlowSet<Map<Local, MockStatus>> out) {
         FlowSet<Map<Local, MockStatus>> killSet = emptyFlowSet.clone();
-        HashMap<Local, MockStatus> running_result;
         Stmt aStmt = (Stmt) unit;
         if (doesNotCreateMock(aStmt)) {
-            running_result = new HashMap<Local, MockStatus>();
+            HashMap<Local, MockStatus> running_result = new HashMap<Local, MockStatus>();
             List<ValueBox> defBoxes = unit.getDefBoxes();
             for (ValueBox vb: defBoxes) {
                 if (vb.getValue() instanceof Local) {
@@ -164,7 +163,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
      * from mock creation API to out FlowSet
      */
     private void gen(FlowSet<Map<Local, MockStatus>> in, Unit unit, FlowSet<Map<Local, MockStatus>> out) {
-        HashMap<Local, MockStatus> running_result;
         Stmt aStmt = (Stmt) unit;
         
         // First way to create mock: Mock Annotation
@@ -173,7 +171,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
             //System.out.println("SootField: " + sf);
             if (MockAnnotationTransformer.getAnnotatedMocks().contains(sf)) {
                 //System.out.println("myAnnotatedMocks contain the mock wanted");
-                running_result = new HashMap<Local, MockStatus>();
+                HashMap<Local, MockStatus> running_result = new HashMap<Local, MockStatus>();
                 List<ValueBox> defBoxes = unit.getDefBoxes();
                 for (ValueBox vb: defBoxes) {
                     Local l = (Local) vb.getValue();
@@ -211,7 +209,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
             }
             
             if (isMockAPI(sootMethod)) {
-                running_result = new HashMap<Local, MockStatus>();
+                HashMap<Local, MockStatus> running_result = new HashMap<Local, MockStatus>();
                 List<ValueBox> defBoxes = unit.getDefBoxes();
                 for (ValueBox vb: defBoxes) {
                     Local l = (Local) vb.getValue();
@@ -229,7 +227,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
      * to the out FlowSet
      */
     private void genCastExprLocal(FlowSet<Map<Local, MockStatus>> in, Unit unit, FlowSet<Map<Local, MockStatus>> out) {
-        HashMap<Local, MockStatus> running_result;
         if (unit instanceof AssignStmt) {
             AssignStmt assign = (AssignStmt) unit;
             if (assign.getRightOp() instanceof CastExpr) {
@@ -240,7 +237,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                     for (Map<Local, MockStatus> element : in) {
                         if (element.containsKey(right_op_local) && element.get(right_op_local).getMustMock() 
                                 && assign.getLeftOp() instanceof Local) {
-                            running_result = new HashMap<Local, MockStatus>();
+                            HashMap<Local, MockStatus> running_result = new HashMap<Local, MockStatus>();
                             MockStatus status = new MockStatus(true);
                             Local left_op_local = (Local) assign.getLeftOp();
                             //System.out.println("Casted Local: " + left_op_local);
@@ -282,15 +279,14 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
             }
         }
         
-        HashMap<Local, MockStatus> running_result;
         for (Local l: locals) {
             for (Map<Local, MockStatus> element : in) {
                 if (element.containsKey(l) && element.get(l).getMustMock()) {
-                    running_result = new HashMap<Local, MockStatus>();
                     List<ValueBox> db = aStmt.getDefBoxes();
                     for (ValueBox box : db) {
                         List<ValueBox> innerBoxes = box.getValue().getUseBoxes();
                         for (ValueBox innerBox : innerBoxes) {
+			    HashMap<Local, MockStatus> running_result = new HashMap<Local, MockStatus>();
                             if (innerBox.getValue() instanceof Local) {
                                 Local arrayBaseLocal = (Local) innerBox.getValue();
                                 //System.out.println("Def Inner Use Box value: " + innerBox.getValue());
@@ -314,7 +310,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                                 Unit unit, FlowSet<Map<Local, MockStatus>> out) {
         Stmt aStmt = (Stmt) unit;
         List<Local> locals = new ArrayList<Local>();
-        HashMap<Local, MockStatus> running_result;
         
         Hierarchy hierarchy = Scene.v().getActiveHierarchy();
         RefType target = RefType.v("java.util.Collection");
@@ -366,7 +361,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                         for (Map<Local, MockStatus> element : in) {
                             if (element.containsKey(col_local) && element.get(col_local).getMustMock()) {
                                 //System.out.println("col_local found in hashmap: " + col_local);
-                                running_result = new HashMap<Local, MockStatus>();
+				HashMap<Local, MockStatus> running_result = new HashMap<Local, MockStatus>();
                                 for (Local local: locals) {
                                     if (!local.equals(col_local)) {
                                         MockStatus status = new MockStatus(false, false, true);
