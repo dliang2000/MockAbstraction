@@ -224,8 +224,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                             running_result.put(left_op_local, status);
                             out.add(running_result);
                             mustMocks.put(unit, running_result); 
-                            System.out.println("MustMock Local: " + right_op_local);
-                            System.out.println("MustMock Casted Local: " + left_op_local);
+                            //System.out.println("MustMock Local: " + right_op_local);
+                            //System.out.println("MustMock Casted Local: " + left_op_local);
                         }
                     }
                 }
@@ -242,7 +242,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         Stmt aStmt = (Stmt) unit;
         List<Local> locals = new ArrayList<Local>();
         if (aStmt.containsArrayRef() && aStmt instanceof AssignStmt) {
-            System.out.println("ArrayRef Statement: " + aStmt);
+            //System.out.println("ArrayRef Statement: " + aStmt);
             ValueBox arrayRef = aStmt.getArrayRefBox();
             /*//ValueBox fieldRef = aStmt.getFieldRefBox();
             
@@ -269,7 +269,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                             HashMap<Local, MockStatus> running_result = new HashMap<Local, MockStatus>();
                             if (innerBox.getValue() instanceof Local) {
                                 Local arrayBaseLocal = (Local) innerBox.getValue();
-                                System.out.println("Def Inner Use Box value: " + innerBox.getValue());
+                                //System.out.println("Def Inner Use Box value: " + innerBox.getValue());
                                 MockStatus status = new MockStatus(false, true, false);
                                 running_result.put(arrayBaseLocal, status);
                                 out.add(running_result);
