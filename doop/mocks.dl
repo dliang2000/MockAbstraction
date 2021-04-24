@@ -14,6 +14,12 @@ MockSourceMethod("<org.mockito.internal.InOrderImpl: java.lang.Object verify(jav
 .decl MockFieldAnnotation(a: Annotation)
 MockFieldAnnotation("org.mockito.Mock").
 
+.decl CollectionPutMethod(m:Method)
+CollectionPutMethod("<java.util.List: boolean add(java.lang.Object)>").
+
+.decl CollectionGetMethod(m:Method)
+CollectionGetMethod("<java.util.List: java.lang.Object get(int)>").
+
 .decl CallGraphEdge(c1:symbol, invocation:symbol, c2:symbol, meth:symbol)
 .input CallGraphEdge(IO="file", filename="CallGraphEdge.csv", delimiter="\t")
 
@@ -35,7 +41,34 @@ isMockVar(v) :-
 isMockVar(v) :-
   LoadInstanceField(_, field, v, _),
   fieldContainsMock(field).
+isMockVar(v) :-
+// v = c.get(_);
+  isCollectionLocalThatContainsMocks(c, _),
+  CollectionGetMethod(get),
+  VirtualMethodInvocation(mi, get, _),
+  VirtualMethodInvocation_Base(mi, c),
+  AssignReturnValue(mi, v).
 .output isMockVar
+
+.decl isCollectionLocalThatContainsMocks(c:Var, inmethod:symbol)
+// c.add(mv)
+isCollectionLocalThatContainsMocks(c, inmethod) :-
+  CollectionPutMethod(put),
+  VirtualMethodInvocation(mi, put, inmethod),
+  VirtualMethodInvocation_Base(mi, c),
+  ActualParam(0, mi, mv),
+  isMockVar(mv).
+isCollectionLocalThatContainsMocks(c, inmethod) :-
+  isCollectionFieldThatContainsMocks(f),
+  LoadInstanceField(_, f, c, inmethod).
+.output isCollectionLocalThatContainsMocks
+
+.decl isCollectionFieldThatContainsMocks(f:Field)
+// base.f = c where c is a CollectionLocalThatContainsMocks -> f is a field that contains mocks
+isCollectionFieldThatContainsMocks(f) :-
+  isCollectionLocalThatContainsMocks(c, _),
+  StoreInstanceField(c, _, f, _).
+.output isCollectionFieldThatContainsMocks
 
 .decl isMockInvocation(mi: MethodInvocation, signature:Method, inMethod:Method, line: number, receiver: symbol)
 isMockInvocation(mi, signature, inmethod, line, receiver) :-
@@ -54,7 +87,17 @@ fieldContainsMock(signature) :-
 fieldContainsMock(signature) :-
   Field_Annotation(signature, a),
   MockFieldAnnotation(a).
+
+/*
 .output fieldContainsMock
+.output CollectionPutMethod
+.output VirtualMethodInvocation_Base
+.output VirtualMethodInvocation
+.output ActualParam
+.output AssignReturnValue
+.output StoreInstanceField
+.output LoadInstanceField
+*/
 
 // -- cut here --
 // .decl VarPointsTo(hctx:symbol, heap:symbol, ctx:symbol, var:symbol)
