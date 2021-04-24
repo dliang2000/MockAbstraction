@@ -22,6 +22,7 @@ import soot.SootMethod;
 import soot.Transform;
 import soot.Transformer;
 import soot.Unit;
+import soot.jimple.InvokeExpr;
 import soot.jimple.JimpleBody;
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.options.Options;
@@ -95,7 +96,7 @@ public class MockAnalysisMain extends SceneTransformer {
     /**
      * Each method mapped to its callees
      */
-    private HashMap<String, ArrayList<SootMethod> > myCallees;
+   // private HashMap<String, ArrayList<SootMethod> > myCallees;
         
     private MockAnalysis myMAnalysis;
         
@@ -106,7 +107,7 @@ public class MockAnalysisMain extends SceneTransformer {
             
         myClassMethods = new HashMap<String, ArrayList<SootMethod> >();
             
-        myCallees = new HashMap<String, ArrayList<SootMethod> >();
+       // myCallees = new HashMap<String, ArrayList<SootMethod> >();
                 
         myAppMethods = new ArrayList<SootMethod>();
         
@@ -148,9 +149,9 @@ public class MockAnalysisMain extends SceneTransformer {
             if (method.hasActiveBody() && isTestCase(method)) {
                 JimpleBody body = (JimpleBody) method.getActiveBody();
                 
-                if (method.getDeclaringClass().getName().contains("PayRollAnnotationMockTest")) {
+                /*if (method.getDeclaringClass().getName().contains("PayRollAnnotationMockTest")) {
                     G.v().out.println(body);
-                }
+                }*/
                 mockSummary = new ProcSummary(method);
                 
                 aCfg = new ExceptionalUnitGraph(method.getActiveBody());
@@ -164,9 +165,11 @@ public class MockAnalysisMain extends SceneTransformer {
                 
                 mockSummary.setMustMocks( myMAnalysis.getMustMocks() );           
                 
-                mockSummary.setInvokedMethods( myMAnalysis.getInvokedMethods() );
+                mockSummary.setTotalInvokeExprs( myMAnalysis.getTotalInvokeExprs() );
+                
+                mockSummary.setInvokeExprsOnMocks( myMAnalysis.getInvokeExprsOnMocks() );
                     
-                myCallees.put(method.getSignature(), myMAnalysis.getInvokedMethods());
+               // myCallees.put(method.getSignature(), myMAnalysis.getInvokedMethods());
                 
                 myProcSummaries.put(method, mockSummary);
             }
@@ -185,6 +188,50 @@ public class MockAnalysisMain extends SceneTransformer {
         .append("\n");
         msg.append("Total Number of Test Methods with Collection in class: ").append(benchmark_mock_stats[2])
         .append("\n");
+        G.v().out.println(msg);
+        
+        printMockInvocationStats();
+    }
+    
+    private void printMockInvocationStats() {
+        StringBuffer msg = new StringBuffer();
+        msg.append(" ====================================== \n")
+        .append(" INVOCATION STATISTICS \n\n");
+        
+        int total_count = 0, mocks_count = 0;
+        for(SootClass nc : colAppClasses) {
+            msg.append("** CLASS ").append(nc.toString())
+            .append("\n");
+            
+            List<SootMethod> ncM = nc.getMethods();
+            
+            ProcSummary pSmy = null;
+            
+            for(SootMethod m : ncM) {
+                pSmy = myProcSummaries.get(m);
+                if (pSmy == null) 
+                    continue;
+                ArrayList<InvokeExpr> totalInvokes = pSmy.getTotalInvokeExprs();
+                if (!totalInvokes.isEmpty())
+                    total_count += totalInvokes.size();
+                
+                ArrayList<InvokeExpr> invokeOnMocks = pSmy.getInvokeExprsOnMocks();
+                
+                if (!invokeOnMocks.isEmpty()) {
+                    mocks_count += invokeOnMocks.size();
+                    msg.append("\tmethod ").append(m.getName()).append(" : \n");
+                    msg.append("Total invocations on Mocks ").append(invokeOnMocks.size()).append(" : \n\n");
+                    for (InvokeExpr ie : invokeOnMocks) {
+                        System.out.println("Invoke expr: " + ie);
+                    }
+                }
+            }
+        }
+        msg.append(" ====================================== \n");
+        msg.append("Benchmark Overall Stats \n");
+        msg.append("Total Invocations: ").append(total_count).append("\n");
+        msg.append("Invocations On Mocks: ").append(mocks_count).append("\n");
+        
         G.v().out.println(msg);
     }
     

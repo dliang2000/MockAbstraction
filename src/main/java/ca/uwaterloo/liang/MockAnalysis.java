@@ -25,6 +25,7 @@ import soot.*;
 import soot.jimple.ArrayRef;
 import soot.jimple.AssignStmt;
 import soot.jimple.CastExpr;
+import soot.jimple.InstanceInvokeExpr;
 import soot.jimple.InvokeExpr;
 import soot.jimple.Stmt;
 import soot.jimple.internal.JArrayRef;
@@ -53,10 +54,20 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
     
     private static FlowSet<Map<Local, MockStatus>> emptyFlowSet = new ArraySparseSet() ;
     
+    private static ArrayList<InvokeExpr> emptyInvokeExprs = new ArrayList<InvokeExpr>();
+    
+    private static ArrayList<InvokeExpr> emptyInvokeExprsOnMocks = new ArrayList<InvokeExpr>();
+    
     private static HashMap<Unit, HashMap<Local, MockStatus>> emptyMustMocks = new HashMap<Unit, HashMap<Local, MockStatus>>();
     
     //Contains all the invoked methods by the method under analysis
-    private ArrayList<SootMethod> myInvokedMethods;
+    // private ArrayList<SootMethod> myInvokedMethods;
+    
+    //Contains all method invocations
+    private ArrayList<InvokeExpr> myTotalInvokeExprs;
+    
+  //Contains all method invocations on mocks
+    private ArrayList<InvokeExpr> myInvokeExprsOnMocks;
     
   //Contains all the invoked methods by the method under analysis
    // private HashSet<SootField> myAnnotatedMocks;
@@ -69,9 +80,13 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
     public MockAnalysis(DirectedGraph graph) {
         super(graph);
         
-        myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
+        // myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
         
         mustMocks = (HashMap<Unit, HashMap<Local, MockStatus>>) emptyMustMocks.clone();
+        
+        myTotalInvokeExprs = (ArrayList<InvokeExpr>) emptyInvokeExprs.clone();
+        
+        myInvokeExprsOnMocks = (ArrayList<InvokeExpr>) emptyInvokeExprsOnMocks.clone();
         
         doAnalysis();
     }
@@ -79,9 +94,13 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
     public void analyze(DirectedGraph graph, SootMethod aCurrentSootMethod) {
         this.graph = graph;
         
-        myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
+        // myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
         
         mustMocks = (HashMap<Unit, HashMap<Local, MockStatus>>) emptyMustMocks.clone();
+        
+        myTotalInvokeExprs = (ArrayList<InvokeExpr>) emptyInvokeExprs.clone();
+        
+        myInvokeExprsOnMocks = (ArrayList<InvokeExpr>) emptyInvokeExprsOnMocks.clone();
         
         doAnalysis();
     
@@ -102,7 +121,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         // Performs kills
         kill(in, unit, out);
         // Performs gens
-        gen(unit, out);
+        gen(in, unit, out);
         // Perform gens for casted expr
         genCastExprLocal(in, unit, out);
         // Find array container stores mustMock objects.
@@ -144,7 +163,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
      * Add locals which are assigned to the return value 
      * from mock creation API to out FlowSet
      */
-    private void gen(Unit unit, FlowSet<Map<Local, MockStatus>> out) {
+    private void gen(FlowSet<Map<Local, MockStatus>> in, Unit unit, FlowSet<Map<Local, MockStatus>> out) {
         HashMap<Local, MockStatus> running_result;
         Stmt aStmt = (Stmt) unit;
         
@@ -170,7 +189,26 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         if (aStmt.containsInvokeExpr()) {
             InvokeExpr invkExpr = aStmt.getInvokeExpr();
             SootMethod sootMethod = invkExpr.getMethod();
-            myInvokedMethods.add(sootMethod);
+            
+            if (invkExpr instanceof InstanceInvokeExpr) {
+                // Add InvokeExpr to myTotalInvokeExprs
+                myTotalInvokeExprs.add(invkExpr);
+                
+                InstanceInvokeExpr iie = (InstanceInvokeExpr) invkExpr;
+                Value val = iie.getBase();
+                
+                // If the base of the invokeExpr is an instanceof Local, 
+                // and can be found in the in FlowSet, then InvokeExpr is 
+                // on a mock
+                if (val instanceof Local) {
+                    Local loc = (Local) val;
+                    for (Map<Local, MockStatus> element : in) {
+                        if (element.containsKey(loc)) {
+                            myInvokeExprsOnMocks.add(invkExpr);
+                        }
+                    }
+                }
+            }
             
             if (isMockAPI(sootMethod)) {
                 running_result = new HashMap<Local, MockStatus>();
@@ -346,8 +384,12 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         
     }
     
-    public ArrayList<SootMethod> getInvokedMethods() {
-        return myInvokedMethods;
+    public ArrayList<InvokeExpr> getTotalInvokeExprs() {
+        return myTotalInvokeExprs;
+    }
+    
+    public ArrayList<InvokeExpr> getInvokeExprsOnMocks() {
+        return myInvokeExprsOnMocks;
     }
     
     public HashMap<Unit, HashMap<Local, MockStatus>> getMustMocks() {
