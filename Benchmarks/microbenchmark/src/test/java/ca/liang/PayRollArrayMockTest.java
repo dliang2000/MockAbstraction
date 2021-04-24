@@ -46,11 +46,13 @@ public class PayRollArrayMockTest {
 
         payRoll = new PayRoll(employeeDB, bankService);
     }
+    // total mocks: 1
 
     @Test
     public void testNoEmployees() {
         assertNumberOfPayments(0);
     }
+    // total mocks: 0
     
     @Test
     public void testEmployeesPaidIntra() {
@@ -59,13 +61,14 @@ public class PayRollArrayMockTest {
         employees_intra[1] = mock(Employee.class);
         
         EmployeeDB employeeDB_intra = new EmployeeDB(Arrays.asList(employees_intra));
-        
         BankService bankService_intra = mock(BankService.class);
 
         PayRoll payRoll_intra = new PayRoll(employees_intra, bankService_intra);
+	// not mock
         int numberOfPayments = payRoll_intra.monthlyPayment();
         assertEquals(2, numberOfPayments);
     }
+    // total mocks: 0
     
     @Test
     public void testSingleEmployeeFieldArrayNomock() {
@@ -76,8 +79,10 @@ public class PayRollArrayMockTest {
         employees_nomock[0] = new Employee(employeeName, employeeID, salary);
 
         Employee e = employees_nomock[0];
+	// not mock
         assertEquals(e.getName(), employeeName);
     }
+    // total mocks: 0
 
     @Test
     public void testSingleEmployeeFieldArrayMock() {
@@ -86,9 +91,12 @@ public class PayRollArrayMockTest {
         int salary = 1000;
 
         Employee ee = employees_mock[0];
+	// *mock*
         when(ee.getName()).thenReturn(employeeName);
+	// *mock*
         assertEquals(ee.getName(), employeeName);
     }
+    // total mocks: 2
 
     @Test
     public void testSingleEmployeeLocalArrayNomock() {
@@ -100,6 +108,7 @@ public class PayRollArrayMockTest {
         Employee e = employees_nomock[0];
         assertEquals(e.getName(), employeeName);
     }
+    // total mocks: 0
 
     @Test
     public void testSingleEmployeeLocalArrayMock() {
@@ -109,14 +118,15 @@ public class PayRollArrayMockTest {
         int salary = 1000;
 
         Employee e = mock(Employee.class);
-        // mock
+        // *mock*
         when(e.getName()).thenReturn(employeeName);
 
         employees_local[0] = e;
         Employee ee = employees_local[0];
-        // still mock (but requires arrays to know)
+        // still *mock* (but requires arrays to know)
         assertEquals(ee.getName(), employeeName);
     }
+    // total mocks: 2
 
     @Test
     public void testAllEmployeesArePaidArrayIntra() {
@@ -141,12 +151,13 @@ public class PayRollArrayMockTest {
         // *mock*
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
-        // *mock*
+        // *mock* x4
         assertEquals(employees_mock[0].getBankId(), idCaptor.getAllValues().get(0));
         assertEquals(employees_mock[1].getBankId(), idCaptor.getAllValues().get(1));
         assertEquals(employees_mock[0].getSalary(), salaryCaptor.getAllValues().get(0).intValue());
         assertEquals(employees_mock[1].getSalary(), salaryCaptor.getAllValues().get(1).intValue());
     }
+    // total mocks: 6
 
     @Test
     public void testAllEmployeesArePaidArray() {
@@ -174,15 +185,19 @@ public class PayRollArrayMockTest {
         assertEquals(employees_mock[0].getSalary(), salaryCaptor.getAllValues().get(0).intValue());
         assertEquals(employees_mock[1].getSalary(), salaryCaptor.getAllValues().get(1).intValue());
     }
+    // total mocks: 6
 
     private void assertNumberOfPayments(int expected) {
+	// not mock
         int numberOfPayments = payRoll.monthlyPayment();
         assertEquals(expected, numberOfPayments);
     }
+    // total mocks: 0
 
     private Employee createTestEmployee(String name, String id, int salary) {
         return new Employee(name, id, salary);
     }
+    // total mocks: 0
     
     /**
      * creates an array of four Node instances, mocked by Mockito
@@ -193,4 +208,5 @@ public class PayRollArrayMockTest {
         
         return new Employee[]{employee1, employee2};
     }
+    // total mocks: 0 (it creates some but doesn't invoke on them)
 }

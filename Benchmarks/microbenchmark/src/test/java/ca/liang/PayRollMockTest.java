@@ -151,7 +151,8 @@ public class PayRollMockTest {
         assertEquals(employees.get(1).getSalary(), salaryCaptor.getAllValues().get(1).intValue());
     }
     // total mock calls: 6
-    
+
+    // tests marking fields (employeeDB, bankService) as mock-containing (due to init)
     @Test
     public void testInteractionOrder() {
         String bankId = "ID0";
