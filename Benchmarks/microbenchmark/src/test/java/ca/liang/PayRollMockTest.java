@@ -26,7 +26,7 @@ public class PayRollMockTest {
     @Before
     public void init() {
         employees = new ArrayList<Employee>();
-        
+
         employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
@@ -41,7 +41,7 @@ public class PayRollMockTest {
     public void testNoEmployees() {
         assertNumberOfPayments(0);
     }
-    
+
     @Test
     public void testNoEmployeesIntra() {
         List<Employee> employees_intra = new ArrayList<Employee>();
@@ -59,7 +59,7 @@ public class PayRollMockTest {
         assertEquals(0, numberOfPayments);
     }
     // total mock calls: 1
-    
+
     @Test
     public void testSingleEmployee() {
 	// not a mock call on employees
@@ -93,7 +93,7 @@ public class PayRollMockTest {
         mockEmployessList.add(employee2);
 
         employees = mockEmployessList;
-        
+
         employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
@@ -112,7 +112,8 @@ public class PayRollMockTest {
 	// *mock* call to makePayment
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
-	// *mock* calls (4) to getBankId and getSalary through a container
+        // *mock* calls (4) to getBankId and getSalary through a container
+        // note: things that come from getAllValues().get(N) are not actually mocks
         assertEquals(employees.get(0).getBankId(), idCaptor.getAllValues().get(0));
         assertEquals(employees.get(1).getBankId(), idCaptor.getAllValues().get(1));
         assertEquals(employees.get(0).getSalary(), salaryCaptor.getAllValues().get(0).intValue());
@@ -130,14 +131,14 @@ public class PayRollMockTest {
         mockEmployessList.add(employee2);
 
         employees = mockEmployessList;
-        
+
         employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
         when(employeeDB.getAllEmployees()).thenReturn(employees);
 
         payRoll = new PayRoll(employeeDB, bankService);
-        
+
         assertNumberOfPayments(2);
 
         ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);
@@ -161,7 +162,7 @@ public class PayRollMockTest {
         employees.add(createTestEmployee("Test Employee", bankId, salary));
 
         assertNumberOfPayments(1);
-        
+
         InOrder inOrder = inOrder(employeeDB, bankService);
 	// these calls below are on mock-verify objects
         inOrder.verify(employeeDB).getAllEmployees();
