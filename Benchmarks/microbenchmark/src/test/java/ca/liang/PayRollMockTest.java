@@ -41,6 +41,7 @@ public class PayRollMockTest {
     public void testNoEmployees() {
         assertNumberOfPayments(0);
     }
+    // total mock calls: 0
     
     @Test
     public void testNoEmployeesIntra() {
@@ -64,9 +65,16 @@ public class PayRollMockTest {
     public void testSingleEmployee() {
 	// not a mock call on employees
         employees.add(createTestEmployee("Test Employee", "ID0", 1000));
-
         assertNumberOfPayments(1);
     }
+    // total mock calls: 0
+
+    @Test
+    public void testSingleEmployeeMock() {
+	Employee e = createMockEmployee();
+	assertEquals(e.getName(), "J. Doe");
+    }
+    // total mock calls: 0
 
     @Test
     public void testEmployeeIsPaid() {
@@ -113,6 +121,7 @@ public class PayRollMockTest {
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
 	// *mock* calls (4) to getBankId and getSalary through a container
+	// note: things that come from getAllValues().get(N) are not actually mocks, FIXME
         assertEquals(employees.get(0).getBankId(), idCaptor.getAllValues().get(0));
         assertEquals(employees.get(1).getBankId(), idCaptor.getAllValues().get(1));
         assertEquals(employees.get(0).getSalary(), salaryCaptor.getAllValues().get(0).intValue());
@@ -174,9 +183,19 @@ public class PayRollMockTest {
         int numberOfPayments = payRoll.monthlyPayment();
         assertEquals(expected, numberOfPayments);
     }
+    // total mock calls: 0
 
     private Employee createTestEmployee(String name, String id, int salary) {
         return new Employee(name, id, salary);
+    }
+    // total mock calls: 0
+
+    private Employee createMockEmployee() {
+	Employee e = mock(Employee.class);
+	when(e.getName()).thenReturn("J. Doe");
+	when(e.getBankId()).thenReturn("ID21");
+	when(e.getSalary()).thenReturn(234);
+	return e;
     }
 
     // populates a real list containing mocks
