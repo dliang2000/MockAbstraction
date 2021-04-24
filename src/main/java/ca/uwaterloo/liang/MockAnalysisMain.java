@@ -159,7 +159,7 @@ public class MockAnalysisMain extends SceneTransformer {
                 
                 if (mySAInst){
                      myMAnalysis.analyze(aCfg, method);
-                     myMAnalysis.updateInvocations(aCfg, method);
+                     myMAnalysis.updateInvocations(aCfg);
                 } else {
                      myMAnalysis = new MockAnalysis(aCfg);
                      myMAnalysis.updateInvocations(aCfg);
