@@ -266,15 +266,15 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                     for (ValueBox box : db) {
                         List<ValueBox> innerBoxes = box.getValue().getUseBoxes();
                         for (ValueBox innerBox : innerBoxes) {
-			    HashMap<Local, MockStatus> running_result = new HashMap<Local, MockStatus>();
+                            HashMap<Local, MockStatus> running_result = new HashMap<Local, MockStatus>();
                             if (innerBox.getValue() instanceof Local) {
                                 Local arrayBaseLocal = (Local) innerBox.getValue();
                                 //System.out.println("Def Inner Use Box value: " + innerBox.getValue());
                                 MockStatus status = new MockStatus(false, true, false);
                                 running_result.put(arrayBaseLocal, status);
+                                out.add(running_result);
+                                mustMocks.put(unit, running_result); 
                             }
-                            out.add(running_result);
-                            mustMocks.put(unit, running_result); 
                         }
                     }
                 }
@@ -341,15 +341,15 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                         for (Map<Local, MockStatus> element : in) {
                             if (element.containsKey(col_local) && element.get(col_local).getMustMock()) {
                                 //System.out.println("col_local found in hashmap: " + col_local);
-				HashMap<Local, MockStatus> running_result = new HashMap<Local, MockStatus>();
+                                HashMap<Local, MockStatus> running_result = new HashMap<Local, MockStatus>();
                                 for (Local local: locals) {
                                     if (!local.equals(col_local)) {
                                         MockStatus status = new MockStatus(false, false, true);
                                         running_result.put(local, status);
+                                        out.add(running_result);
+                                        mustMocks.put(unit, running_result);
                                     }
                                 }
-                                out.add(running_result);
-                                mustMocks.put(unit, running_result);
                             }
                         }
                     }
@@ -378,38 +378,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                     if (val instanceof Local) {
                         Local loc = (Local) val;
                         for (Map<Local, MockStatus> element : getFlowAfter(unit)) {
-                            if (element.containsKey(loc)) {
-                                myInvokeExprsOnMocks.add(invkExpr);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-    }
-    
-    public void updateInvocations(ExceptionalUnitGraph graph, SootMethod aCurrentSootMethod) {
-        UnitPatchingChain units = graph.getBody().getUnits();
-        
-        for (Unit unit : units) {
-            Stmt aStmt = (Stmt) unit;
-            if (aStmt.containsInvokeExpr()) {
-                InvokeExpr invkExpr = aStmt.getInvokeExpr();
-                if (invkExpr instanceof InstanceInvokeExpr) {
-                    // Add InvokeExpr to myTotalInvokeExprs
-                    myTotalInvokeExprs.add(invkExpr);
-                    
-                    InstanceInvokeExpr iie = (InstanceInvokeExpr) invkExpr;
-                    Value val = iie.getBase();
-                    
-                    // If the base of the invokeExpr is an instanceof Local, 
-                    // and can be found in the in FlowSet, then InvokeExpr is 
-                    // on a mock
-                    if (val instanceof Local) {
-                        Local loc = (Local) val;
-                        for (Map<Local, MockStatus> element : getFlowAfter(unit)) {
-                            if (element.containsKey(loc)) {
+                            if (element.containsKey(loc) && element.get(loc).getMustMock()) { //must be an invocation on MustMock
                                 myInvokeExprsOnMocks.add(invkExpr);
                             }
                         }
