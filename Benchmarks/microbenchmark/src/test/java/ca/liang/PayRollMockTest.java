@@ -85,9 +85,6 @@ public class PayRollMockTest {
 
     @Test
     public void testAllEmployeesArePaid1() {
-	// employees is not a mock but it contains mocks. Is this redefinition supposed to be confusing on purpose? Or is it just inlined and not removed?
-        employees = createEmployees();
-        
         List<Employee> mockEmployessList = new ArrayList<Employee>();
         Employee employee1 = mock(Employee.class);
         Employee employee2 = mock(Employee.class);
@@ -126,8 +123,6 @@ public class PayRollMockTest {
     // this is the same as testAllEmployeesArePaid1 except the declared type of mockEmployessList is ArrayList<Employee> and not List<Employee>
     @Test
     public void testAllEmployeesArePaid2() {
-        employees = createEmployees();
-        
         ArrayList<Employee> mockEmployessList = new ArrayList<Employee>();
         Employee employee1 = mock(Employee.class);
         Employee employee2 = mock(Employee.class);
