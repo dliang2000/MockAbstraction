@@ -1,12 +1,12 @@
 #!/bin/bash
 #under msp everything should be identical on all computers
-source ../../../config.sh
+source ./config.sh
 echo $MACHINE_SPECIFIC_PATH
 
 PACKAGE="org.quartz"
 SOOT_JAR="$MACHINE_SPECIFIC_PATH/soot_jar/sootclasses-trunk-jar-with-dependencies.jar"
 JAVA_PATH="$MACHINE_SPECIFIC_PATH/target/classes"
-CC_CLASS="ca.uwaterloo.liang.MockRunner"
+CC_CLASS="ca.uwaterloo.liang.MockAnalysisMain"
 BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/quartz-quartz-2.3.1-patched"
 TARGET_PATH="quartz-core/target/classes"
 TARGET_TEST_PATH="quartz-core/target/test-classes"

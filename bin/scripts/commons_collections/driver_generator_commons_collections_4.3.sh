@@ -1,6 +1,6 @@
 #!/bin/bash
 #under msp everything should be identical on all computers
-source ../../../config.sh
+source ./config.sh
 echo $MACHINE_SPECIFIC_PATH
 
 SOOT_JAR="$MACHINE_SPECIFIC_PATH/soot_jar/sootclasses-trunk-jar-with-dependencies.jar"
