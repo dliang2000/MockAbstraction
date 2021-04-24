@@ -49,7 +49,7 @@ import soot.util.Chain;
  * given program point.
  **/
 public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, MockStatus>>> {
-
+    
     private static ArrayList<SootMethod> emptyInvokedMethods = new ArrayList<SootMethod>();
     
     private static FlowSet<Map<Local, MockStatus>> emptyFlowSet = new ArraySparseSet() ;
@@ -77,7 +77,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
     private HashMap<Unit, HashMap<Local, MockStatus>> mustMocks;
 
     @SuppressWarnings("unchecked")
-    public MockAnalysis(DirectedGraph graph) {
+    public MockAnalysis(ExceptionalUnitGraph graph) {
         super(graph);
         
         // myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
@@ -91,7 +91,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         doAnalysis();
     }
     
-    public void analyze(DirectedGraph graph, SootMethod aCurrentSootMethod) {
+    public void analyze(ExceptionalUnitGraph graph, SootMethod aCurrentSootMethod) {
         this.graph = graph;
         
         // myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
@@ -187,26 +187,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         if (aStmt.containsInvokeExpr()) {
             InvokeExpr invkExpr = aStmt.getInvokeExpr();
             SootMethod sootMethod = invkExpr.getMethod();
-            
-            if (invkExpr instanceof InstanceInvokeExpr) {
-                // Add InvokeExpr to myTotalInvokeExprs
-                myTotalInvokeExprs.add(invkExpr);
-                
-                InstanceInvokeExpr iie = (InstanceInvokeExpr) invkExpr;
-                Value val = iie.getBase();
-                
-                // If the base of the invokeExpr is an instanceof Local, 
-                // and can be found in the in FlowSet, then InvokeExpr is 
-                // on a mock
-                if (val instanceof Local) {
-                    Local loc = (Local) val;
-                    for (Map<Local, MockStatus> element : in) {
-                        if (element.containsKey(loc)) {
-                            myInvokeExprsOnMocks.add(invkExpr);
-                        }
-                    }
-                }
-            }
             
             if (isMockAPI(sootMethod)) {
                 HashMap<Local, MockStatus> running_result = new HashMap<Local, MockStatus>();
@@ -375,6 +355,67 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
                     }
                 }
             }
+        }   
+    }
+    
+    public void updateInvocations(ExceptionalUnitGraph graph) {
+        UnitPatchingChain units = graph.getBody().getUnits();
+        
+        for (Unit unit : units) {
+            Stmt aStmt = (Stmt) unit;
+            if (aStmt.containsInvokeExpr()) {
+                InvokeExpr invkExpr = aStmt.getInvokeExpr();
+                if (invkExpr instanceof InstanceInvokeExpr) {
+                    // Add InvokeExpr to myTotalInvokeExprs
+                    myTotalInvokeExprs.add(invkExpr);
+                    
+                    InstanceInvokeExpr iie = (InstanceInvokeExpr) invkExpr;
+                    Value val = iie.getBase();
+                    
+                    // If the base of the invokeExpr is an instanceof Local, 
+                    // and can be found in the in FlowSet, then InvokeExpr is 
+                    // on a mock
+                    if (val instanceof Local) {
+                        Local loc = (Local) val;
+                        for (Map<Local, MockStatus> element : getFlowAfter(unit)) {
+                            if (element.containsKey(loc)) {
+                                myInvokeExprsOnMocks.add(invkExpr);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+    }
+    
+    public void updateInvocations(ExceptionalUnitGraph graph, SootMethod aCurrentSootMethod) {
+        UnitPatchingChain units = graph.getBody().getUnits();
+        
+        for (Unit unit : units) {
+            Stmt aStmt = (Stmt) unit;
+            if (aStmt.containsInvokeExpr()) {
+                InvokeExpr invkExpr = aStmt.getInvokeExpr();
+                if (invkExpr instanceof InstanceInvokeExpr) {
+                    // Add InvokeExpr to myTotalInvokeExprs
+                    myTotalInvokeExprs.add(invkExpr);
+                    
+                    InstanceInvokeExpr iie = (InstanceInvokeExpr) invkExpr;
+                    Value val = iie.getBase();
+                    
+                    // If the base of the invokeExpr is an instanceof Local, 
+                    // and can be found in the in FlowSet, then InvokeExpr is 
+                    // on a mock
+                    if (val instanceof Local) {
+                        Local loc = (Local) val;
+                        for (Map<Local, MockStatus> element : getFlowAfter(unit)) {
+                            if (element.containsKey(loc)) {
+                                myInvokeExprsOnMocks.add(invkExpr);
+                            }
+                        }
+                    }
+                }
+            }
         }
         
     }
@@ -401,6 +442,12 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         srcSet.copy(destSet);
     }
     
+//    @Override
+//    public FlowSet<Map<Local, MockStatus>> getFlowAfter(Unit u) {
+//        
+//        return null;
+//        
+//    }
     
     private static boolean isReadEffect(SootMethod sm) {
         List<String> reads = CollectionModelEffect.READ.getMethods();
@@ -428,9 +475,14 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Local, M
         return (!stmt.containsInvokeExpr() || !isMockAPI(stmt.getInvokeExpr().getMethod()));
     }
     
+    public static List<String> MOCKITO_VERIFIES = Collections.unmodifiableList(
+            Arrays.asList(new String[] {"java.lang.Object verify(java.lang.Object)", 
+                                        "java.lang.Object verify(java.lang.Object,org.mockito.verification.VerificationMode)"}));
+    
     private static boolean isMockAPI(SootMethod method) {
         return (method.getSubSignature().equals(MockLibrary.EASYMOCK.subSignature()) 
                                 || method.getSubSignature().equals(MockLibrary.MOCKITO.subSignature())
-                                || method.getSubSignature().equals(MockLibrary.POWERMOCK.subSignature()));
+                                || method.getSubSignature().equals(MockLibrary.POWERMOCK.subSignature())
+                                ||  MOCKITO_VERIFIES.contains(method.getSubSignature()) );
     }
 }

@@ -146,7 +146,8 @@ public class MockAnalysisMain extends SceneTransformer {
         G.v().out.println("Number of methods to be analyzed: " + myAppMethods.size() );
         
         for (SootMethod method : myAppMethods) {   
-            if (method.hasActiveBody() && isTestCase(method)) {
+            if (method.hasActiveBody() && 
+                    (isTestCase(method) || isBeforeMethod(method) || isAfterMethod(method)) ) {
                 JimpleBody body = (JimpleBody) method.getActiveBody();
                 
                 /*if (method.getDeclaringClass().getName().contains("PayRollAnnotationMockTest")) {
@@ -158,8 +159,10 @@ public class MockAnalysisMain extends SceneTransformer {
                 
                 if (mySAInst){
                      myMAnalysis.analyze(aCfg, method);
+                     myMAnalysis.updateInvocations(aCfg, method);
                 } else {
                      myMAnalysis = new MockAnalysis(aCfg);
+                     myMAnalysis.updateInvocations(aCfg);
                      mySAInst = true;
                 }
                 
@@ -220,10 +223,9 @@ public class MockAnalysisMain extends SceneTransformer {
                 if (!invokeOnMocks.isEmpty()) {
                     mocks_count += invokeOnMocks.size();
                     msg.append("\tmethod ").append(m.getName()).append(" : \n");
-                    msg.append("Total invocations on Mocks ").append(invokeOnMocks.size()).append(" : \n\n");
-                    for (InvokeExpr ie : invokeOnMocks) {
-                        System.out.println("Invoke expr: " + ie);
-                    }
+                    msg.append("\tTotal invocations on Mocks ").append(invokeOnMocks.size()).append(" : \n\n");
+                    for (InvokeExpr invkExpr : invokeOnMocks)
+                        msg.append("\tInvokeExpr: ").append(invkExpr).append("\n\n");
                 }
             }
         }
@@ -279,6 +281,56 @@ public class MockAnalysisMain extends SceneTransformer {
         }   
             
         G.v().out.println(msg);
+    }
+    
+    private static boolean isBeforeMethod(SootMethod sm) {
+        // JUnit 3
+        if ((sm.getName().equals("init()") ||  sm.getName().equals("setUp()")) 
+                && sm.getParameterCount() == 0 && sm.getReturnType().toString() == "void") {
+            //System.out.println("Test case found: " + sm.getSubSignature());
+            return true;
+        }
+
+        // JUnit 4+
+        List<soot.tagkit.Tag> smTags = sm.getTags();
+        soot.tagkit.VisibilityAnnotationTag tag = (soot.tagkit.VisibilityAnnotationTag) sm
+                .getTag("VisibilityAnnotationTag");
+        if (tag != null) {
+            for (AnnotationTag annotation : tag.getAnnotations()) {
+                if (annotation.getType().equals("Lorg/junit/Before;") || annotation.getType().equals("Lorg/junit/BeforeClass;")
+                        || annotation.getType().equals("Lorg/junit/jupiter/api/BeforeEach;") 
+                        || annotation.getType().equals("Lorg/junit/jupiter/api/BeforeAll;")) {
+                    //System.out.println("Test case found: " + sm.getSignature());
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    private static boolean isAfterMethod(SootMethod sm) {
+        // JUnit 3
+        if (sm.getName().equals("tearDown()") 
+                && sm.getParameterCount() == 0 && sm.getReturnType().toString() == "void") {
+            //System.out.println("Test case found: " + sm.getSubSignature());
+            return true;
+        }
+
+        // JUnit 4+
+        List<soot.tagkit.Tag> smTags = sm.getTags();
+        soot.tagkit.VisibilityAnnotationTag tag = (soot.tagkit.VisibilityAnnotationTag) sm
+                .getTag("VisibilityAnnotationTag");
+        if (tag != null) {
+            for (AnnotationTag annotation : tag.getAnnotations()) {
+                if (annotation.getType().equals("Lorg/junit/After;") || annotation.getType().equals("Lorg/junit/AfterClass;")
+                        || annotation.getType().equals("Lorg/junit/jupiter/api/AfterEach;") 
+                        || annotation.getType().equals("Lorg/junit/jupiter/api/AfterAll;")) {
+                    //System.out.println("Test case found: " + sm.getSignature());
+                    return true;
+                }
+            }
+        }
+        return false;
     }
     
     private static boolean isTestCase(SootMethod sm) {
