@@ -1,9 +1,4 @@
-// ./doop -a context-insensitive -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT-tests.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/mvn_dependencies/ --id context-insensitive-with-mocks --souffle-jobs 32 --main ca.liang.Driver --extra-logic souffle-logic/analyses/mocks/mocks.dl
-
-// This builds on the Doop context-sensitive pointer analysis.
-// The relation isMockInvocation identifies calls to mock objects.
-// This analysis doesn't remember that you put a mock into a collection when you pull an object out of that collection again.
-// If you put a mock into a field it remembers that and every other time you pull something out of the field it's a mock.
+// ./doop -a context-insensitive -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT-tests.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/mvn_dependencies/ --id context-insensitive-with-mocks --souffle-jobs 32 --main ca.liang.RootDriver --extra-logic souffle-logic/analyses/mocks/mocks.dl
 
 // m: Method
 .decl MockSourceMethod(m: Method)
@@ -15,6 +10,9 @@ MockSourceMethod("<org.mockito.internal.MockitoCore: java.lang.Object verify(jav
 MockSourceMethod("<org.mockito.internal.InOrderImpl: java.lang.Object verify(java.lang.Object)>").
 MockSourceMethod("<org.mockito.internal.MockitoCore: java.lang.Object verify(java.lang.Object,org.mockito.verification.VerificationMode)>").
 MockSourceMethod("<org.mockito.internal.InOrderImpl: java.lang.Object verify(java.lang.Object,org.mockito.verification.VerificationMode)>").
+
+.decl MockFieldAnnotation(a: Annotation)
+MockFieldAnnotation("org.mockito.Mock").
 
 .decl CallGraphEdge(c1:symbol, invocation:symbol, c2:symbol, meth:symbol)
 .input CallGraphEdge(IO="file", filename="CallGraphEdge.csv", delimiter="\t")
@@ -32,12 +30,8 @@ isMockVar(v) :-
   AssignReturnValue(mi, v),
   callsMockSource(mi).
 isMockVar(v) :-
-  AssignCast(_ /* type */, from, v, _ /* inmethod */),
-  isMockVar(from).
-isMockVar(v) :-
   isMockVar(from),
-  AssignLocal_From(insn, from),
-  AssignInstruction_To(insn, v).
+  AssignCast(_ /* type */, from, v, _ /* inmethod */).
 isMockVar(v) :-
   LoadInstanceField(_, field, v, _),
   fieldContainsMock(field).
@@ -57,11 +51,41 @@ isMockInvocation(mi, signature, inmethod, line, receiver) :-
 fieldContainsMock(signature) :-
   StoreInstanceField(from, _, signature, _),
   isMockVar(from).
+fieldContainsMock(signature) :-
+  Field_Annotation(signature, a),
+  MockFieldAnnotation(a).
 .output fieldContainsMock
 
-/* other todo is annotations, we'll handle that later */
-
 // -- cut here --
+// .decl VarPointsTo(hctx:symbol, heap:symbol, ctx:symbol, var:symbol)
+// .input VarPointsTo(IO="file", filename="VarPointsTo.csv", delimiter="\t")
+
+/* let's try putting in points-to */
+// doesn't do anything?
+/*isMockVar(v) :-
+  MockVarVPT(h1, v),
+  MockVarVPT(h1, v1),
+  Var_Type(v, t),
+  Var_Type(v1, t).*/
+// doesn't do anything?
+/*isMockVar(v) :-
+  isMockVar(from),
+  AssignLocal_From(insn, from),
+  AssignInstruction_To(insn, v).
+.decl MockVarVPT(h:symbol, v:Var)
+MockVarVPT(h,v) :-
+  isMockVar(v),
+  VarPointsTo(_, h, _, v).
+*/
+
+/* expensive
+isMockVar(v) :-
+  isMockVar(v1),
+  VarPointsTo(_, h1, _, v),
+  VarPointsTo(_, h1, _, v1),
+  Var_Type(v, t),
+  Var_Type(v1, t).
+*/
 
 // reference info
 //  VirtualMethodInvocation(?invocation:MethodInvocation, ?signature:Method, ?inmethod:Method)  
