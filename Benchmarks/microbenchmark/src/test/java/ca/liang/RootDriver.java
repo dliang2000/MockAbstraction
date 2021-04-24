@@ -7,7 +7,7 @@ public class RootDriver {
 		class1.testNoEmployees();
 		class1.testEmployeesPaidIntra();
 		class1.testSingleEmployee();
-		class1.testEmployeeIsPaid();
+		class1.testSingleEmployeeMock();
 		class1.testAllEmployeesArePaidArrayIntra();
 		class1.testAllEmployeesArePaidArray();
 		ca.liang.PayRollMockTest class2 = new ca.liang.PayRollMockTest();

@@ -90,28 +90,6 @@ public class PayRollArrayMockTest {
     }
 
     @Test
-    public void testEmployeeIsPaid() {
-        employees = new Employee[1];
-
-        String employeeId = "ID0";
-        int salary = 1000;
-        employees[0] = createTestEmployee("Test Employee", "ID0", 1000);
-        // but we don't read the thing we put into employees anywhere??!!
-
-        employeeDB = mock(EmployeeDB.class);
-        bankService = mock(BankService.class);
-
-        // *mock*
-        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
-
-        payRoll = new PayRoll(employeeDB, bankService);
-        
-        assertNumberOfPayments(1);
-
-        verify(bankService, times(1)).makePayment(employeeId, salary);
-    }
-    
-    @Test
     public void testAllEmployeesArePaidArrayIntra() {
         Employee employee1 = mock(Employee.class);
         Employee employee2 = mock(Employee.class);
