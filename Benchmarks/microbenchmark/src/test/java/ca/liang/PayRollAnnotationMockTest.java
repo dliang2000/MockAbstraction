@@ -33,11 +33,13 @@ public class PayRollAnnotationMockTest {
         MockitoAnnotations.initMocks(this);
         payRoll = new PayRoll(employeeDB, bankService);
     }
+    // total mocks: 0
     
     @Test
     public void testNoEmployees() {
         assertNumberOfPayments(0);
     }
+    // total mocks: 0
     
     @Test
     public void testEmployeesPaidIntra() {
@@ -46,15 +48,13 @@ public class PayRollAnnotationMockTest {
         employees_intra[1] = mock(Employee.class);
         
         EmployeeDB employeeDB_intra = new EmployeeDB(Arrays.asList(employees_intra));
-
-        // would be *mock* if uncommented
-        //when(employeeDB_intra.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_intra));
-
         PayRoll payRoll_intra = new PayRoll(employees_intra, bankService);
-        
+
+	// not mock
         int numberOfPayments = payRoll_intra.monthlyPayment();
         assertEquals(2, numberOfPayments);
     }
+    // total mocks: 0
     
     @Test
     public void testSingleEmployee() {
@@ -68,6 +68,7 @@ public class PayRollAnnotationMockTest {
 
         assertNumberOfPayments(1);
     }
+    // total mocks: 1
 
     @Test
     public void testEmployeeIsPaid() {
@@ -92,9 +93,10 @@ public class PayRollAnnotationMockTest {
         int numberOfPayments = payRoll.monthlyPayment();
         assertEquals(expected, numberOfPayments);
     }
+    // total mocks: 0
 
     private Employee createTestEmployee(String name, String id, int salary) {
         return new Employee(name, id, salary);
     }
-    
+    // total mocks: 0
 }
