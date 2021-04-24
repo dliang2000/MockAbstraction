@@ -185,11 +185,11 @@ public class MockAnalysisMain extends SceneTransformer {
         msg.append(" ====================================== \n")
         .append("Benchmark ").append(MockAnalysisMain.benchmark).append(" Mock Stats")
         .append("\n");
-        msg.append("Total Number of Test Methods with MustMock: ").append(benchmark_mock_stats[0])
+        msg.append("Total Number of Test/Before/After Methods with MustMock: ").append(benchmark_mock_stats[0])
         .append("\n");
-        msg.append("Total Number of Test Methods with ArrayMock in class: ").append(benchmark_mock_stats[1])
+        msg.append("Total Number of Test/Before/After Methods with ArrayMock in class: ").append(benchmark_mock_stats[1])
         .append("\n");
-        msg.append("Total Number of Test Methods with Collection in class: ").append(benchmark_mock_stats[2])
+        msg.append("Total Number of Test/Before/After Methods with Collection in class: ").append(benchmark_mock_stats[2])
         .append("\n");
         G.v().out.println(msg);
         
@@ -203,8 +203,8 @@ public class MockAnalysisMain extends SceneTransformer {
         
         int total_count = 0, mocks_count = 0;
         for(SootClass nc : colAppClasses) {
-            msg.append("** CLASS ").append(nc.toString())
-            .append("\n");
+        //    msg.append("\n\n** CLASS ").append(nc.toString())
+        //    .append("\n\n\n");
             
             List<SootMethod> ncM = nc.getMethods();
             
@@ -222,14 +222,14 @@ public class MockAnalysisMain extends SceneTransformer {
                 
                 if (!invokeOnMocks.isEmpty()) {
                     mocks_count += invokeOnMocks.size();
-                    msg.append("\tmethod ").append(m.getName()).append(" : \n");
-                    msg.append("\tTotal invocations on Mocks ").append(invokeOnMocks.size()).append(" : \n\n");
-                    for (InvokeExpr invkExpr : invokeOnMocks)
-                        msg.append("\tInvokeExpr: ").append(invkExpr).append("\n\n");
+                //    msg.append("\n\n========== method  ").append(m.getName()).append(" ========: \n\n");
+                //    msg.append("\tTotal invocations on Mocks ").append(invokeOnMocks.size()).append(" : \n\n");
+                 //   for (InvokeExpr invkExpr : invokeOnMocks)
+                //       msg.append("\tInvokeExpr: ").append(invkExpr).append("\n\n");
                 }
             }
         }
-        msg.append(" ====================================== \n");
+        //msg.append(" ====================================== \n");
         msg.append("Benchmark Overall Stats \n");
         msg.append("Total Invocations: ").append(total_count).append("\n");
         msg.append("Invocations On Mocks: ").append(mocks_count).append("\n");

@@ -1,6 +1,6 @@
 #!/bin/bash
 #under msp everything should be identical on all computers
-source ../../../config.sh
+source ./config.sh
 echo $MACHINE_SPECIFIC_PATH
 
 PACKAGE="org.apache.commons.collections4"
