@@ -74,7 +74,7 @@ public class PayRollMockTest {
 	Employee e = createMockEmployee();
 	assertEquals(e.getName(), "J. Doe");
     }
-    // total mock calls: 0
+    // total mock calls: 1
 
     @Test
     public void testEmployeeIsPaid() {
