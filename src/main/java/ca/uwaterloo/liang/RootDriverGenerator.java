@@ -68,6 +68,8 @@ public class RootDriverGenerator {
         for (String s: pd) {
             System.out.println("String in pd: " + s);
         }
+        // needed for JDK 1.8.0+ somehow
+        Scene.v().addBasicClass("android.os.Handler",SootClass.HIERARCHY);
         soot.Main.main(pd.toArray(new String[0]));
     }
 
