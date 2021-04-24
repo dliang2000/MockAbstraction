@@ -66,18 +66,27 @@ public class PayRollArrayMockTest {
     @Test
     public void testSingleEmployee() {
         employees = new Employee[1];
-        String employeeId = "ID0";
+        String employeeName = "Test Employee";
+        String employeeID = "ID0";
         int salary = 1000;
-        employees[0] = createTestEmployee("Test Employee", "ID0", 1000);
-        employeeDB = mock(EmployeeDB.class);
-        bankService = mock(BankService.class);
+        employees[0] = createTestEmployee(employeeName, employeeID, salary);
+        Employee e = employees[0];
+        assertEquals(e.getName(), employeeName);
+    }
 
-        // *mock*
-        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
+    @Test
+    public void testSingleEmployeeMock() {
+        employees = new Employee[1];
+        String employeeName = "Test Employee";
+        String employeeID = "ID0";
+        int salary = 1000;
 
-        payRoll = new PayRoll(employeeDB, bankService);
+        Employee e = mock(Employee.class);
+        when(e.getName()).thenReturn(employeeName);
 
-        assertNumberOfPayments(1);
+        employees[0] = e;
+        Employee ee = employees[0];
+        assertEquals(e.getName(), employeeName);
     }
 
     @Test
@@ -112,6 +121,7 @@ public class PayRollArrayMockTest {
         employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
+        // *mock*
         when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
 
         payRoll = new PayRoll(employeeDB, bankService);
@@ -121,9 +131,10 @@ public class PayRollArrayMockTest {
         ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Integer> salaryCaptor = ArgumentCaptor.forClass(Integer.class);
 
+        // *mock*
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
-        // ok but this is interprocedural, we should have an intraprocedural test
+        // *mock*
         assertEquals(employees[0].getBankId(), idCaptor.getAllValues().get(0));
         assertEquals(employees[1].getBankId(), idCaptor.getAllValues().get(1));
         assertEquals(employees[0].getSalary(), salaryCaptor.getAllValues().get(0).intValue());
@@ -137,6 +148,7 @@ public class PayRollArrayMockTest {
         employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
+        // *mock*
         when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
 
         payRoll = new PayRoll(employeeDB, bankService);
@@ -146,9 +158,10 @@ public class PayRollArrayMockTest {
         ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Integer> salaryCaptor = ArgumentCaptor.forClass(Integer.class);
 
+        // *mock*
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
-        // ok but this is interprocedural, I also added an intraprocedural test
+        // *mock* interprocedural
         assertEquals(employees[0].getBankId(), idCaptor.getAllValues().get(0));
         assertEquals(employees[1].getBankId(), idCaptor.getAllValues().get(1));
         assertEquals(employees[0].getSalary(), salaryCaptor.getAllValues().get(0).intValue());
@@ -165,7 +178,7 @@ public class PayRollArrayMockTest {
     }
     
     /**
-     * creates an array of four Node instances, mocked by EasyMock.
+     * creates an array of four Node instances, mocked by Mockito
      */
     private Employee[] createEmployees() {
         Employee employee1 = mock(Employee.class);
