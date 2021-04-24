@@ -82,11 +82,13 @@ public class PayRollArrayMockTest {
         int salary = 1000;
 
         Employee e = mock(Employee.class);
+	// mock
         when(e.getName()).thenReturn(employeeName);
 
         employees[0] = e;
         Employee ee = employees[0];
-        assertEquals(e.getName(), employeeName);
+	// still mock (but requires arrays to know)
+        assertEquals(ee.getName(), employeeName);
     }
 
     @Test
