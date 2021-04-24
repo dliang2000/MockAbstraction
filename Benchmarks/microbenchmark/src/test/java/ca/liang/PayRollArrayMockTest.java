@@ -25,17 +25,24 @@ public class PayRollArrayMockTest {
 
     private BankService bankService;
 
-    private Employee[] employees;
+    private Employee[] employees_nomock;
+    private Employee[] employees_mock;
 
     @Before
     public void init() {
-        employees = new Employee[0];
+        employees_nomock = new Employee[0];
         
         employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
+        // this is actually incorrect mock usage code I think,
+        // shouldn't leave mocks around between classes.
+        // but it investigates how the analysis works.
+        employees_mock = new Employee[1];
+        employees_mock[0] = mock(Employee.class);
+
         // *mock*
-        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
+        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_nomock));
 
         payRoll = new PayRoll(employeeDB, bankService);
     }
@@ -55,39 +62,59 @@ public class PayRollArrayMockTest {
         
         BankService bankService_intra = mock(BankService.class);
 
-        //when(employeeDB_intra.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_intra));
-
         PayRoll payRoll_intra = new PayRoll(employees_intra, bankService_intra);
-        
         int numberOfPayments = payRoll_intra.monthlyPayment();
         assertEquals(2, numberOfPayments);
     }
     
     @Test
-    public void testSingleEmployee() {
-        employees = new Employee[1];
+    public void testSingleEmployeeFieldArrayNomock() {
         String employeeName = "Test Employee";
         String employeeID = "ID0";
         int salary = 1000;
-        employees[0] = createTestEmployee(employeeName, employeeID, salary);
-        Employee e = employees[0];
+        employees_nomock = new Employee[1];
+        employees_nomock[0] = new Employee(employeeName, employeeID, salary);
+
+        Employee e = employees_nomock[0];
         assertEquals(e.getName(), employeeName);
     }
 
     @Test
-    public void testSingleEmployeeMock() {
-        employees = new Employee[1];
+    public void testSingleEmployeeFieldArrayMock() {
+        String employeeName = "Test Employee";
+        String employeeID = "ID0";
+        int salary = 1000;
+
+        Employee ee = employees_mock[0];
+        when(ee.getName()).thenReturn(employeeName);
+        assertEquals(ee.getName(), employeeName);
+    }
+
+    @Test
+    public void testSingleEmployeeLocalArrayNomock() {
+        Employee[] employees_nomock = new Employee[1];
+        String employeeName = "Test Employee";
+        String employeeID = "ID0";
+        int salary = 1000;
+        employees_nomock[0] = new Employee(employeeName, employeeID, salary);
+        Employee e = employees_nomock[0];
+        assertEquals(e.getName(), employeeName);
+    }
+
+    @Test
+    public void testSingleEmployeeLocalArrayMock() {
+        Employee[] employees_local = new Employee[1];
         String employeeName = "Test Employee";
         String employeeID = "ID0";
         int salary = 1000;
 
         Employee e = mock(Employee.class);
-	// mock
+        // mock
         when(e.getName()).thenReturn(employeeName);
 
-        employees[0] = e;
-        Employee ee = employees[0];
-	// still mock (but requires arrays to know)
+        employees_local[0] = e;
+        Employee ee = employees_local[0];
+        // still mock (but requires arrays to know)
         assertEquals(ee.getName(), employeeName);
     }
 
@@ -96,13 +123,13 @@ public class PayRollArrayMockTest {
         Employee employee1 = mock(Employee.class);
         Employee employee2 = mock(Employee.class);
 
-        employees = new Employee[]{employee1, employee2};
+        employees_mock = new Employee[]{employee1, employee2};
 
         employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
         // *mock*
-        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
+        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_mock));
 
         payRoll = new PayRoll(employeeDB, bankService);
 
@@ -115,21 +142,21 @@ public class PayRollArrayMockTest {
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
         // *mock*
-        assertEquals(employees[0].getBankId(), idCaptor.getAllValues().get(0));
-        assertEquals(employees[1].getBankId(), idCaptor.getAllValues().get(1));
-        assertEquals(employees[0].getSalary(), salaryCaptor.getAllValues().get(0).intValue());
-        assertEquals(employees[1].getSalary(), salaryCaptor.getAllValues().get(1).intValue());
+        assertEquals(employees_mock[0].getBankId(), idCaptor.getAllValues().get(0));
+        assertEquals(employees_mock[1].getBankId(), idCaptor.getAllValues().get(1));
+        assertEquals(employees_mock[0].getSalary(), salaryCaptor.getAllValues().get(0).intValue());
+        assertEquals(employees_mock[1].getSalary(), salaryCaptor.getAllValues().get(1).intValue());
     }
 
     @Test
     public void testAllEmployeesArePaidArray() {
-        employees = createEmployees();
+        employees_mock = createEmployees();
         
         employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
         // *mock*
-        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
+        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_mock));
 
         payRoll = new PayRoll(employeeDB, bankService);
         
@@ -142,10 +169,10 @@ public class PayRollArrayMockTest {
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
         // *mock* interprocedural
-        assertEquals(employees[0].getBankId(), idCaptor.getAllValues().get(0));
-        assertEquals(employees[1].getBankId(), idCaptor.getAllValues().get(1));
-        assertEquals(employees[0].getSalary(), salaryCaptor.getAllValues().get(0).intValue());
-        assertEquals(employees[1].getSalary(), salaryCaptor.getAllValues().get(1).intValue());
+        assertEquals(employees_mock[0].getBankId(), idCaptor.getAllValues().get(0));
+        assertEquals(employees_mock[1].getBankId(), idCaptor.getAllValues().get(1));
+        assertEquals(employees_mock[0].getSalary(), salaryCaptor.getAllValues().get(0).intValue());
+        assertEquals(employees_mock[1].getSalary(), salaryCaptor.getAllValues().get(1).intValue());
     }
 
     private void assertNumberOfPayments(int expected) {
