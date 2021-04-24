@@ -48,6 +48,10 @@ isMockVar(v) :-
   VirtualMethodInvocation(mi, get, _),
   VirtualMethodInvocation_Base(mi, c),
   AssignReturnValue(mi, v).
+isMockVar(v) :-
+// v = c.get(_);
+  isArrayLocalThatContainsMocks(c, _),
+  LoadArrayIndex(c, v, _).
 .output isMockVar
 
 .decl isCollectionLocalThatContainsMocks(c:Var, inmethod:symbol)
@@ -70,6 +74,23 @@ isCollectionFieldThatContainsMocks(f) :-
   StoreInstanceField(c, _, f, _).
 .output isCollectionFieldThatContainsMocks
 
+.decl isArrayLocalThatContainsMocks(c:Var, inmethod:symbol)
+// c[idx] = mv @ insn
+isArrayLocalThatContainsMocks(c, inmethod) :-
+  StoreArrayIndex(mv, c, inmethod),
+  isMockVar(mv).
+isArrayLocalThatContainsMocks(c, inmethod) :-
+  isArrayFieldThatContainsMocks(f),
+  LoadInstanceField(_, f, c, inmethod).
+.output isArrayLocalThatContainsMocks
+
+.decl isArrayFieldThatContainsMocks(f:Field)
+// base.f = c where c is a ArrayLocalThatContainsMocks -> f is a field that contains mocks
+isArrayFieldThatContainsMocks(f) :-
+  isArrayLocalThatContainsMocks(c, _),
+  StoreInstanceField(c, _, f, _).
+.output isArrayFieldThatContainsMocks
+
 .decl isMockInvocation(mi: MethodInvocation, signature:Method, inMethod:Method, line: number, receiver: symbol)
 isMockInvocation(mi, signature, inmethod, line, receiver) :-
   _MethodInvocation_Line(mi, line),
@@ -88,7 +109,6 @@ fieldContainsMock(signature) :-
   Field_Annotation(signature, a),
   MockFieldAnnotation(a).
 
-/*
 .output fieldContainsMock
 .output CollectionPutMethod
 .output VirtualMethodInvocation_Base
@@ -97,7 +117,7 @@ fieldContainsMock(signature) :-
 .output AssignReturnValue
 .output StoreInstanceField
 .output LoadInstanceField
-*/
+.output LoadArrayIndex
 
 // -- cut here --
 // .decl VarPointsTo(hctx:symbol, heap:symbol, ctx:symbol, var:symbol)
