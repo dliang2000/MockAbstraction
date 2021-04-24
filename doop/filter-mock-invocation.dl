@@ -1,0 +1,25 @@
+.type MethodInvocation <: symbol
+.decl isMockInvocation(mi: MethodInvocation, signature:symbol, inMethod:symbol, line: number, receiver: symbol)
+.input isMockInvocation(IO="file", filename="isMockInvocation.csv", delimiter="\t")
+
+.decl Method(sig:symbol, name:symbol, params:symbol, class:symbol, rtype:symbol, java_sig:symbol, args:number)
+.input Method(IO="file", filename="Method.facts", delimiter="\t")
+
+.decl ClassOfInterest(c:symbol)
+ClassOfInterest("ca.liang.PayRollArrayMockTest").
+
+.decl MethodOfInterest(m:symbol)
+MethodOfInterest(m) :-
+  Method(m, _, _, c, _, _, _),
+  ClassOfInterest(c).
+
+.decl Temp(a:symbol, b:symbol, m:symbol, d:number, e:symbol)
+Temp(a,b,m,d,e):-
+  isMockInvocation(a,b,m,d,e),
+  MethodOfInterest(m).
+
+.decl Counts(m:symbol,n:number)
+Counts(m,n) :-
+  MethodOfInterest(m),
+  n = count : { isMockInvocation(_,_,m,_,_) }.
+.output Counts
