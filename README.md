@@ -5,7 +5,7 @@ This repository focuses on analyzing for mock objects created and used in unit t
 ## Mock Analysis table
 | Benchmark | Total Number of Tests | Number of Test Methods with MustMock | Number of Test Methods with ArrayMock (Intra) | Number of Test Methods with CollectionMock |
 | --- | --- | --- | --- |
-| commons-collections-4.3 | 24599 | 3 | 1 | 0 |
+| commons-collections4-4.4 | 24946 | 3 | 1 | 0 |
 | microbenchmark | 19 | 15 | 5 | 2 |
 | mybatis_3.5.6 | 1675 | 330 | 3 | 1 |
 | quartz-core | 7 | 0 | 0 |
@@ -59,7 +59,7 @@ For PayRollAnnotationMockTest:
 ## Mock Analysis - Analyzing InvokeExpr results
 | Benchmark | Total Number of Invocations | Number of Invocations on Mocks |
 | --- | --- | --- |
-| commons-collections-4.3 | 2995 | 13 |
+| commons-collections-4.3 | 3001 | 13 |
 | microbenchmark | 160 | 12 |
 | mybatis_3.5.6 | 17798 | 569 |
 | quartz-core | 3206 | 21 |
