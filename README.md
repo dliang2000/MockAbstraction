@@ -4,11 +4,11 @@ This repository focuses on analyzing for mock objects created and used in unit t
 
 ## Mock Analysis table
 | Benchmark | Total Number of Tests | Number of Test Methods with MustMock | Number of Test Methods with ArrayMock (Intra) | Number of Test Methods with CollectionMock |
-| --- | --- | --- | --- |
+| --- | --- | --- | --- | --- |
 | commons-collections4-4.4 | 24946 | 3 | 1 | 0 |
 | microbenchmark | 19 | 15 | 5 | 2 |
 | mybatis_3.5.6 | 1675 | 330 | 3 | 1 |
-| quartz-core | 7 | 0 | 0 |
+| quartz-core | 305 | 7 | 0 | 0 |
 
 ## Manual Inspection on microbenchmark  (Intraprocedural)
 
