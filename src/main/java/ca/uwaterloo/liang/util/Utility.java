@@ -57,16 +57,16 @@ public class Utility {
             if (pSmy == null) 
                 continue;
             
-            HashMap<Unit, HashMap<Local, MockStatus>> mocks = pSmy.getMustMocks();
+            HashMap<Unit, HashMap<Value, MockStatus>> mocks = pSmy.getMustMocks();
             
             int[] curr_method_mock_info = new int[3];
             
-            for (Map.Entry<Unit, HashMap<Local, MockStatus>> entry : mocks.entrySet()) {
+            for (Map.Entry<Unit, HashMap<Value, MockStatus>> entry : mocks.entrySet()) {
                 
-                HashMap<Local, MockStatus> val = entry.getValue();
+                HashMap<Value, MockStatus> val = entry.getValue();
                                 
-                for (Map.Entry<Local, MockStatus> curr : val.entrySet()) {
-                    Local l = curr.getKey();
+                for (Map.Entry<Value, MockStatus> curr : val.entrySet()) {
+                    Value v = curr.getKey();
                     MockStatus ms = curr.getValue();
                     if (ms.getMustMock()) {
                         curr_method_mock_info[0] = 1;
@@ -109,21 +109,21 @@ public class Utility {
             if (pSmy == null) 
                 continue;
             
-            HashMap<Unit, HashMap<Local, MockStatus>> mocks = pSmy.getMustMocks();
+            HashMap<Unit, HashMap<Value, MockStatus>> mocks = pSmy.getMustMocks();
             
-            for (Map.Entry<Unit, HashMap<Local, MockStatus>> entry : mocks.entrySet()) {
+            for (Map.Entry<Unit, HashMap<Value, MockStatus>> entry : mocks.entrySet()) {
                 // How to print output?
                 Unit u = entry.getKey();
                 msg.append("Unit: ").append(u).append("\n"); 
                 
-                HashMap<Local, MockStatus> val = entry.getValue();
+                HashMap<Value, MockStatus> abstraction = entry.getValue();
                 
                 
-                for (Map.Entry<Local, MockStatus> curr : val.entrySet()) {
-                    Local l = curr.getKey();
+                for (Map.Entry<Value, MockStatus> curr : abstraction.entrySet()) {
+                    Value value = curr.getKey();
                     MockStatus ms = curr.getValue();
                     
-                    msg.append("Local: ").append(l).append("\n");
+                    msg.append("Value: ").append(value).append("\n");
                     
                     if (ms.getMustMock()) {
                         msg.append("Possibly Mock: true").append("\n\n");

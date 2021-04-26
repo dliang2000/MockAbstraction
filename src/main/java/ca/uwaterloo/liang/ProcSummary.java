@@ -8,19 +8,20 @@ import java.util.Map;
 import soot.Local;
 import soot.SootMethod;
 import soot.Unit;
+import soot.Value;
 import soot.jimple.InvokeExpr;
 import soot.toolkits.scalar.ArraySparseSet;
 import soot.toolkits.scalar.FlowSet;
 
 public class ProcSummary {
     
-    private static HashMap<Unit, HashMap<Local, MockStatus>> emptyPossiblyMocks = new HashMap<Unit, HashMap<Local, MockStatus>>();
+    private static HashMap<Unit, HashMap<Value, MockStatus>> emptyPossiblyMocks = new HashMap<Unit, HashMap<Value, MockStatus>>();
     
     private static ArrayList<InvokeExpr> emptyInvokeExprs = new ArrayList<InvokeExpr>();
     
     private static ArrayList<InvokeExpr> emptyInvokeExprsOnMocks = new ArrayList<InvokeExpr>();
     
-    private HashMap<Unit, HashMap<Local, MockStatus>> mustMocks;
+    private HashMap<Unit, HashMap<Value, MockStatus>> mustMocks;
     //Contains all method invocations
     private ArrayList<InvokeExpr> myTotalInvokeExprs;
     //Contains all method invocations on mocks
@@ -31,7 +32,7 @@ public class ProcSummary {
     public ProcSummary(SootMethod aSootMethod) {
         mySootMethod = aSootMethod;
         
-        mustMocks = (HashMap<Unit, HashMap<Local, MockStatus>>) emptyPossiblyMocks.clone();
+        mustMocks = (HashMap<Unit, HashMap<Value, MockStatus>>) emptyPossiblyMocks.clone();
         
         myTotalInvokeExprs = (ArrayList<InvokeExpr>) emptyInvokeExprs.clone();
         
@@ -54,11 +55,11 @@ public class ProcSummary {
         this.myInvokedMethods = myInvokedMethods;
     }*/
     
-    public HashMap<Unit, HashMap<Local, MockStatus>> getMustMocks() {
+    public HashMap<Unit, HashMap<Value, MockStatus>> getMustMocks() {
         return mustMocks;
     }
 
-    public void setMustMocks(HashMap<Unit, HashMap<Local, MockStatus>> mustMocks) {
+    public void setMustMocks(HashMap<Unit, HashMap<Value, MockStatus>> mustMocks) {
         this.mustMocks = mustMocks;
     }
     
