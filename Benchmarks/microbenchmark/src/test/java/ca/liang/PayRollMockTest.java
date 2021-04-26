@@ -120,13 +120,8 @@ public class PayRollMockTest {
 	// *mock* call to makePayment
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
-<<<<<<< HEAD
-	// *mock* calls (4) to getBankId and getSalary through a container
-	// note: things that come from getAllValues().get(N) are not actually mocks, FIXME
-=======
         // *mock* calls (4) to getBankId and getSalary through a container
         // note: things that come from getAllValues().get(N) are not actually mocks
->>>>>>> 198cef6fe9cf771c4016b95ad54ba12a59be9d88
         assertEquals(employees.get(0).getBankId(), idCaptor.getAllValues().get(0));
         assertEquals(employees.get(1).getBankId(), idCaptor.getAllValues().get(1));
         assertEquals(employees.get(0).getSalary(), salaryCaptor.getAllValues().get(0).intValue());
