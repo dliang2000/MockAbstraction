@@ -22,7 +22,8 @@ public class PayRollMockTest {
     private BankService bankService;
 
     private List<Employee> employees;
-
+    
+    // Contains Mock object
     @Before
     public void init() {
         employees = new ArrayList<Employee>();
@@ -42,7 +43,8 @@ public class PayRollMockTest {
         assertNumberOfPayments(0);
     }
     // total mock calls: 0
-
+    
+    // Contains mock object
     @Test
     public void testNoEmployeesIntra() {
         List<Employee> employees_intra = new ArrayList<Employee>();
@@ -68,14 +70,16 @@ public class PayRollMockTest {
         assertNumberOfPayments(1);
     }
     // total mock calls: 0
-
+    
+    // Contains inter-procedural mock object 
     @Test
     public void testSingleEmployeeMock() {
 	Employee e = createMockEmployee();
 	assertEquals(e.getName(), "J. Doe");
     }
     // total mock calls: 1
-
+    
+    // Contains mock object (from verify() call)
     @Test
     public void testEmployeeIsPaid() {
         String bankId = "ID0";
@@ -90,7 +94,8 @@ public class PayRollMockTest {
         verify(bankService, times(1)).makePayment(bankId, salary);
     }
     // total mock calls: 1
-
+    
+    // Contains mock object
     @Test
     public void testAllEmployeesArePaid1() {
         List<Employee> mockEmployessList = new ArrayList<Employee>();
@@ -128,7 +133,8 @@ public class PayRollMockTest {
         assertEquals(employees.get(1).getSalary(), salaryCaptor.getAllValues().get(1).intValue());
     }
     // total mock calls: 6
-
+    
+    // Contains mock object
     // this is the same as testAllEmployeesArePaid1 except the declared type of mockEmployessList is ArrayList<Employee> and not List<Employee>
     @Test
     public void testAllEmployeesArePaid2() {
@@ -191,11 +197,11 @@ public class PayRollMockTest {
     // total mock calls: 0
 
     private Employee createMockEmployee() {
-	Employee e = mock(Employee.class);
-	when(e.getName()).thenReturn("J. Doe");
-	when(e.getBankId()).thenReturn("ID21");
-	when(e.getSalary()).thenReturn(234);
-	return e;
+    	Employee e = mock(Employee.class);
+    	when(e.getName()).thenReturn("J. Doe");
+    	when(e.getBankId()).thenReturn("ID21");
+    	when(e.getSalary()).thenReturn(234);
+    	return e;
     }
 
     // populates a real list containing mocks

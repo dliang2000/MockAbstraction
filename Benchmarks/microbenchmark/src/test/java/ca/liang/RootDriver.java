@@ -17,6 +17,7 @@ public class RootDriver {
 		class2.testNoEmployees();
 		class2.testNoEmployeesIntra();
 		class2.testSingleEmployee();
+		class2.testSingleEmployeeMock();
 		class2.testEmployeeIsPaid();
 		class2.testAllEmployeesArePaid1();
 		class2.testAllEmployeesArePaid2();
