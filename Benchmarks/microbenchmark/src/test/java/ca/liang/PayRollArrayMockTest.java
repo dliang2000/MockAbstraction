@@ -28,7 +28,7 @@ public class PayRollArrayMockTest {
     private Employee[] employees_nomock;
     private Employee[] employees_mock;
     
- // Contains mock object
+    // Contains mock object
     @Before
     public void init() {
         employees_nomock = new Employee[0];
@@ -138,15 +138,15 @@ public class PayRollArrayMockTest {
         Employee employee1 = mock(Employee.class);
         Employee employee2 = mock(Employee.class);
 
-        employees_mock = new Employee[]{employee1, employee2};
+        Employee[] employees_mock_intra = new Employee[]{employee1, employee2};
 
-        employeeDB = mock(EmployeeDB.class);
-        bankService = mock(BankService.class);
+        EmployeeDB employeeDB_intra = mock(EmployeeDB.class);
+        BankService bankService_intra = mock(BankService.class);
 
         // *mock*
-        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_mock));
+        when(employeeDB_intra.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_mock_intra));
 
-        payRoll = new PayRoll(employeeDB, bankService);
+        payRoll = new PayRoll(employeeDB_intra, bankService_intra);
 
         assertNumberOfPayments(2);
 
@@ -154,13 +154,13 @@ public class PayRollArrayMockTest {
         ArgumentCaptor<Integer> salaryCaptor = ArgumentCaptor.forClass(Integer.class);
 
         // *mock*
-        verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
+        verify(bankService_intra, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
         // *mock* x4
-        assertEquals(employees_mock[0].getBankId(), idCaptor.getAllValues().get(0));
-        assertEquals(employees_mock[1].getBankId(), idCaptor.getAllValues().get(1));
-        assertEquals(employees_mock[0].getSalary(), salaryCaptor.getAllValues().get(0).intValue());
-        assertEquals(employees_mock[1].getSalary(), salaryCaptor.getAllValues().get(1).intValue());
+        assertEquals(employees_mock_intra[0].getBankId(), idCaptor.getAllValues().get(0));
+        assertEquals(employees_mock_intra[1].getBankId(), idCaptor.getAllValues().get(1));
+        assertEquals(employees_mock_intra[0].getSalary(), salaryCaptor.getAllValues().get(0).intValue());
+        assertEquals(employees_mock_intra[1].getSalary(), salaryCaptor.getAllValues().get(1).intValue());
     }
     // total mock calls: 6
     
