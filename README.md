@@ -60,6 +60,6 @@ For PayRollAnnotationMockTest:
 | Benchmark | Total Number of Invocations | Number of Invocations on Mocks |
 | --- | --- | --- |
 | commons-collections-4.3 | 3001 | 13 |
-| microbenchmark | 160 | 12 |
+| microbenchmark | 162 | 12 |
 | mybatis_3.5.6 | 17798 | 569 |
 | quartz-core | 3206 | 21 |
