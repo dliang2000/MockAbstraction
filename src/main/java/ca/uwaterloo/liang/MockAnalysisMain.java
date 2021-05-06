@@ -203,8 +203,8 @@ public class MockAnalysisMain extends SceneTransformer {
         
         int total_count = 0, mocks_count = 0;
         for(SootClass nc : colAppClasses) {
-        //    msg.append("\n\n** CLASS ").append(nc.toString())
-        //    .append("\n\n\n");
+            msg.append("\n\n** CLASS ").append(nc.toString())
+            .append("\n\n\n");
             
             List<SootMethod> ncM = nc.getMethods();
             
@@ -222,10 +222,10 @@ public class MockAnalysisMain extends SceneTransformer {
                 
                 if (!invokeOnMocks.isEmpty()) {
                     mocks_count += invokeOnMocks.size();
-                //    msg.append("\n\n========== method  ").append(m.getName()).append(" ========: \n\n");
-                //    msg.append("\tTotal invocations on Mocks ").append(invokeOnMocks.size()).append(" : \n\n");
-                 //   for (InvokeExpr invkExpr : invokeOnMocks)
-                //       msg.append("\tInvokeExpr: ").append(invkExpr).append("\n\n");
+                    msg.append("\n\n========== method  ").append(m.getName()).append(" ========: \n\n");
+                    msg.append("\tTotal invocations on Mocks ").append(invokeOnMocks.size()).append(" : \n\n");
+                    for (InvokeExpr invkExpr : invokeOnMocks)
+                       msg.append("\tInvokeExpr: ").append(invkExpr).append("\n\n");
                 }
             }
         }

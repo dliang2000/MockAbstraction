@@ -253,10 +253,16 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                 locals.add(local);
             }*/
             AssignStmt assign = (AssignStmt) aStmt;
-            if (assign.getRightOp() instanceof Local) {
-                Local local = (Local) assign.getRightOp();
+            if (assign.getRightOp() instanceof Local || assign.getRightOp() instanceof Expr) {
+                Value val = assign.getRightOp();
                 //System.out.println("Assignment right op: " + local);
-                vals.add(local);
+                vals.add(val);
+            }
+            
+            if (assign.getLeftOp() instanceof Local || assign.getLeftOp() instanceof Expr) {
+                Value val = assign.getLeftOp();
+                //System.out.println("Assignment right op: " + local);
+                vals.add(val);
             }
         }
         
