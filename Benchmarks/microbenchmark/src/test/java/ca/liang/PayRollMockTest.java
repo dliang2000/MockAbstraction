@@ -74,8 +74,8 @@ public class PayRollMockTest {
     // Contains inter-procedural mock object 
     @Test
     public void testSingleEmployeeMock() {
-	Employee e = createMockEmployee();
-	assertEquals(e.getName(), "J. Doe");
+    	Employee e = createMockEmployee();
+    	assertEquals(e.getName(), "J. Doe");
     }
     // total mock calls: 1
     
@@ -135,7 +135,8 @@ public class PayRollMockTest {
     // total mock calls: 6
     
     // Contains mock object
-    // this is the same as testAllEmployeesArePaid1 except the declared type of mockEmployessList is ArrayList<Employee> and not List<Employee>
+    // this is the same as testAllEmployeesArePaid1 except the declared type of mockEmployessList is ArrayList<Employee> 
+    // and not List<Employee>
     @Test
     public void testAllEmployeesArePaid2() {
         ArrayList<Employee> mockEmployessList = new ArrayList<Employee>();

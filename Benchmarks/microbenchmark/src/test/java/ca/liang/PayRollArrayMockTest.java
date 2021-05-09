@@ -70,7 +70,7 @@ public class PayRollArrayMockTest {
     }
     // total mock calls: 0
     
-    // Contains mock object (from field)
+    // Contains mock object (from field, inter-procedural)
     @Test
     public void testSingleEmployeeFieldArrayMock() {
         String employeeName = "Test Employee";
@@ -139,6 +139,7 @@ public class PayRollArrayMockTest {
     // Contains mock object (both intra- and inter-procedural mocks)
     @Test
     public void testAllEmployeesArePaidArray() {
+    	// Inter-procedural ArrayMock
         employees_mock = createEmployees();
         
         employeeDB = mock(EmployeeDB.class);
