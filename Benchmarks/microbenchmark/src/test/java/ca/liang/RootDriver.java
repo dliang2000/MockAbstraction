@@ -2,31 +2,34 @@ package ca.liang;
 
 public class RootDriver {
 	public static void main(String[] argv) {
-		ca.liang.PayRollArrayMockTest class1 = new ca.liang.PayRollArrayMockTest();
+		ca.liang.PayRollArrayNoMockTest class1 = new ca.liang.PayRollArrayNoMockTest();
 		class1.init();
 		class1.testNoEmployees();
-		class1.testEmployeesPaidIntra();
 		class1.testSingleEmployeeFieldArrayNomock();
-		class1.testSingleEmployeeFieldArrayMock();
 		class1.testSingleEmployeeLocalArrayNomock();
-		class1.testSingleEmployeeLocalArrayMock();
-		class1.testAllEmployeesArePaidArrayIntra();
-		class1.testAllEmployeesArePaidArray();
-		ca.liang.PayRollMockTest class2 = new ca.liang.PayRollMockTest();
+		ca.liang.PayRollArrayMockTest class2 = new ca.liang.PayRollArrayMockTest();
 		class2.init();
-		class2.testNoEmployees();
-		class2.testNoEmployeesIntra();
 		class2.testSingleEmployee();
-		class2.testSingleEmployeeMock();
-		class2.testEmployeeIsPaid();
-		class2.testAllEmployeesArePaid1();
-		class2.testAllEmployeesArePaid2();
-		class2.testInteractionOrder();
-		ca.liang.PayRollAnnotationMockTest class3 = new ca.liang.PayRollAnnotationMockTest();
+		class2.testEmployeesPaidIntra();
+		class2.testSingleEmployeeFieldArrayMock();
+		class2.testSingleEmployeeLocalArrayMock();
+		class2.testAllEmployeesArePaidArrayIntra();
+		class2.testAllEmployeesArePaidArray();
+		ca.liang.PayRollMockTest class3 = new ca.liang.PayRollMockTest();
 		class3.init();
 		class3.testNoEmployees();
-		class3.testEmployeesPaidIntra();
+		class3.testNoEmployeesIntra();
 		class3.testSingleEmployee();
+		class3.testSingleEmployeeMock();
 		class3.testEmployeeIsPaid();
+		class3.testAllEmployeesArePaid1();
+		class3.testAllEmployeesArePaid2();
+		class3.testInteractionOrder();
+		ca.liang.PayRollAnnotationMockTest class4 = new ca.liang.PayRollAnnotationMockTest();
+		class4.init();
+		class4.testNoEmployees();
+		class4.testEmployeesPaidIntra();
+		class4.testSingleEmployee();
+		class4.testEmployeeIsPaid();
 	}
 }

@@ -25,13 +25,11 @@ public class PayRollArrayMockTest {
 
     private BankService bankService;
 
-    private Employee[] employees_nomock;
     private Employee[] employees_mock;
     
     // Contains mock object
     @Before
     public void init() {
-        employees_nomock = new Employee[0];
         
         employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
@@ -43,15 +41,15 @@ public class PayRollArrayMockTest {
         employees_mock[0] = mock(Employee.class);
 
         // *mock*
-        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_nomock));
+        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_mock));
 
         payRoll = new PayRoll(employeeDB, bankService);
     }
     // total mock calls: 1
 
     @Test
-    public void testNoEmployees() {
-        assertNumberOfPayments(0);
+    public void testSingleEmployee() {
+        assertNumberOfPayments(1);
     }
     // total mock calls: 0
     
@@ -65,24 +63,10 @@ public class PayRollArrayMockTest {
         EmployeeDB employeeDB_intra = new EmployeeDB(Arrays.asList(employees_intra));
         BankService bankService_intra = mock(BankService.class);
 
-        PayRoll payRoll_intra = new PayRoll(employees_intra, bankService_intra);
+        PayRoll payRoll_intra = new PayRoll(employeeDB_intra, bankService_intra);
 	// not mock
         int numberOfPayments = payRoll_intra.monthlyPayment();
         assertEquals(2, numberOfPayments);
-    }
-    // total mock calls: 0
-    
-    @Test
-    public void testSingleEmployeeFieldArrayNomock() {
-        String employeeName = "Test Employee";
-        String employeeID = "ID0";
-        int salary = 1000;
-        employees_nomock = new Employee[1];
-        employees_nomock[0] = new Employee(employeeName, employeeID, salary);
-
-        Employee e = employees_nomock[0];
-	// not mock
-        assertEquals(e.getName(), employeeName);
     }
     // total mock calls: 0
     
@@ -94,25 +78,13 @@ public class PayRollArrayMockTest {
         int salary = 1000;
 
         Employee ee = employees_mock[0];
-	// *mock*
+        // *mock*
         when(ee.getName()).thenReturn(employeeName);
-	// *mock*
+        // *mock*
         assertEquals(ee.getName(), employeeName);
     }
     // total mock calls: 2
     
-    @Test
-    public void testSingleEmployeeLocalArrayNomock() {
-        Employee[] employees_nomock = new Employee[1];
-        String employeeName = "Test Employee";
-        String employeeID = "ID0";
-        int salary = 1000;
-        employees_nomock[0] = new Employee(employeeName, employeeID, salary);
-        Employee e = employees_nomock[0];
-        assertEquals(e.getName(), employeeName);
-    }
-    // total mock calls: 0
-
     // Contains mock object
     @Test
     public void testSingleEmployeeLocalArrayMock() {
