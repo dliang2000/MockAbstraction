@@ -26,6 +26,7 @@ import soot.jimple.ArrayRef;
 import soot.jimple.AssignStmt;
 import soot.jimple.CastExpr;
 import soot.jimple.Expr;
+import soot.jimple.InstanceFieldRef;
 import soot.jimple.InstanceInvokeExpr;
 import soot.jimple.InvokeExpr;
 import soot.jimple.Stmt;
@@ -143,7 +144,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
             List<ValueBox> defBoxes = unit.getDefBoxes();
             for (ValueBox vb: defBoxes) {
-                if (vb.getValue() instanceof Local || vb.getValue() instanceof Expr) {
+                if (vb.getValue() instanceof Local || vb.getValue() instanceof InstanceFieldRef) {
                     Value v = vb.getValue();
                     for (Map<Value, MockStatus> element : in) {
                         if (element.containsKey(v)) {
@@ -201,6 +202,55 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                 mustMocks.put(unit, running_result); 
             }
         }
+        
+        // when Right op of an AssignStmt is a MustMock, ArrayMock, or CollectionMock
+        if (aStmt instanceof AssignStmt) {
+            AssignStmt assign = (AssignStmt) aStmt;
+            if (assign.getRightOp() instanceof Local || assign.getRightOp() instanceof InstanceFieldRef) {
+                Value right_op = assign.getRightOp();
+                if (assign.getRightOp() instanceof InstanceFieldRef) {
+                    /*InstanceFieldRef irf = (InstanceFieldRef) assign.getRightOp();
+                    right_op = irf.getBase();*/
+                    System.out.println("IntanceFieldRef Base Value: " + right_op);
+                }
+                
+                for (Map<Value, MockStatus> element : in) {
+                    if (element.containsKey(right_op)) {
+                        HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
+                        Value left_op = assign.getLeftOp();
+                        if (element.get(right_op).getMustMock()) {
+                            MockStatus status = new MockStatus(true);
+                            running_result.put(left_op, status);
+                        }
+                        if (element.get(right_op).getArrayMock()) {
+                            MockStatus status = new MockStatus(false, true, false);
+                            running_result.put(left_op, status);
+                        }
+                        if (element.get(right_op).getCollectionMock()) {
+                            MockStatus status = new MockStatus(false, false, true);
+                            running_result.put(left_op, status);
+                        }
+                        out.add(running_result);
+                        mustMocks.put(unit, running_result); 
+                    }
+                }
+            }
+            
+            if (assign.getRightOp() instanceof ArrayRef) {
+                ArrayRef ar = (ArrayRef) assign.getRightOp();
+                Value right_op_base = ar.getBase();
+                for (Map<Value, MockStatus> element : in) {
+                    if (element.containsKey(right_op_base) && element.get(right_op_base).getArrayMock()) {
+                        HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
+                        Value left_op = assign.getLeftOp();
+                        MockStatus status = new MockStatus(true);
+                        running_result.put(left_op, status);
+                        out.add(running_result);
+                        mustMocks.put(unit, running_result); 
+                    }
+                }
+            }
+        }
     }
     
     /**
@@ -213,8 +263,14 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             if (assign.getRightOp() instanceof CastExpr) {
                 //System.out.println("Assignment: " + assign);
                 CastExpr ce = (CastExpr) assign.getRightOp();
-                if (ce.getOp() instanceof Local || ce.getOp() instanceof Expr) {
-                    Value right_op_val = (Value) ce.getOp();
+                if (ce.getOp() instanceof Local || ce.getOp() instanceof InstanceFieldRef) {
+                    Value right_op_val = ce.getOp();
+                    if (ce.getOp() instanceof InstanceFieldRef) {
+                        /*InstanceFieldRef irf = (InstanceFieldRef) ce.getOp();
+                        right_op_val = irf.getBase();*/
+                        System.out.println("IntanceFieldRef Base Value: " + right_op_val);
+                    }
+                    
                     for (Map<Value, MockStatus> element : in) {
                         if (element.containsKey(right_op_val) && element.get(right_op_val).getMustMock() 
                                 && assign.getLeftOp() instanceof Local) {
@@ -243,7 +299,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         Stmt aStmt = (Stmt) unit;
         List<Value> vals = new ArrayList<Value>();
         if (aStmt.containsArrayRef() && aStmt instanceof AssignStmt) {
-            //System.out.println("ArrayRef Statement: " + aStmt);
+            System.out.println("ArrayRef Statement: " + aStmt);
             ValueBox arrayRef = aStmt.getArrayRefBox();
             /*//ValueBox fieldRef = aStmt.getFieldRefBox();
             
@@ -253,15 +309,25 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                 locals.add(local);
             }*/
             AssignStmt assign = (AssignStmt) aStmt;
-            if (assign.getRightOp() instanceof Local || assign.getRightOp() instanceof Expr) {
+            if (assign.getRightOp() instanceof Local || assign.getRightOp() instanceof InstanceFieldRef) {
                 Value val = assign.getRightOp();
+                if (assign.getRightOp() instanceof InstanceFieldRef) {
+/*                    InstanceFieldRef irf = (InstanceFieldRef) assign.getRightOp();
+                    val = irf.getBase();*/
+                    System.out.println("IntanceFieldRef Base Value: " + val);
+                }
                 //System.out.println("Assignment right op: " + local);
                 vals.add(val);
             }
             
-            if (assign.getLeftOp() instanceof Local || assign.getLeftOp() instanceof Expr) {
+            if (assign.getLeftOp() instanceof Local || assign.getLeftOp() instanceof InstanceFieldRef) {
                 Value val = assign.getLeftOp();
                 //System.out.println("Assignment right op: " + local);
+                if (assign.getLeftOp() instanceof InstanceFieldRef) {
+                    /*InstanceFieldRef irf = (InstanceFieldRef) assign.getLeftOp();
+                    val = irf.getBase();*/
+                    System.out.println("IntanceFieldRef Base Value: " + val);
+                }
                 vals.add(val);
             }
         }
@@ -274,7 +340,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                         List<ValueBox> innerBoxes = box.getValue().getUseBoxes();
                         for (ValueBox innerBox : innerBoxes) {
                             HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
-                            if (innerBox.getValue() instanceof Local || innerBox.getValue() instanceof Expr) {
+                            if (innerBox.getValue() instanceof Local || innerBox.getValue() instanceof InstanceFieldRef) {
                                 Value arrayBaseVal = innerBox.getValue();
                                 //System.out.println("Def Inner Use Box value: " + innerBox.getValue());
                                 MockStatus status = new MockStatus(false, true, false);
@@ -310,7 +376,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                 for (ValueBox innerBox : innerBoxes) {
                     // The useBox that is a container (to be refined)
                     if (innerBox.getValue().getType() instanceof RefType && 
-                            (innerBox.getValue() instanceof Local || innerBox.getValue() instanceof Expr) ) {
+                            (innerBox.getValue() instanceof Local || innerBox.getValue() instanceof InstanceFieldRef) ) {
                         RefType ref = (RefType) innerBox.getValue().getType();
                         SootClass sc = ref.getSootClass();
                         List<SootClass> classes;
@@ -343,7 +409,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             List<ValueBox> invoke_ub = aStmt.getInvokeExpr().getUseBoxes();
             if (isCollection) {
                 for (ValueBox box : invoke_ub) {
-                    if (box.getValue() instanceof Local || box.getValue() instanceof Expr) {
+                    if (box.getValue() instanceof Local || box.getValue() instanceof InstanceFieldRef) {
                         Value col_val = box.getValue();
                         //System.out.println("col_local: " + col_local);
                         for (Map<Value, MockStatus> element : in) {

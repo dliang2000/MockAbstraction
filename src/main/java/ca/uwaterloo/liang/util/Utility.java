@@ -94,7 +94,7 @@ public class Utility {
         
         msg.append(" ====================================== \n")
            .append("** CLASS ").append(aClass.toString())
-           .append("\n");       
+           .append("\n\n");       
         
         List<SootMethod> ncM = aClass.getMethods();
         
@@ -126,7 +126,7 @@ public class Utility {
                     msg.append("Value: ").append(value).append("\n");
                     
                     if (ms.getMustMock()) {
-                        msg.append("Possibly Mock: true").append("\n\n");
+                        msg.append("Must Mock: true").append("\n\n");
                     }
                     if (ms.getArrayMock()) {
                         msg.append("Array Mock: true").append("\n\n");
