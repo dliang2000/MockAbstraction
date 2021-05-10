@@ -30,7 +30,6 @@ public class PayRollArrayMockTest {
     // Contains mock object
     @Before
     public void init() {
-        
         employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
@@ -70,7 +69,7 @@ public class PayRollArrayMockTest {
     }
     // total mock calls: 0
     
-    // Contains mock object (from field, inter-procedural)
+    // Contains mock object (field initialized in @Before method)
     @Test
     public void testSingleEmployeeFieldArrayMock() {
         String employeeName = "Test Employee";
@@ -140,13 +139,13 @@ public class PayRollArrayMockTest {
     @Test
     public void testAllEmployeesArePaidArray() {
     	// Inter-procedural ArrayMock
-        employees_mock = createEmployees();
+    	Employee[] employees_mock_local = createEmployees();
         
-        employeeDB = mock(EmployeeDB.class);
-        bankService = mock(BankService.class);
+        //employeeDB = mock(EmployeeDB.class);
+        //bankService = mock(BankService.class);
 
         // *mock*
-        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_mock));
+        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_mock_local));
 
         payRoll = new PayRoll(employeeDB, bankService);
         
@@ -159,10 +158,10 @@ public class PayRollArrayMockTest {
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
         // *mock* interprocedural
-        assertEquals(employees_mock[0].getBankId(), idCaptor.getAllValues().get(0));
-        assertEquals(employees_mock[1].getBankId(), idCaptor.getAllValues().get(1));
-        assertEquals(employees_mock[0].getSalary(), salaryCaptor.getAllValues().get(0).intValue());
-        assertEquals(employees_mock[1].getSalary(), salaryCaptor.getAllValues().get(1).intValue());
+        assertEquals(employees_mock_local[0].getBankId(), idCaptor.getAllValues().get(0));
+        assertEquals(employees_mock_local[1].getBankId(), idCaptor.getAllValues().get(1));
+        assertEquals(employees_mock_local[0].getSalary(), salaryCaptor.getAllValues().get(0).intValue());
+        assertEquals(employees_mock_local[1].getSalary(), salaryCaptor.getAllValues().get(1).intValue());
     }
     // total mock calls: 6
 
