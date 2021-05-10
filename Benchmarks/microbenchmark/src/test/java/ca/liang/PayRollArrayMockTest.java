@@ -140,9 +140,6 @@ public class PayRollArrayMockTest {
     public void testAllEmployeesArePaidArray() {
     	// Inter-procedural ArrayMock
     	Employee[] employees_mock_local = createEmployees();
-        
-        //employeeDB = mock(EmployeeDB.class);
-        //bankService = mock(BankService.class);
 
         // *mock*
         when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_mock_local));

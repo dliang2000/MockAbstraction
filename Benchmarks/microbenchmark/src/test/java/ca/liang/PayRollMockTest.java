@@ -107,9 +107,6 @@ public class PayRollMockTest {
 
         employees = mockEmployessList;
 
-        //employeeDB = mock(EmployeeDB.class);
-        //bankService = mock(BankService.class);
-
 	// *mock* call to getAllEmployees(), but the edge isn't in the micro call graph.
 	// there is, however, a VirtualMethodInvocation in there
 	// note also that employeeDB is a field, so we have to record mockness to/from the heap
@@ -145,12 +142,9 @@ public class PayRollMockTest {
         mockEmployessList.add(employee1);
         mockEmployessList.add(employee2);
 
-        //employees = mockEmployessList;
+        employees = mockEmployessList;
 
-        //employeeDB = mock(EmployeeDB.class);
-        //bankService = mock(BankService.class);
-
-        when(employeeDB.getAllEmployees()).thenReturn(mockEmployessList);
+        when(employeeDB.getAllEmployees()).thenReturn(employees);
 
         payRoll = new PayRoll(employeeDB, bankService);
 
@@ -161,10 +155,10 @@ public class PayRollMockTest {
 
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
-        assertEquals(mockEmployessList.get(0).getBankId(), idCaptor.getAllValues().get(0));
-        assertEquals(mockEmployessList.get(1).getBankId(), idCaptor.getAllValues().get(1));
-        assertEquals(mockEmployessList.get(0).getSalary(), salaryCaptor.getAllValues().get(0).intValue());
-        assertEquals(mockEmployessList.get(1).getSalary(), salaryCaptor.getAllValues().get(1).intValue());
+        assertEquals(employees.get(0).getBankId(), idCaptor.getAllValues().get(0));
+        assertEquals(employees.get(1).getBankId(), idCaptor.getAllValues().get(1));
+        assertEquals(employees.get(0).getSalary(), salaryCaptor.getAllValues().get(0).intValue());
+        assertEquals(employees.get(1).getSalary(), salaryCaptor.getAllValues().get(1).intValue());
     }
     // total mock calls: 6
 
