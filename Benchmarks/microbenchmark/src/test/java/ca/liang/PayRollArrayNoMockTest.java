@@ -19,7 +19,7 @@ public class PayRollArrayNoMockTest {
 
     private Employee[] employees_nomock;
     
-    // Contains mock object
+    // Creates mock objects but doesn't put any mocks in the array.
     @Before
     public void init() {
         employees_nomock = new Employee[0];
@@ -46,6 +46,7 @@ public class PayRollArrayNoMockTest {
         String employeeName = "Test Employee";
         String employeeID = "ID0";
         int salary = 1000;
+        // this writes to the field, we probably don't actually want this in the test, but we do want it as a test of our fieldwrite-detecting analysis
         employees_nomock = new Employee[1];
         employees_nomock[0] = new Employee(employeeName, employeeID, salary);
 
@@ -78,5 +79,4 @@ public class PayRollArrayNoMockTest {
         return new Employee(name, id, salary);
     }
     // total mock calls: 0
-    
 }
