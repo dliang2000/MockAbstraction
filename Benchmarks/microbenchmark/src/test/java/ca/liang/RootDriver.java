@@ -5,7 +5,6 @@ public class RootDriver {
 		ca.liang.PayRollArrayNoMockTest class1 = new ca.liang.PayRollArrayNoMockTest();
 		class1.init();
 		class1.testNoEmployees();
-		class1.testSingleEmployeeFieldArrayNomock();
 		class1.testSingleEmployeeLocalArrayNomock();
 		ca.liang.PayRollArrayMockTest class2 = new ca.liang.PayRollArrayMockTest();
 		class2.init();
@@ -25,11 +24,14 @@ public class RootDriver {
 		class3.testAllEmployeesArePaid1();
 		class3.testAllEmployeesArePaid2();
 		class3.testInteractionOrder();
-		ca.liang.PayRollAnnotationMockTest class4 = new ca.liang.PayRollAnnotationMockTest();
+		ca.liang.DirtyTest class4 = new ca.liang.DirtyTest();
 		class4.init();
-		class4.testNoEmployees();
-		class4.testEmployeesPaidIntra();
-		class4.testSingleEmployee();
-		class4.testEmployeeIsPaid();
+		class4.testSingleEmployeeFieldArrayNomock();
+		ca.liang.PayRollAnnotationMockTest class5 = new ca.liang.PayRollAnnotationMockTest();
+		class5.init();
+		class5.testNoEmployees();
+		class5.testEmployeesPaidIntra();
+		class5.testSingleEmployee();
+		class5.testEmployeeIsPaid();
 	}
 }

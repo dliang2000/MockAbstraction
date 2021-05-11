@@ -10,7 +10,7 @@ import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 
-public class PayRollArrayNoMockTest {
+public class DirtyTest {
     private PayRoll payRoll;
 
     private EmployeeDB employeeDB;
@@ -34,35 +34,19 @@ public class PayRollArrayNoMockTest {
     }
     // total mock calls: 1
     
-
     @Test
-    public void testNoEmployees() {
-        assertNumberOfPayments(0);
-    }
-    // total mock calls: 0
-    
-    
-    @Test
-    public void testSingleEmployeeLocalArrayNomock() {
-        Employee[] employees_nomock_local = new Employee[1];
+    public void testSingleEmployeeFieldArrayNomock() {
         String employeeName = "Test Employee";
         String employeeID = "ID0";
         int salary = 1000;
-        employees_nomock_local[0] = new Employee(employeeName, employeeID, salary);
-        Employee e = employees_nomock_local[0];
+        // this writes to the field, we probably don't actually want this in the test, but we do want it as a test of our fieldwrite-detecting analysis
+        employees_nomock = new Employee[1];
+        employees_nomock[0] = new Employee(employeeName, employeeID, salary);
+
+        Employee e = employees_nomock[0];
+    // not mock
         assertEquals(e.getName(), employeeName);
     }
     // total mock calls: 0
     
-    private void assertNumberOfPayments(int expected) {
-	// not mock
-        int numberOfPayments = payRoll.monthlyPayment();
-        assertEquals(expected, numberOfPayments);
-    }
-    // total mock calls: 0
-
-    private Employee createTestEmployee(String name, String id, int salary) {
-        return new Employee(name, id, salary);
-    }
-    // total mock calls: 0
 }
