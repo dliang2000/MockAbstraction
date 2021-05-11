@@ -33,9 +33,10 @@ public class PayRollArrayMockTest {
         employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
-        // this is actually incorrect mock usage code I think,
-        // shouldn't leave mocks around between classes.
-        // but it investigates how the analysis works.
+        // if this was in a test (rather than init)
+        // this would actually be incorrect test code---
+        // shouldn't leave mocks around between tests.
+        // but it investigates how the analysis works and it's fine for an init.
         employees_mock = new Employee[1];
         employees_mock[0] = mock(Employee.class);
 
@@ -138,14 +139,14 @@ public class PayRollArrayMockTest {
     // Contains mock object (both intra- and inter-procedural mocks)
     @Test
     public void testAllEmployeesArePaidArray() {
-    	// Inter-procedural ArrayMock
+    	// Inter-procedural ArrayMock, must understand effects of callee createEmployees.
     	Employee[] employees_mock_local = createEmployees();
 
         // *mock*
         when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees_mock_local));
 
         payRoll = new PayRoll(employeeDB, bankService);
-        
+
         assertNumberOfPayments(2);
 
         ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);

@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 import java.util.Arrays;
 import java.util.List;
 
+/** This class is a microbenchmark which tests detection of mockito annotations. */
 //@RunWith(MockitoJUnitRunner.class)
 public class PayRollAnnotationMockTest {
     
@@ -28,7 +29,7 @@ public class PayRollAnnotationMockTest {
 
     private Employee[] employees;
     
-    // Contains mock object (initiated through annotation)
+    // Contains mock object (initialized through annotation)
     @Before
     public void init() {
         MockitoAnnotations.initMocks(this);
@@ -81,14 +82,14 @@ public class PayRollAnnotationMockTest {
         int salary = 1000;
         employees[0] = createTestEmployee("Test Employee", employeeId, salary);
 
-        // *mock*
+        // *mock* from field
         when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
 
         payRoll = new PayRoll(employeeDB, bankService);
         
         assertNumberOfPayments(1);
 
-        // *mock*
+        // *mock* return value from verify()
         verify(bankService, times(1)).makePayment(employeeId, salary);
     }
     // total mock calls: 2
