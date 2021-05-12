@@ -102,7 +102,7 @@ public class FieldMutationAnalysisMain extends SceneTransformer {
             for (SootMethod method : myAppMethods) {
               //logger.debug("Source Method: " + srcMethod);
                 
-                if (method.hasActiveBody()) {
+                if (method.hasActiveBody() && (isTestCase(method) || isBeforeMethod(method) || isAfterMethod(method)) ) {
                     Body body = method.getActiveBody();
                     
                     Chain units = body.getUnits();
