@@ -28,6 +28,7 @@ import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.options.Options;
 import soot.tagkit.AnnotationTag;
 import soot.toolkits.graph.ExceptionalUnitGraph;
+import soot.util.Chain;
 
 public class MockAnalysisMain extends SceneTransformer {
     private static String benchmark;
@@ -118,10 +119,9 @@ public class MockAnalysisMain extends SceneTransformer {
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
         // TODO Auto-generated method stub
-        Iterator<SootClass> itAppClasses = Scene.v().getApplicationClasses().iterator();
-        while(itAppClasses.hasNext()) {
-            SootClass nextClass = itAppClasses.next();
-            myAppClasses.put(nextClass.getName(), nextClass);
+        Chain<SootClass> itAppClasses = Scene.v().getApplicationClasses();
+        for (SootClass itAppClass: itAppClasses) {
+            myAppClasses.put(itAppClass.getName(), itAppClass);
         }
         colAppClasses = myAppClasses.values();
     
