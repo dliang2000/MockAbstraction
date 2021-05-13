@@ -5,8 +5,7 @@ echo $MACHINE_SPECIFIC_PATH
 
 PACKAGE="ca.liang"
 SOOT_JAR="$MACHINE_SPECIFIC_PATH/soot_jar/sootclasses-trunk-jar-with-dependencies.jar"
-JCOMMAND_JAR="$MACHINE_SPECIFIC_PATH/jcommand_jar/jcommander-1.81.jar"
-JAVA_PATH="$MACHINE_SPECIFIC_PATH/target/classes":$JCOMMAND_JAR
+JAVA_PATH="$MACHINE_SPECIFIC_PATH/target/classes":$JCOMMANDER_JAR
 CC_CLASS="ca.uwaterloo.liang.FieldMutationAnalysisMain"
 BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/microbenchmark"
 TARGET_PATH="target/classes"
