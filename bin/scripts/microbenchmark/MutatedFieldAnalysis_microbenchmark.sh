@@ -5,7 +5,8 @@ echo $MACHINE_SPECIFIC_PATH
 
 PACKAGE="ca.liang"
 SOOT_JAR="$MACHINE_SPECIFIC_PATH/soot_jar/sootclasses-trunk-jar-with-dependencies.jar"
-JAVA_PATH="$MACHINE_SPECIFIC_PATH/target/classes"
+JCOMMAND_JAR="$MACHINE_SPECIFIC_PATH/jcommand_jar/jcommander-1.81.jar"
+JAVA_PATH="$MACHINE_SPECIFIC_PATH/target/classes":$JCOMMAND_JAR
 CC_CLASS="ca.uwaterloo.liang.FieldMutationAnalysisMain"
 BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/microbenchmark"
 TARGET_PATH="target/classes"
@@ -30,5 +31,9 @@ if [ -a is_maven ]; then
   mvn clean test
 fi
 
-java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $DRIVER_PATH $BENCHMARK_PATH/$TARGET_PATH $BENCHMARK_PATH/$TARGET_TEST_PATH $jars`cat benchmark_class_path`:$JAR_PATH
+# java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $DRIVER_PATH $BENCHMARK_PATH/$TARGET_PATH $BENCHMARK_PATH/$TARGET_TEST_PATH $jars`cat benchmark_class_path`:$JAR_PATH
+
+#java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $ADDITIONAL_OPTS --driver $DRIVER_PATH --target $BENCHMARK_PATH/$TARGET_PATH --target-tests $BENCHMARK_PATH/$TARGET_TEST_PATH --mvn-dependencies $jars`cat benchmark_class_path`:$JAR_PATH
+
+java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS --driver $DRIVER_PATH --target $BENCHMARK_PATH/$TARGET_PATH --target-tests $BENCHMARK_PATH/$TARGET_TEST_PATH --mvn-dependencies $jars`cat benchmark_class_path`:$JAR_PATH -v
 #rm -rf "sootOutput/"

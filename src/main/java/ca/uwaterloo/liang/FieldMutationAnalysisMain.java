@@ -12,8 +12,9 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import ca.uwaterloo.liang.MockRunner.MockTransformer;
-import ca.uwaterloo.liang.util.Utility;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+
 import soot.Body;
 import soot.G;
 import soot.PackManager;
@@ -42,6 +43,21 @@ public class FieldMutationAnalysisMain extends SceneTransformer {
     //private static String benchmark;
     //private static String output_path;
     
+    @Parameter(names={"--driver", "-d"}, required = true, description="driver class path for the test suite") 
+    static String driver;
+    
+    @Parameter(names={"--target", "-t"}, required = true, description="target path") 
+    static String target;
+    
+    @Parameter(names={"--target-tests", "-tt"}, required = true, description="target tests path") 
+    static String target_tests;
+    
+    @Parameter(names={"--mvn-dependencies", "-m"}, required = true, description="maven dependencies") 
+    static String mvn_dependencies;
+    
+    @Parameter(names={"--verbose", "-v"}, description="verbose mode") 
+    boolean verbose = false;
+    
     private static final Logger logger = LoggerFactory.getLogger(PackManager.class);
     
     public static void main(String[] args) throws IOException {
@@ -53,29 +69,34 @@ public class FieldMutationAnalysisMain extends SceneTransformer {
         Options.v().set_output_format(1); // Output format in .jimple file
         Options.v().set_allow_phantom_refs(true);
         Options.v().set_xml_attributes(true);
+        
+        FieldMutationAnalysisMain main = new FieldMutationAnalysisMain();
+        JCommander.newBuilder()
+            .addObject(main)
+            .build()
+            .parse(args);
+        
         List<String> pd = new ArrayList<>();
         pd.add("-main-class");
-        pd.add(args[0]);
+        pd.add(driver);
         pd.add("-process-dir");
-        pd.add(args[1]);
+        pd.add(target);
         pd.add("-process-dir");
-        pd.add(args[2]);
+        pd.add(target_tests);
         //pd.add("-p");
         //pd.add("jj.tr");
         //pd.add("enabled:true");
-        Options.v().set_soot_classpath(args[3]);
+        Options.v().set_soot_classpath(mvn_dependencies);
         //FieldMutationAnalysisMain.benchmark = args[4];
         //FieldMutationAnalysisMain.output_path = args[5];
-        System.out.println("args[0]: " + args[0]);
-        System.out.println("args[1]: " + args[1]);
-        System.out.println("args[2]: " + args[2]);
-        System.out.println("args[3]: " + args[3]);
+        System.out.println("args[0]: " + driver);
+        System.out.println("args[1]: " + target);
+        System.out.println("args[2]: " + target_tests);
+        System.out.println("args[3]: " + mvn_dependencies);
         //System.out.println("args[4]: " + args[4]);
         //System.out.println("args[5]: " + args[5]);
         soot.Main.main(pd.toArray(new String[0]));
     }
-    
-    private HashSet<SootField> myFieldSet;
     
     private HashMap<SootField, HashSet<SootMethod> > myFieldMap;
     
@@ -102,7 +123,7 @@ public class FieldMutationAnalysisMain extends SceneTransformer {
             for (SootMethod method : myAppMethods) {
               //logger.debug("Source Method: " + srcMethod);
                 
-                if (method.hasActiveBody() && (isTestCase(method) || isBeforeMethod(method) || isAfterMethod(method)) ) {
+                if (method.hasActiveBody() && isTestCase(method) ) {
                     Body body = method.getActiveBody();
                     
                     Chain units = body.getUnits();
