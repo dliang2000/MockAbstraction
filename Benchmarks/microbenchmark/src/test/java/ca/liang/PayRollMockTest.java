@@ -198,6 +198,7 @@ public class PayRollMockTest {
     	when(e.getSalary()).thenReturn(234);
     	return e;
     }
+    // total mock calls: 3
 
     // populates a real list containing mocks
     private List<Employee> createEmployees() {
