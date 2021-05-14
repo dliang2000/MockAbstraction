@@ -165,7 +165,7 @@ public class FieldMutationAnalysisMain extends SceneTransformer {
         StringBuffer msg = new StringBuffer();
         
         msg.append(" ====================================== \n")
-        .append("Benchmark ").append("\t Total # of Fields Mutated in Test Cases / Total # of Mutated Fields")
+        .append("Benchmark ").append("\t Total # of Fields Mutated in Test Cases / Total # of Fields")
         .append("\n");
         
         msg.append(benchmark).append("\t " + totalFieldsMutatedInTests + " / " + totalFieldsInTests);

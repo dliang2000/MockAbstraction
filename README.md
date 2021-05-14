@@ -3,7 +3,7 @@
 This repository focuses on analyzing for mock objects created and used in unit test cases. The tool analyzes the mock objects through def-use chain and forward data flow analysis.
 
 ## Field Mutation Data
-| Benchmark |  Total # of Fields Mutated in Test Cases / Total # of Mutated Fields |
+| Benchmark |  Total # of Fields Mutated in Test Cases / Total # of Fields |
 | --- | --- |
 | commons-collections4-4.4 | 1 / 697 |
 | microbenchmark | 6 / 27 |
