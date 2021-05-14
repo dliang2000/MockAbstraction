@@ -21,6 +21,6 @@ with open('last-analysis/isMockInvocation.csv', newline='') as csvfile:
         else:
             println ('warning: bad line '+row)
 
-for claz in results_by_class:
-    for meth in results_by_class[claz]:
+for claz in sorted(results_by_class.keys()):
+    for meth in sorted(results_by_class[claz].keys()):
         print ("{}: {} {}".format(claz, meth, results_by_class[claz][meth]))
