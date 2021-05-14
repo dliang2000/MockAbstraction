@@ -43,6 +43,9 @@ public class FieldMutationAnalysisMain extends SceneTransformer {
     //private static String benchmark;
     //private static String output_path;
     
+    @Parameter(names={"--benchmark", "-b"}, required = true, description="Benchmark") 
+    static String benchmark;
+    
     @Parameter(names={"--driver", "-d"}, required = true, description="driver class path for the test suite") 
     static String driver;
     
@@ -56,7 +59,7 @@ public class FieldMutationAnalysisMain extends SceneTransformer {
     static String mvn_dependencies;
     
     @Parameter(names={"--verbose", "-v"}, description="verbose mode") 
-    boolean verbose = false;
+    boolean verbose = true;
     
     private static final Logger logger = LoggerFactory.getLogger(PackManager.class);
     
@@ -112,12 +115,15 @@ public class FieldMutationAnalysisMain extends SceneTransformer {
      // Fill the map with {Package : List<SootClass>} entries:
         Chain<SootClass> appClasses = Scene.v().getApplicationClasses();
         
+        int totalFieldsInTests = 0, totalFieldsMutatedInTests = 0;
+        
         for (SootClass appClass : appClasses) {
             
             // skip classes that are final or not concrete, and classes that are not public
             if (!appClass.isConcrete() || !appClass.isPublic() || appClass.getName().contains("$"))
                 continue;
             
+            totalFieldsInTests += appClass.getFields().size();
             List<SootMethod> myAppMethods = appClass.getMethods();
             
             for (SootMethod method : myAppMethods) {
@@ -153,17 +159,34 @@ public class FieldMutationAnalysisMain extends SceneTransformer {
                 }
             }
         }
-        printMutatedFieldInformation();
+        
+        totalFieldsMutatedInTests += myFieldMap.entrySet().size();
+        
+        StringBuffer msg = new StringBuffer();
+        
+        msg.append(" ====================================== \n")
+        .append("Benchmark ").append("\t Total # of Fields Mutated in Test Cases / Total # of Mutated Fields")
+        .append("\n");
+        
+        msg.append(benchmark).append("\t " + totalFieldsMutatedInTests + " / " + totalFieldsInTests);
+        
+        G.v().out.println(msg);
+        
+        if (verbose) {
+            printMutatedFieldDetailedInformation();
+        }
     }
     
     
-    private void printMutatedFieldInformation() {
+    private void printMutatedFieldDetailedInformation() {
         StringBuffer msg = new StringBuffer();
-                    
+        
+        msg.append(" \n Detailed Information: \n");
+        
         for(Map.Entry<SootField, HashSet<SootMethod> > entry : myFieldMap.entrySet() ) {     
             HashSet<SootMethod> methods = entry.getValue();
             
-            if (methods.size() > 1) { // SootField is updated more than once
+            if (methods.size() >= 1) { // SootField is updated more than once
                 SootField sf = entry.getKey();
                 
                 msg.append(" ====================================== \n")
