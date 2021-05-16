@@ -13,6 +13,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import com.beust.jcommander.Parameter;
+
 import soot.PackManager;
 import soot.Scene;
 import soot.SceneTransformer;
@@ -28,6 +30,7 @@ public class RootDriverGenerator {
     private static String destination;
     private static String benchmark;
     private static String output_path;
+    
     
     private final static String PACKAGE_DRIVER = "Driver.java";
     private final static String ROOT_DRIVER = "RootDriver.java";
@@ -96,6 +99,9 @@ public class RootDriverGenerator {
             
             for (SootClass appClass : appClasses) {
                 String curr_package = appClass.getPackageName();
+                
+                if (!curr_package.startsWith(rootPackageName))
+                    continue;
                 
                 if (classes_map.containsKey(curr_package)) {
                     ArrayList<SootClass> curr_list = classes_map.get(curr_package);
