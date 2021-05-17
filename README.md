@@ -9,8 +9,9 @@ This repository focuses on analyzing for mock objects created and used in unit t
 | commons-collections4-4.4 | 1 / 697 |
 | jsonschema2pojo-core-1.1.1 | 0 / 228 |
 | microbenchmark | 6 / 27 |
-| mybatis_3.5.6 | 0 / 2618 |
-| quartz-core | 2 / 878 |
+| mybatis-3.5.6 | 0 / 2618 |
+| quartz-core-2.3.1 | 2 / 878 |
+| vraptor-core-3.5.5 | 10 / 1193 |
 
 
 ## Mock Analysis table
@@ -20,8 +21,22 @@ This repository focuses on analyzing for mock objects created and used in unit t
 | commons-collections4-4.4 | 24946 | 3 | 1 | 0 |
 | jsonschema2pojo-core-1.1.1 | 110 | 21 | 1 | 0 |
 | microbenchmark | 25 | 16 | 5 | 2 |
-| mybatis_3.5.6 | 1675 | 330 | 3 | 1 |
-| quartz-core | 305 | 7 | 0 | 0 |
+| mybatis-3.5.6 | 1675 | 330 | 3 | 1 |
+| quartz-core-2.3.1 | 305 | 7 | 0 | 0 |
+| vraptor-core-3.5.5 | 1120 | 526 | 15 | 12 |
+
+
+## Mock Analysis - Analyzing InvokeExpr results
+| Benchmark | Total Number of Invocations | Number of Invocations on Mocks |
+| --- | --- | --- |
+| bootique-2.0.B1-bootique | 2923 | 82 |
+| commons-collections-4.3 | 3001 | 13 |
+| jsonschema2pojo-core-1.1.1 | 1262 | 39 |
+| microbenchmark | 166 | 13 |
+| mybatis-3.5.6 | 17798 | 569 |
+| quartz-core-2.3.1 | 3206 | 21 |
+| vraptor-core-3.5.51 | 5529 | 827 |
+
 
 ## Manual Inspection on microbenchmark  (Intraprocedural)
 
@@ -77,13 +92,3 @@ For PayRollAnnotationMockTest:
 | testSingleEmployee | 1 | 0 | 0 | 1 | 0 |
 | testEmployeeIsPaid | 1 | 0 | 0 | 2 | 0 |
 | Total | 4 | 1 | 0 | 3 | 0 |
-
-## Mock Analysis - Analyzing InvokeExpr results
-| Benchmark | Total Number of Invocations | Number of Invocations on Mocks |
-| --- | --- | --- |
-| bootique-2.0.B1-bootique | 2923 | 82 |
-| commons-collections-4.3 | 3001 | 13 |
-| jsonschema2pojo-core-1.1.1 | 1262 | 39 |
-| microbenchmark | 166 | 13 |
-| mybatis_3.5.6 | 17798 | 569 |
-| quartz-core | 3206 | 21 |
