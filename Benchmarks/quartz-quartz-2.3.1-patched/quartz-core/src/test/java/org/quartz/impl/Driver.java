@@ -102,9 +102,10 @@ public class Driver {
 		catch (java.lang.Exception err16) {
 			err16.printStackTrace();
 		}
-		org.quartz.impl.StdSchedulerFactoryCustomConnectionProviderTest class6 = new org.quartz.impl.StdSchedulerFactoryCustomConnectionProviderTest();
+		org.quartz.impl.MockSQLException class6 = new org.quartz.impl.MockSQLException();
+		org.quartz.impl.StdSchedulerFactoryCustomConnectionProviderTest class7 = new org.quartz.impl.StdSchedulerFactoryCustomConnectionProviderTest();
 		try {
-			class6.loadAndInitializeCustomConnectionProviderTest();
+			class7.loadAndInitializeCustomConnectionProviderTest();
 		}
 		catch (org.quartz.SchedulerException err17) {
 			err17.printStackTrace();

@@ -397,11 +397,12 @@ public class Driver {
 		br.com.caelum.vraptor.interceptor.VRaptorMatchers class10 = new br.com.caelum.vraptor.interceptor.VRaptorMatchers();
 		br.com.caelum.vraptor.interceptor.DefaultInterceptorRegistryTest class11 = new br.com.caelum.vraptor.interceptor.DefaultInterceptorRegistryTest();
 		class11.shouldRegisterAllComponents();
-		br.com.caelum.vraptor.interceptor.ResourceLookupInterceptorTest class12 = new br.com.caelum.vraptor.interceptor.ResourceLookupInterceptorTest();
-		class12.config();
-		class12.shouldAcceptAlways();
+		br.com.caelum.vraptor.interceptor.InstanceContainer class12 = new br.com.caelum.vraptor.interceptor.InstanceContainer();
+		br.com.caelum.vraptor.interceptor.ResourceLookupInterceptorTest class13 = new br.com.caelum.vraptor.interceptor.ResourceLookupInterceptorTest();
+		class13.config();
+		class13.shouldAcceptAlways();
 		try {
-			class12.shouldHandle404();
+			class13.shouldHandle404();
 		}
 		catch (java.io.IOException err68) {
 			err68.printStackTrace();
@@ -410,7 +411,7 @@ public class Driver {
 			err69.printStackTrace();
 		}
 		try {
-			class12.shouldHandle405();
+			class13.shouldHandle405();
 		}
 		catch (java.io.IOException err70) {
 			err70.printStackTrace();
@@ -419,7 +420,7 @@ public class Driver {
 			err71.printStackTrace();
 		}
 		try {
-			class12.shouldUseResourceMethodFoundWithNextInterceptor();
+			class13.shouldUseResourceMethodFoundWithNextInterceptor();
 		}
 		catch (java.io.IOException err72) {
 			err72.printStackTrace();
@@ -427,16 +428,16 @@ public class Driver {
 		catch (br.com.caelum.vraptor.InterceptionException err73) {
 			err73.printStackTrace();
 		}
-		br.com.caelum.vraptor.interceptor.ExecuteMethodInterceptorTest class13 = new br.com.caelum.vraptor.interceptor.ExecuteMethodInterceptorTest();
+		br.com.caelum.vraptor.interceptor.ExecuteMethodInterceptorTest class14 = new br.com.caelum.vraptor.interceptor.ExecuteMethodInterceptorTest();
 		try {
-			class13.setup();
+			class14.setup();
 		}
 		catch (java.lang.NoSuchMethodException err74) {
 			err74.printStackTrace();
 		}
-		class13.shouldAcceptAlways();
+		class14.shouldAcceptAlways();
 		try {
-			class13.shouldInvokeTheMethodAndNotProceedWithInterceptorStack();
+			class14.shouldInvokeTheMethodAndNotProceedWithInterceptorStack();
 		}
 		catch (java.lang.SecurityException err75) {
 			err75.printStackTrace();
@@ -451,7 +452,7 @@ public class Driver {
 			err78.printStackTrace();
 		}
 		try {
-			class13.shouldThrowMethodExceptionIfThereIsAnInvocationException();
+			class14.shouldThrowMethodExceptionIfThereIsAnInvocationException();
 		}
 		catch (java.io.IOException err79) {
 			err79.printStackTrace();
@@ -463,7 +464,7 @@ public class Driver {
 			err81.printStackTrace();
 		}
 		try {
-			class13.shouldUseTheProvidedArguments();
+			class14.shouldUseTheProvidedArguments();
 		}
 		catch (java.lang.SecurityException err82) {
 			err82.printStackTrace();
@@ -478,7 +479,7 @@ public class Driver {
 			err85.printStackTrace();
 		}
 		try {
-			class13.shouldSetResultReturnedValueFromInvokedMethod();
+			class14.shouldSetResultReturnedValueFromInvokedMethod();
 		}
 		catch (java.lang.SecurityException err86) {
 			err86.printStackTrace();
@@ -493,7 +494,7 @@ public class Driver {
 			err89.printStackTrace();
 		}
 		try {
-			class13.shouldSetNullWhenNullReturnedFromInvokedMethod();
+			class14.shouldSetNullWhenNullReturnedFromInvokedMethod();
 		}
 		catch (java.lang.SecurityException err90) {
 			err90.printStackTrace();
@@ -508,7 +509,7 @@ public class Driver {
 			err93.printStackTrace();
 		}
 		try {
-			class13.shouldSetOkWhenVoidReturnedFromInvokedMethod();
+			class14.shouldSetOkWhenVoidReturnedFromInvokedMethod();
 		}
 		catch (java.lang.SecurityException err94) {
 			err94.printStackTrace();
@@ -523,7 +524,7 @@ public class Driver {
 			err97.printStackTrace();
 		}
 		try {
-			class13.shouldBeOkIfThereIsValidationErrorsAndYouSpecifiedWhereToGo();
+			class14.shouldBeOkIfThereIsValidationErrorsAndYouSpecifiedWhereToGo();
 		}
 		catch (java.lang.SecurityException err98) {
 			err98.printStackTrace();
@@ -538,7 +539,7 @@ public class Driver {
 			err101.printStackTrace();
 		}
 		try {
-			class13.shouldThrowExceptionIfYouHaventSpecifiedWhereToGoOnValidationError();
+			class14.shouldThrowExceptionIfYouHaventSpecifiedWhereToGoOnValidationError();
 		}
 		catch (java.lang.SecurityException err102) {
 			err102.printStackTrace();

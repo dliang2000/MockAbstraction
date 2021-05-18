@@ -96,5 +96,6 @@ public class Driver {
 		catch (java.lang.Exception err14) {
 			err14.printStackTrace();
 		}
+		br.com.caelum.vraptor.interceptor.multipart.MockFileItem class5 = new br.com.caelum.vraptor.interceptor.multipart.MockFileItem();
 	}
 }
