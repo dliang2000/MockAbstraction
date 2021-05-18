@@ -124,7 +124,7 @@ public class RootDriverGenerator {
                 if (isRoot(packageName)) { // Construct rootDriver class
                     StringBuilder sb2 = new StringBuilder();
                     
-                    StringBuilder sb = contructRootDriver(packageName, sub_packages, package_level_classes, sb2);
+                    StringBuilder sb = constructRootDriver(packageName, sub_packages, package_level_classes, sb2);
                     
                     String file_path = driverDestination(packageName) + "/RootDriver.java";
                     
@@ -146,7 +146,7 @@ public class RootDriverGenerator {
                 } else { // Package level driver class
                     StringBuilder sb2 = new StringBuilder();
                     
-                    StringBuilder sb = contructSubPackageDriver(packageName, package_level_classes, sb2);
+                    StringBuilder sb = constructSubPackageDriver(packageName, package_level_classes, sb2);
                     
                     String file_path = driverDestination(packageName) + "/Driver.java";
                     try {
@@ -169,7 +169,7 @@ public class RootDriverGenerator {
         }
         
         
-        private static StringBuilder contructRootDriver(String packageName, HashSet<String> sub_packages, 
+        private static StringBuilder constructRootDriver(String packageName, HashSet<String> sub_packages, 
                 List<SootClass> sootclasses, StringBuilder sb2) {
             StringBuilder sb = driverHeader(packageName);
             
@@ -232,7 +232,7 @@ public class RootDriverGenerator {
         }
         
         
-        private static StringBuilder contructSubPackageDriver(String packageName, List<SootClass> sootClasses, StringBuilder sb2) {
+        private static StringBuilder constructSubPackageDriver(String packageName, List<SootClass> sootClasses, StringBuilder sb2) {
             StringBuilder sb = driverHeader(packageName);
             
             int counter = 1, error_counter = 1;
@@ -309,8 +309,8 @@ public class RootDriverGenerator {
         private static boolean containsConstructor(SootClass sc, StringBuilder sb) {
             boolean containsConstructor = false;
             for (SootMethod sm : sc.getMethods()) {
-                // exclude test classes with multi-arg constructor or private no-arg constructor
-                if (sm.isConstructor() && (sm.getParameterCount() > 0 || sm.isPrivate())) {
+                // exclude test classes with private no-arg constructor
+                if (sm.isConstructor() && sm.isPrivate()) {
                     //System.out.println("Concrete SootClass " + sc.getName()
                     //        + " has a multi-arg or private no-arg constructor.");
                     sb.append(sc.getName() + "\n");
