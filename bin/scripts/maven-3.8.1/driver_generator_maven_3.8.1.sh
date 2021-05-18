@@ -22,7 +22,7 @@ cd $BENCHMARK_PATH
 # touch is_maven in the benchmark directory to indicate that a benchmark is mvn
 if [ -a is_maven ]; then
   echo "it is a maven project"
-  mvn clean test
+  mvn clean test -Drat.skip=true
 fi
 
 echo java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$TEXT_PATH
