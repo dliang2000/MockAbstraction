@@ -7,14 +7,14 @@ PACKAGE="br.com.caelum.vraptor"
 SOOT_JAR="$MACHINE_SPECIFIC_PATH/soot_jar/sootclasses-trunk-jar-with-dependencies.jar"
 JAVA_PATH="$MACHINE_SPECIFIC_PATH/target/classes":$JCOMMANDER_JAR
 CC_CLASS="ca.uwaterloo.liang.FieldMutationAnalysisMain"
-BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/vraptor-vraptor-parent-3.5.5"
-TARGET_PATH="vraptor-core/target/classes"
-TARGET_TEST_PATH="vraptor-core/target/test-classes"
+BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/vraptor-vraptor-parent-3.5.5/vraptor-core"
+TARGET_PATH="target/classes"
+TARGET_TEST_PATH="target/test-classes"
 BENCHMARK="vraptor_vraptor_core_3.5.5"
 DRIVER_PATH="br.com.caelum.vraptor.RootDriver"
 OUTPUT_PATH="$MACHINE_SPECIFIC_PATH/analysis_output/MockAnalysis"
 
-MVN_DEPENDENCY_PATH="$BENCHMARK_PATH/vraptor-core/mvn_dependencies"
+MVN_DEPENDENCY_PATH="$BENCHMARK_PATH/mvn_dependencies"
 
 # add all the jar files needed for set_soot_classpath
 for jar in $MVN_DEPENDENCY_PATH/*; do

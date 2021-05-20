@@ -6,9 +6,9 @@ This repository focuses on analyzing for mock objects created and used in unit t
 | Benchmark |  Total # of Fields Mutated in Test Cases / Total # of Fields |
 | --- | --- |
 | bootique-2.0.B1-bootique | 0 / 271 |
-| commons-collections4-4.4 | 1 / 697 |
+| commons-collections4-4.4 | 3 / 697 |
 | jsonschema2pojo-core-1.1.1 | 0 / 228 |
-| maven-core-3.8.1 | 0 / 765 |
+| maven-core-3.8.1 | 0 /765 |
 | microbenchmark | 6 / 27 |
 | mybatis-3.5.6 | 0 / 2618 |
 | quartz-core-2.3.1 | 2 / 878 |
@@ -21,7 +21,6 @@ This repository focuses on analyzing for mock objects created and used in unit t
 | bootique-2.0.B1-bootique | 420 | 27 | 3 | 0 |
 | commons-collections4-4.4 | 24946 | 3 | 1 | 0 |
 | jsonschema2pojo-core-1.1.1 | 110 | 21 | 1 | 0 |
-| maven-core-3.8.1 | 335 | 15 | 0 | 0 |
 | microbenchmark | 25 | 16 | 5 | 2 |
 | mybatis-3.5.6 | 1675 | 330 | 3 | 1 |
 | quartz-core-2.3.1 | 305 | 7 | 0 | 0 |
@@ -34,7 +33,6 @@ This repository focuses on analyzing for mock objects created and used in unit t
 | bootique-2.0.B1-bootique | 2923 | 82 |
 | commons-collections-4.3 | 3001 | 13 |
 | jsonschema2pojo-core-1.1.1 | 1262 | 39 |
-| maven-core-3.8.1 | 3354 | 21 |
 | microbenchmark | 166 | 13 |
 | mybatis-3.5.6 | 17798 | 569 |
 | quartz-core-2.3.1 | 3206 | 21 |
