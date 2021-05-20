@@ -440,6 +440,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             if (aStmt.containsInvokeExpr()) {
                 InvokeExpr invkExpr = aStmt.getInvokeExpr();
                 if (invkExpr instanceof InstanceInvokeExpr) {
+                    System.out.println("InvokeExpr: " + invkExpr);
                     // Add InvokeExpr to myTotalInvokeExprs
                     myTotalInvokeExprs.add(invkExpr);
                     
@@ -450,7 +451,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                     // and can be found in the in FlowSet, then InvokeExpr is 
                     // on a mock
                     for (Map<Value, MockStatus> element : getFlowAfter(unit)) {
-                        if (element.containsKey(val) && element.get(val).getMustMock()) { //must be an invocation on MustMock
+                        if (element.containsKey(val) && element.get(val).getMustMock() && !myInvokeExprsOnMocks.contains(invkExpr)) { //must be an invocation on MustMock
                             myInvokeExprsOnMocks.add(invkExpr);
                         }
                     }

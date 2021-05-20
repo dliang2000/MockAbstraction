@@ -25,6 +25,7 @@ import soot.SootMethod;
 import soot.Transform;
 import soot.Transformer;
 import soot.Unit;
+import soot.VoidType;
 import soot.jimple.InvokeExpr;
 import soot.jimple.JimpleBody;
 import soot.jimple.toolkits.callgraph.CallGraph;
@@ -148,6 +149,7 @@ public class MockAnalysisMain extends SceneTransformer {
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
         // TODO Auto-generated method stub
+        int totalNumberOfTestRelatedMethods = 0;
         Chain<SootClass> itAppClasses = Scene.v().getApplicationClasses();
         for (SootClass itAppClass: itAppClasses) {
             myAppClasses.put(itAppClass.getName(), itAppClass);
@@ -176,7 +178,8 @@ public class MockAnalysisMain extends SceneTransformer {
         
         for (SootMethod method : myAppMethods) {   
             if (method.hasActiveBody() && 
-                    (isTestCase(method) || isBeforeMethod(method) || isAfterMethod(method)) ) {
+                    (isBeforeMethod(method) || isTestCase(method) || isAfterMethod(method)) ) {
+                totalNumberOfTestRelatedMethods++;
                 JimpleBody body = (JimpleBody) method.getActiveBody();
                 
                 /*if (method.getDeclaringClass().getName().contains("PayRollAnnotationMockTest")) {
@@ -213,6 +216,8 @@ public class MockAnalysisMain extends SceneTransformer {
         StringBuffer msg = new StringBuffer();
         msg.append(" ====================================== \n")
         .append("Benchmark ").append(MockAnalysisMain.benchmark).append(" Mock Stats")
+        .append("\n");
+        msg.append("Total Number of Test/Before/After Methods: ").append(totalNumberOfTestRelatedMethods)
         .append("\n");
         msg.append("Total Number of Test/Before/After Methods with MustMock: ").append(benchmark_mock_stats[0])
         .append("\n");
@@ -315,7 +320,7 @@ public class MockAnalysisMain extends SceneTransformer {
     private static boolean isBeforeMethod(SootMethod sm) {
         // JUnit 3
         if ((sm.getName().equals("init()") ||  sm.getName().equals("setUp()")) 
-                && sm.getParameterCount() == 0 && sm.getReturnType().toString() == "void") {
+                && sm.getParameterCount() == 0 && sm.getReturnType() instanceof VoidType) {
             //System.out.println("Test case found: " + sm.getSubSignature());
             return true;
         }
@@ -340,7 +345,7 @@ public class MockAnalysisMain extends SceneTransformer {
     private static boolean isAfterMethod(SootMethod sm) {
         // JUnit 3
         if (sm.getName().equals("tearDown()") 
-                && sm.getParameterCount() == 0 && sm.getReturnType().toString() == "void") {
+                && sm.getParameterCount() == 0 && sm.getReturnType() instanceof VoidType) {
             //System.out.println("Test case found: " + sm.getSubSignature());
             return true;
         }
@@ -364,7 +369,8 @@ public class MockAnalysisMain extends SceneTransformer {
     
     private static boolean isTestCase(SootMethod sm) {
         // JUnit 3
-        if (sm.getName().toLowerCase().startsWith("test") && sm.getParameterCount() == 0 && sm.getReturnType().toString() == "void") {
+        if (sm.getName().toLowerCase().startsWith("test") && sm.getParameterCount() == 0 
+                && sm.getReturnType() instanceof VoidType) {
             //System.out.println("Test case found: " + sm.getSubSignature());
             return true;
         }

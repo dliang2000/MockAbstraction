@@ -15,12 +15,21 @@ import java.util.Map;
 
 import com.beust.jcommander.Parameter;
 
+import soot.BooleanType;
+import soot.ByteType;
+import soot.DoubleType;
+import soot.FloatType;
+import soot.IntType;
+import soot.LongType;
 import soot.PackManager;
 import soot.Scene;
 import soot.SceneTransformer;
+import soot.ShortType;
 import soot.SootClass;
 import soot.SootMethod;
 import soot.Transform;
+import soot.Type;
+import soot.VoidType;
 import soot.options.Options;
 import soot.tagkit.AnnotationTag;
 import soot.util.Chain;
@@ -194,10 +203,18 @@ public class RootDriverGenerator {
                     continue;
                 
                 // skip the test classes with a constructor
-                if (containsConstructor(sootClass, sb2)) 
+                if (containsPrivateConstructor(sootClass)) 
                     continue;
                 
-                sb.append("\t\t" + sootClass.getName() + " " + class_var + " = new " + sootClass.getName() + "();\n");
+                List<Type> constructorParameterTypes = constructorParameterTypes(sootClass);
+
+                if (constructorParameterTypes == null) {
+                    sb.append("\t\t" + sootClass.getName() + " " + class_var + " = new " + sootClass.getName() + "();\n");
+                } else {
+                    StringBuilder paras = parameterGeneration(constructorParameterTypes.size(), constructorParameterTypes);
+                    sb.append("\t\t" + sootClass.getName() + " " + class_var + " = new " + 
+                                    sootClass.getName() + "(" + paras + ");\n");
+                }
                 List<SootMethod> sootMethods = sootClass.getMethods();
                 for (SootMethod sm : sootMethods) {
                     System.out.println("Declaring Class: " + sm.getDeclaringClass() + " Name: " + sm.getName());
@@ -247,12 +264,20 @@ public class RootDriverGenerator {
                 }
                 
                 // skip the test classes with a constructor
-                if (containsConstructor(sootClass, sb2)) { 
-                    //System.out.println("SootClass " + sootClass.getName() + " excluded because it contains constructor");
+                if (containsPrivateConstructor(sootClass)) {
                     continue;
                 }
                 
-                sb.append("\t\t" + sootClass.getName() + " " + class_var + " = new " + sootClass.getName() + "();\n");
+                List<Type> constructorParameterTypes = constructorParameterTypes(sootClass);
+
+                if (constructorParameterTypes == null) {
+                    sb.append("\t\t" + sootClass.getName() + " " + class_var + " = new " + sootClass.getName() + "();\n");
+                } else {
+                    StringBuilder paras = parameterGeneration(constructorParameterTypes.size(), constructorParameterTypes);
+                    sb.append("\t\t" + sootClass.getName() + " " + class_var + " = new " + 
+                                    sootClass.getName() + "(" + paras + ");\n");
+                }
+                //sb.append("\t\t" + sootClass.getName() + " " + class_var + " = new " + sootClass.getName() + "();\n");
                 List<SootMethod> sootMethods = sootClass.getMethods();
                 for (SootMethod sm : sootMethods) {
                     System.out.println("Declaring Class: " + sm.getDeclaringClass() + " Name: " + sm.getName());
@@ -306,32 +331,85 @@ public class RootDriverGenerator {
             return sb;
         }
         
-        private static boolean containsConstructor(SootClass sc, StringBuilder sb) {
-            boolean containsConstructor = false;
+        private static boolean containsPrivateConstructor(SootClass sc) {
+            boolean containsPrivateConstructor = false;
             for (SootMethod sm : sc.getMethods()) {
                 // exclude test classes with private no-arg constructor
                 if (sm.isConstructor() && sm.isPrivate()) {
                     //System.out.println("Concrete SootClass " + sc.getName()
                     //        + " has a multi-arg or private no-arg constructor.");
-                    sb.append(sc.getName() + "\n");
-                    containsConstructor = true;
+                    //sb.append(sc.getName() + "\n");
+                    containsPrivateConstructor = true;
                 }
                 // exclude test classes with constructor that throws exception
                 if (sm.isConstructor() && !sm.getExceptions().isEmpty()) {
                     //System.out.println("Concrete SootClass " + sc.getName()
                     //+ " has a constructor throwing exception.");
-                    containsConstructor = true;
+                    containsPrivateConstructor = true;
                 }
             }
-            return containsConstructor;
+            return containsPrivateConstructor;
+        }
+        
+        private static List<Type> constructorParameterTypes(SootClass sc) {
+            for (SootMethod sm : sc.getMethods()) {
+                // exclude test classes with private no-arg constructor
+                if (sm.isConstructor() && sm.getParameterCount() > 0 ) {
+                    //System.out.println("Concrete SootClass " + sc.getName()
+                    //        + " has a multi-arg or private no-arg constructor.");
+                    return sm.getParameterTypes();
+                }
+            }
+            return null;
+        }
+        
+        private static StringBuilder parameterGeneration(int numOfArgs, List<Type> parameterTypes) {
+            StringBuilder sb = new StringBuilder();
             
+            String NULL = "null";
+            String bool = "false";
+            String zero = "0";
+            String zeroLong = "0L";
+            String zeroFloat = "0.0f";
+            String zeroDouble = "0.0d";
+            for (int i = 0; i < numOfArgs - 1; i++) {
+                Type t = parameterTypes.get(i);
+                if (t instanceof BooleanType) {
+                    sb.append(bool + ","); 
+                } else if (t instanceof ByteType || t instanceof IntType || t instanceof ShortType) {
+                    sb.append(zero + ","); 
+                } else if (t instanceof LongType) {
+                    sb.append(zeroLong + ","); 
+                } else if (t instanceof FloatType) {
+                    sb.append(zeroFloat + ","); 
+                } else if (t instanceof DoubleType) {
+                    sb.append(zeroDouble + ","); 
+                } else {
+                    sb.append(NULL + ",");
+                }
+            }
+            Type t = parameterTypes.get(numOfArgs - 1);
+            if (t instanceof BooleanType) {
+                sb.append(bool); 
+            } else if (t instanceof ByteType || t instanceof IntType || t instanceof ShortType) {
+                sb.append(zero); 
+            } else if (t instanceof LongType) {
+                sb.append(zeroLong); 
+            } else if (t instanceof FloatType) {
+                sb.append(zeroFloat); 
+            } else if (t instanceof DoubleType) {
+                sb.append(zeroDouble); 
+            } else {
+                sb.append(NULL);
+            }
+            return sb;
         }
     }
     
     private static boolean isBeforeMethod(SootMethod sm) {
         // JUnit 3
         if ((sm.getName().equals("init()") ||  sm.getName().equals("setUp()")) 
-                && sm.getParameterCount() == 0 && sm.getReturnType().toString() == "void") {
+                && sm.getParameterCount() == 0 && sm.getReturnType() instanceof VoidType) {
             //System.out.println("Test case found: " + sm.getSubSignature());
             return true;
         }
@@ -356,7 +434,7 @@ public class RootDriverGenerator {
     private static boolean isAfterMethod(SootMethod sm) {
         // JUnit 3
         if (sm.getName().equals("tearDown()") 
-                && sm.getParameterCount() == 0 && sm.getReturnType().toString() == "void") {
+                && sm.getParameterCount() == 0 && sm.getReturnType() instanceof VoidType) {
             //System.out.println("Test case found: " + sm.getSubSignature());
             return true;
         }
@@ -380,8 +458,7 @@ public class RootDriverGenerator {
 
     private static boolean isTestMethod(SootMethod sm) {
         // JUnit 3
-
-        if (sm.getName().startsWith("test") && sm.getParameterCount() == 0 && sm.getReturnType().toString() == "void") {
+        if (sm.getName().startsWith("test") && sm.getParameterCount() == 0 && sm.getReturnType() instanceof VoidType) {
             //System.out.println("Test case found: " + sm.getSubSignature());
             return true;
         }
