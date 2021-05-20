@@ -43,7 +43,14 @@ public class RootDriverGenerator {
     
     private final static String PACKAGE_DRIVER = "Driver.java";
     private final static String ROOT_DRIVER = "RootDriver.java";
-
+    
+    private final static String GENERAL = "null";
+    private final static String BOOL = "false";
+    private final static String ZERO = "0";
+    private final static String ZEROLONG = "0L";
+    private final static String ZEROFLOAT = "0.0f";
+    private final static String ZERODOUBLE = "0.0d";
+    
     public static void main(String[] args) throws IOException {
         File file = new File(args[0]); 
         BufferedReader br = new BufferedReader(new FileReader(file)); 
@@ -199,7 +206,8 @@ public class RootDriverGenerator {
             
             for (SootClass sootClass : sootclasses) {
                 // skip classes that are final or not concrete, and classes that are not public
-                if (!sootClass.isConcrete() || sootClass.getName().contains("$") || sootClass.isLibraryClass())
+                if (!sootClass.isConcrete() || sootClass.getName().contains("$") 
+                        || sootClass.isLibraryClass() || !isTestClass(sootClass))
                     continue;
                 
                 // skip the test classes with a constructor
@@ -258,7 +266,8 @@ public class RootDriverGenerator {
             
             for (SootClass sootClass : sootClasses) {
                 // skip classes that are final or not concrete
-                if (!sootClass.isConcrete() || sootClass.getName().contains("$") || sootClass.isLibraryClass()) {
+                if (!sootClass.isConcrete() || sootClass.getName().contains("$") 
+                        || sootClass.isLibraryClass() || !isTestClass(sootClass)) {
                     //System.out.println("SootClass " + sootClass.getName() + " excluded");
                     continue;
                 }
@@ -351,6 +360,19 @@ public class RootDriverGenerator {
             return containsPrivateConstructor;
         }
         
+        // Determine if the SootClass is a test class. This version only checks if there
+        // are any test cases inside the class itself. Future version will take care off
+        // test cases in any of its superclasses invoked.
+        private static boolean isTestClass(SootClass sc) {
+            for (SootMethod sm : sc.getMethods()) {
+                // exclude test classes with private no-arg constructor
+                if (isTestMethod(sm)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
         private static List<Type> constructorParameterTypes(SootClass sc) {
             for (SootMethod sm : sc.getMethods()) {
                 // exclude test classes with private no-arg constructor
@@ -366,41 +388,35 @@ public class RootDriverGenerator {
         private static StringBuilder parameterGeneration(int numOfArgs, List<Type> parameterTypes) {
             StringBuilder sb = new StringBuilder();
             
-            String NULL = "null";
-            String bool = "false";
-            String zero = "0";
-            String zeroLong = "0L";
-            String zeroFloat = "0.0f";
-            String zeroDouble = "0.0d";
             for (int i = 0; i < numOfArgs - 1; i++) {
                 Type t = parameterTypes.get(i);
                 if (t instanceof BooleanType) {
-                    sb.append(bool + ","); 
+                    sb.append(BOOL + ","); 
                 } else if (t instanceof ByteType || t instanceof IntType || t instanceof ShortType) {
-                    sb.append(zero + ","); 
+                    sb.append(ZERO + ","); 
                 } else if (t instanceof LongType) {
-                    sb.append(zeroLong + ","); 
+                    sb.append(ZEROLONG + ","); 
                 } else if (t instanceof FloatType) {
-                    sb.append(zeroFloat + ","); 
+                    sb.append(ZEROFLOAT + ","); 
                 } else if (t instanceof DoubleType) {
-                    sb.append(zeroDouble + ","); 
+                    sb.append(ZERODOUBLE + ","); 
                 } else {
-                    sb.append(NULL + ",");
+                    sb.append(GENERAL + ",");
                 }
             }
             Type t = parameterTypes.get(numOfArgs - 1);
             if (t instanceof BooleanType) {
-                sb.append(bool); 
+                sb.append(BOOL); 
             } else if (t instanceof ByteType || t instanceof IntType || t instanceof ShortType) {
-                sb.append(zero); 
+                sb.append(ZERO); 
             } else if (t instanceof LongType) {
-                sb.append(zeroLong); 
+                sb.append(ZEROLONG); 
             } else if (t instanceof FloatType) {
-                sb.append(zeroFloat); 
+                sb.append(ZEROFLOAT); 
             } else if (t instanceof DoubleType) {
-                sb.append(zeroDouble); 
+                sb.append(ZERODOUBLE); 
             } else {
-                sb.append(NULL);
+                sb.append(GENERAL);
             }
             return sb;
         }
