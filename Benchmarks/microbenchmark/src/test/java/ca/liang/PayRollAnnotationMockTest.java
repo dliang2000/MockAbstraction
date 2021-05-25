@@ -32,14 +32,15 @@ public class PayRollAnnotationMockTest {
     // Contains mock object (initialized through annotation)
     @Before
     public void init() {
+        employees = new Employee[1];
+        employees[0] = createTestEmployee("Test Employee", "ID0", 1000);
+        
         MockitoAnnotations.initMocks(this);
+        
+        // *mock*
+        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
+        
         payRoll = new PayRoll(employeeDB, bankService);
-    }
-    // total mock calls: 0
-    
-    @Test
-    public void testNoEmployees() {
-        assertNumberOfPayments(0);
     }
     // total mock calls: 0
     
@@ -53,7 +54,7 @@ public class PayRollAnnotationMockTest {
         EmployeeDB employeeDB_intra = new EmployeeDB(Arrays.asList(employees_intra));
         PayRoll payRoll_intra = new PayRoll(employees_intra, bankService);
 
-	// not mock
+        // not mock
         int numberOfPayments = payRoll_intra.monthlyPayment();
         assertEquals(2, numberOfPayments);
     }
@@ -62,14 +63,6 @@ public class PayRollAnnotationMockTest {
     // Contains mock object (passed in from field)
     @Test
     public void testSingleEmployee() {
-        employees = new Employee[1];
-        employees[0] = createTestEmployee("Test Employee", "ID0", 1000);
-
-        // *mock*
-        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
-
-        payRoll = new PayRoll(employeeDB, bankService);
-
         assertNumberOfPayments(1);
     }
     // total mock calls: 1
@@ -77,20 +70,12 @@ public class PayRollAnnotationMockTest {
     // Contains mock object (one passed in from field, and the other created from verify() )
     @Test
     public void testEmployeeIsPaid() {
-        employees = new Employee[1];
-        String employeeId = "ID0";
-        int salary = 1000;
-        employees[0] = createTestEmployee("Test Employee", employeeId, salary);
-
-        // *mock* from field
-        when(employeeDB.getAllEmployees()).thenReturn((List<Employee>) Arrays.asList(employees));
-
         payRoll = new PayRoll(employeeDB, bankService);
         
         assertNumberOfPayments(1);
 
         // *mock* return value from verify()
-        verify(bankService, times(1)).makePayment(employeeId, salary);
+        verify(bankService, times(1)).makePayment("ID0", 1000);
     }
     // total mock calls: 2
     
