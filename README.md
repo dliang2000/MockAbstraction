@@ -7,8 +7,9 @@ This repository focuses on analyzing for mock objects created and used in unit t
 | --- | --- |
 | bootique-2.0.B1-bootique | 0 / 271 |
 | commons-collections4-4.4 | 3 / 697 |
+| flink-core-1.13.0-rc1 | 8 / 2675 |
 | jsonschema2pojo-core-1.1.1 | 0 / 228 |
-| maven-core-3.8.1 | 0 /765 |
+| maven-core-3.8.1 | 0 / 765 |
 | microbenchmark | 6 / 27 |
 | mybatis-3.5.6 | 0 / 2618 |
 | quartz-core-2.3.1 | 2 / 878 |
@@ -16,14 +17,16 @@ This repository focuses on analyzing for mock objects created and used in unit t
 
 
 ## Mock Analysis table
-| Benchmark | Total Number of Test/Before/After Methods | Number of Test/Before/After Methods with MustMock (Intra) | Number of Test/Before/After Methods with ArrayMock (Intra) | Number of Test/Before/After Methods with CollectionMock (Intra) |
+| Benchmark | Total Number of Test/Before/After Methods Invoked | Number of Test/Before/After Methods with MustMock (Intra) | Number of Test/Before/After Methods with ArrayMock (Intra) | Number of Test/Before/After Methods with CollectionMock (Intra) |
 | --- | --- | --- | --- | --- |
 | bootique-2.0.B1-bootique | 420 | 27 | 3 | 0 |
-| commons-collections4-4.4 | 24946 | 3 | 1 | 0 |
-| jsonschema2pojo-core-1.1.1 | 110 | 21 | 1 | 0 |
-| microbenchmark | 25 | 16 | 5 | 2 |
-| mybatis-3.5.6 | 1675 | 330 | 3 | 1 |
-| quartz-core-2.3.1 | 305 | 7 | 0 | 0 |
+| commons-collections4-4.4 | 1152 | 3 | 1 | 0 |
+| flink-core-1.13.0-rc1 | 1091 | 4 | 0 | 0 |
+| jsonschema2pojo-core-1.1.1 | 145 | 48 | 1 | 0 |
+| maven-core-3.8.1 | 337 | 15 | 0 | 0 |
+| microbenchmark | 28 | 19 | 5 | 3 |
+| mybatis-3.5.6 | 1769 | 330 | 3 | 1 |
+| quartz-core-2.3.1 | 218 | 7 | 0 | 0 |
 | vraptor-core-3.5.5 | 1120 | 526 | 15 | 12 |
 
 
@@ -31,11 +34,13 @@ This repository focuses on analyzing for mock objects created and used in unit t
 | Benchmark | Total Number of Invocations | Number of Invocations on Mocks |
 | --- | --- | --- |
 | bootique-2.0.B1-bootique | 2923 | 82 |
-| commons-collections-4.3 | 3001 | 13 |
-| jsonschema2pojo-core-1.1.1 | 1262 | 39 |
-| microbenchmark | 166 | 13 |
+| commons-collections-4.3 | 10913 | 13 |
+| flink-core-1.13.0-rc1 | 10079 | 40 |
+| jsonschema2pojo-core-1.1.1 | 1730 | 217 |
+| maven-core-3.8.1 | 3367 | 21 |
+| microbenchmark | 195 | 18 |
 | mybatis-3.5.6 | 17798 | 569 |
-| quartz-core-2.3.1 | 3206 | 21 |
+| quartz-core-2.3.1 | 3217 | 21 |
 | vraptor-core-3.5.51 | 5529 | 827 |
 
 
