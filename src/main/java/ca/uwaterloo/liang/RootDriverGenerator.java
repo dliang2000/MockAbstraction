@@ -133,6 +133,27 @@ public class RootDriverGenerator {
                     sub_packages.add(curr_package);
             }
             
+            // When the root package path does not have any class
+            if (!classes_map.containsKey(rootPackageName)) {
+                StringBuilder sb = constructRootDriver(rootPackageName, sub_packages, new ArrayList<SootClass>());
+                
+                String file_path = driverDestination(rootPackageName) + "/RootDriver.java";
+                try {
+                    BufferedWriter writer = new BufferedWriter(new FileWriter(file_path));
+                    writer.write(sb.toString());
+                    writer.close();
+                    /*if (sb2.length() != 0) {
+                        BufferedWriter writer2 = new BufferedWriter(new FileWriter(
+                                output_path + "/" + packageName.replace('.', '_') + "_excluded_test_class_with_constructor.txt"));
+                        writer2.write(sb2.toString());
+                        writer2.close();
+                    }*/
+                } catch (IOException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            }
+            
             for (Map.Entry<String, ArrayList<SootClass>> entry : classes_map.entrySet()) {
                 String packageName = entry.getKey();
                 ArrayList<SootClass> package_level_classes = entry.getValue();
@@ -140,7 +161,7 @@ public class RootDriverGenerator {
                 if (isRoot(packageName)) { // Construct rootDriver class
                     StringBuilder sb2 = new StringBuilder();
                     
-                    StringBuilder sb = constructRootDriver(packageName, sub_packages, package_level_classes, sb2);
+                    StringBuilder sb = constructRootDriver(packageName, sub_packages, package_level_classes);
                     
                     String file_path = driverDestination(packageName) + "/RootDriver.java";
                     
@@ -162,7 +183,7 @@ public class RootDriverGenerator {
                 } else { // Package level driver class
                     StringBuilder sb2 = new StringBuilder();
                     
-                    StringBuilder sb = constructSubPackageDriver(packageName, package_level_classes, sb2);
+                    StringBuilder sb = constructSubPackageDriver(packageName, package_level_classes);
                     
                     String file_path = driverDestination(packageName) + "/Driver.java";
                     try {
@@ -186,7 +207,7 @@ public class RootDriverGenerator {
         
         
         private static StringBuilder constructRootDriver(String packageName, HashSet<String> sub_packages, 
-                List<SootClass> sootclasses, StringBuilder sb2) {
+                List<SootClass> sootclasses) {
             StringBuilder sb = driverHeader(packageName);
             
             int counter = 1, error_counter = 1;
@@ -257,7 +278,7 @@ public class RootDriverGenerator {
         }
         
         
-        private static StringBuilder constructSubPackageDriver(String packageName, List<SootClass> sootClasses, StringBuilder sb2) {
+        private static StringBuilder constructSubPackageDriver(String packageName, List<SootClass> sootClasses) {
             StringBuilder sb = driverHeader(packageName);
             
             int counter = 1, error_counter = 1;
