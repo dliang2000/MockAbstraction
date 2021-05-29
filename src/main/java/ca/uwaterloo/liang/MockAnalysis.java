@@ -52,8 +52,6 @@ import soot.util.Chain;
  **/
 public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, MockStatus>>> {
     
-    private static ArrayList<SootMethod> emptyInvokedMethods = new ArrayList<SootMethod>();
-    
     private static FlowSet<Map<Value, MockStatus>> emptyFlowSet = new ArraySparseSet() ;
     
     private static ArrayList<InvokeExpr> emptyInvokeExprs = new ArrayList<InvokeExpr>();
@@ -62,27 +60,35 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     
     private static HashMap<Unit, HashMap<Value, MockStatus>> emptyMustMocks = new HashMap<Unit, HashMap<Value, MockStatus>>();
     
+    //private static HashMap<SootMethod, ProcSummary> emptyProcSummaries = new HashMap<SootMethod, ProcSummary>();
+    
+    private static ArrayList<SootMethod> emptyInvokedMethods = new ArrayList<SootMethod>();
+    
     //Contains all the invoked methods by the method under analysis
-    // private ArrayList<SootMethod> myInvokedMethods;
+    private ArrayList<SootMethod> myInvokedMethods;
     
     //Contains all method invocations
     private ArrayList<InvokeExpr> myTotalInvokeExprs;
     
-  //Contains all method invocations on mocks
+    //Contains all method invocations on mocks
     private ArrayList<InvokeExpr> myInvokeExprsOnMocks;
-    
-  //Contains all the invoked methods by the method under analysis
-   // private HashSet<SootField> myAnnotatedMocks;
     
     // For each unit x local, will store a boolean for if it is a must mock,
     // if is a must mock within Collection, or if it is a must mock within Array.
     private HashMap<Unit, HashMap<Value, MockStatus>> mustMocks;
+    
+    // private HashMap<SootMethod, ProcSummary> myProcSummaries;
 
+    //The current analyzed method
+    private SootMethod myContextMethod;
+    
     @SuppressWarnings("unchecked")
-    public MockAnalysis(ExceptionalUnitGraph graph) {
+    public MockAnalysis(ExceptionalUnitGraph graph, SootMethod aCurrentSootMethod) {
         super(graph);
         
-        // myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
+        myContextMethod = aCurrentSootMethod;
+        
+        myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
         
         mustMocks = (HashMap<Unit, HashMap<Value, MockStatus>>) emptyMustMocks.clone();
         
@@ -90,19 +96,25 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         
         myInvokeExprsOnMocks = (ArrayList<InvokeExpr>) emptyInvokeExprsOnMocks.clone();
         
+        // myProcSummaries = (HashMap<SootMethod, ProcSummary>) emptyProcSummaries.clone();
+                
         doAnalysis();
     }
     
     public void analyze(ExceptionalUnitGraph graph, SootMethod aCurrentSootMethod) {
         this.graph = graph;
         
-        // myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
+        myContextMethod = aCurrentSootMethod;
+        
+        myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
         
         mustMocks = (HashMap<Unit, HashMap<Value, MockStatus>>) emptyMustMocks.clone();
         
         myTotalInvokeExprs = (ArrayList<InvokeExpr>) emptyInvokeExprs.clone();
         
         myInvokeExprsOnMocks = (ArrayList<InvokeExpr>) emptyInvokeExprsOnMocks.clone();
+        
+        // myProcSummaries = (HashMap<SootMethod, ProcSummary>) emptyProcSummaries.clone();
         
         doAnalysis();
     
@@ -190,6 +202,9 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             InvokeExpr invkExpr = aStmt.getInvokeExpr();
             SootMethod sootMethod = invkExpr.getMethod();
             
+            if (!sootMethod.isJavaLibraryMethod())
+                myInvokedMethods.add(sootMethod);
+                
             if (isMockAPI(sootMethod)) {
                 HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
                 List<ValueBox> defBoxes = unit.getDefBoxes();
@@ -459,6 +474,10 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             }
         }
         
+    }
+    
+    public ArrayList<SootMethod> getInvokedMethods() {
+        return myInvokedMethods;
     }
     
     public ArrayList<InvokeExpr> getTotalInvokeExprs() {

@@ -65,7 +65,7 @@ public class MockAnalysisMain extends SceneTransformer {
         });
         Options.v().set_prepend_classpath(true);
         Options.v().set_verbose(true);
-        Options.v().set_whole_program(true);
+        Options.v().set_whole_program(true); // enable Spark whole-program analysis
         Options.v().set_output_format(1); // Output format in .jimple file
         Options.v().set_allow_phantom_refs(true);
         Options.v().set_xml_attributes(true);
@@ -83,9 +83,13 @@ public class MockAnalysisMain extends SceneTransformer {
         pd.add(target);
         pd.add("-process-dir");
         pd.add(target_tests);
+        // enable Spark whole-program analysis
         pd.add("-p");
-        pd.add("jj.tr");
+        pd.add("cg.spark");
         pd.add("enabled:true");
+        pd.add("-p");
+        pd.add("jb");
+        pd.add("use-original-names:true");
         Options.v().set_soot_classpath(mvn_dependencies);
         //MockAnalysisMain.benchmark = args[4];
         //MockAnalysisMain.output_path = args[5];
@@ -127,7 +131,7 @@ public class MockAnalysisMain extends SceneTransformer {
     /**
      * Each method mapped to its callees
      */
-   // private HashMap<String, ArrayList<SootMethod> > myCallees;
+    private HashMap<String, ArrayList<SootMethod> > myCallees;
         
     private MockAnalysis myMAnalysis;
         
@@ -138,7 +142,7 @@ public class MockAnalysisMain extends SceneTransformer {
             
         myClassMethods = new HashMap<String, ArrayList<SootMethod> >();
             
-       // myCallees = new HashMap<String, ArrayList<SootMethod> >();
+        myCallees = new HashMap<String, ArrayList<SootMethod> >();
                 
         myAppMethods = new ArrayList<SootMethod>();
         
@@ -193,7 +197,7 @@ public class MockAnalysisMain extends SceneTransformer {
                      myMAnalysis.analyze(aCfg, method);
                      myMAnalysis.updateInvocations(aCfg);
                 } else {
-                     myMAnalysis = new MockAnalysis(aCfg);
+                     myMAnalysis = new MockAnalysis(aCfg, method);
                      myMAnalysis.updateInvocations(aCfg);
                      mySAInst = true;
                 }
@@ -204,7 +208,7 @@ public class MockAnalysisMain extends SceneTransformer {
                 
                 mockSummary.setInvokeExprsOnMocks( myMAnalysis.getInvokeExprsOnMocks() );
                     
-               // myCallees.put(method.getSignature(), myMAnalysis.getInvokedMethods());
+                myCallees.put(method.getSignature(), myMAnalysis.getInvokedMethods());
                 
                 myProcSummaries.put(method, mockSummary);
             }
@@ -237,8 +241,8 @@ public class MockAnalysisMain extends SceneTransformer {
         
         int total_count = 0, mocks_count = 0;
         for(SootClass nc : colAppClasses) {
-            msg.append("\n\n** CLASS ").append(nc.toString())
-            .append("\n\n\n");
+            msg.append("\n** CLASS ").append(nc.toString())
+            .append("\n\n");
             
             List<SootMethod> ncM = nc.getMethods();
             
