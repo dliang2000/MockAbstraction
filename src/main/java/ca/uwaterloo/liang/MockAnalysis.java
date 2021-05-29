@@ -79,15 +79,20 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     
     // private HashMap<SootMethod, ProcSummary> myProcSummaries;
 
-    //The current analyzed method
+    // The current analyzed method
     private SootMethod myContextMethod;
     
+    // flag for interprocedural analysis
+    private boolean myInterproceduralFlag;
+    
     @SuppressWarnings("unchecked")
-    public MockAnalysis(ExceptionalUnitGraph graph, SootMethod aCurrentSootMethod) {
+    public MockAnalysis(ExceptionalUnitGraph graph, SootMethod aCurrentSootMethod, boolean isInterprocedural) {
         super(graph);
         
         myContextMethod = aCurrentSootMethod;
         
+        myInterproceduralFlag = isInterprocedural;
+                
         myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
         
         mustMocks = (HashMap<Unit, HashMap<Value, MockStatus>>) emptyMustMocks.clone();
@@ -101,10 +106,12 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         doAnalysis();
     }
     
-    public void analyze(ExceptionalUnitGraph graph, SootMethod aCurrentSootMethod) {
+    public void analyze(ExceptionalUnitGraph graph, SootMethod aCurrentSootMethod, boolean isInterprocedural) {
         this.graph = graph;
         
         myContextMethod = aCurrentSootMethod;
+        
+        myInterproceduralFlag = isInterprocedural;
         
         myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
         
@@ -131,7 +138,12 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     }
     
     @Override
-    protected void flowThrough(FlowSet<Map<Value, MockStatus>> in, Unit unit, FlowSet<Map<Value, MockStatus>> out) {        
+    protected void flowThrough(FlowSet<Map<Value, MockStatus>> in, Unit unit, FlowSet<Map<Value, MockStatus>> out) {
+        
+        if (myInterproceduralFlag) {
+            // TODO: Perform interprocedural analysis (Perhaps pass the flag as parameter into the functions below?)
+        }
+        
         // Performs kills
         kill(in, unit, out);
         // Performs gens
