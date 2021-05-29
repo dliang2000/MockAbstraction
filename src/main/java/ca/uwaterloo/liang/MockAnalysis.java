@@ -101,25 +101,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         doAnalysis();
     }
     
-    public void analyze(ExceptionalUnitGraph graph, SootMethod aCurrentSootMethod) {
-        this.graph = graph;
-        
-        myContextMethod = aCurrentSootMethod;
-        
-        myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
-        
-        mustMocks = (HashMap<Unit, HashMap<Value, MockStatus>>) emptyMustMocks.clone();
-        
-        myTotalInvokeExprs = (ArrayList<InvokeExpr>) emptyInvokeExprs.clone();
-        
-        myInvokeExprsOnMocks = (ArrayList<InvokeExpr>) emptyInvokeExprsOnMocks.clone();
-        
-        // myProcSummaries = (HashMap<SootMethod, ProcSummary>) emptyProcSummaries.clone();
-        
-        doAnalysis();
-    
-    }
-    
     @Override
     protected FlowSet<Map<Value, MockStatus>> newInitialFlow() { 
         return emptyFlowSet.clone();
