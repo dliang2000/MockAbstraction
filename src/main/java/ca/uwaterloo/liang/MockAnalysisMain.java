@@ -25,10 +25,12 @@ import soot.SootMethod;
 import soot.Transform;
 import soot.Transformer;
 import soot.Unit;
+import soot.Value;
 import soot.VoidType;
 import soot.jimple.InvokeExpr;
 import soot.jimple.JimpleBody;
 import soot.jimple.toolkits.callgraph.CallGraph;
+import soot.jimple.toolkits.callgraph.Edge;
 import soot.options.Options;
 import soot.tagkit.AnnotationTag;
 import soot.toolkits.graph.ExceptionalUnitGraph;
@@ -120,12 +122,7 @@ public class MockAnalysisMain extends SceneTransformer {
     /**
      * Each method mapped to its summary
      */
-    private HashMap<SootMethod, ProcSummary> procSummaries;
-        
-    /**
-     * Each method mapped to its callees
-     */
-    private HashMap<String, ArrayList<SootMethod> > callees;
+    private static HashMap<SootMethod, ProcSummary> procSummaries;
         
     private MockAnalysis myMAnalysis;
         
@@ -135,8 +132,6 @@ public class MockAnalysisMain extends SceneTransformer {
         procSummaries = new HashMap<SootMethod, ProcSummary>();
             
         classMethods = new HashMap<String, ArrayList<SootMethod> >();
-            
-        callees = new HashMap<String, ArrayList<SootMethod> >();
                 
         appMethods = new ArrayList<SootMethod>();
     }
@@ -173,6 +168,34 @@ public class MockAnalysisMain extends SceneTransformer {
                 /*if (method.getDeclaringClass().getName().contains("PayRollAnnotationMockTest")) {
                     G.v().out.println(body);
                 }*/
+                
+                Iterator<Edge> edges = callGraph.edgesOutOf(method);
+                
+                while (edges.hasNext()) {
+                    Edge e = edges.next();
+                    
+                    SootMethod targetMethod = e.getTgt().method();
+                    
+                    if (!procSummaries.containsKey(targetMethod) && targetMethod.hasActiveBody()) {
+                        ProcSummary targetSummary = new ProcSummary(targetMethod);
+                        
+                        ExceptionalUnitGraph targetCfg = new ExceptionalUnitGraph(targetMethod.getActiveBody());
+                        
+                        MockAnalysis targetMAnalysis = new MockAnalysis(targetCfg, targetMethod);
+                        targetMAnalysis.updateInvocations(targetCfg);
+                        
+                        targetSummary.setMustMocks( targetMAnalysis.getMustMocks() );           
+                        
+                        targetSummary.setTotalInvokeExprs( targetMAnalysis.getTotalInvokeExprs() );
+                        
+                        targetSummary.setInvokeExprsOnMocks( targetMAnalysis.getInvokeExprsOnMocks() );
+                        
+                        procSummaries.put(targetMethod, targetSummary);
+                        
+                        
+                    }
+                }
+                
                 mockSummary = new ProcSummary(method);
                 
                 aCfg = new ExceptionalUnitGraph(method.getActiveBody());
@@ -185,8 +208,6 @@ public class MockAnalysisMain extends SceneTransformer {
                 mockSummary.setTotalInvokeExprs( myMAnalysis.getTotalInvokeExprs() );
                 
                 mockSummary.setInvokeExprsOnMocks( myMAnalysis.getInvokeExprsOnMocks() );
-                    
-                callees.put(method.getSignature(), myMAnalysis.getInvokedMethods());
                 
                 procSummaries.put(method, mockSummary);
             }
@@ -251,6 +272,10 @@ public class MockAnalysisMain extends SceneTransformer {
         msg.append("Invocations On Mocks: ").append(mocks_count).append("\n");
         
         G.v().out.println(msg);
+    }
+    
+    public static HashMap<SootMethod, ProcSummary> getProcSummaries() {
+        return procSummaries;
     }
     
     private int[] calculateMockStats() {

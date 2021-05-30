@@ -29,6 +29,7 @@ import soot.jimple.Expr;
 import soot.jimple.InstanceFieldRef;
 import soot.jimple.InstanceInvokeExpr;
 import soot.jimple.InvokeExpr;
+import soot.jimple.ReturnStmt;
 import soot.jimple.Stmt;
 import soot.jimple.internal.JArrayRef;
 import soot.options.*;
@@ -64,9 +65,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     
     private static ArrayList<SootMethod> emptyInvokedMethods = new ArrayList<SootMethod>();
     
-    //Contains all the invoked methods by the method under analysis
-    private ArrayList<SootMethod> myInvokedMethods;
-    
     //Contains all method invocations
     private ArrayList<InvokeExpr> myTotalInvokeExprs;
     
@@ -87,8 +85,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         super(graph);
         
         myContextMethod = aCurrentSootMethod;
-        
-        myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
         
         mustMocks = (HashMap<Unit, HashMap<Value, MockStatus>>) emptyMustMocks.clone();
         
@@ -182,9 +178,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         if (aStmt.containsInvokeExpr()) {
             InvokeExpr invkExpr = aStmt.getInvokeExpr();
             SootMethod sootMethod = invkExpr.getMethod();
-            
-            if (!sootMethod.isJavaLibraryMethod())
-                myInvokedMethods.add(sootMethod);
                 
             if (isMockAPI(sootMethod)) {
                 HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
@@ -199,7 +192,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             }
         }
         
-        // when Right op of an AssignStmt is a MustMock, ArrayMock, or CollectionMock
+        // Third way: Right op of an AssignStmt is a MustMock, ArrayMock, or CollectionMock
         if (aStmt instanceof AssignStmt) {
             AssignStmt assign = (AssignStmt) aStmt;
             if (assign.getRightOp() instanceof Local || assign.getRightOp() instanceof InstanceFieldRef) {
@@ -245,6 +238,26 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                         mustMocks.put(unit, running_result); 
                     }
                 }
+            }
+        }
+        
+        HashMap<SootMethod, ProcSummary> procSummaries = MockAnalysisMain.getProcSummaries();
+        
+        // Inter-procedural mock
+        if (aStmt.containsInvokeExpr() && aStmt instanceof AssignStmt) {
+            AssignStmt assign = (AssignStmt) aStmt;
+            
+            InvokeExpr invkExpr = aStmt.getInvokeExpr();
+            SootMethod targetMethod = invkExpr.getMethod();
+            
+            if (procSummaries.containsKey(targetMethod) && 
+                    getMockStatusFromTargetMethod(procSummaries.get(targetMethod), targetMethod) != null) {
+                HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
+                Value left_op = assign.getLeftOp();
+                MockStatus status = getMockStatusFromTargetMethod(procSummaries.get(targetMethod), targetMethod);;
+                running_result.put(left_op, status);
+                out.add(running_result);
+                mustMocks.put(unit, running_result); 
             }
         }
     }
@@ -457,10 +470,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         
     }
     
-    public ArrayList<SootMethod> getInvokedMethods() {
-        return myInvokedMethods;
-    }
-    
     public ArrayList<InvokeExpr> getTotalInvokeExprs() {
         return myTotalInvokeExprs;
     }
@@ -489,6 +498,43 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
 //        return null;
 //        
 //    }
+    
+/*    private static void runMockAnalysisForTarget(HashMap<SootMethod, ProcSummary> procSummaries, SootMethod targetMethod) {
+        ProcSummary targetSummary = new ProcSummary(targetMethod);
+        
+        ExceptionalUnitGraph targetCfg = new ExceptionalUnitGraph(targetMethod.getActiveBody());
+        
+        MockAnalysis targetMAnalysis = new MockAnalysis(targetCfg, targetMethod);
+        targetMAnalysis.updateInvocations(targetCfg);
+        
+        targetSummary.setMustMocks( targetMAnalysis.getMustMocks() );           
+        
+        targetSummary.setTotalInvokeExprs( targetMAnalysis.getTotalInvokeExprs() );
+        
+        targetSummary.setInvokeExprsOnMocks( targetMAnalysis.getInvokeExprsOnMocks() );
+        
+        procSummaries.put(targetMethod, targetSummary);
+    }*/
+    
+    private static MockStatus getMockStatusFromTargetMethod(ProcSummary procSummary, SootMethod targetMethod) {
+        HashMap<Unit, HashMap<Value, MockStatus>> summaryMocks = procSummary.getMustMocks();
+        if (targetMethod.hasActiveBody()) {
+            for (Unit u: targetMethod.getActiveBody().getUnits()) {
+                Stmt s = (Stmt) u;
+                if (s instanceof ReturnStmt) {
+                    if (summaryMocks.containsKey(u)) {
+                        HashMap<Value, MockStatus> mocks = summaryMocks.get(u);
+                        
+                        Value returnVal = ((ReturnStmt) s).getOp();
+                        if (mocks.containsKey(returnVal)) {
+                            return mocks.get(returnVal);
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
     
     private static boolean isReadEffect(SootMethod sm) {
         List<String> reads = CollectionModelEffect.READ.getMethods();
