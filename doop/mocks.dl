@@ -79,16 +79,18 @@ isCollectionFieldThatContainsMocks(f) :-
 isArrayLocalThatContainsMocks(c, inmethod) :-
   StoreArrayIndex(mv, c, inmethod),
   isMockVar(mv).
+// c = _.f, f contains mocks
 isArrayLocalThatContainsMocks(c, inmethod) :-
   isArrayFieldThatContainsMocks(f),
   LoadInstanceField(_, f, c, inmethod).
 .output isArrayLocalThatContainsMocks
 
 .decl isArrayFieldThatContainsMocks(f:Field)
-// base.f = c where c is a ArrayLocalThatContainsMocks -> f is a field that contains mocks
+// arr = _.f <- (2) propagates so that field f is a field that contains mocks
+// arr[i] = mv <- (1) marks arr as an arraylocalthatcontainsmocks
 isArrayFieldThatContainsMocks(f) :-
-  isArrayLocalThatContainsMocks(c, _),
-  StoreInstanceField(c, _, f, _).
+  isArrayLocalThatContainsMocks(arr, _),
+  LoadInstanceField(_, f, arr, _).
 .output isArrayFieldThatContainsMocks
 
 .decl isMockInvocation(mi: MethodInvocation, signature:Method, inMethod:Method, line: number, receiver: symbol)
