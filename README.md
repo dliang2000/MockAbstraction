@@ -2,6 +2,44 @@
 
 This repository focuses on analyzing for mock objects created and used in unit test cases. The tool analyzes the mock objects through def-use chain and forward data flow analysis.
 
+## Instructions
+
+### Driver class generation
+
+Copying config.sh.template to config.sh with necessary customizations of the path.
+
+Run the following:
+
+./bin/scripts/BENCHMARK/driver_generator_BENCHMARK.sh
+
+or if you want to generate driver classes for all benchmarks:
+
+./runall_driver.sh
+
+### Mock Analysis:
+
+Make sure the driver classes are generated before running Mock Analysis.
+
+Run the following:
+
+./bin/scripts/BENCHMARK/MockFlowAnalysis_BENCHMARK.sh
+
+or if you want to run Mock Analysis for all benchmarks:
+
+./runall_MockAnalysis.sh
+
+### Mutated Field Analysis:
+
+Make sure the driver classes are generated before running Mutated Field Analysis.
+
+Run the following:
+
+./bin/scripts/BENCHMARK/MutatedFieldAnalysis_BENCHMARK.sh
+
+or if you want to run Mock Analysis for all benchmarks:
+
+./runall_MutatedFieldAnalysis.sh
+
 ## Field Mutation Data
 | Benchmark |  Total # of Fields Mutated in Test Cases / Total # of Fields |
 | --- | --- |
