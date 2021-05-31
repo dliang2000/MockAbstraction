@@ -37,5 +37,6 @@ public class RootDriver {
 		class7.testEmployeesPaidIntra();
 		class7.testSingleEmployee();
 		class7.testEmployeeIsPaid();
+		class7.testBankService();
 	}
 }
