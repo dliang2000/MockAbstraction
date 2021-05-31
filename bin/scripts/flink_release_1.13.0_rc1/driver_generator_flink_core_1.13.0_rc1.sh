@@ -20,6 +20,10 @@ echo $JAR_PATH
 
 cd $BENCHMARK_PATH/$CORE
 
+# remove Driver and RootDriver classes if they exist
+find . -name "Driver.java" -type f -delete
+find . -name "RootDriver.java" -type f -delete
+
 # touch is_maven in the benchmark directory to indicate that a benchmark is mvn
 if [ -a is_maven ]; then
   echo "it is a maven project"
