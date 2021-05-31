@@ -54,7 +54,7 @@ public class PayRollMultipleEmployeeTest {
         ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Integer> salaryCaptor = ArgumentCaptor.forClass(Integer.class);
 
-    // *mock* call to makePayment
+	// *mock* call to makePayment
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
         // *mock* calls (4) to getBankId and getSalary through a container
@@ -64,7 +64,7 @@ public class PayRollMultipleEmployeeTest {
         assertEquals(employees.get(0).getSalary(), salaryCaptor.getAllValues().get(0).intValue());
         assertEquals(employees.get(1).getSalary(), salaryCaptor.getAllValues().get(1).intValue());
     }
-    // total mock calls: 6
+    // total mock calls: 5
     
     // Contains mock object
     // this is the same as testAllEmployeesArePaid1 except the declared type of mockEmployessList is ArrayList<Employee> 

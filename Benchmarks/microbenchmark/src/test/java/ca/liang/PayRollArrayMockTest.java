@@ -33,10 +33,7 @@ public class PayRollArrayMockTest {
         employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
-        // if this was in a test (rather than init)
-        // this would actually be incorrect test code---
-        // shouldn't leave mocks around between tests.
-        // but it investigates how the analysis works and it's fine for an init.
+	// this code really has to be in init() (which it is, so that's fine)
         employees_mock = new Employee[1];
         employees_mock[0] = mock(Employee.class);
 
@@ -53,7 +50,6 @@ public class PayRollArrayMockTest {
     }
     // total mock calls: 0
     
-    // Contains mock object
     @Test
     public void testEmployeesPaidIntra() {
         Employee[] employees_intra = new Employee[2];
@@ -70,7 +66,7 @@ public class PayRollArrayMockTest {
     }
     // total mock calls: 0
     
-    // Contains mock object (field initialized in @Before method)
+    // Contains mock object (ee, from mock-containing array)
     @Test
     public void testSingleEmployeeFieldArrayMock() {
         String employeeName = "Test Employee";
@@ -103,7 +99,7 @@ public class PayRollArrayMockTest {
         assertEquals(ee.getName(), employeeName);
     }
     // total mock calls: 2
-    
+
     // Contains mock object
     @Test
     public void testAllEmployeesArePaidArrayIntra() {
@@ -175,7 +171,6 @@ public class PayRollArrayMockTest {
     }
     // total mock calls: 0
     
-    // Contains mock object
     /**
      * creates an array of four Node instances, mocked by Mockito
      */
