@@ -38,7 +38,7 @@ public class PayRollMultipleEmployee2Test {
         employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
-    // *mock* call below, employeeDB.getAllEmployees()
+        // *mock* call below, employeeDB.getAllEmployees()
         when(employeeDB.getAllEmployees()).thenReturn(employees);
 
         payRoll = new PayRoll(employeeDB, bankService);
@@ -46,8 +46,6 @@ public class PayRollMultipleEmployee2Test {
     // total mock calls: 1
     
     // Contains mock object
-    // this is the same as testAllEmployeesArePaid1 except the declared type of mockEmployessList is ArrayList<Employee> 
-    // and not List<Employee>
     @Test
     public void testAllEmployeesArePaid() {
         assertNumberOfPayments(2);
@@ -55,14 +53,16 @@ public class PayRollMultipleEmployee2Test {
         ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Integer> salaryCaptor = ArgumentCaptor.forClass(Integer.class);
 
+        // *mock* call below, verify(bankService).makePayment
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
+        // *mock* calls below because employees is a collection containing mocks
         assertEquals(employees.get(0).getBankId(), idCaptor.getAllValues().get(0));
         assertEquals(employees.get(1).getBankId(), idCaptor.getAllValues().get(1));
         assertEquals(employees.get(0).getSalary(), salaryCaptor.getAllValues().get(0).intValue());
         assertEquals(employees.get(1).getSalary(), salaryCaptor.getAllValues().get(1).intValue());
     }
-    // total mock calls: 6
+    // total mock calls: 5
     
     private void assertNumberOfPayments(int expected) {
     // not mock

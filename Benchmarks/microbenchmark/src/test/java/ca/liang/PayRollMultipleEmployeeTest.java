@@ -67,8 +67,7 @@ public class PayRollMultipleEmployeeTest {
     // total mock calls: 5
     
     // Contains mock object
-    // this is the same as testAllEmployeesArePaid1 except the declared type of mockEmployessList is ArrayList<Employee> 
-    // and not List<Employee>
+    // this is an intraprocedural version of testAllEmployeesArePaid1, creating everything locally instead of using fields
     @Test
     public void testAllEmployeesArePaid2() {
         ArrayList<Employee> mockEmployessList = new ArrayList<Employee>();
