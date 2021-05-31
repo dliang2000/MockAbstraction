@@ -25,10 +25,12 @@ import soot.SootMethod;
 import soot.Transform;
 import soot.Transformer;
 import soot.Unit;
+import soot.Value;
 import soot.VoidType;
 import soot.jimple.InvokeExpr;
 import soot.jimple.JimpleBody;
 import soot.jimple.toolkits.callgraph.CallGraph;
+import soot.jimple.toolkits.callgraph.Edge;
 import soot.options.Options;
 import soot.tagkit.AnnotationTag;
 import soot.toolkits.graph.ExceptionalUnitGraph;
@@ -105,85 +107,62 @@ public class MockAnalysisMain extends SceneTransformer {
         soot.Main.main(pd.toArray(new String[0]));
     }
         
-    private CallGraph myCallGraph;
+    private CallGraph callGraph;
     
-    private PointsToAnalysis myPointsToAnalysis;
-    
-    /**
-     * All the classes of the application to analyze
-     */ 
-    private HashMap<String, SootClass> myAppClasses;
-    private Collection<SootClass> colAppClasses;
+    private PointsToAnalysis pointsToAnalysis;
     
     /**
      * All the methods of the applications classes to analyze
      */
-    private ArrayList<SootMethod> myAppMethods;
+    private ArrayList<SootMethod> appMethods;
     
     /**
      * Each class mapped to its corresponding methods
      */
-    private HashMap<String, ArrayList<SootMethod>> myClassMethods;
+    private HashMap<String, ArrayList<SootMethod>> classMethods;
     
     
     /**
      * Each method mapped to its summary
      */
-    private HashMap<SootMethod, ProcSummary> myProcSummaries;
-        
-    /**
-     * Each method mapped to its callees
-     */
-    private HashMap<String, ArrayList<SootMethod> > myCallees;
+    private static HashMap<SootMethod, ProcSummary> procSummaries;
         
     private MockAnalysis myMAnalysis;
         
     public MockAnalysisMain() {
         super();
         
-        myProcSummaries = new HashMap<SootMethod, ProcSummary>();
+        procSummaries = new HashMap<SootMethod, ProcSummary>();
             
-        myClassMethods = new HashMap<String, ArrayList<SootMethod> >();
-            
-        myCallees = new HashMap<String, ArrayList<SootMethod> >();
+        classMethods = new HashMap<String, ArrayList<SootMethod> >();
                 
-        myAppMethods = new ArrayList<SootMethod>();
-        
-        myAppClasses = new HashMap<String, SootClass>();
+        appMethods = new ArrayList<SootMethod>();
     }
 
 
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
-        // TODO Auto-generated method stub
         int totalNumberOfTestRelatedMethods = 0;
-        Chain<SootClass> itAppClasses = Scene.v().getApplicationClasses();
-        for (SootClass itAppClass: itAppClasses) {
-            myAppClasses.put(itAppClass.getName(), itAppClass);
-        }
-        colAppClasses = myAppClasses.values();
     
-        myCallGraph = Scene.v().getCallGraph();
+        callGraph = Scene.v().getCallGraph();
      
         // get points to analysis object
-        myPointsToAnalysis = Scene.v().getPointsToAnalysis();
+        pointsToAnalysis = Scene.v().getPointsToAnalysis();
         
         //Compute summaries of all methods present in the call graph
         
-        for (SootClass sc : colAppClasses) {
-            myAppMethods.addAll(sc.getMethods());           
-            myClassMethods.put(sc.getName(), new ArrayList<SootMethod>(sc.getMethods()) );
+        for (SootClass sc : Scene.v().getApplicationClasses()) {
+            appMethods.addAll(sc.getMethods());           
+            classMethods.put(sc.getName(), new ArrayList<SootMethod>(sc.getMethods()) );
         } 
         
         ProcSummary mockSummary = null;  
            
         ExceptionalUnitGraph aCfg = null;
             
-        boolean mySAInst = false;
-            
-        G.v().out.println("Number of methods to be analyzed: " + myAppMethods.size() );
+        G.v().out.println("Number of methods to be analyzed: " + appMethods.size() );
         
-        for (SootMethod method : myAppMethods) {   
+        for (SootMethod method : appMethods) {   
             if (method.hasActiveBody() && 
                     (isBeforeMethod(method) || isTestCase(method) || isAfterMethod(method)) ) {
                 totalNumberOfTestRelatedMethods++;
@@ -192,28 +171,48 @@ public class MockAnalysisMain extends SceneTransformer {
                 /*if (method.getDeclaringClass().getName().contains("PayRollAnnotationMockTest")) {
                     G.v().out.println(body);
                 }*/
+                
+                Iterator<Edge> edges = callGraph.edgesOutOf(method);
+                
+                while (edges.hasNext()) {
+                    Edge e = edges.next();
+                    
+                    SootMethod targetMethod = e.getTgt().method();
+                    
+                    if (!procSummaries.containsKey(targetMethod) && targetMethod.hasActiveBody()) {
+                        ProcSummary targetSummary = new ProcSummary(targetMethod);
+                        
+                        ExceptionalUnitGraph targetCfg = new ExceptionalUnitGraph(targetMethod.getActiveBody());
+                        
+                        MockAnalysis targetMAnalysis = new MockAnalysis(targetCfg, targetMethod);
+                        targetMAnalysis.updateInvocations(targetCfg);
+                        
+                        targetSummary.setMustMocks( targetMAnalysis.getMustMocks() );           
+                        
+                        targetSummary.setTotalInvokeExprs( targetMAnalysis.getTotalInvokeExprs() );
+                        
+                        targetSummary.setInvokeExprsOnMocks( targetMAnalysis.getInvokeExprsOnMocks() );
+                        
+                        procSummaries.put(targetMethod, targetSummary);
+                        
+                        
+                    }
+                }
+                
                 mockSummary = new ProcSummary(method);
                 
                 aCfg = new ExceptionalUnitGraph(method.getActiveBody());
                 
-                if (mySAInst){
-                     myMAnalysis.analyze(aCfg, method, interprocedural);
-                     myMAnalysis.updateInvocations(aCfg);
-                } else {
-                     myMAnalysis = new MockAnalysis(aCfg, method, interprocedural);
-                     myMAnalysis.updateInvocations(aCfg);
-                     mySAInst = true;
-                }
+                myMAnalysis = new MockAnalysis(aCfg, method);
+                myMAnalysis.updateInvocations(aCfg);
                 
                 mockSummary.setMustMocks( myMAnalysis.getMustMocks() );           
                 
                 mockSummary.setTotalInvokeExprs( myMAnalysis.getTotalInvokeExprs() );
                 
                 mockSummary.setInvokeExprsOnMocks( myMAnalysis.getInvokeExprsOnMocks() );
-                    
-                myCallees.put(method.getSignature(), myMAnalysis.getInvokedMethods());
                 
-                myProcSummaries.put(method, mockSummary);
+                procSummaries.put(method, mockSummary);
             }
         }
             
@@ -243,7 +242,7 @@ public class MockAnalysisMain extends SceneTransformer {
         .append(" INVOCATION STATISTICS \n\n");
         
         int total_count = 0, mocks_count = 0;
-        for(SootClass nc : colAppClasses) {
+        for(SootClass nc : Scene.v().getApplicationClasses()) {
             msg.append("\n** CLASS ").append(nc.toString())
             .append("\n\n");
             
@@ -252,7 +251,7 @@ public class MockAnalysisMain extends SceneTransformer {
             ProcSummary pSmy = null;
             
             for(SootMethod m : ncM) {
-                pSmy = myProcSummaries.get(m);
+                pSmy = procSummaries.get(m);
                 if (pSmy == null) 
                     continue;
                 ArrayList<InvokeExpr> totalInvokes = pSmy.getTotalInvokeExprs();
@@ -278,12 +277,16 @@ public class MockAnalysisMain extends SceneTransformer {
         G.v().out.println(msg);
     }
     
+    public static HashMap<SootMethod, ProcSummary> getProcSummaries() {
+        return procSummaries;
+    }
+    
     private int[] calculateMockStats() {
         int[] class_mocks = new int[3];
         int[] benchmark_mock_stats = new int[3];
                     
-        for(SootClass nc : colAppClasses) {     
-            List<int[]> mockStats = Utility.gatherMocksStats(nc, myProcSummaries);
+        for(SootClass nc : Scene.v().getApplicationClasses()) {     
+            List<int[]> mockStats = Utility.gatherMocksStats(nc, procSummaries);
             StringBuffer msg = new StringBuffer();
             msg.append(" ====================================== \n")
             .append("** CLASS ").append(nc.toString())
@@ -317,8 +320,8 @@ public class MockAnalysisMain extends SceneTransformer {
     private void printOutput() {
         StringBuffer msg = new StringBuffer();
                     
-        for(SootClass nc : colAppClasses) {     
-            msg.append( Utility.printMustMocks(nc, myProcSummaries) );
+        for(SootClass nc : Scene.v().getApplicationClasses()) {     
+            msg.append( Utility.printMustMocks(nc, procSummaries) );
         }   
             
         G.v().out.println(msg);

@@ -1,5 +1,8 @@
 // ./doop -a context-insensitive -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT-tests.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/mvn_dependencies/ --id context-insensitive-with-mocks --souffle-jobs 32 --main ca.liang.RootDriver --extra-logic souffle-logic/analyses/mocks/mocks.dl
 
+#include "../../basic/type-hierarchy.dl"
+#include "../../basic/method-lookup.dl"
+
 // m: Method
 .decl MockSourceMethod(m: Method)
 MockSourceMethod("<org.easymock.EasyMock: java.lang.Object createMock(java.lang.Class)>").
@@ -16,9 +19,15 @@ MockFieldAnnotation("org.mockito.Mock").
 
 .decl CollectionPutMethod(m:Method)
 CollectionPutMethod("<java.util.List: boolean add(java.lang.Object)>").
+CollectionPutMethod(m) :-
+  CollectionPutMethod(m0),
+  MethodOverridesOther(m, m0).
 
 .decl CollectionGetMethod(m:Method)
 CollectionGetMethod("<java.util.List: java.lang.Object get(int)>").
+CollectionGetMethod(m) :-
+  CollectionGetMethod(m0),
+  MethodOverridesOther(m, m0).
 
 .decl CallGraphEdge(c1:symbol, invocation:symbol, c2:symbol, meth:symbol)
 .input CallGraphEdge(IO="file", filename="CallGraphEdge.csv", delimiter="\t")
@@ -49,7 +58,7 @@ isMockVar(v) :-
   VirtualMethodInvocation_Base(mi, c),
   AssignReturnValue(mi, v).
 isMockVar(v) :-
-// v = c.get(_);
+// v = c[_];
   isArrayLocalThatContainsMocks(c, _),
   LoadArrayIndex(c, v, _).
 .output isMockVar
@@ -79,16 +88,21 @@ isCollectionFieldThatContainsMocks(f) :-
 isArrayLocalThatContainsMocks(c, inmethod) :-
   StoreArrayIndex(mv, c, inmethod),
   isMockVar(mv).
+// c = _.f, f contains mocks
 isArrayLocalThatContainsMocks(c, inmethod) :-
   isArrayFieldThatContainsMocks(f),
   LoadInstanceField(_, f, c, inmethod).
+isArrayLocalThatContainsMocks(c, inmethod) :-
+  isArrayLocalThatContainsMocks(c1, inmethod),
+  AssignLocal(c1, c, inmethod).
 .output isArrayLocalThatContainsMocks
 
 .decl isArrayFieldThatContainsMocks(f:Field)
-// base.f = c where c is a ArrayLocalThatContainsMocks -> f is a field that contains mocks
+// arr = _.f <- (2) propagates so that field f is a field that contains mocks
+// arr[i] = mv <- (1) marks arr as an arraylocalthatcontainsmocks
 isArrayFieldThatContainsMocks(f) :-
-  isArrayLocalThatContainsMocks(c, _),
-  StoreInstanceField(c, _, f, _).
+  isArrayLocalThatContainsMocks(arr, _),
+  LoadInstanceField(_, f, arr, _).
 .output isArrayFieldThatContainsMocks
 
 .decl isMockInvocation(mi: MethodInvocation, signature:Method, inMethod:Method, line: number, receiver: symbol)

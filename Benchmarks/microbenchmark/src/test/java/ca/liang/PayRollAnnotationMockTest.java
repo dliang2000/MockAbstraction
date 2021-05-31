@@ -29,7 +29,7 @@ public class PayRollAnnotationMockTest {
 
     private Employee[] employees;
     
-    // Contains mock object (initialized through annotation)
+    // Contains mock object employeeDB (initialized through annotation)
     @Before
     public void init() {
         employees = new Employee[1];
@@ -42,9 +42,8 @@ public class PayRollAnnotationMockTest {
         
         payRoll = new PayRoll(employeeDB, bankService);
     }
-    // total mock calls: 0
-    
-    // Contains mock object
+    // total mock calls: 1
+
     @Test
     public void testEmployeesPaidIntra() {
         Employee[] employees_intra = new Employee[2];
@@ -60,14 +59,13 @@ public class PayRollAnnotationMockTest {
     }
     // total mock calls: 0
     
-    // Contains mock object (passed in from field)
     @Test
     public void testSingleEmployee() {
         assertNumberOfPayments(1);
     }
-    // total mock calls: 1
-    
-    // Contains mock object (one passed in from field, and the other created from verify() )
+    // total mock calls: 0
+
+    // Contains mock object (created by verify())
     @Test
     public void testEmployeeIsPaid() {
         payRoll = new PayRoll(employeeDB, bankService);
@@ -77,7 +75,15 @@ public class PayRollAnnotationMockTest {
         // *mock* return value from verify()
         verify(bankService, times(1)).makePayment("ID0", 1000);
     }
-    // total mock calls: 2
+    // total mock calls: 1
+
+    // Contains mock object (from annotation)
+    @Test
+    public void testBankService() {
+	// *mock* call of @Mock-annotated object
+	bankService.makePayment("ID0", 1000);
+    }
+    // total mock calls: 1
     
     private void assertNumberOfPayments(int expected) {
         int numberOfPayments = payRoll.monthlyPayment();
