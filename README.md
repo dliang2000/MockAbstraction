@@ -10,11 +10,15 @@ Copying config.sh.template to config.sh with necessary customizations of the pat
 
 Run the following:
 
+```console
 ./bin/scripts/BENCHMARK/driver_generator_BENCHMARK.sh
+```
 
 or if you want to generate driver classes for all benchmarks:
 
+```console
 ./runall_driver.sh
+```
 
 ### Mock Analysis:
 
@@ -22,11 +26,15 @@ Make sure the driver classes are generated before running Mock Analysis.
 
 Run the following:
 
+```console
 ./bin/scripts/BENCHMARK/MockFlowAnalysis_BENCHMARK.sh
+```
 
 or if you want to run Mock Analysis for all benchmarks:
 
+```console
 ./runall_MockAnalysis.sh
+```
 
 ### Mutated Field Analysis:
 
@@ -34,11 +42,15 @@ Make sure the driver classes are generated before running Mutated Field Analysis
 
 Run the following:
 
+```console
 ./bin/scripts/BENCHMARK/MutatedFieldAnalysis_BENCHMARK.sh
+```
 
 or if you want to run Mock Analysis for all benchmarks:
 
+```console
 ./runall_MutatedFieldAnalysis.sh
+```
 
 ## Field Mutation Data
 | Benchmark |  Total # of Fields Mutated in Test Cases / Total # of Fields |
