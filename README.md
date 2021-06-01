@@ -88,7 +88,7 @@ or if you want to run Mock Analysis for all benchmarks:
 | flink-core-1.13.0-rc1 | 10079 | 40 |
 | jsonschema2pojo-core-1.1.1 | 1730 | 217 |
 | maven-core-3.8.1 | 3367 | 21 |
-| microbenchmark | 195 | 18 |
+| microbenchmark | 226 | 22 |
 | mybatis-3.5.6 | 17798 | 569 |
 | quartz-core-2.3.1 | 3217 | 21 |
 | vraptor-core-3.5.51 | 5529 | 827 |
@@ -96,13 +96,33 @@ or if you want to run Mock Analysis for all benchmarks:
 
 ## Manual Inspection on microbenchmark  (Intraprocedural)
 
-| Benchmark | Number of Test/Before/After Methods with MustMock | Number of Test/Before/After Methods with ArrayMock | Number of Test/Before/After Methods with CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
+| Benchmark | Number of Test/Before/After Methods with MayMock | Number of Test/Before/After Methods with ArrayMock | Number of Test/Before/After Methods with CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
 | --- | --- | --- | --- | --- | --- |
-| microbenchmark | 18 | 5 | 2 | 39 | 5 |
+| microbenchmark | 22 | 5 | 2 | 39 | 5 |
+
+For DirtyTest:
+
+| Test Method | MayMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
+| --- | --- | --- | --- | --- | --- |
+| init | 1 | 0 | 0 | 1 | 0 |
+| testSingleEmployeeFieldArrayNomock | 0 | 0 | 0 | 0 | 0 |
+| Total | 1 | 0 | 0 | 1 | 0 |
+
+For PayRollAnnotationMockTest:
+
+| Test Method | MayMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
+| --- | --- | --- | --- | --- | --- |
+| init | 1 | 0 | 0 | 1 | 0 |
+| testEmployeesPaidIntra | 1 | 1 | 0 | 0 | 0 |
+| testSingleEmployee | 0 | 0 | 0 | 0 | 0 |
+| testEmployeeIsPaid | 1 | 0 | 0 | 1 | 0 |
+| testBankService | 0 | 0 | 0 | 1 | 0 |
+| Total | 3 | 1 | 0 | 3 | 0 |
+
 
 For PayRollMockTest:
 
-| Test Method | MustMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
+| Test Method | MayMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
 | --- | --- | --- | --- | --- | --- |
 | init | 1 | 0 | 0 | 1 | 0 |
 | testNoEmployees | 0 | 0 | 0 | 0 | 0 |
@@ -110,27 +130,25 @@ For PayRollMockTest:
 | testSingleEmployee | 0 | 0 | 0 | 0 | 0 |
 | testSingleEmployeeMock | 1 (Inter) | 0 | 0 | 1 | 1 |
 | testEmployeeIsPaid | 1 | 0 | 0 | 1 | 0 |
-| testAllEmployeesArePaid1 | 1 | 0 | 1 | 6 | 0 |
-| testAllEmployeesArePaid2 | 1 | 0 | 1 | 6 | 0 |
 | testInteractionOrder | 1 | 0 | 0 | 2 | 0 |
 | Total | 7 | 0 | 2 | 18 | 1 |
 
 For PayRollArrayMockTest:
 
-| Test Method | MustMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
+| Test Method | MayMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
 | --- | --- | --- | --- | --- | --- |
 | init | 1 | 1 | 0 | 1 | 0 |
 | testSingleEmployee | 0 | 0 | 0 | 0 | 0 |
 | testEmployeesPaidIntra | 1 | 1 | 0 | 0 | 0 |
-| testSingleEmployeeFieldArrayMock | 1 (Inter) | 0 | 0 | 2 | 0 |
+| testSingleEmployeeFieldArrayMock | 1 (Field) | 0 | 0 | 2 | 0 |
 | testSingleEmployeeLocalArrayMock | 1 | 0 | 0 | 2 | 0 |
 | testAllEmployeesArePaidArrayIntra | 1 | 1 | 0 | 6 | 0 |
-| testAllEmployeesArePaidArray | 1 | 1 | 0 | 6 | 4 |
+| testAllEmployeesArePaidArray | 1 | 1 (Inter) | 0 | 6 | 4 |
 | Total | 6 | 4 | 0 | 17 | 4 |
 
 For PayRollArrayNoMockTest:
 
-| Test Method | MustMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
+| Test Method | MayMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
 | --- | --- | --- | --- | --- | --- |
 | init | 1 | 0 | 0 | 1 | 0 |
 | testNoEmployees | 0 | 0 | 0 | 0 | 0 |
@@ -138,13 +156,21 @@ For PayRollArrayNoMockTest:
 | testSingleEmployeeLocalArrayNomock | 0 | 0 | 0 | 0 | 0 |
 | Total | 1 | 0 | 0 | 1 | 0 |
 
-For PayRollAnnotationMockTest:
 
-| Test Method | MustMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
+For PayRollMultipleEmployeeTest:
+
+| Test Method | MayMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
 | --- | --- | --- | --- | --- | --- |
-| init | 1 | 0 | 0 | 0 | 0 |
-| testNoEmployees | 0 | 0 | 0 | 0 | 0 |
-| testEmployeesPaidIntra | 1 | 1 | 0 | 0 | 0 |
-| testSingleEmployee | 1 | 0 | 0 | 1 | 0 |
-| testEmployeeIsPaid | 1 | 0 | 0 | 2 | 0 |
-| Total | 4 | 1 | 0 | 3 | 0 |
+| init | 1 | 0 | 1 | 1 | 0 |
+| testAllEmployeesArePaid1 | 1 | 0 | 0 | 5 (field) | 0 |
+| testAllEmployeesArePaid2 | 1 | 0 | 1 | 6 (field) | 0 |
+| Total | 3 | 0 | 2 | 12 | 0 |
+
+
+For PayRollMultipleEmployee2Test:
+
+| Test Method | MayMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
+| --- | --- | --- | --- | --- | --- |
+| init | 1 | 0 | 1 | 1 | 0 |
+| testAllEmployeesArePaid1 | 1 | 0 | 0 | 5 (field) | 0 |
+| Total | 2 | 0 | 1 | 6 | 0 |
