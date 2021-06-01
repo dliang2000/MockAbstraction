@@ -32,6 +32,7 @@ import soot.jimple.InvokeExpr;
 import soot.jimple.ReturnStmt;
 import soot.jimple.Stmt;
 import soot.jimple.internal.JArrayRef;
+import soot.jimple.toolkits.callgraph.Edge;
 import soot.options.*;
 import soot.tagkit.AnnotationTag;
 import soot.toolkits.graph.*;
@@ -61,10 +62,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     
     private static HashMap<Unit, HashMap<Value, MockStatus>> emptyMustMocks = new HashMap<Unit, HashMap<Value, MockStatus>>();
     
-    //private static HashMap<SootMethod, ProcSummary> emptyProcSummaries = new HashMap<SootMethod, ProcSummary>();
-    
-    private static ArrayList<SootMethod> emptyInvokedMethods = new ArrayList<SootMethod>();
-    
     //Contains all method invocations
     private ArrayList<InvokeExpr> myTotalInvokeExprs;
     
@@ -74,32 +71,21 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     // For each unit x local, will store a boolean for if it is a must mock,
     // if is a must mock within Collection, or if it is a must mock within Array.
     private HashMap<Unit, HashMap<Value, MockStatus>> mustMocks;
-    
-    // private HashMap<SootMethod, ProcSummary> myProcSummaries;
 
     // The current analyzed method
     private SootMethod myContextMethod;
     
-    // flag for interprocedural analysis
-    private boolean myInterproceduralFlag;
-    
     @SuppressWarnings("unchecked")
-    public MockAnalysis(ExceptionalUnitGraph graph, SootMethod aCurrentSootMethod, boolean isInterprocedural) {
+    public MockAnalysis(ExceptionalUnitGraph graph, SootMethod aCurrentSootMethod) {
         super(graph);
         
         myContextMethod = aCurrentSootMethod;
-        
-        myInterproceduralFlag = isInterprocedural;
-                
-        myInvokedMethods = (ArrayList<SootMethod>) emptyInvokedMethods.clone();
         
         mustMocks = (HashMap<Unit, HashMap<Value, MockStatus>>) emptyMustMocks.clone();
         
         myTotalInvokeExprs = (ArrayList<InvokeExpr>) emptyInvokeExprs.clone();
         
         myInvokeExprsOnMocks = (ArrayList<InvokeExpr>) emptyInvokeExprsOnMocks.clone();
-        
-        // myProcSummaries = (HashMap<SootMethod, ProcSummary>) emptyProcSummaries.clone();
                 
         doAnalysis();
     }
@@ -115,12 +101,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     }
     
     @Override
-    protected void flowThrough(FlowSet<Map<Value, MockStatus>> in, Unit unit, FlowSet<Map<Value, MockStatus>> out) {
-        
-        if (myInterproceduralFlag) {
-            // TODO: Perform interprocedural analysis (Perhaps pass the flag as parameter into the functions below?)
-        }
-        
+    protected void flowThrough(FlowSet<Map<Value, MockStatus>> in, Unit unit, FlowSet<Map<Value, MockStatus>> out) {      
         // Performs kills
         kill(in, unit, out);
         // Performs gens
@@ -262,7 +243,51 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             InvokeExpr invkExpr = aStmt.getInvokeExpr();
             SootMethod targetMethod = invkExpr.getMethod();
             
-            if (procSummaries.containsKey(targetMethod) && 
+            // System.out.println("target method signature: " + targetMethod.getSignature());
+            
+            Iterator<Edge> edges = Scene.v().getCallGraph().edgesOutOf(unit);
+            
+            while (edges.hasNext()) {
+                Edge e = edges.next();
+                
+                SootMethod targetMethodFromCallGraph = e.getTgt().method();
+                
+                // Skip Java Library methods
+                if (targetMethodFromCallGraph.isJavaLibraryMethod())
+                    continue;
+                
+                if (targetMethodFromCallGraph.getSignature().equals(targetMethod.getSignature())) {
+                    System.out.println("target method signature from Call Graph: " + targetMethodFromCallGraph.getSignature());
+                    
+                    if (!procSummaries.containsKey(targetMethodFromCallGraph) && targetMethodFromCallGraph.hasActiveBody()) {
+                        System.out.println("Creating ProcSummary for: " + targetMethodFromCallGraph.getSignature());
+                        runMockAnalysisForTarget(procSummaries, targetMethodFromCallGraph);
+                    }
+                    
+                    if (procSummaries.containsKey(targetMethodFromCallGraph)) {
+                        System.out.println(targetMethodFromCallGraph.getSignature() + " is in ProcSummaries.");
+                    }
+                    
+                    if (getMockStatusFromTargetMethod(procSummaries.get(targetMethodFromCallGraph), targetMethodFromCallGraph) != null) {
+                        System.out.println(targetMethodFromCallGraph.getSignature() + " return is a mock.");
+                    }
+                            
+                    if (procSummaries.containsKey(targetMethodFromCallGraph) && 
+                            getMockStatusFromTargetMethod(procSummaries.get(targetMethodFromCallGraph), targetMethodFromCallGraph) != null) {
+                        
+                        System.out.println("target Method in proc Summaries.");
+                        
+                        HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
+                        Value left_op = assign.getLeftOp();
+                        MockStatus status = getMockStatusFromTargetMethod(procSummaries.get(targetMethodFromCallGraph), targetMethodFromCallGraph);;
+                        running_result.put(left_op, status);
+                        out.add(running_result);
+                        mustMocks.put(unit, running_result); 
+                    }
+                }
+            }
+            
+            /*if (procSummaries.containsKey(targetMethod) && 
                     getMockStatusFromTargetMethod(procSummaries.get(targetMethod), targetMethod) != null) {
                 HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
                 Value left_op = assign.getLeftOp();
@@ -270,7 +295,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                 running_result.put(left_op, status);
                 out.add(running_result);
                 mustMocks.put(unit, running_result); 
-            }
+            }*/
         }
     }
     
@@ -511,7 +536,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
 //        
 //    }
     
-/*    private static void runMockAnalysisForTarget(HashMap<SootMethod, ProcSummary> procSummaries, SootMethod targetMethod) {
+    private static void runMockAnalysisForTarget(HashMap<SootMethod, ProcSummary> procSummaries, SootMethod targetMethod) {
         ProcSummary targetSummary = new ProcSummary(targetMethod);
         
         ExceptionalUnitGraph targetCfg = new ExceptionalUnitGraph(targetMethod.getActiveBody());
@@ -526,7 +551,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         targetSummary.setInvokeExprsOnMocks( targetMAnalysis.getInvokeExprsOnMocks() );
         
         procSummaries.put(targetMethod, targetSummary);
-    }*/
+    }
     
     private static MockStatus getMockStatusFromTargetMethod(ProcSummary procSummary, SootMethod targetMethod) {
         HashMap<Unit, HashMap<Value, MockStatus>> summaryMocks = procSummary.getMustMocks();

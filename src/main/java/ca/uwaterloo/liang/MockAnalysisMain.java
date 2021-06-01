@@ -59,9 +59,6 @@ public class MockAnalysisMain extends SceneTransformer {
     @Parameter(names={"--verbose", "-v"}, description="verbose mode") 
     boolean verbose = true;
     
-    @Parameter(names={"--interprocedural", "-i"}, description="interprocedural") 
-    boolean interprocedural = true;
-    
     private static final Logger logger = LoggerFactory.getLogger(PackManager.class);
     public static void main(String[] args) throws IOException {
         PackManager.v().getPack("wjtp").add(new Transform("wjtp.initialTransform", new MockAnnotationTransformer()) {
@@ -178,6 +175,10 @@ public class MockAnalysisMain extends SceneTransformer {
                     Edge e = edges.next();
                     
                     SootMethod targetMethod = e.getTgt().method();
+                    
+                    // Skip Java Library methods
+                    if (targetMethod.isJavaLibraryMethod())
+                        continue;
                     
                     if (!procSummaries.containsKey(targetMethod) && targetMethod.hasActiveBody()) {
                         ProcSummary targetSummary = new ProcSummary(targetMethod);
