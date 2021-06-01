@@ -188,7 +188,7 @@ public class MockAnalysisMain extends SceneTransformer {
                         MockAnalysis targetMAnalysis = new MockAnalysis(targetCfg, targetMethod);
                         targetMAnalysis.updateInvocations(targetCfg);
                         
-                        targetSummary.setMustMocks( targetMAnalysis.getMustMocks() );           
+                        targetSummary.setMayMocks( targetMAnalysis.getMayMocks() );           
                         
                         targetSummary.setTotalInvokeExprs( targetMAnalysis.getTotalInvokeExprs() );
                         
@@ -207,7 +207,7 @@ public class MockAnalysisMain extends SceneTransformer {
                 myMAnalysis = new MockAnalysis(aCfg, method);
                 myMAnalysis.updateInvocations(aCfg);
                 
-                mockSummary.setMustMocks( myMAnalysis.getMustMocks() );           
+                mockSummary.setMayMocks( myMAnalysis.getMayMocks() );           
                 
                 mockSummary.setTotalInvokeExprs( myMAnalysis.getTotalInvokeExprs() );
                 
@@ -226,7 +226,7 @@ public class MockAnalysisMain extends SceneTransformer {
         .append("\n");
         msg.append("Total Number of Test/Before/After Methods: ").append(totalNumberOfTestRelatedMethods)
         .append("\n");
-        msg.append("Total Number of Test/Before/After Methods with MustMock: ").append(benchmark_mock_stats[0])
+        msg.append("Total Number of Test/Before/After Methods with May Mock: ").append(benchmark_mock_stats[0])
         .append("\n");
         msg.append("Total Number of Test/Before/After Methods with ArrayMock in class: ").append(benchmark_mock_stats[1])
         .append("\n");
@@ -303,7 +303,7 @@ public class MockAnalysisMain extends SceneTransformer {
                 // # of methods in the class with CollectionMock
                 class_mocks[2] += mock[2];
             }
-            msg.append("Number of Methods with MustMock in class: ").append(class_mocks[0])
+            msg.append("Number of Methods with May Mock in class: ").append(class_mocks[0])
             .append("\n");
             msg.append("Number of Methods with ArrayMock in class: ").append(class_mocks[1])
             .append("\n");
