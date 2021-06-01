@@ -57,7 +57,7 @@ public class Utility {
             if (pSmy == null) 
                 continue;
             
-            HashMap<Unit, HashMap<Value, MockStatus>> mocks = pSmy.getMayMocks();
+            HashMap<Unit, HashMap<Value, MockStatus>> mocks = pSmy.getMocks();
             
             int[] curr_method_mock_info = new int[3];
             
@@ -68,7 +68,7 @@ public class Utility {
                 for (Map.Entry<Value, MockStatus> curr : val.entrySet()) {
                     Value v = curr.getKey();
                     MockStatus ms = curr.getValue();
-                    if (ms.getMayMock()) {
+                    if (ms.getMock()) {
                         curr_method_mock_info[0] = 1;
                     }
                     if (ms.getArrayMock()) {
@@ -109,7 +109,7 @@ public class Utility {
             if (pSmy == null) 
                 continue;
             
-            HashMap<Unit, HashMap<Value, MockStatus>> mocks = pSmy.getMayMocks();
+            HashMap<Unit, HashMap<Value, MockStatus>> mocks = pSmy.getMocks();
             
             for (Map.Entry<Unit, HashMap<Value, MockStatus>> entry : mocks.entrySet()) {
                 // How to print output?
@@ -125,7 +125,7 @@ public class Utility {
                     
                     msg.append("Value: ").append(value).append("\n");
                     
-                    if (ms.getMayMock()) {
+                    if (ms.getMock()) {
                         msg.append("May Mock: true").append("\n\n");
                     }
                     if (ms.getArrayMock()) {
