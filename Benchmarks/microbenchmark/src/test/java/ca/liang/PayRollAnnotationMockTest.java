@@ -80,8 +80,8 @@ public class PayRollAnnotationMockTest {
     // Contains mock object (from annotation)
     @Test
     public void testBankService() {
-	// *mock* call of @Mock-annotated object
-	bankService.makePayment("ID0", 1000);
+        // *mock* call of @Mock-annotated object
+	    bankService.makePayment("ID0", 1000);
     }
     // total mock calls: 1
     

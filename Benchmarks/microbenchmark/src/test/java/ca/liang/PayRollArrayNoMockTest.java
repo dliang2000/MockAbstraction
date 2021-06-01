@@ -60,9 +60,4 @@ public class PayRollArrayNoMockTest {
         assertEquals(expected, numberOfPayments);
     }
     // total mock calls: 0
-
-    private Employee createTestEmployee(String name, String id, int salary) {
-        return new Employee(name, id, salary);
-    }
-    // total mock calls: 0
 }
