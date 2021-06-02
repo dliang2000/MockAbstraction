@@ -2,7 +2,7 @@ package ca.uwaterloo.liang;
 
 public class MockStatus {
     // Determines if the object is a may Mock. The "may" here considers for if any possible branch path would return a mock.
-    private boolean mayMock;
+    private boolean mock;
     
     // Determine if an array contains any "may" mock objects.
     private boolean arrayMock;
@@ -10,22 +10,22 @@ public class MockStatus {
     // Determine if a collection contains any "may" mock objects.
     private boolean collectionMock;
     
-    public MockStatus(boolean mayMock) {
-        this(mayMock, false, false);
+    public MockStatus(boolean mock) {
+        this(mock, false, false);
     }
     
-    public MockStatus(boolean mayMock, boolean arrayMock, boolean collectionMock) {
-        this.mayMock = mayMock;
+    public MockStatus(boolean mock, boolean arrayMock, boolean collectionMock) {
+        this.mock = mock;
         this.arrayMock = arrayMock;
         this.collectionMock = collectionMock;
     }
 
-    public void setMayMock(boolean mayMock) {
-        this.mayMock = mayMock;
+    public void setMock(boolean mock) {
+        this.mock = mock;
     }
     
-    public boolean getMayMock() {
-        return mayMock;
+    public boolean getMock() {
+        return mock;
     }
     
     public void setArrayMock(boolean arrayMock) {

@@ -60,7 +60,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     
     private static ArrayList<InvokeExpr> emptyInvokeExprsOnMocks = new ArrayList<InvokeExpr>();
     
-    private static HashMap<Unit, HashMap<Value, MockStatus>> emptyMayMocks = new HashMap<Unit, HashMap<Value, MockStatus>>();
+    private static HashMap<Unit, HashMap<Value, MockStatus>> emptyMocks = new HashMap<Unit, HashMap<Value, MockStatus>>();
     
     //Contains all method invocations
     private ArrayList<InvokeExpr> myTotalInvokeExprs;
@@ -81,7 +81,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         
         myContextMethod = aCurrentSootMethod;
         
-        mayMocks = (HashMap<Unit, HashMap<Value, MockStatus>>) emptyMayMocks.clone();
+        mayMocks = (HashMap<Unit, HashMap<Value, MockStatus>>) emptyMocks.clone();
         
         myTotalInvokeExprs = (ArrayList<InvokeExpr>) emptyInvokeExprs.clone();
         
@@ -185,7 +185,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             }
         }
         
-        // Third way: Right op of an AssignStmt is a MayMock, ArrayMock, or CollectionMock
+        // Third way: Right op of an AssignStmt is a Mock, ArrayMock, or CollectionMock
         if (aStmt instanceof AssignStmt) {
             AssignStmt assign = (AssignStmt) aStmt;
             if (assign.getRightOp() instanceof Local || assign.getRightOp() instanceof InstanceFieldRef) {
@@ -200,7 +200,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                     if (element.containsKey(right_op)) {
                         HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
                         Value left_op = assign.getLeftOp();
-                        if (element.get(right_op).getMayMock()) {
+                        if (element.get(right_op).getMock()) {
                             MockStatus status = new MockStatus(true);
                             running_result.put(left_op, status);
                         }
@@ -318,7 +318,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                     }
                     
                     for (Map<Value, MockStatus> element : in) {
-                        if (element.containsKey(right_op_val) && element.get(right_op_val).getMayMock() 
+                        if (element.containsKey(right_op_val) && element.get(right_op_val).getMock() 
                                 && assign.getLeftOp() instanceof Local) {
                             HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
                             MockStatus status = new MockStatus(true);
@@ -326,8 +326,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                             running_result.put(left_op_val, status);
                             out.add(running_result);
                             mayMocks.put(unit, running_result); 
-                            //System.out.println("MayMock Local: " + right_op_local);
-                            //System.out.println("MayMock Casted Local: " + left_op_local);
+                            //System.out.println("Mock Local: " + right_op_local);
+                            //System.out.println("Mock Casted Local: " + left_op_local);
                         }
                     }
                 }
@@ -373,7 +373,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         
         for (Value v : vals) {
             for (Map<Value, MockStatus> element : in) {
-                if (element.containsKey(v) && element.get(v).getMayMock()) {
+                if (element.containsKey(v) && element.get(v).getMock()) {
                     List<ValueBox> db = aStmt.getDefBoxes();
                     for (ValueBox box : db) {
                         List<ValueBox> innerBoxes = box.getValue().getUseBoxes();
@@ -453,7 +453,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                         Value col_val = box.getValue();
                         //System.out.println("col_local: " + col_local);
                         for (Map<Value, MockStatus> element : in) {
-                            if (element.containsKey(col_val) && element.get(col_val).getMayMock()) {
+                            if (element.containsKey(col_val) && element.get(col_val).getMock()) {
                                 //System.out.println("col_local found in hashmap: " + col_local);
                                 HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
                                 for (Value v: vals) {
@@ -491,7 +491,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                     // and can be found in the in FlowSet, then InvokeExpr is 
                     // on a mock
                     for (Map<Value, MockStatus> element : getFlowAfter(unit)) {
-                        if (element.containsKey(val) && element.get(val).getMayMock() && !myInvokeExprsOnMocks.contains(invkExpr)) { //may be an invocation on MayMock
+                        if (element.containsKey(val) && element.get(val).getMock() && !myInvokeExprsOnMocks.contains(invkExpr)) { //may be an invocation on Mock
                             myInvokeExprsOnMocks.add(invkExpr);
                         }
                     }
@@ -509,7 +509,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         return myInvokeExprsOnMocks;
     }
     
-    public HashMap<Unit, HashMap<Value, MockStatus>> getMayMocks() {
+    public HashMap<Unit, HashMap<Value, MockStatus>> getMocks() {
         return mayMocks;
     }
     
@@ -538,7 +538,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         MockAnalysis targetMAnalysis = new MockAnalysis(targetCfg, targetMethod);
         targetMAnalysis.updateInvocations(targetCfg);
         
-        targetSummary.setMayMocks( targetMAnalysis.getMayMocks() );           
+        targetSummary.setMocks( targetMAnalysis.getMocks() );           
         
         targetSummary.setTotalInvokeExprs( targetMAnalysis.getTotalInvokeExprs() );
         
@@ -548,7 +548,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     }
     
     private static MockStatus getMockStatusFromTargetMethod(ProcSummary procSummary, SootMethod targetMethod) {
-        HashMap<Unit, HashMap<Value, MockStatus>> summaryMocks = procSummary.getMayMocks();
+        HashMap<Unit, HashMap<Value, MockStatus>> summaryMocks = procSummary.getMocks();
         if (targetMethod.hasActiveBody()) {
             for (Unit u: targetMethod.getActiveBody().getUnits()) {
                 Stmt s = (Stmt) u;

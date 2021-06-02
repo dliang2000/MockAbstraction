@@ -188,7 +188,7 @@ public class MockAnalysisMain extends SceneTransformer {
                         MockAnalysis targetMAnalysis = new MockAnalysis(targetCfg, targetMethod);
                         targetMAnalysis.updateInvocations(targetCfg);
                         
-                        targetSummary.setMayMocks( targetMAnalysis.getMayMocks() );           
+                        targetSummary.setMocks( targetMAnalysis.getMocks() );           
                         
                         targetSummary.setTotalInvokeExprs( targetMAnalysis.getTotalInvokeExprs() );
                         
@@ -207,7 +207,7 @@ public class MockAnalysisMain extends SceneTransformer {
                 myMAnalysis = new MockAnalysis(aCfg, method);
                 myMAnalysis.updateInvocations(aCfg);
                 
-                mockSummary.setMayMocks( myMAnalysis.getMayMocks() );           
+                mockSummary.setMocks( myMAnalysis.getMocks() );           
                 
                 mockSummary.setTotalInvokeExprs( myMAnalysis.getTotalInvokeExprs() );
                 

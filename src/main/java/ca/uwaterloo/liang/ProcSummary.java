@@ -21,7 +21,7 @@ public class ProcSummary {
     
     private static ArrayList<InvokeExpr> emptyInvokeExprsOnMocks = new ArrayList<InvokeExpr>();
     
-    private HashMap<Unit, HashMap<Value, MockStatus>> mayMocks;
+    private HashMap<Unit, HashMap<Value, MockStatus>> mocks;
     //Contains all method invocations
     private ArrayList<InvokeExpr> myTotalInvokeExprs;
     //Contains all method invocations on mocks
@@ -32,7 +32,7 @@ public class ProcSummary {
     public ProcSummary(SootMethod aSootMethod) {
         mySootMethod = aSootMethod;
         
-        mayMocks = (HashMap<Unit, HashMap<Value, MockStatus>>) emptyPossiblyMocks.clone();
+        mocks = (HashMap<Unit, HashMap<Value, MockStatus>>) emptyPossiblyMocks.clone();
         
         myTotalInvokeExprs = (ArrayList<InvokeExpr>) emptyInvokeExprs.clone();
         
@@ -47,12 +47,12 @@ public class ProcSummary {
         this.mySootMethod = mySootMethod;
     }
 
-    public HashMap<Unit, HashMap<Value, MockStatus>> getMayMocks() {
-        return mayMocks;
+    public HashMap<Unit, HashMap<Value, MockStatus>> getMocks() {
+        return mocks;
     }
 
-    public void setMayMocks(HashMap<Unit, HashMap<Value, MockStatus>> mayMocks) {
-        this.mayMocks = mayMocks;
+    public void setMocks(HashMap<Unit, HashMap<Value, MockStatus>> mocks) {
+        this.mocks = mocks;
     }
     
     public ArrayList<InvokeExpr> getTotalInvokeExprs() {

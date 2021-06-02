@@ -132,15 +132,4 @@ public class PayRollMockTest {
     	return e;
     }
     // total mock calls: 3
-
-    // populates a real list containing mocks
-    private List<Employee> createEmployees() {
-    	List<Employee> employee_list = new ArrayList<Employee>();
-        Employee employee1 = mock(Employee.class);
-        Employee employee2 = mock(Employee.class);
-        employee_list.add(employee1);
-        employee_list.add(employee2);
-        return employee_list;
-    }
-    // total mock calls: 0
 }
