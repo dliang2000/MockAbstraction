@@ -66,7 +66,7 @@ or if you want to run Mock Analysis for all benchmarks:
 | vraptor-core-3.5.5 | 10 / 1193 |
 
 
-## Mock Analysis table
+## Mock Analysis table (May Analysis, Intraprocedural)
 | Benchmark | Total Number of Test/Before/After Methods Invoked | Number of Test/Before/After Methods with MustMock (Intra) | Number of Test/Before/After Methods with ArrayMock (Intra) | Number of Test/Before/After Methods with CollectionMock (Intra) |
 | --- | --- | --- | --- | --- |
 | bootique-2.0.B1-bootique | 420 | 27 | 3 | 0 |
@@ -74,13 +74,13 @@ or if you want to run Mock Analysis for all benchmarks:
 | flink-core-1.13.0-rc1 | 1091 | 4 | 0 | 0 |
 | jsonschema2pojo-core-1.1.1 | 145 | 48 | 1 | 0 |
 | maven-core-3.8.1 | 337 | 15 | 0 | 0 |
-| microbenchmark | 28 | 19 | 5 | 3 |
+| microbenchmark | 29 | 20 | 5 | 3 |
 | mybatis-3.5.6 | 1769 | 330 | 3 | 1 |
 | quartz-core-2.3.1 | 218 | 7 | 0 | 0 |
 | vraptor-core-3.5.5 | 1120 | 526 | 15 | 12 |
 
 
-## Mock Analysis - Analyzing InvokeExpr results
+## Mock Analysis - Analyzing InvokeExpr results (May Analysis, Intraprocedural)
 | Benchmark | Total Number of Invocations | Number of Invocations on Mocks |
 | --- | --- | --- |
 | bootique-2.0.B1-bootique | 2923 | 82 |
@@ -88,7 +88,7 @@ or if you want to run Mock Analysis for all benchmarks:
 | flink-core-1.13.0-rc1 | 10079 | 40 |
 | jsonschema2pojo-core-1.1.1 | 1730 | 217 |
 | maven-core-3.8.1 | 3367 | 21 |
-| microbenchmark | 226 | 22 |
+| microbenchmark | 196 | 19 |
 | mybatis-3.5.6 | 17798 | 569 |
 | quartz-core-2.3.1 | 3217 | 21 |
 | vraptor-core-3.5.51 | 5529 | 827 |
@@ -98,7 +98,7 @@ or if you want to run Mock Analysis for all benchmarks:
 
 | Benchmark | Number of Test/Before/After Methods with MayMock | Number of Test/Before/After Methods with ArrayMock | Number of Test/Before/After Methods with CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
 | --- | --- | --- | --- | --- | --- |
-| microbenchmark | 22 | 5 | 2 | 39 | 5 |
+| microbenchmark | 23 | 5 | 2 | 39 | 5 |
 
 For DirtyTest:
 
