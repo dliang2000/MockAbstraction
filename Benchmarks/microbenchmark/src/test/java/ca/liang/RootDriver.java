@@ -2,25 +2,27 @@ package ca.liang;
 
 public class RootDriver {
 	public static void main(String[] argv) {
-		ca.liang.PayRollArrayNoMockTest class1 = new ca.liang.PayRollArrayNoMockTest();
+		ca.liang.PayRollAnnotationMockTest class1 = new ca.liang.PayRollAnnotationMockTest();
 		class1.init();
-		class1.testNoEmployees();
-		class1.testSingleEmployeeLocalArrayNomock();
-		ca.liang.PayRollArrayMockTest class2 = new ca.liang.PayRollArrayMockTest();
+		class1.testEmployeesPaidIntra();
+		class1.testSingleEmployee();
+		class1.testEmployeeIsPaid();
+		class1.testBankService();
+		ca.liang.PayRollArrayNoMockTest class2 = new ca.liang.PayRollArrayNoMockTest();
 		class2.init();
-		class2.testSingleEmployee();
-		class2.testEmployeesPaidIntra();
-		class2.testSingleEmployeeFieldArrayMock();
-		class2.testSingleEmployeeLocalArrayMock();
-		class2.testAllEmployeesArePaidArrayIntra();
-		class2.testAllEmployeesArePaidArray();
-		ca.liang.PayRollMultipleEmployee2Test class3 = new ca.liang.PayRollMultipleEmployee2Test();
+		class2.testNoEmployees();
+		class2.testSingleEmployeeLocalArrayNomock();
+		ca.liang.PayRollArrayMockTest class3 = new ca.liang.PayRollArrayMockTest();
 		class3.init();
-		class3.testAllEmployeesArePaid();
-		ca.liang.PayRollMultipleEmployeeTest class4 = new ca.liang.PayRollMultipleEmployeeTest();
+		class3.testSingleEmployee();
+		class3.testEmployeesPaidIntra();
+		class3.testSingleEmployeeFieldArrayMock();
+		class3.testSingleEmployeeLocalArrayMock();
+		class3.testAllEmployeesArePaidArrayIntra();
+		class3.testAllEmployeesArePaidArrayInter();
+		ca.liang.PayRollMultipleEmployee2Test class4 = new ca.liang.PayRollMultipleEmployee2Test();
 		class4.init();
-		class4.testAllEmployeesArePaid1();
-		class4.testAllEmployeesArePaid2();
+		class4.testAllEmployeesArePaid();
 		ca.liang.PayRollMockTest class5 = new ca.liang.PayRollMockTest();
 		class5.init();
 		class5.testNoEmployees();
@@ -29,14 +31,12 @@ public class RootDriver {
 		class5.testSingleEmployeeMock();
 		class5.testEmployeeIsPaid();
 		class5.testInteractionOrder();
-		ca.liang.DirtyTest class6 = new ca.liang.DirtyTest();
+		ca.liang.PayRollMultipleEmployeeTest class6 = new ca.liang.PayRollMultipleEmployeeTest();
 		class6.init();
-		class6.testSingleEmployeeFieldArrayNomock();
-		ca.liang.PayRollAnnotationMockTest class7 = new ca.liang.PayRollAnnotationMockTest();
+		class6.testAllEmployeesArePaid1();
+		class6.testAllEmployeesArePaid2();
+		ca.liang.DirtyTest class7 = new ca.liang.DirtyTest();
 		class7.init();
-		class7.testEmployeesPaidIntra();
-		class7.testSingleEmployee();
-		class7.testEmployeeIsPaid();
-		class7.testBankService();
+		class7.testSingleEmployeeFieldArrayNomock();
 	}
 }

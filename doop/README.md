@@ -19,7 +19,8 @@
 
 # TODO/Notes on current doop implementation
 
-As of the time of writing, it's intraprocedural, but does not make conservative approximations for interprocedural results; i.e. it assumes that calls never return mock objects. Fields are marked as mock-containing though.
+mocks.dl is interprocedural, mocks-intraproc.dl is intraprocedural (but does not make conservative assumptions, e.g. it assumes that mocks never come from callees)
+if you specify --cache and you include MainClass("ca.liang.RootDriver") or whatever then it doesn't recompute facts. It will have to recompile the .dl when you change it.
 
 * Also, Collection.addAll is not implemented yet (this should be easy).
 * isMockInvocation only handles VirtualMethodInvocation; are there any other invocation types that are relevant? (not StaticMethodInvocation, but maybe SpecialMethodInvocation, DynamicMethodInvocation, SuperMethodInvocation?)
