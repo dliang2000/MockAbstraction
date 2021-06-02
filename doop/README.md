@@ -17,7 +17,9 @@
 
 * run count.py to generate statistics from results in `last-analysis/`, you might want to redirect that to ~/MockAbstraction/doop/XXX-results
 
-# Notes on current doop implementation
+# TODO/Notes on current doop implementation
 
 As of the time of writing, it's intraprocedural, but does not make conservative approximations for interprocedural results; i.e. it assumes that calls never return mock objects. Fields are marked as mock-containing though.
 
+* Also, Collection.addAll is not implemented yet (this should be easy).
+* isMockInvocation only handles VirtualMethodInvocation; are there any other invocation types that are relevant? (not StaticMethodInvocation, but maybe SpecialMethodInvocation, DynamicMethodInvocation, SuperMethodInvocation?)

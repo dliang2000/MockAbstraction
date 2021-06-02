@@ -33,15 +33,24 @@ CollectionGetMethod(m) :-
 .decl CallGraphEdge(c1:symbol, invocation:symbol, c2:symbol, meth:symbol)
 .input CallGraphEdge(IO="file", filename="CallGraphEdge.csv", delimiter="\t")
 
-// mi: MethodInvocation
 .decl callsMockSource(mi: MethodInvocation)
 callsMockSource(mi) :-
   MockSourceMethod(ms),
   CallGraphEdge(_, mi, _, ms).
 .output callsMockSource
 
+.decl isInterprocMockVar(v:Var)
+isInterprocMockVar(v) :-
+  AssignReturnValue(mi, v),
+  CallGraphEdge(_, mi, _, callee),
+  ReturnVar(v_callee, callee),
+  isMockVar(v_callee).
+.output isInterprocMockVar
+
 // v:Var
 .decl isMockVar(v: Var)
+isMockVar(v) :-
+  isInterprocMockVar(v).
 isMockVar(v) :-
   AssignReturnValue(mi, v),
   callsMockSource(mi).
@@ -63,7 +72,7 @@ isMockVar(v) :-
   AssignReturnValue(mi, v).
 isMockVar(v) :-
 // v = c[_];
-  isArrayLocalThatContainsMocks(c, _),
+  isArrayLocalThatContainsMocks(c),
   LoadArrayIndex(c, v, _).
 .output isMockVar
 
@@ -90,25 +99,35 @@ isCollectionFieldThatContainsMocks(f) :-
   StoreInstanceField(c, _, f, _).
 .output isCollectionFieldThatContainsMocks
 
-.decl isArrayLocalThatContainsMocks(c:Var, inmethod:symbol)
+.decl isInterprocArrayLocalThatContainsMocks(c:Var)
+isInterprocArrayLocalThatContainsMocks(v) :-
+  AssignReturnValue(mi, v),
+  CallGraphEdge(_, mi, _, callee),
+  ReturnVar(v_callee, callee),
+  isArrayLocalThatContainsMocks(v_callee).
+.output isInterprocArrayLocalThatContainsMocks
+
+.decl isArrayLocalThatContainsMocks(c:Var)
 // c[idx] = mv @ insn
-isArrayLocalThatContainsMocks(c, inmethod) :-
-  StoreArrayIndex(mv, c, inmethod),
+isArrayLocalThatContainsMocks(c) :-
+  StoreArrayIndex(mv, c, _),
   isMockVar(mv).
 // c = _.f, f contains mocks
-isArrayLocalThatContainsMocks(c, inmethod) :-
+isArrayLocalThatContainsMocks(c) :-
   isArrayFieldThatContainsMocks(f),
-  LoadInstanceField(_, f, c, inmethod).
-isArrayLocalThatContainsMocks(c, inmethod) :-
-  isArrayLocalThatContainsMocks(c1, inmethod),
-  AssignLocal(c1, c, inmethod).
+  LoadInstanceField(_, f, c, _).
+isArrayLocalThatContainsMocks(c) :-
+  isArrayLocalThatContainsMocks(c1),
+  AssignLocal(c1, c, _).
+isArrayLocalThatContainsMocks(v) :-
+  isInterprocArrayLocalThatContainsMocks(v).
 .output isArrayLocalThatContainsMocks
 
 .decl isArrayFieldThatContainsMocks(f:Field)
 // arr = _.f <- (2) propagates so that field f is a field that contains mocks
 // arr[i] = mv <- (1) marks arr as an arraylocalthatcontainsmocks
 isArrayFieldThatContainsMocks(f) :-
-  isArrayLocalThatContainsMocks(arr, _),
+  isArrayLocalThatContainsMocks(arr),
   LoadInstanceField(_, f, arr, _).
 .output isArrayFieldThatContainsMocks
 
@@ -129,8 +148,8 @@ fieldContainsMock(signature) :-
 fieldContainsMock(signature) :-
   Field_Annotation(signature, a),
   MockFieldAnnotation(a).
-
 .output fieldContainsMock
+
 .output CollectionPutMethod
 .output VirtualMethodInvocation_Base
 .output VirtualMethodInvocation
