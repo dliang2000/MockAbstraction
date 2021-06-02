@@ -134,7 +134,7 @@ public class PayRollArrayMockTest {
     
     // Contains mock object (both intra- and inter-procedural mocks)
     @Test
-    public void testAllEmployeesArePaidArray() {
+    public void testAllEmployeesArePaidArrayInter() {
     	// Inter-procedural ArrayMock, must understand effects of callee createEmployees.
     	Employee[] employees_mock_local = createEmployees();
 
