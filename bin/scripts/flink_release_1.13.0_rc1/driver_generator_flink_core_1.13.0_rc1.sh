@@ -18,6 +18,8 @@ for jar in $MVN_DEPENDENCY_PATH/*; do
 done
 echo $JAR_PATH
 
+mvn compile
+
 cd $BENCHMARK_PATH/$CORE
 
 # remove Driver and RootDriver classes if they exist
