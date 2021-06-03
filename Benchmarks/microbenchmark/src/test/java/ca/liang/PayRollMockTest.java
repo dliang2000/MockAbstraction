@@ -63,6 +63,29 @@ public class PayRollMockTest {
     }
     // total mock calls: 1
 
+    // Contains mock object
+    @Test
+    public void testAddAll() {
+        List<Employee> employees1_intra = new ArrayList<Employee>();
+        List<Employee> employees2_intra = new ArrayList<Employee>();
+
+        Employee e = mock(Employee.class);
+        when(e.getName()).thenReturn("J. Doe");
+        assertEquals(e.getName(), "J. Doe");
+
+	employees1_intra.add(e);
+	employees2_intra.addAll(employees1_intra);
+
+	Employee e1 = employees1_intra.get(0);
+	// *mock* call below
+        assertEquals(e1.getName(), "J. Doe");
+
+	Employee e2 = employees2_intra.get(0);
+	// *mock* call below
+        assertEquals(e2.getName(), "J. Doe");
+    }
+    // total mock calls: 1
+
     @Test
     public void testSingleEmployee() {
 	// not a mock call on employees
@@ -73,7 +96,7 @@ public class PayRollMockTest {
     
     // Contains inter-procedural mock object 
     @Test
-    public void testSingleEmployeeMock() {
+    public void testSingleEmployeeMockInter() {
     	Employee e = createMockEmployee();
     	assertEquals(e.getName(), "J. Doe");
     }

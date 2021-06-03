@@ -27,8 +27,9 @@ public class RootDriver {
 		class5.init();
 		class5.testNoEmployees();
 		class5.testNoEmployeesIntra();
+		class5.testAddAll();
 		class5.testSingleEmployee();
-		class5.testSingleEmployeeMock();
+		class5.testSingleEmployeeMockInter();
 		class5.testEmployeeIsPaid();
 		class5.testInteractionOrder();
 		ca.liang.PayRollMultipleEmployeeTest class6 = new ca.liang.PayRollMultipleEmployeeTest();

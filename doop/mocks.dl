@@ -16,12 +16,23 @@ MockSourceMethod("<org.mockito.internal.InOrderImpl: java.lang.Object verify(jav
 .decl MockFieldAnnotation(a: Annotation)
 MockFieldAnnotation("org.mockito.Mock").
 
-// TODO handle addAll
+// TODO handle iteration
 .decl CollectionPutMethod(m:Method)
 CollectionPutMethod("<java.util.Collection: boolean add(java.lang.Object)>").
+CollectionPutMethod("<java.util.List: boolean add(java.lang.Object)>").
 CollectionPutMethod(m) :-
   CollectionPutMethod(m0),
   basic.MethodOverridesOther(m, m0).
+
+.decl CollectionAddAllMethod(m:Method)
+CollectionAddAllMethod("<java.util.Collection: boolean addAll(java.util.Collection)>").
+CollectionAddAllMethod("<java.util.List: boolean addAll(java.util.Collection)>").
+CollectionAddAllMethod(m) :-
+  CollectionAddAllMethod(m0),
+  basic.MethodOverridesOther(m, m0).
+//CollectionAddAllMethod(m) :-
+//  CollectionAddAllMethod(m0),
+//  Superinterface(i, i0)
 
 .decl CollectionGetMethod(m:Method)
 CollectionGetMethod("<java.util.List: java.lang.Object get(int)>").
@@ -86,6 +97,12 @@ isCollectionLocalThatContainsMocks(c, inmethod) :-
 isCollectionLocalThatContainsMocks(c, inmethod) :-
   isCollectionLocalThatContainsMocks(c1, inmethod),
   AssignLocal(c1, c, inmethod).
+isCollectionLocalThatContainsMocks(c, inmethod) :-
+  isCollectionLocalThatContainsMocks(c1, inmethod),
+  CollectionAddAllMethod(add_all),
+  VirtualMethodInvocation(mi, add_all, inmethod),
+  VirtualMethodInvocation_Base(mi, c),
+  ActualParam(0, mi, c1).
 .output isCollectionLocalThatContainsMocks
 
 .decl isCollectionFieldThatContainsMocks(f:Field)
