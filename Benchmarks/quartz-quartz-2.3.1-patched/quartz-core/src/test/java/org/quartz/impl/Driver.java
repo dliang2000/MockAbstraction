@@ -39,73 +39,71 @@ public class Driver {
 		catch (java.lang.Exception err6) {
 			err6.printStackTrace();
 		}
-		org.quartz.impl.MockConnectionProvider class4 = new org.quartz.impl.MockConnectionProvider();
-		org.quartz.impl.RemoteMBeanSchedulerTest class5 = new org.quartz.impl.RemoteMBeanSchedulerTest();
+		org.quartz.impl.RemoteMBeanSchedulerTest class4 = new org.quartz.impl.RemoteMBeanSchedulerTest();
 		try {
-			class5.setUp();
+			class4.setUp();
 		}
 		catch (java.lang.Exception err7) {
 			err7.printStackTrace();
 		}
 		try {
-			class5.tearDown();
+			class4.tearDown();
 		}
 		catch (org.quartz.SchedulerException err8) {
 			err8.printStackTrace();
 		}
 		try {
-			class5.testJMXAttributesAccess();
+			class4.testJMXAttributesAccess();
 		}
 		catch (java.lang.Exception err9) {
 			err9.printStackTrace();
 		}
 		try {
-			class5.testSchedulerMetaData();
+			class4.testSchedulerMetaData();
 		}
 		catch (java.lang.Exception err10) {
 			err10.printStackTrace();
 		}
 		try {
-			class5.testCalendarOperations();
+			class4.testCalendarOperations();
 		}
 		catch (java.lang.Exception err11) {
 			err11.printStackTrace();
 		}
 		try {
-			class5.testTriggerOperations();
+			class4.testTriggerOperations();
 		}
 		catch (java.lang.Exception err12) {
 			err12.printStackTrace();
 		}
 		try {
-			class5.testJobOperations();
+			class4.testJobOperations();
 		}
 		catch (java.lang.Exception err13) {
 			err13.printStackTrace();
 		}
 		try {
-			class5.testLifecycleOperations();
+			class4.testLifecycleOperations();
 		}
 		catch (org.quartz.SchedulerException err14) {
 			err14.printStackTrace();
 		}
 		try {
-			class5.testJMXOperations();
+			class4.testJMXOperations();
 		}
 		catch (java.lang.Exception err15) {
 			err15.printStackTrace();
 		}
-		class5.testUnsupportedMethods();
+		class4.testUnsupportedMethods();
 		try {
-			class5.testListBrokenAttributes();
+			class4.testListBrokenAttributes();
 		}
 		catch (java.lang.Exception err16) {
 			err16.printStackTrace();
 		}
-		org.quartz.impl.MockSQLException class6 = new org.quartz.impl.MockSQLException();
-		org.quartz.impl.StdSchedulerFactoryCustomConnectionProviderTest class7 = new org.quartz.impl.StdSchedulerFactoryCustomConnectionProviderTest();
+		org.quartz.impl.StdSchedulerFactoryCustomConnectionProviderTest class5 = new org.quartz.impl.StdSchedulerFactoryCustomConnectionProviderTest();
 		try {
-			class7.loadAndInitializeCustomConnectionProviderTest();
+			class5.loadAndInitializeCustomConnectionProviderTest();
 		}
 		catch (org.quartz.SchedulerException err17) {
 			err17.printStackTrace();

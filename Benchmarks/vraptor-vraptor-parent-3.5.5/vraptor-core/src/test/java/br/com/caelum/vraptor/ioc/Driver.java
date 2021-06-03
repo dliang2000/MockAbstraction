@@ -30,8 +30,5 @@ public class Driver {
 		}
 		class3.shouldRegisterComponentAndImplementedInterfaces();
 		class3.shouldRegisterComponentUsingAllPossibleSupertypes();
-		br.com.caelum.vraptor.ioc.NeedsCustomInstantiation class4 = new br.com.caelum.vraptor.ioc.NeedsCustomInstantiation();
-		br.com.caelum.vraptor.ioc.MySessionComponent class5 = new br.com.caelum.vraptor.ioc.MySessionComponent();
-		br.com.caelum.vraptor.ioc.TheComponentFactory class6 = new br.com.caelum.vraptor.ioc.TheComponentFactory();
 	}
 }

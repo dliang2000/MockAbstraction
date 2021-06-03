@@ -2,56 +2,54 @@ package org.apache.commons.collections4.map;
 
 public class Driver {
 	public void runall() {
-		org.apache.commons.collections4.map.FixedSizeSortedMapTest class1 = new org.apache.commons.collections4.map.FixedSizeSortedMapTest();
-		org.apache.commons.collections4.map.CaseInsensitiveMapTest class2 = new org.apache.commons.collections4.map.CaseInsensitiveMapTest();
-		class2.testCaseInsensitive();
-		class2.testNullHandling();
-		class2.testPutAll();
+		org.apache.commons.collections4.map.CaseInsensitiveMapTest class1 = new org.apache.commons.collections4.map.CaseInsensitiveMapTest(null);
+		class1.testCaseInsensitive();
+		class1.testNullHandling();
+		class1.testPutAll();
+		class1.testClone();
+		class1.testLocaleIndependence();
+		class1.testInitialCapacityZero();
+		org.apache.commons.collections4.map.LinkedMapTest class2 = new org.apache.commons.collections4.map.LinkedMapTest(null);
+		class2.testReset();
+		class2.testInsertionOrder();
+		class2.testGetByIndex();
+		class2.testGetValueByIndex();
+		class2.testIndexOf();
+		class2.testRemoveByIndex();
 		class2.testClone();
-		class2.testLocaleIndependence();
 		class2.testInitialCapacityZero();
-		org.apache.commons.collections4.map.LinkedMapTest class3 = new org.apache.commons.collections4.map.LinkedMapTest();
-		class3.testReset();
-		class3.testInsertionOrder();
-		class3.testGetByIndex();
-		class3.testGetValueByIndex();
-		class3.testIndexOf();
-		class3.testRemoveByIndex();
-		class3.testClone();
-		class3.testInitialCapacityZero();
-		org.apache.commons.collections4.map.PassiveExpiringMapTest class4 = new org.apache.commons.collections4.map.PassiveExpiringMapTest();
-		class4.testConstructors();
-		class4.testContainsKey();
-		class4.testContainsValue();
-		class4.testDecoratedMap();
+		org.apache.commons.collections4.map.PassiveExpiringMapTest class3 = new org.apache.commons.collections4.map.PassiveExpiringMapTest(null);
+		class3.testConstructors();
+		class3.testContainsKey();
+		class3.testContainsValue();
+		class3.testDecoratedMap();
+		class3.testEntrySet();
+		class3.testExpiration();
+		class3.testGet();
+		class3.testIsEmpty();
+		class3.testKeySet();
+		class3.testPut();
+		class3.testSize();
+		class3.testValues();
+		class3.testZeroTimeToLive();
+		org.apache.commons.collections4.map.PredicatedMapTest class4 = new org.apache.commons.collections4.map.PredicatedMapTest(null);
 		class4.testEntrySet();
-		class4.testExpiration();
-		class4.testGet();
-		class4.testIsEmpty();
-		class4.testKeySet();
 		class4.testPut();
-		class4.testSize();
-		class4.testValues();
-		class4.testZeroTimeToLive();
-		org.apache.commons.collections4.map.PredicatedMapTest class5 = new org.apache.commons.collections4.map.PredicatedMapTest();
-		class5.testEntrySet();
-		class5.testPut();
-		org.apache.commons.collections4.map.HashedMapTest class6 = new org.apache.commons.collections4.map.HashedMapTest();
-		class6.testClone();
-		class6.testInternalState();
-		class6.testInitialCapacityZero();
-		org.apache.commons.collections4.map.IdentityMap class7 = new org.apache.commons.collections4.map.IdentityMap();
-		org.apache.commons.collections4.map.ReferenceMapTest class8 = new org.apache.commons.collections4.map.ReferenceMapTest();
-		class8.testNullHandling();
+		org.apache.commons.collections4.map.HashedMapTest class5 = new org.apache.commons.collections4.map.HashedMapTest(null);
+		class5.testClone();
+		class5.testInternalState();
+		class5.testInitialCapacityZero();
+		org.apache.commons.collections4.map.ReferenceMapTest class6 = new org.apache.commons.collections4.map.ReferenceMapTest(null);
+		class6.testNullHandling();
 		try {
-			class8.testPurgeValues();
+			class6.testPurgeValues();
 		}
 		catch (java.lang.Exception err1) {
 			err1.printStackTrace();
 		}
-		class8.testCustomPurge();
+		class6.testCustomPurge();
 		try {
-			class8.testDataSizeAfterSerialization();
+			class6.testDataSizeAfterSerialization();
 		}
 		catch (java.io.IOException err2) {
 			err2.printStackTrace();
@@ -59,272 +57,270 @@ public class Driver {
 		catch (java.lang.ClassNotFoundException err3) {
 			err3.printStackTrace();
 		}
-		org.apache.commons.collections4.map.TransformedMapTest class9 = new org.apache.commons.collections4.map.TransformedMapTest();
-		class9.testTransformedMap();
-		class9.testFactory_Decorate();
-		class9.testFactory_decorateTransform();
-		org.apache.commons.collections4.map.StaticBucketMapTest class10 = new org.apache.commons.collections4.map.StaticBucketMapTest();
-		class10.test_get_nullMatchesIncorrectly();
-		class10.test_containsKey_nullMatchesIncorrectly();
-		class10.test_containsValue_nullMatchesIncorrectly();
-		org.apache.commons.collections4.map.FixedSizeMapTest class11 = new org.apache.commons.collections4.map.FixedSizeMapTest();
-		org.apache.commons.collections4.map.MultiKeyMapTest class12 = new org.apache.commons.collections4.map.MultiKeyMapTest();
-		class12.testNullHandling();
-		class12.testMultiKeyGet();
-		class12.testMultiKeyContainsKey();
-		class12.testMultiKeyPut();
-		class12.testMultiKeyPutWithNullKey();
-		class12.testMultiKeyRemove();
-		class12.testMultiKeyRemoveAll1();
-		class12.testMultiKeyRemoveAll2();
-		class12.testMultiKeyRemoveAll3();
-		class12.testMultiKeyRemoveAll4();
-		class12.testClone();
-		class12.testLRUMultiKeyMap();
-		org.apache.commons.collections4.map.LazyMapTest class13 = new org.apache.commons.collections4.map.LazyMapTest();
-		class13.testMapGet();
-		class13.mapGetWithFactory();
-		class13.mapGetWithTransformer();
-		org.apache.commons.collections4.map.Flat3MapTest class14 = new org.apache.commons.collections4.map.Flat3MapTest();
-		class14.testEquals1();
-		class14.testEquals2();
-		class14.testClone2();
-		class14.testClone4();
+		org.apache.commons.collections4.map.TransformedMapTest class7 = new org.apache.commons.collections4.map.TransformedMapTest(null);
+		class7.testTransformedMap();
+		class7.testFactory_Decorate();
+		class7.testFactory_decorateTransform();
+		org.apache.commons.collections4.map.StaticBucketMapTest class8 = new org.apache.commons.collections4.map.StaticBucketMapTest(null);
+		class8.test_get_nullMatchesIncorrectly();
+		class8.test_containsKey_nullMatchesIncorrectly();
+		class8.test_containsValue_nullMatchesIncorrectly();
+		org.apache.commons.collections4.map.MultiKeyMapTest class9 = new org.apache.commons.collections4.map.MultiKeyMapTest(null);
+		class9.testNullHandling();
+		class9.testMultiKeyGet();
+		class9.testMultiKeyContainsKey();
+		class9.testMultiKeyPut();
+		class9.testMultiKeyPutWithNullKey();
+		class9.testMultiKeyRemove();
+		class9.testMultiKeyRemoveAll1();
+		class9.testMultiKeyRemoveAll2();
+		class9.testMultiKeyRemoveAll3();
+		class9.testMultiKeyRemoveAll4();
+		class9.testClone();
+		class9.testLRUMultiKeyMap();
+		org.apache.commons.collections4.map.LazyMapTest class10 = new org.apache.commons.collections4.map.LazyMapTest(null);
+		class10.testMapGet();
+		class10.mapGetWithFactory();
+		class10.mapGetWithTransformer();
+		org.apache.commons.collections4.map.Flat3MapTest class11 = new org.apache.commons.collections4.map.Flat3MapTest(null);
+		class11.testEquals1();
+		class11.testEquals2();
+		class11.testClone2();
+		class11.testClone4();
 		try {
-			class14.testSerialisation0();
+			class11.testSerialisation0();
 		}
 		catch (java.lang.Exception err4) {
 			err4.printStackTrace();
 		}
 		try {
-			class14.testSerialisation2();
+			class11.testSerialisation2();
 		}
 		catch (java.lang.Exception err5) {
 			err5.printStackTrace();
 		}
 		try {
-			class14.testSerialisation4();
+			class11.testSerialisation4();
 		}
 		catch (java.lang.Exception err6) {
 			err6.printStackTrace();
 		}
 		try {
-			class14.testEntryIteratorSetValue1();
+			class11.testEntryIteratorSetValue1();
 		}
 		catch (java.lang.Exception err7) {
 			err7.printStackTrace();
 		}
 		try {
-			class14.testEntryIteratorSetValue2();
+			class11.testEntryIteratorSetValue2();
 		}
 		catch (java.lang.Exception err8) {
 			err8.printStackTrace();
 		}
 		try {
-			class14.testEntryIteratorSetValue3();
+			class11.testEntryIteratorSetValue3();
 		}
 		catch (java.lang.Exception err9) {
 			err9.printStackTrace();
 		}
 		try {
-			class14.testMapIteratorSetValue1();
+			class11.testMapIteratorSetValue1();
 		}
 		catch (java.lang.Exception err10) {
 			err10.printStackTrace();
 		}
 		try {
-			class14.testMapIteratorSetValue2();
+			class11.testMapIteratorSetValue2();
 		}
 		catch (java.lang.Exception err11) {
 			err11.printStackTrace();
 		}
 		try {
-			class14.testMapIteratorSetValue3();
+			class11.testMapIteratorSetValue3();
 		}
 		catch (java.lang.Exception err12) {
 			err12.printStackTrace();
 		}
-		class14.testCollections261();
-		class14.testToString();
-		class14.testRemove1();
-		class14.testRemove2();
-		class14.testRemove3();
-		class14.testRemove4();
-		class14.testRemove5();
-		class14.testRemove6();
-		class14.testRemove7();
-		class14.testRemove8();
-		class14.testRemove9();
-		class14.testRemove10();
-		class14.testRemove11();
-		class14.testRemove12();
-		class14.testRemove13();
-		class14.testNewInstance1();
-		class14.testGet1();
-		class14.testGet2();
-		class14.testGet3();
-		class14.testContainsKey1();
-		class14.testContainsKey2();
-		class14.testContainsKey3();
-		class14.testContainsValue1();
-		class14.testContainsValue2();
-		class14.testContainsValue3();
-		class14.testPut1();
-		class14.testPut2();
-		class14.testPut3();
-		class14.testPut4();
-		class14.testPut5();
-		class14.testPut6();
-		org.apache.commons.collections4.map.TransformedSortedMapTest class15 = new org.apache.commons.collections4.map.TransformedSortedMapTest();
-		class15.testTransformedMap();
-		class15.testFactory_Decorate();
-		class15.testFactory_decorateTransform();
-		org.apache.commons.collections4.map.UnmodifiableMapTest class16 = new org.apache.commons.collections4.map.UnmodifiableMapTest();
-		class16.testUnmodifiable();
-		class16.testDecorateFactory();
-		org.apache.commons.collections4.map.ListOrderedMapTest class17 = new org.apache.commons.collections4.map.ListOrderedMapTest();
-		class17.testGetByIndex();
-		class17.testGetValueByIndex();
-		class17.testIndexOf();
-		class17.testSetValueByIndex();
-		class17.testRemoveByIndex();
-		class17.testPut_intObjectObject();
-		class17.testPutAllWithIndex();
-		class17.testPutAllWithIndexBug441();
-		class17.testValueList_getByIndex();
-		class17.testValueList_setByIndex();
-		class17.testValueList_removeByIndex();
-		class17.testCOLLECTIONS_474_nullValues();
-		class17.testCOLLECTIONS_474_nonNullValues();
-		org.apache.commons.collections4.map.CompositeMapTest class18 = new org.apache.commons.collections4.map.CompositeMapTest();
-		class18.testGet();
-		class18.testAddComposited();
-		class18.testRemoveComposited();
-		class18.testRemoveFromUnderlying();
-		class18.testRemoveFromComposited();
-		class18.testResolveCollision();
-		class18.testPut();
-		class18.testPutAll();
-		org.apache.commons.collections4.map.EmptyMapMutator class19 = new org.apache.commons.collections4.map.EmptyMapMutator();
-		org.apache.commons.collections4.map.SingletonMapTest class20 = new org.apache.commons.collections4.map.SingletonMapTest();
-		class20.testClone();
-		class20.testKeyValue();
-		class20.testBoundedMap();
-		org.apache.commons.collections4.map.PredicatedSortedMapTest class21 = new org.apache.commons.collections4.map.PredicatedSortedMapTest();
-		class21.testEntrySet();
-		class21.testPut();
-		class21.testSortOrder();
-		org.apache.commons.collections4.map.LRUMapTest class22 = new org.apache.commons.collections4.map.LRUMapTest();
-		class22.testCtors();
-		class22.testLRU();
-		class22.testReset();
-		class22.testAccessOrder();
-		class22.testAccessOrder2();
-		class22.testClone();
-		class22.testRemoveLRU();
-		class22.testRemoveLRUBlocksRemove();
-		class22.testRemoveLRUBlocksRemoveScan();
-		class22.testRemoveLRUFirstBlocksRemove();
-		class22.testInternalState_Buckets();
-		class22.testInternalState_getEntry_int();
+		class11.testCollections261();
+		class11.testToString();
+		class11.testRemove1();
+		class11.testRemove2();
+		class11.testRemove3();
+		class11.testRemove4();
+		class11.testRemove5();
+		class11.testRemove6();
+		class11.testRemove7();
+		class11.testRemove8();
+		class11.testRemove9();
+		class11.testRemove10();
+		class11.testRemove11();
+		class11.testRemove12();
+		class11.testRemove13();
+		class11.testNewInstance1();
+		class11.testGet1();
+		class11.testGet2();
+		class11.testGet3();
+		class11.testContainsKey1();
+		class11.testContainsKey2();
+		class11.testContainsKey3();
+		class11.testContainsValue1();
+		class11.testContainsValue2();
+		class11.testContainsValue3();
+		class11.testPut1();
+		class11.testPut2();
+		class11.testPut3();
+		class11.testPut4();
+		class11.testPut5();
+		class11.testPut6();
+		org.apache.commons.collections4.map.TransformedSortedMapTest class12 = new org.apache.commons.collections4.map.TransformedSortedMapTest(null);
+		class12.testTransformedMap();
+		class12.testFactory_Decorate();
+		class12.testFactory_decorateTransform();
+		org.apache.commons.collections4.map.UnmodifiableMapTest class13 = new org.apache.commons.collections4.map.UnmodifiableMapTest(null);
+		class13.testUnmodifiable();
+		class13.testDecorateFactory();
+		org.apache.commons.collections4.map.ListOrderedMapTest class14 = new org.apache.commons.collections4.map.ListOrderedMapTest(null);
+		class14.testGetByIndex();
+		class14.testGetValueByIndex();
+		class14.testIndexOf();
+		class14.testSetValueByIndex();
+		class14.testRemoveByIndex();
+		class14.testPut_intObjectObject();
+		class14.testPutAllWithIndex();
+		class14.testPutAllWithIndexBug441();
+		class14.testValueList_getByIndex();
+		class14.testValueList_setByIndex();
+		class14.testValueList_removeByIndex();
+		class14.testCOLLECTIONS_474_nullValues();
+		class14.testCOLLECTIONS_474_nonNullValues();
+		org.apache.commons.collections4.map.CompositeMapTest class15 = new org.apache.commons.collections4.map.CompositeMapTest(null);
+		class15.testGet();
+		class15.testAddComposited();
+		class15.testRemoveComposited();
+		class15.testRemoveFromUnderlying();
+		class15.testRemoveFromComposited();
+		class15.testResolveCollision();
+		class15.testPut();
+		class15.testPutAll();
+		org.apache.commons.collections4.map.SingletonMapTest class16 = new org.apache.commons.collections4.map.SingletonMapTest(null);
+		class16.testClone();
+		class16.testKeyValue();
+		class16.testBoundedMap();
+		org.apache.commons.collections4.map.PredicatedSortedMapTest class17 = new org.apache.commons.collections4.map.PredicatedSortedMapTest(null);
+		class17.testEntrySet();
+		class17.testPut();
+		class17.testSortOrder();
+		org.apache.commons.collections4.map.LRUMapTest class18 = new org.apache.commons.collections4.map.LRUMapTest(null);
+		class18.testCtors();
+		class18.testLRU();
+		class18.testReset();
+		class18.testAccessOrder();
+		class18.testAccessOrder2();
+		class18.testClone();
+		class18.testRemoveLRU();
+		class18.testRemoveLRUBlocksRemove();
+		class18.testRemoveLRUBlocksRemoveScan();
+		class18.testRemoveLRUFirstBlocksRemove();
+		class18.testInternalState_Buckets();
+		class18.testInternalState_getEntry_int();
 		try {
-			class22.testSynchronizedRemoveFromMapIterator();
+			class18.testSynchronizedRemoveFromMapIterator();
 		}
 		catch (java.lang.InterruptedException err13) {
 			err13.printStackTrace();
 		}
 		try {
-			class22.testSynchronizedRemoveFromEntrySet();
+			class18.testSynchronizedRemoveFromEntrySet();
 		}
 		catch (java.lang.InterruptedException err14) {
 			err14.printStackTrace();
 		}
 		try {
-			class22.testSynchronizedRemoveFromKeySet();
+			class18.testSynchronizedRemoveFromKeySet();
 		}
 		catch (java.lang.InterruptedException err15) {
 			err15.printStackTrace();
 		}
 		try {
-			class22.testSynchronizedRemoveFromValues();
+			class18.testSynchronizedRemoveFromValues();
 		}
 		catch (java.lang.InterruptedException err16) {
 			err16.printStackTrace();
 		}
-		org.apache.commons.collections4.map.MultiValueMapTest class23 = new org.apache.commons.collections4.map.MultiValueMapTest();
-		class23.testNoMappingReturnsNull();
-		class23.testValueCollectionType();
-		class23.testMultipleValues();
-		class23.testContainsValue();
-		class23.testKeyContainsValue();
-		class23.testValues();
-		class23.testKeyedIterator();
-		class23.testRemoveAllViaIterator();
-		class23.testRemoveAllViaKeyedIterator();
-		class23.testIterator();
-		class23.testRemoveAllViaEntryIterator();
-		class23.testTotalSizeA();
-		class23.testMapEquals();
-		class23.testGetCollection();
-		class23.testTotalSize();
-		class23.testSize();
-		class23.testSize_Key();
-		class23.testIterator_Key();
-		class23.testContainsValue_Key();
-		class23.testPutWithList();
-		class23.testPutWithSet();
-		class23.testPutAll_Map1();
-		class23.testPutAll_Map2();
-		class23.testPutAll_KeyCollection();
-		class23.testRemove_KeyItem();
+		org.apache.commons.collections4.map.MultiValueMapTest class19 = new org.apache.commons.collections4.map.MultiValueMapTest(null);
+		class19.testNoMappingReturnsNull();
+		class19.testValueCollectionType();
+		class19.testMultipleValues();
+		class19.testContainsValue();
+		class19.testKeyContainsValue();
+		class19.testValues();
+		class19.testKeyedIterator();
+		class19.testRemoveAllViaIterator();
+		class19.testRemoveAllViaKeyedIterator();
+		class19.testIterator();
+		class19.testRemoveAllViaEntryIterator();
+		class19.testTotalSizeA();
+		class19.testMapEquals();
+		class19.testGetCollection();
+		class19.testTotalSize();
+		class19.testSize();
+		class19.testSize_Key();
+		class19.testIterator_Key();
+		class19.testContainsValue_Key();
+		class19.testPutWithList();
+		class19.testPutWithSet();
+		class19.testPutAll_Map1();
+		class19.testPutAll_Map2();
+		class19.testPutAll_KeyCollection();
+		class19.testRemove_KeyItem();
 		try {
-			class23.testUnsafeDeSerialization();
+			class19.testUnsafeDeSerialization();
 		}
 		catch (java.lang.Exception err17) {
 			err17.printStackTrace();
 		}
 		try {
-			class23.testEmptyMapCompatibility();
+			class19.testEmptyMapCompatibility();
 		}
 		catch (java.lang.Exception err18) {
 			err18.printStackTrace();
 		}
 		try {
-			class23.testFullMapCompatibility();
+			class19.testFullMapCompatibility();
 		}
 		catch (java.lang.Exception err19) {
 			err19.printStackTrace();
 		}
-		org.apache.commons.collections4.map.LazySortedMapTest class24 = new org.apache.commons.collections4.map.LazySortedMapTest();
-		class24.testMapGet();
-		class24.mapGet();
-		class24.testSortOrder();
-		class24.testTransformerDecorate();
-		org.apache.commons.collections4.map.ReferenceIdentityMapTest class25 = new org.apache.commons.collections4.map.ReferenceIdentityMapTest();
-		class25.testBasics();
-		class25.testHashEntry();
-		class25.testNullHandling();
+		org.apache.commons.collections4.map.LazySortedMapTest class20 = new org.apache.commons.collections4.map.LazySortedMapTest(null);
+		class20.testMapGet();
+		class20.mapGet();
+		class20.testSortOrder();
+		class20.testTransformerDecorate();
+		org.apache.commons.collections4.map.ReferenceIdentityMapTest class21 = new org.apache.commons.collections4.map.ReferenceIdentityMapTest(null);
+		class21.testBasics();
+		class21.testHashEntry();
+		class21.testNullHandling();
 		try {
-			class25.testPurgeValues();
+			class21.testPurgeValues();
 		}
 		catch (java.lang.Exception err20) {
 			err20.printStackTrace();
 		}
-		org.apache.commons.collections4.map.UnmodifiableSortedMapTest class26 = new org.apache.commons.collections4.map.UnmodifiableSortedMapTest();
-		class26.testUnmodifiable();
-		class26.testDecorateFactory();
-		org.apache.commons.collections4.map.DefaultedMapTest class27 = new org.apache.commons.collections4.map.DefaultedMapTest();
-		class27.testMapGet();
-		class27.testMapGet2();
-		class27.testMapGet3();
-		class27.testMapGet4();
-		org.apache.commons.collections4.map.UnmodifiableOrderedMapTest class28 = new org.apache.commons.collections4.map.UnmodifiableOrderedMapTest();
-		class28.testUnmodifiable();
-		class28.testDecorateFactory();
-		org.apache.commons.collections4.map.ListOrderedMap2Test class29 = new org.apache.commons.collections4.map.ListOrderedMap2Test();
-		class29.testGetByIndex();
-		class29.testGetValueByIndex();
-		class29.testIndexOf();
-		class29.testRemoveByIndex();
+		org.apache.commons.collections4.map.UnmodifiableSortedMapTest class22 = new org.apache.commons.collections4.map.UnmodifiableSortedMapTest(null);
+		class22.testUnmodifiable();
+		class22.testDecorateFactory();
+		org.apache.commons.collections4.map.DefaultedMapTest class23 = new org.apache.commons.collections4.map.DefaultedMapTest(null);
+		class23.testMapGet();
+		class23.testMapGet2();
+		class23.testMapGet3();
+		class23.testMapGet4();
+		org.apache.commons.collections4.map.UnmodifiableOrderedMapTest class24 = new org.apache.commons.collections4.map.UnmodifiableOrderedMapTest(null);
+		class24.testUnmodifiable();
+		class24.testDecorateFactory();
+		org.apache.commons.collections4.map.ListOrderedMap2Test class25 = new org.apache.commons.collections4.map.ListOrderedMap2Test(null);
+		class25.testGetByIndex();
+		class25.testGetValueByIndex();
+		class25.testIndexOf();
+		class25.testRemoveByIndex();
 	}
 }

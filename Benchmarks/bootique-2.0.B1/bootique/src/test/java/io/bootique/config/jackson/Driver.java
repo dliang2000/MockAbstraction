@@ -29,6 +29,5 @@ public class Driver {
 		catch (java.io.IOException err1) {
 			err1.printStackTrace();
 		}
-		io.bootique.config.jackson.YamlReader class3 = new io.bootique.config.jackson.YamlReader();
 	}
 }

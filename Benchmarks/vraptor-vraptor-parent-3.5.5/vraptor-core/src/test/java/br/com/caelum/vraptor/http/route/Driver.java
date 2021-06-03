@@ -225,76 +225,75 @@ public class Driver {
 		catch (java.lang.Exception err41) {
 			err41.printStackTrace();
 		}
-		br.com.caelum.vraptor.http.route.MyCustomResource class4 = new br.com.caelum.vraptor.http.route.MyCustomResource();
-		br.com.caelum.vraptor.http.route.JavaEvaluatorTest class5 = new br.com.caelum.vraptor.http.route.JavaEvaluatorTest();
+		br.com.caelum.vraptor.http.route.JavaEvaluatorTest class4 = new br.com.caelum.vraptor.http.route.JavaEvaluatorTest();
+		class4.setup();
+		class4.shouldInvokeAGetter();
+		class4.shouldInvokeAIs();
+		class4.shouldAccessArray();
+		class4.shouldAccessList();
+		class4.shouldAccessCollection();
+		class4.shouldReturnEmptyStringIfNullWasFoundOnTheWay();
+		class4.shouldReturnEmptyStringIfTheResultIsNull();
+		class4.shouldInvokeAGetterDeclaredOnSuperClass();
+		class4.shouldInvokeAIsDeclaredOnSuperClass();
+		br.com.caelum.vraptor.http.route.PathAnnotationRoutesParserTest class5 = new br.com.caelum.vraptor.http.route.PathAnnotationRoutesParserTest();
 		class5.setup();
-		class5.shouldInvokeAGetter();
-		class5.shouldInvokeAIs();
-		class5.shouldAccessArray();
-		class5.shouldAccessList();
-		class5.shouldAccessCollection();
-		class5.shouldReturnEmptyStringIfNullWasFoundOnTheWay();
-		class5.shouldReturnEmptyStringIfTheResultIsNull();
-		class5.shouldInvokeAGetterDeclaredOnSuperClass();
-		class5.shouldInvokeAIsDeclaredOnSuperClass();
-		br.com.caelum.vraptor.http.route.PathAnnotationRoutesParserTest class6 = new br.com.caelum.vraptor.http.route.PathAnnotationRoutesParserTest();
-		class6.setup();
 		try {
-			class6.addsAPrefixToMethodsWhenTheControllerHasMoreThanOneAnnotatedPath();
+			class5.addsAPrefixToMethodsWhenTheControllerHasMoreThanOneAnnotatedPath();
 		}
 		catch (java.lang.Exception err42) {
 			err42.printStackTrace();
 		}
 		try {
-			class6.addsAPrefixToMethodsWhenTheControllerAndTheMethodAreAnnotatedWithRelativePath();
+			class5.addsAPrefixToMethodsWhenTheControllerAndTheMethodAreAnnotatedWithRelativePath();
 		}
 		catch (java.lang.Exception err43) {
 			err43.printStackTrace();
 		}
 		try {
-			class6.addsAPrefixToMethodsWhenTheControllerEndsWithSlashAndTheMethodAreAnnotatedWithRelativePath();
+			class5.addsAPrefixToMethodsWhenTheControllerEndsWithSlashAndTheMethodAreAnnotatedWithRelativePath();
 		}
 		catch (java.lang.Exception err44) {
 			err44.printStackTrace();
 		}
 		try {
-			class6.addsAPrefixToMethodsWhenTheControllerEndsWithSlashAndTheMethodAreAnnotatedWithAbsolutePath();
+			class5.addsAPrefixToMethodsWhenTheControllerEndsWithSlashAndTheMethodAreAnnotatedWithAbsolutePath();
 		}
 		catch (java.lang.Exception err45) {
 			err45.printStackTrace();
 		}
 		try {
-			class6.addsAPrefixToMethodsWhenTheControllerEndsWithSlashAndTheMethodAreAnnotatedWithEmptyPath();
+			class5.addsAPrefixToMethodsWhenTheControllerEndsWithSlashAndTheMethodAreAnnotatedWithEmptyPath();
 		}
 		catch (java.lang.Exception err46) {
 			err46.printStackTrace();
 		}
 		try {
-			class6.addsAPrefixToMethodsWhenTheControllerAndTheMethodAreAnnotatedWithAbsolutePath();
+			class5.addsAPrefixToMethodsWhenTheControllerAndTheMethodAreAnnotatedWithAbsolutePath();
 		}
 		catch (java.lang.Exception err47) {
 			err47.printStackTrace();
 		}
 		try {
-			class6.addsAPrefixToMethodsWhenTheControllerAndTheMethodAreAnnotatedWithEmptyPath();
+			class5.addsAPrefixToMethodsWhenTheControllerAndTheMethodAreAnnotatedWithEmptyPath();
 		}
 		catch (java.lang.Exception err48) {
 			err48.printStackTrace();
 		}
 		try {
-			class6.addsAPrefixToMethodsWhenTheControllerIsAnnotatedWithPath();
+			class5.addsAPrefixToMethodsWhenTheControllerIsAnnotatedWithPath();
 		}
 		catch (java.lang.Exception err49) {
 			err49.printStackTrace();
 		}
 		try {
-			class6.findsTheCorrectAnnotatedMethodIfThereIsNoWebMethodAnnotationPresent();
+			class5.findsTheCorrectAnnotatedMethodIfThereIsNoWebMethodAnnotationPresent();
 		}
 		catch (java.lang.Exception err50) {
 			err50.printStackTrace();
 		}
 		try {
-			class6.suportsTheDefaultNameForANonAnnotatedMethod();
+			class5.suportsTheDefaultNameForANonAnnotatedMethod();
 		}
 		catch (java.lang.SecurityException err51) {
 			err51.printStackTrace();
@@ -303,7 +302,7 @@ public class Driver {
 			err52.printStackTrace();
 		}
 		try {
-			class6.ignoresTheControllerSuffixForANonAnnotatedMethod();
+			class5.ignoresTheControllerSuffixForANonAnnotatedMethod();
 		}
 		catch (java.lang.SecurityException err53) {
 			err53.printStackTrace();
@@ -312,7 +311,7 @@ public class Driver {
 			err54.printStackTrace();
 		}
 		try {
-			class6.addsASlashWhenUserForgotIt();
+			class5.addsASlashWhenUserForgotIt();
 		}
 		catch (java.lang.SecurityException err55) {
 			err55.printStackTrace();
@@ -321,7 +320,7 @@ public class Driver {
 			err56.printStackTrace();
 		}
 		try {
-			class6.matchesWhenUsingAWildcard();
+			class5.matchesWhenUsingAWildcard();
 		}
 		catch (java.lang.SecurityException err57) {
 			err57.printStackTrace();
@@ -329,34 +328,34 @@ public class Driver {
 		catch (java.lang.NoSuchMethodException err58) {
 			err58.printStackTrace();
 		}
-		class6.dontRegisterRouteIfMethodIsNotPublic();
-		class6.dontRegisterRouteIfMethodIsStatic();
+		class5.dontRegisterRouteIfMethodIsNotPublic();
+		class5.dontRegisterRouteIfMethodIsStatic();
 		try {
-			class6.shouldThrowExceptionIfPathAnnotationHasEmptyArray();
+			class5.shouldThrowExceptionIfPathAnnotationHasEmptyArray();
 		}
 		catch (java.lang.Exception err59) {
 			err59.printStackTrace();
 		}
 		try {
-			class6.shouldFindNonAnnotatedNonStaticPublicMethodWithComponentNameInVariableCamelCaseConventionAsURI();
+			class5.shouldFindNonAnnotatedNonStaticPublicMethodWithComponentNameInVariableCamelCaseConventionAsURI();
 		}
 		catch (java.lang.Exception err60) {
 			err60.printStackTrace();
 		}
 		try {
-			class6.shouldFindSeveralPathsForMethodWithManyValue();
+			class5.shouldFindSeveralPathsForMethodWithManyValue();
 		}
 		catch (java.lang.Exception err61) {
 			err61.printStackTrace();
 		}
 		try {
-			class6.shouldNotMatchIfAResourceHasTheWrongWebMethod();
+			class5.shouldNotMatchIfAResourceHasTheWrongWebMethod();
 		}
 		catch (java.lang.SecurityException err62) {
 			err62.printStackTrace();
 		}
 		try {
-			class6.shouldAcceptAResultWithASpecificWebMethod();
+			class5.shouldAcceptAResultWithASpecificWebMethod();
 		}
 		catch (java.lang.SecurityException err63) {
 			err63.printStackTrace();
@@ -365,7 +364,7 @@ public class Driver {
 			err64.printStackTrace();
 		}
 		try {
-			class6.shouldAcceptAResultWithOptionsWebMethod();
+			class5.shouldAcceptAResultWithOptionsWebMethod();
 		}
 		catch (java.lang.SecurityException err65) {
 			err65.printStackTrace();
@@ -374,7 +373,7 @@ public class Driver {
 			err66.printStackTrace();
 		}
 		try {
-			class6.shouldAcceptAResultWithPatchWebMethod();
+			class5.shouldAcceptAResultWithPatchWebMethod();
 		}
 		catch (java.lang.SecurityException err67) {
 			err67.printStackTrace();
@@ -383,7 +382,7 @@ public class Driver {
 			err68.printStackTrace();
 		}
 		try {
-			class6.findsInheritedMethodsWithDefaultNames();
+			class5.findsInheritedMethodsWithDefaultNames();
 		}
 		catch (java.lang.SecurityException err69) {
 			err69.printStackTrace();
@@ -392,7 +391,7 @@ public class Driver {
 			err70.printStackTrace();
 		}
 		try {
-			class6.supportMethodOverriding();
+			class5.supportMethodOverriding();
 		}
 		catch (java.lang.SecurityException err71) {
 			err71.printStackTrace();
@@ -401,7 +400,7 @@ public class Driver {
 			err72.printStackTrace();
 		}
 		try {
-			class6.supportTypeHttpMethodAnnotation();
+			class5.supportTypeHttpMethodAnnotation();
 		}
 		catch (java.lang.SecurityException err73) {
 			err73.printStackTrace();
@@ -410,7 +409,7 @@ public class Driver {
 			err74.printStackTrace();
 		}
 		try {
-			class6.supportOverrideTypeHttpMethodAnnotation();
+			class5.supportOverrideTypeHttpMethodAnnotation();
 		}
 		catch (java.lang.SecurityException err75) {
 			err75.printStackTrace();
@@ -419,69 +418,69 @@ public class Driver {
 			err76.printStackTrace();
 		}
 		try {
-			class6.addsAPrefixToMethodsWhenTheGetControllerAndTheMethodAreAnnotatedWithRelativePath();
+			class5.addsAPrefixToMethodsWhenTheGetControllerAndTheMethodAreAnnotatedWithRelativePath();
 		}
 		catch (java.lang.Exception err77) {
 			err77.printStackTrace();
 		}
 		try {
-			class6.priorityForGetAnnotationShouldBeDefault();
+			class5.priorityForGetAnnotationShouldBeDefault();
 		}
 		catch (java.lang.Exception err78) {
 			err78.printStackTrace();
 		}
 		try {
-			class6.addsAPrefixToMethodsWhenTheGetControllerEndsWithSlashAndTheMethodAreAnnotatedWithRelativePath();
+			class5.addsAPrefixToMethodsWhenTheGetControllerEndsWithSlashAndTheMethodAreAnnotatedWithRelativePath();
 		}
 		catch (java.lang.Exception err79) {
 			err79.printStackTrace();
 		}
 		try {
-			class6.addsAPrefixToMethodsWhenTheGetControllerEndsWithSlashAndTheMethodAreAnnotatedWithAbsolutePath();
+			class5.addsAPrefixToMethodsWhenTheGetControllerEndsWithSlashAndTheMethodAreAnnotatedWithAbsolutePath();
 		}
 		catch (java.lang.Exception err80) {
 			err80.printStackTrace();
 		}
 		try {
-			class6.addsAPrefixToMethodsWhenTheGetControllerAndTheMethodAreAnnotatedWithAbsolutePath();
+			class5.addsAPrefixToMethodsWhenTheGetControllerAndTheMethodAreAnnotatedWithAbsolutePath();
 		}
 		catch (java.lang.Exception err81) {
 			err81.printStackTrace();
 		}
 		try {
-			class6.addsAPrefixToMethodsWhenTheGetControllerIsAnnotatedWithPath();
+			class5.addsAPrefixToMethodsWhenTheGetControllerIsAnnotatedWithPath();
 		}
 		catch (java.lang.Exception err82) {
 			err82.printStackTrace();
 		}
 		try {
-			class6.throwsExceptionWhenTheGetControllerHasAmbiguousDeclaration();
+			class5.throwsExceptionWhenTheGetControllerHasAmbiguousDeclaration();
 		}
 		catch (java.lang.Exception err83) {
 			err83.printStackTrace();
 		}
-		br.com.caelum.vraptor.http.route.DefaultRouterTest class7 = new br.com.caelum.vraptor.http.route.DefaultRouterTest();
-		class7.setup();
+		br.com.caelum.vraptor.http.route.DefaultRouterTest class6 = new br.com.caelum.vraptor.http.route.DefaultRouterTest();
+		class6.setup();
 		try {
-			class7.shouldThrowResourceNotFoundExceptionWhenNoRoutesMatchTheURI();
+			class6.shouldThrowResourceNotFoundExceptionWhenNoRoutesMatchTheURI();
 		}
 		catch (java.lang.Exception err84) {
 			err84.printStackTrace();
 		}
 		try {
-			class7.shouldThrowMethodNotAllowedExceptionWhenNoRoutesMatchTheURIWithGivenHttpMethod();
+			class6.shouldThrowMethodNotAllowedExceptionWhenNoRoutesMatchTheURIWithGivenHttpMethod();
 		}
 		catch (java.lang.Exception err85) {
 			err85.printStackTrace();
 		}
 		try {
-			class7.shouldObeyPriorityOfRoutes();
+			class6.shouldObeyPriorityOfRoutes();
 		}
 		catch (java.lang.Exception err86) {
 			err86.printStackTrace();
 		}
 		try {
-			class7.acceptsASingleMappingRule();
+			class6.acceptsASingleMappingRule();
 		}
 		catch (java.lang.SecurityException err87) {
 			err87.printStackTrace();
@@ -490,7 +489,7 @@ public class Driver {
 			err88.printStackTrace();
 		}
 		try {
-			class7.passesTheWebMethod();
+			class6.passesTheWebMethod();
 		}
 		catch (java.lang.SecurityException err89) {
 			err89.printStackTrace();
@@ -499,7 +498,7 @@ public class Driver {
 			err90.printStackTrace();
 		}
 		try {
-			class7.usesTheFirstRegisteredRuleMatchingThePattern();
+			class6.usesTheFirstRegisteredRuleMatchingThePattern();
 		}
 		catch (java.lang.SecurityException err91) {
 			err91.printStackTrace();
@@ -507,56 +506,56 @@ public class Driver {
 		catch (java.lang.NoSuchMethodException err92) {
 			err92.printStackTrace();
 		}
-		class7.throwsExceptionIfMoreThanOneUriMatchesWithSamePriority();
+		class6.throwsExceptionIfMoreThanOneUriMatchesWithSamePriority();
 		try {
-			class7.acceptsAnHttpMethodLimitedMappingRule();
+			class6.acceptsAnHttpMethodLimitedMappingRule();
 		}
 		catch (java.lang.NoSuchMethodException err93) {
 			err93.printStackTrace();
 		}
 		try {
-			class7.acceptsAnHttpMethodLimitedMappingRuleWithBothMethods();
+			class6.acceptsAnHttpMethodLimitedMappingRuleWithBothMethods();
 		}
 		catch (java.lang.NoSuchMethodException err94) {
 			err94.printStackTrace();
 		}
 		try {
-			class7.usesAsteriskBothWays();
+			class6.usesAsteriskBothWays();
 		}
 		catch (java.lang.NoSuchMethodException err95) {
 			err95.printStackTrace();
 		}
 		try {
-			class7.canTranslateAInheritedResourceBothWays();
+			class6.canTranslateAInheritedResourceBothWays();
 		}
 		catch (java.lang.NoSuchMethodException err96) {
 			err96.printStackTrace();
 		}
 		try {
-			class7.canTranslateAnnotatedMethodBothWays();
+			class6.canTranslateAnnotatedMethodBothWays();
 		}
 		catch (java.lang.NoSuchMethodException err97) {
 			err97.printStackTrace();
 		}
-		br.com.caelum.vraptor.http.route.FixedMethodStrategyTest class8 = new br.com.caelum.vraptor.http.route.FixedMethodStrategyTest();
-		class8.setup();
-		class8.canTranslate();
+		br.com.caelum.vraptor.http.route.FixedMethodStrategyTest class7 = new br.com.caelum.vraptor.http.route.FixedMethodStrategyTest();
+		class7.setup();
+		class7.canTranslate();
 		try {
-			class8.areEquals();
+			class7.areEquals();
 		}
 		catch (java.lang.Exception err98) {
 			err98.printStackTrace();
 		}
-		br.com.caelum.vraptor.http.route.DefaultTypeFinderTest class9 = new br.com.caelum.vraptor.http.route.DefaultTypeFinderTest();
-		class9.setup();
+		br.com.caelum.vraptor.http.route.DefaultTypeFinderTest class8 = new br.com.caelum.vraptor.http.route.DefaultTypeFinderTest();
+		class8.setup();
 		try {
-			class9.shouldGetTypesCorrectly();
+			class8.shouldGetTypesCorrectly();
 		}
 		catch (java.lang.Exception err99) {
 			err99.printStackTrace();
 		}
 		try {
-			class9.shouldGetTypesCorrectlyOnInheritance();
+			class8.shouldGetTypesCorrectlyOnInheritance();
 		}
 		catch (java.lang.Exception err100) {
 			err100.printStackTrace();

@@ -2,9 +2,9 @@ package org.apache.commons.collections4.list;
 
 public class Driver {
 	public void runall() {
-		org.apache.commons.collections4.list.FixedSizeListTest class1 = new org.apache.commons.collections4.list.FixedSizeListTest();
+		org.apache.commons.collections4.list.FixedSizeListTest class1 = new org.apache.commons.collections4.list.FixedSizeListTest(null);
 		class1.testListAllowsMutationOfUnderlyingCollection();
-		org.apache.commons.collections4.list.SetUniqueListTest class2 = new org.apache.commons.collections4.list.SetUniqueListTest();
+		org.apache.commons.collections4.list.SetUniqueListTest class2 = new org.apache.commons.collections4.list.SetUniqueListTest(null);
 		class2.testAdd();
 		class2.testAddAll();
 		class2.testCollectionAddAll();
@@ -28,7 +28,7 @@ public class Driver {
 		class2.testSubListIsUnmodifiable();
 		class2.testUniqueListDoubleInsert();
 		class2.testUniqueListReInsert();
-		org.apache.commons.collections4.list.CursorableLinkedListTest class3 = new org.apache.commons.collections4.list.CursorableLinkedListTest();
+		org.apache.commons.collections4.list.CursorableLinkedListTest class3 = new org.apache.commons.collections4.list.CursorableLinkedListTest(null);
 		class3.testAdd();
 		class3.testClear();
 		class3.testContains();
@@ -95,12 +95,12 @@ public class Driver {
 		catch (java.lang.Exception err3) {
 			err3.printStackTrace();
 		}
-		org.apache.commons.collections4.list.PredicatedListTest class4 = new org.apache.commons.collections4.list.PredicatedListTest();
+		org.apache.commons.collections4.list.PredicatedListTest class4 = new org.apache.commons.collections4.list.PredicatedListTest(null);
 		class4.testIllegalAdd();
 		class4.testIllegalAddAll();
 		class4.testIllegalSet();
 		class4.testLegalAddAll();
-		org.apache.commons.collections4.list.UnmodifiableListTest class5 = new org.apache.commons.collections4.list.UnmodifiableListTest();
+		org.apache.commons.collections4.list.UnmodifiableListTest class5 = new org.apache.commons.collections4.list.UnmodifiableListTest(null);
 		class5.testUnmodifiable();
 		class5.testDecorateFactory();
 		class5.testUnmodifiableIterator();
@@ -108,7 +108,7 @@ public class Driver {
 		class6.testArrayList();
 		class6.testHashSet();
 		class6.testSetUniqueList();
-		org.apache.commons.collections4.list.TreeListTest class7 = new org.apache.commons.collections4.list.TreeListTest();
+		org.apache.commons.collections4.list.TreeListTest class7 = new org.apache.commons.collections4.list.TreeListTest(null);
 		class7.testAddMultiple();
 		class7.testRemove();
 		class7.testInsertBefore();
@@ -117,12 +117,12 @@ public class Driver {
 		class7.testBugCollections447();
 		class7.testIterationOrder();
 		class7.testIterationOrderAfterAddAll();
-		org.apache.commons.collections4.list.TransformedListTest class8 = new org.apache.commons.collections4.list.TransformedListTest();
+		org.apache.commons.collections4.list.TransformedListTest class8 = new org.apache.commons.collections4.list.TransformedListTest(null);
 		class8.testTransformedList();
 		class8.testTransformedList_decorateTransform();
-		org.apache.commons.collections4.list.NodeCachingLinkedListTest class9 = new org.apache.commons.collections4.list.NodeCachingLinkedListTest();
+		org.apache.commons.collections4.list.NodeCachingLinkedListTest class9 = new org.apache.commons.collections4.list.NodeCachingLinkedListTest(null);
 		class9.testShrinkCache();
-		org.apache.commons.collections4.list.GrowthListTest class10 = new org.apache.commons.collections4.list.GrowthListTest();
+		org.apache.commons.collections4.list.GrowthListTest class10 = new org.apache.commons.collections4.list.GrowthListTest(null);
 		class10.testGrowthAdd();
 		class10.testGrowthAddAll();
 		class10.testGrowthSet1();
@@ -131,7 +131,7 @@ public class Driver {
 		class10.testListAddByIndexBoundsChecking2();
 		class10.testListSetByIndexBoundsChecking();
 		class10.testListSetByIndexBoundsChecking2();
-		org.apache.commons.collections4.list.LazyListTest class11 = new org.apache.commons.collections4.list.LazyListTest();
+		org.apache.commons.collections4.list.LazyListTest class11 = new org.apache.commons.collections4.list.LazyListTest(null);
 		class11.testSimpleSerialization();
 		class11.testSerializeDeserializeThenCompare();
 		class11.testCanonicalEmptyCollectionExists();

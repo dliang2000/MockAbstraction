@@ -88,12 +88,5 @@ public class Driver {
 		}
 		class3.shouldIncludeCallbackPadding();
 		class3.shouldSerializeGenericClass();
-		br.com.caelum.vraptor.serialization.xstream.XStreamSerializerTest class4 = new br.com.caelum.vraptor.serialization.xstream.XStreamSerializerTest();
-		try {
-			class4.setup();
-		}
-		catch (java.lang.Exception err6) {
-			err6.printStackTrace();
-		}
 	}
 }

@@ -1,3 +1,19 @@
+/**
+ * Copyright © 2010-2020 Nokia
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.jsonschema2pojo.rules;
 
 public class Driver {
@@ -23,7 +39,7 @@ public class Driver {
 			err3.printStackTrace();
 		}
 		class2.shouldAddNotFoundField();
-		org.jsonschema2pojo.rules.MinLengthMaxLengthRuleTest class3 = new org.jsonschema2pojo.rules.MinLengthMaxLengthRuleTest();
+		org.jsonschema2pojo.rules.MinLengthMaxLengthRuleTest class3 = new org.jsonschema2pojo.rules.MinLengthMaxLengthRuleTest(false,null);
 		class3.setUp();
 		class3.testMinLength();
 		class3.testMaxLength();
@@ -31,7 +47,7 @@ public class Driver {
 		class3.testMaxAndMinLengthGenericsOnType();
 		class3.testNotUsed();
 		class3.jsrDisable();
-		org.jsonschema2pojo.rules.FormatRuleJodaTest class4 = new org.jsonschema2pojo.rules.FormatRuleJodaTest();
+		org.jsonschema2pojo.rules.FormatRuleJodaTest class4 = new org.jsonschema2pojo.rules.FormatRuleJodaTest(null,null);
 		class4.setupConfig();
 		class4.applyGeneratesTypeFromFormatValue();
 		org.jsonschema2pojo.rules.RequiredArrayRuleTest class5 = new org.jsonschema2pojo.rules.RequiredArrayRuleTest();
@@ -105,16 +121,16 @@ public class Driver {
 		catch (com.sun.codemodel.JClassAlreadyExistsException err14) {
 			err14.printStackTrace();
 		}
-		org.jsonschema2pojo.rules.PatternRuleTest class10 = new org.jsonschema2pojo.rules.PatternRuleTest();
+		org.jsonschema2pojo.rules.PatternRuleTest class10 = new org.jsonschema2pojo.rules.PatternRuleTest(false,null);
 		class10.setUp();
 		class10.testRegex();
 		class10.jsrDisable();
-		org.jsonschema2pojo.rules.DigitsRuleTest class11 = new org.jsonschema2pojo.rules.DigitsRuleTest();
+		org.jsonschema2pojo.rules.DigitsRuleTest class11 = new org.jsonschema2pojo.rules.DigitsRuleTest(false,null);
 		class11.setUp();
 		class11.testHasIntegerAndFractionalDigits();
 		class11.testNotUsed();
 		class11.jsrDisable();
-		org.jsonschema2pojo.rules.FormatRuleTest class12 = new org.jsonschema2pojo.rules.FormatRuleTest();
+		org.jsonschema2pojo.rules.FormatRuleTest class12 = new org.jsonschema2pojo.rules.FormatRuleTest(null,null);
 		class12.applyGeneratesTypeFromFormatValue();
 		class12.applyDefaultsToBaseType();
 		org.jsonschema2pojo.rules.TypeRuleTest class13 = new org.jsonschema2pojo.rules.TypeRuleTest();
@@ -155,9 +171,9 @@ public class Driver {
 		class13.applyGeneratesCustomObject();
 		class13.applyChoosesObjectOnUnrecognizedType();
 		class13.applyDefaultsToTypeAnyObject();
-		org.jsonschema2pojo.rules.FormatRuleArraysTest class14 = new org.jsonschema2pojo.rules.FormatRuleArraysTest();
+		org.jsonschema2pojo.rules.FormatRuleArraysTest class14 = new org.jsonschema2pojo.rules.FormatRuleArraysTest(null,null);
 		class14.useArraysWithCustomTypeMapping();
-		org.jsonschema2pojo.rules.FormatRulePrimitivesTest class15 = new org.jsonschema2pojo.rules.FormatRulePrimitivesTest();
+		org.jsonschema2pojo.rules.FormatRulePrimitivesTest class15 = new org.jsonschema2pojo.rules.FormatRulePrimitivesTest(null,null);
 		class15.usePrimitivesWithCustomTypeMapping();
 		org.jsonschema2pojo.rules.DescriptionRuleTest class16 = new org.jsonschema2pojo.rules.DescriptionRuleTest();
 		try {
@@ -171,7 +187,7 @@ public class Driver {
 		class17.arrayWithNonUniqueItemsProducesList();
 		class17.arrayOfPrimitivesProducesCollectionOfWrapperTypes();
 		class17.arrayDefaultsToNonUnique();
-		org.jsonschema2pojo.rules.MinItemsMaxItemsRuleTest class18 = new org.jsonschema2pojo.rules.MinItemsMaxItemsRuleTest();
+		org.jsonschema2pojo.rules.MinItemsMaxItemsRuleTest class18 = new org.jsonschema2pojo.rules.MinItemsMaxItemsRuleTest(false,null);
 		class18.setUp();
 		class18.testMinLength();
 		class18.testMaxLength();
@@ -191,7 +207,7 @@ public class Driver {
 		class20.generationConfigIsReturned();
 		class20.generationRuleLoggerIsReturned();
 		class20.schemaStoreIsReturned();
-		org.jsonschema2pojo.rules.MinimumMaximumRuleTest class21 = new org.jsonschema2pojo.rules.MinimumMaximumRuleTest();
+		org.jsonschema2pojo.rules.MinimumMaximumRuleTest class21 = new org.jsonschema2pojo.rules.MinimumMaximumRuleTest(false,null);
 		class21.setUp();
 		class21.testMinimum();
 		class21.testMaximum();

@@ -2,40 +2,35 @@ package org.apache.commons.collections4.bidimap;
 
 public class Driver {
 	public void runall() {
-		org.apache.commons.collections4.bidimap.DualHashBidiMapTest class1 = new org.apache.commons.collections4.bidimap.DualHashBidiMapTest();
-		org.apache.commons.collections4.bidimap.UnmodifiableSortedBidiMapTest class2 = new org.apache.commons.collections4.bidimap.UnmodifiableSortedBidiMapTest();
-		class2.testUnmodifiable();
-		class2.testDecorateFactory();
-		org.apache.commons.collections4.bidimap.TreeBidiMapTest class3 = new org.apache.commons.collections4.bidimap.TreeBidiMapTest();
-		org.apache.commons.collections4.bidimap.DualTreeBidiMap2Test class4 = new org.apache.commons.collections4.bidimap.DualTreeBidiMap2Test();
-		class4.testComparator();
-		class4.testComparator2();
+		org.apache.commons.collections4.bidimap.UnmodifiableSortedBidiMapTest class1 = new org.apache.commons.collections4.bidimap.UnmodifiableSortedBidiMapTest(null);
+		class1.testUnmodifiable();
+		class1.testDecorateFactory();
+		org.apache.commons.collections4.bidimap.DualTreeBidiMap2Test class2 = new org.apache.commons.collections4.bidimap.DualTreeBidiMap2Test(null);
+		class2.testComparator();
+		class2.testComparator2();
 		try {
-			class4.testSerializeDeserializeCheckComparator();
+			class2.testSerializeDeserializeCheckComparator();
 		}
 		catch (java.lang.Exception err1) {
 			err1.printStackTrace();
 		}
 		try {
-			class4.testCollections364();
+			class2.testCollections364();
 		}
 		catch (java.lang.Exception err2) {
 			err2.printStackTrace();
 		}
 		try {
-			class4.testSortOrder();
+			class2.testSortOrder();
 		}
 		catch (java.lang.Exception err3) {
 			err3.printStackTrace();
 		}
-		org.apache.commons.collections4.bidimap.DualLinkedHashBidiMapTest class5 = new org.apache.commons.collections4.bidimap.DualLinkedHashBidiMapTest();
-		org.apache.commons.collections4.bidimap.UnmodifiableOrderedBidiMapTest class6 = new org.apache.commons.collections4.bidimap.UnmodifiableOrderedBidiMapTest();
-		class6.testUnmodifiable();
-		class6.testDecorateFactory();
-		org.apache.commons.collections4.bidimap.AbstractOrderedBidiMapDecoratorTest class7 = new org.apache.commons.collections4.bidimap.AbstractOrderedBidiMapDecoratorTest();
-		org.apache.commons.collections4.bidimap.UnmodifiableBidiMapTest class8 = new org.apache.commons.collections4.bidimap.UnmodifiableBidiMapTest();
-		class8.testUnmodifiable();
-		class8.testDecorateFactory();
-		org.apache.commons.collections4.bidimap.DualTreeBidiMapTest class9 = new org.apache.commons.collections4.bidimap.DualTreeBidiMapTest();
+		org.apache.commons.collections4.bidimap.UnmodifiableOrderedBidiMapTest class3 = new org.apache.commons.collections4.bidimap.UnmodifiableOrderedBidiMapTest(null);
+		class3.testUnmodifiable();
+		class3.testDecorateFactory();
+		org.apache.commons.collections4.bidimap.UnmodifiableBidiMapTest class4 = new org.apache.commons.collections4.bidimap.UnmodifiableBidiMapTest(null);
+		class4.testUnmodifiable();
+		class4.testDecorateFactory();
 	}
 }

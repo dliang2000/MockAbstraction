@@ -7,6 +7,8 @@
 
 ./bin/scripts/jsonschema2pojo_core_1.1.1/driver_generator_jsonschema2pojo_core_1.1.1.sh
 
+./bin/scripts/flink_release_1.13.0_rc1/driver_generator_flink_core_1.13.0_rc1.sh
+
 ./bin/scripts/maven-3.8.1/driver_generator_maven_3.8.1.sh
 
 ./bin/scripts/microbenchmark/driver_generator_microbenchmark.sh

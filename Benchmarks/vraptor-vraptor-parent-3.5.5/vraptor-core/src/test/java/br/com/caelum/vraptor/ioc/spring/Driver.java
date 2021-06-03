@@ -47,6 +47,5 @@ public class Driver {
 			err3.printStackTrace();
 		}
 		class3.shouldLoadInitParameterForBasePackages();
-		br.com.caelum.vraptor.ioc.spring.SpringProviderRegisteringComponentsTest class4 = new br.com.caelum.vraptor.ioc.spring.SpringProviderRegisteringComponentsTest();
 	}
 }
