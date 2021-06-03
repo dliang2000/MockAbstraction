@@ -2,7 +2,7 @@ package org.apache.commons.collections4.splitmap;
 
 public class Driver {
 	public void runall() {
-		org.apache.commons.collections4.splitmap.TransformedSplitMapTest class1 = new org.apache.commons.collections4.splitmap.TransformedSplitMapTest();
+		org.apache.commons.collections4.splitmap.TransformedSplitMapTest class1 = new org.apache.commons.collections4.splitmap.TransformedSplitMapTest(null);
 		class1.testTransformedMap();
 		class1.testMapIterator();
 		try {

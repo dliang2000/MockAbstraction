@@ -951,141 +951,137 @@ public class Driver {
 		catch (java.lang.Exception err157) {
 			err157.printStackTrace();
 		}
-		org.apache.maven.project.EmptyProjectBuildingHelper class5 = new org.apache.maven.project.EmptyProjectBuildingHelper();
-		org.apache.maven.project.ExtensionDescriptorBuilderTest class6 = new org.apache.maven.project.ExtensionDescriptorBuilderTest();
+		org.apache.maven.project.ExtensionDescriptorBuilderTest class5 = new org.apache.maven.project.ExtensionDescriptorBuilderTest();
 		try {
-			class6.testEmptyDescriptor();
+			class5.testEmptyDescriptor();
 		}
 		catch (java.lang.Exception err158) {
 			err158.printStackTrace();
 		}
 		try {
-			class6.testCompleteDescriptor();
+			class5.testCompleteDescriptor();
 		}
 		catch (java.lang.Exception err159) {
 			err159.printStackTrace();
 		}
-		org.apache.maven.project.TestMetadataSource class7 = new org.apache.maven.project.TestMetadataSource();
-		org.apache.maven.project.LegacyLocalRepositoryManager class8 = new org.apache.maven.project.LegacyLocalRepositoryManager();
-		org.apache.maven.project.ProjectModelResolverTest class9 = new org.apache.maven.project.ProjectModelResolverTest();
+		org.apache.maven.project.ProjectModelResolverTest class6 = new org.apache.maven.project.ProjectModelResolverTest();
 		try {
-			class9.testResolveParentThrowsUnresolvableModelExceptionWhenNotFound();
+			class6.testResolveParentThrowsUnresolvableModelExceptionWhenNotFound();
 		}
 		catch (java.lang.Exception err160) {
 			err160.printStackTrace();
 		}
 		try {
-			class9.testResolveParentThrowsUnresolvableModelExceptionWhenNoMatchingVersionFound();
+			class6.testResolveParentThrowsUnresolvableModelExceptionWhenNoMatchingVersionFound();
 		}
 		catch (java.lang.Exception err161) {
 			err161.printStackTrace();
 		}
 		try {
-			class9.testResolveParentThrowsUnresolvableModelExceptionWhenUsingRangesWithoutUpperBound();
+			class6.testResolveParentThrowsUnresolvableModelExceptionWhenUsingRangesWithoutUpperBound();
 		}
 		catch (java.lang.Exception err162) {
 			err162.printStackTrace();
 		}
 		try {
-			class9.testResolveParentSuccessfullyResolvesExistingParentWithoutRange();
+			class6.testResolveParentSuccessfullyResolvesExistingParentWithoutRange();
 		}
 		catch (java.lang.Exception err163) {
 			err163.printStackTrace();
 		}
 		try {
-			class9.testResolveParentSuccessfullyResolvesExistingParentUsingHighestVersion();
+			class6.testResolveParentSuccessfullyResolvesExistingParentUsingHighestVersion();
 		}
 		catch (java.lang.Exception err164) {
 			err164.printStackTrace();
 		}
 		try {
-			class9.testResolveDependencyThrowsUnresolvableModelExceptionWhenNotFound();
+			class6.testResolveDependencyThrowsUnresolvableModelExceptionWhenNotFound();
 		}
 		catch (java.lang.Exception err165) {
 			err165.printStackTrace();
 		}
 		try {
-			class9.testResolveDependencyThrowsUnresolvableModelExceptionWhenNoMatchingVersionFound();
+			class6.testResolveDependencyThrowsUnresolvableModelExceptionWhenNoMatchingVersionFound();
 		}
 		catch (java.lang.Exception err166) {
 			err166.printStackTrace();
 		}
 		try {
-			class9.testResolveDependencyThrowsUnresolvableModelExceptionWhenUsingRangesWithoutUpperBound();
+			class6.testResolveDependencyThrowsUnresolvableModelExceptionWhenUsingRangesWithoutUpperBound();
 		}
 		catch (java.lang.Exception err167) {
 			err167.printStackTrace();
 		}
 		try {
-			class9.testResolveDependencySuccessfullyResolvesExistingDependencyWithoutRange();
+			class6.testResolveDependencySuccessfullyResolvesExistingDependencyWithoutRange();
 		}
 		catch (java.lang.Exception err168) {
 			err168.printStackTrace();
 		}
 		try {
-			class9.testResolveDependencySuccessfullyResolvesExistingDependencyUsingHighestVersion();
+			class6.testResolveDependencySuccessfullyResolvesExistingDependencyUsingHighestVersion();
 		}
 		catch (java.lang.Exception err169) {
 			err169.printStackTrace();
 		}
-		org.apache.maven.project.EmptyLifecycleExecutor class10 = new org.apache.maven.project.EmptyLifecycleExecutor();
-		org.apache.maven.project.ProjectBuilderTest class11 = new org.apache.maven.project.ProjectBuilderTest();
+		org.apache.maven.project.ProjectBuilderTest class7 = new org.apache.maven.project.ProjectBuilderTest();
 		try {
-			class11.testSystemScopeDependencyIsPresentInTheCompileClasspathElements();
+			class7.testSystemScopeDependencyIsPresentInTheCompileClasspathElements();
 		}
 		catch (java.lang.Exception err170) {
 			err170.printStackTrace();
 		}
 		try {
-			class11.testBuildFromModelSource();
+			class7.testBuildFromModelSource();
 		}
 		catch (java.lang.Exception err171) {
 			err171.printStackTrace();
 		}
 		try {
-			class11.testVersionlessManagedDependency();
+			class7.testVersionlessManagedDependency();
 		}
 		catch (java.lang.Exception err172) {
 			err172.printStackTrace();
 		}
 		try {
-			class11.testResolveDependencies();
+			class7.testResolveDependencies();
 		}
 		catch (java.lang.Exception err173) {
 			err173.printStackTrace();
 		}
 		try {
-			class11.testDontResolveDependencies();
+			class7.testDontResolveDependencies();
 		}
 		catch (java.lang.Exception err174) {
 			err174.printStackTrace();
 		}
 		try {
-			class11.testReadModifiedPoms();
+			class7.testReadModifiedPoms();
 		}
 		catch (java.lang.Exception err175) {
 			err175.printStackTrace();
 		}
 		try {
-			class11.testReadErroneousMavenProjectContainsReference();
+			class7.testReadErroneousMavenProjectContainsReference();
 		}
 		catch (java.lang.Exception err176) {
 			err176.printStackTrace();
 		}
 		try {
-			class11.testReadInvalidPom();
+			class7.testReadInvalidPom();
 		}
 		catch (java.lang.Exception err177) {
 			err177.printStackTrace();
 		}
 		try {
-			class11.testReadParentAndChildWithRegularVersionSetParentFile();
+			class7.testReadParentAndChildWithRegularVersionSetParentFile();
 		}
 		catch (java.lang.Exception err178) {
 			err178.printStackTrace();
 		}
 		try {
-			class11.testBuildProperties();
+			class7.testBuildProperties();
 		}
 		catch (java.lang.Exception err179) {
 			err179.printStackTrace();

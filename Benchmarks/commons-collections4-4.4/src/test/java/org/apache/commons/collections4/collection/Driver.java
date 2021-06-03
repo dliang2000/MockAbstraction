@@ -8,7 +8,7 @@ public class Driver {
 		class1.addAllPass();
 		class1.createPredicatedCollectionWithNotNullPredicate();
 		class1.createPredicatedCollectionWithPredicate();
-		org.apache.commons.collections4.collection.IndexedCollectionTest class2 = new org.apache.commons.collections4.collection.IndexedCollectionTest();
+		org.apache.commons.collections4.collection.IndexedCollectionTest class2 = new org.apache.commons.collections4.collection.IndexedCollectionTest(null);
 		try {
 			class2.testAddedObjectsCanBeRetrievedByKey();
 		}
@@ -33,38 +33,37 @@ public class Driver {
 		catch (java.lang.Exception err4) {
 			err4.printStackTrace();
 		}
-		org.apache.commons.collections4.collection.TransformedCollectionTest class3 = new org.apache.commons.collections4.collection.TransformedCollectionTest();
+		org.apache.commons.collections4.collection.TransformedCollectionTest class3 = new org.apache.commons.collections4.collection.TransformedCollectionTest(null);
 		class3.testTransformedCollection();
 		class3.testTransformedCollection_decorateTransform();
-		org.apache.commons.collections4.collection.PredicatedCollectionTest class4 = new org.apache.commons.collections4.collection.PredicatedCollectionTest();
+		org.apache.commons.collections4.collection.PredicatedCollectionTest class4 = new org.apache.commons.collections4.collection.PredicatedCollectionTest(null);
 		class4.testIllegalAdd();
 		class4.testIllegalAddAll();
-		org.apache.commons.collections4.collection.SynchronizedCollectionTest class5 = new org.apache.commons.collections4.collection.SynchronizedCollectionTest();
-		org.apache.commons.collections4.collection.CompositeCollectionTest class6 = new org.apache.commons.collections4.collection.CompositeCollectionTest();
-		class6.testAddAllMutator();
-		class6.testAddAllToCollection();
-		class6.testAddMutator();
-		class6.testClear();
-		class6.testContainsAll();
-		class6.testAddNullList();
-		class6.testAddNullLists2Args();
-		class6.testAddNullListsVarArgs();
-		class6.testIsEmpty();
-		class6.testIterator();
-		class6.testMultipleCollectionsSize();
-		class6.testRemove();
-		class6.testRemoveAll();
-		class6.testRemoveIf();
-		class6.testRemoveComposited();
-		class6.testRetainAll();
-		class6.testSize();
-		class6.testToCollection();
-		class6.testUnsupportedRemove();
-		org.apache.commons.collections4.collection.UnmodifiableBoundedCollectionTest class7 = new org.apache.commons.collections4.collection.UnmodifiableBoundedCollectionTest();
+		org.apache.commons.collections4.collection.CompositeCollectionTest class5 = new org.apache.commons.collections4.collection.CompositeCollectionTest(null);
+		class5.testAddAllMutator();
+		class5.testAddAllToCollection();
+		class5.testAddMutator();
+		class5.testClear();
+		class5.testContainsAll();
+		class5.testAddNullList();
+		class5.testAddNullLists2Args();
+		class5.testAddNullListsVarArgs();
+		class5.testIsEmpty();
+		class5.testIterator();
+		class5.testMultipleCollectionsSize();
+		class5.testRemove();
+		class5.testRemoveAll();
+		class5.testRemoveIf();
+		class5.testRemoveComposited();
+		class5.testRetainAll();
+		class5.testSize();
+		class5.testToCollection();
+		class5.testUnsupportedRemove();
+		org.apache.commons.collections4.collection.UnmodifiableBoundedCollectionTest class6 = new org.apache.commons.collections4.collection.UnmodifiableBoundedCollectionTest(null);
+		class6.testUnmodifiable();
+		class6.testDecorateFactory();
+		org.apache.commons.collections4.collection.UnmodifiableCollectionTest class7 = new org.apache.commons.collections4.collection.UnmodifiableCollectionTest(null);
 		class7.testUnmodifiable();
 		class7.testDecorateFactory();
-		org.apache.commons.collections4.collection.UnmodifiableCollectionTest class8 = new org.apache.commons.collections4.collection.UnmodifiableCollectionTest();
-		class8.testUnmodifiable();
-		class8.testDecorateFactory();
 	}
 }

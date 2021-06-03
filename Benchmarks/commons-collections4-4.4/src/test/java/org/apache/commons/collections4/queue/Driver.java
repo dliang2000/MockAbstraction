@@ -2,7 +2,7 @@ package org.apache.commons.collections4.queue;
 
 public class Driver {
 	public void runall() {
-		org.apache.commons.collections4.queue.CircularFifoQueueTest class1 = new org.apache.commons.collections4.queue.CircularFifoQueueTest();
+		org.apache.commons.collections4.queue.CircularFifoQueueTest class1 = new org.apache.commons.collections4.queue.CircularFifoQueueTest(null);
 		class1.testCircularFifoQueueCircular();
 		class1.testCircularFifoQueueRemove();
 		class1.testConstructorException1();
@@ -69,17 +69,17 @@ public class Driver {
 			err10.printStackTrace();
 		}
 		class1.testGetIndex();
-		org.apache.commons.collections4.queue.TransformedQueueTest class2 = new org.apache.commons.collections4.queue.TransformedQueueTest();
+		org.apache.commons.collections4.queue.TransformedQueueTest class2 = new org.apache.commons.collections4.queue.TransformedQueueTest(null);
 		class2.testTransformedQueue();
 		class2.testTransformedQueue_decorateTransform();
-		org.apache.commons.collections4.queue.PredicatedQueueTest class3 = new org.apache.commons.collections4.queue.PredicatedQueueTest();
+		org.apache.commons.collections4.queue.PredicatedQueueTest class3 = new org.apache.commons.collections4.queue.PredicatedQueueTest(null);
 		class3.testGet();
 		class3.testRemove();
-		org.apache.commons.collections4.queue.UnmodifiableQueueTest class4 = new org.apache.commons.collections4.queue.UnmodifiableQueueTest();
+		org.apache.commons.collections4.queue.UnmodifiableQueueTest class4 = new org.apache.commons.collections4.queue.UnmodifiableQueueTest(null);
 		class4.testQueueRemove();
 		class4.testUnmodifiable();
 		class4.testDecorateFactory();
-		org.apache.commons.collections4.queue.SynchronizedQueueTest class5 = new org.apache.commons.collections4.queue.SynchronizedQueueTest();
+		org.apache.commons.collections4.queue.SynchronizedQueueTest class5 = new org.apache.commons.collections4.queue.SynchronizedQueueTest(null);
 		try {
 			class5.testCreate();
 		}

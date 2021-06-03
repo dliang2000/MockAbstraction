@@ -10,59 +10,57 @@ public class Driver {
 			err1.printStackTrace();
 		}
 		class1.shouldNotDoAnything();
-		br.com.caelum.vraptor.scan.ResourceA class2 = new br.com.caelum.vraptor.scan.ResourceA();
-		br.com.caelum.vraptor.scan.WebBasedClasspathResolverTest class3 = new br.com.caelum.vraptor.scan.WebBasedClasspathResolverTest();
-		class3.callerContextDifferentFromRequestedClassLoaderReturnsCurrentClassLoader();
-		br.com.caelum.vraptor.scan.JavassistBootstrapGeneratorTest class4 = new br.com.caelum.vraptor.scan.JavassistBootstrapGeneratorTest();
+		br.com.caelum.vraptor.scan.WebBasedClasspathResolverTest class2 = new br.com.caelum.vraptor.scan.WebBasedClasspathResolverTest();
+		class2.callerContextDifferentFromRequestedClassLoaderReturnsCurrentClassLoader();
+		br.com.caelum.vraptor.scan.JavassistBootstrapGeneratorTest class3 = new br.com.caelum.vraptor.scan.JavassistBootstrapGeneratorTest();
 		try {
-			class4.setup();
+			class3.setup();
 		}
 		catch (java.lang.Exception err2) {
 			err2.printStackTrace();
 		}
 		try {
-			class4.shouldRegisterClasses();
+			class3.shouldRegisterClasses();
 		}
 		catch (java.lang.Exception err3) {
 			err3.printStackTrace();
 		}
 		try {
-			class4.shouldThrowScannerExceptionIfAnErrorOccurs();
+			class3.shouldThrowScannerExceptionIfAnErrorOccurs();
 		}
 		catch (java.lang.Exception err4) {
 			err4.printStackTrace();
 		}
-		br.com.caelum.vraptor.scan.ScannotationComponentScannerTest class5 = new br.com.caelum.vraptor.scan.ScannotationComponentScannerTest();
+		br.com.caelum.vraptor.scan.ScannotationComponentScannerTest class4 = new br.com.caelum.vraptor.scan.ScannotationComponentScannerTest();
 		try {
-			class5.setup();
+			class4.setup();
 		}
 		catch (java.lang.Exception err5) {
 			err5.printStackTrace();
 		}
-		class5.shouldScanWEBINFClasses();
-		class5.shouldScanBasePackages();
+		class4.shouldScanWEBINFClasses();
+		class4.shouldScanBasePackages();
 		try {
-			class5.shouldReturnEmptyCollectionIfWebinfClassesNotFound();
+			class4.shouldReturnEmptyCollectionIfWebinfClassesNotFound();
 		}
 		catch (java.lang.Exception err6) {
 			err6.printStackTrace();
 		}
 		try {
-			class5.shouldThrowScannerExceptionIfHasExceptionWhenProcessWebinfClasses();
+			class4.shouldThrowScannerExceptionIfHasExceptionWhenProcessWebinfClasses();
 		}
 		catch (java.lang.Exception err7) {
 			err7.printStackTrace();
 		}
-		br.com.caelum.vraptor.scan.DynamicWebAppBootstrapTest class6 = new br.com.caelum.vraptor.scan.DynamicWebAppBootstrapTest();
+		br.com.caelum.vraptor.scan.DynamicWebAppBootstrapTest class5 = new br.com.caelum.vraptor.scan.DynamicWebAppBootstrapTest();
 		try {
-			class6.setup();
+			class5.setup();
 		}
 		catch (java.lang.Exception err8) {
 			err8.printStackTrace();
 		}
-		class6.shouldConfigureAllClasses();
-		class6.shouldNotDoAnythingIfHasNoClasses();
-		class6.shouldThrowScannerExceptionIfClassNotExists();
-		br.com.caelum.vraptor.scan.ResourceB class7 = new br.com.caelum.vraptor.scan.ResourceB();
+		class5.shouldConfigureAllClasses();
+		class5.shouldNotDoAnythingIfHasNoClasses();
+		class5.shouldThrowScannerExceptionIfClassNotExists();
 	}
 }

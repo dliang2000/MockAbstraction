@@ -2,71 +2,69 @@ package br.com.caelum.vraptor.proxy;
 
 public class Driver {
 	public void runall() {
-		br.com.caelum.vraptor.proxy.TheClassWithComplexConstructor class1 = new br.com.caelum.vraptor.proxy.TheClassWithComplexConstructor();
-		br.com.caelum.vraptor.proxy.CglibProxifierTest class2 = new br.com.caelum.vraptor.proxy.CglibProxifierTest();
+		br.com.caelum.vraptor.proxy.CglibProxifierTest class1 = new br.com.caelum.vraptor.proxy.CglibProxifierTest();
 		try {
-			class2.setUp();
+			class1.setUp();
 		}
 		catch (java.lang.Exception err1) {
 			err1.printStackTrace();
 		}
-		class2.shouldProxifyInterfaces();
-		class2.shouldProxifyConcreteClassesWithDefaultConstructors();
-		class2.shouldProxifyConcreteClassesWithComplexConstructorsAndPassNullForAllParameters();
-		class2.shouldNeverCallSuperclassConstructors();
+		class1.shouldProxifyInterfaces();
+		class1.shouldProxifyConcreteClassesWithDefaultConstructors();
+		class1.shouldProxifyConcreteClassesWithComplexConstructorsAndPassNullForAllParameters();
+		class1.shouldNeverCallSuperclassConstructors();
 		try {
-			class2.shouldNotProxifyJavaLangObjectMethods();
+			class1.shouldNotProxifyJavaLangObjectMethods();
 		}
 		catch (java.lang.Exception err2) {
 			err2.printStackTrace();
 		}
-		class2.testIfObjectIsProxy();
-		class2.shouldThrowProxyInvocationExceptionIfAnErrorOccurs();
+		class1.testIfObjectIsProxy();
+		class1.shouldThrowProxyInvocationExceptionIfAnErrorOccurs();
 		try {
-			class2.shouldNotProxifyBridges();
+			class1.shouldNotProxifyBridges();
 		}
 		catch (java.lang.Exception err3) {
 			err3.printStackTrace();
 		}
-		br.com.caelum.vraptor.proxy.TheClass class3 = new br.com.caelum.vraptor.proxy.TheClass();
-		br.com.caelum.vraptor.proxy.ReflectionInstanceCreatorTest class4 = new br.com.caelum.vraptor.proxy.ReflectionInstanceCreatorTest();
+		br.com.caelum.vraptor.proxy.ReflectionInstanceCreatorTest class2 = new br.com.caelum.vraptor.proxy.ReflectionInstanceCreatorTest();
 		try {
-			class4.setUp();
+			class2.setUp();
 		}
 		catch (java.lang.Exception err4) {
 			err4.printStackTrace();
 		}
-		class4.shouldProxifyInterfaces();
-		class4.shouldProxifyConcreteClassesWithDefaultConstructors();
-		class4.shouldProxifyConcreteClassesWithComplexConstructorsAndPassNullForAllParameters();
-		class4.shouldTryAllConstructorsInDeclarationOrder();
+		class2.shouldProxifyInterfaces();
+		class2.shouldProxifyConcreteClassesWithDefaultConstructors();
+		class2.shouldProxifyConcreteClassesWithComplexConstructorsAndPassNullForAllParameters();
+		class2.shouldTryAllConstructorsInDeclarationOrder();
 		try {
-			class4.shouldNotProxifyJavaLangObjectMethods();
+			class2.shouldNotProxifyJavaLangObjectMethods();
 		}
 		catch (java.lang.Exception err5) {
 			err5.printStackTrace();
 		}
-		br.com.caelum.vraptor.proxy.JavassistProxifierTest class5 = new br.com.caelum.vraptor.proxy.JavassistProxifierTest();
+		br.com.caelum.vraptor.proxy.JavassistProxifierTest class3 = new br.com.caelum.vraptor.proxy.JavassistProxifierTest();
 		try {
-			class5.setUp();
+			class3.setUp();
 		}
 		catch (java.lang.Exception err6) {
 			err6.printStackTrace();
 		}
-		class5.shouldProxifyInterfaces();
-		class5.shouldProxifyConcreteClassesWithDefaultConstructors();
-		class5.shouldProxifyConcreteClassesWithComplexConstructorsAndPassNullForAllParameters();
-		class5.shouldNeverCallSuperclassConstructors();
+		class3.shouldProxifyInterfaces();
+		class3.shouldProxifyConcreteClassesWithDefaultConstructors();
+		class3.shouldProxifyConcreteClassesWithComplexConstructorsAndPassNullForAllParameters();
+		class3.shouldNeverCallSuperclassConstructors();
 		try {
-			class5.shouldNotProxifyJavaLangObjectMethods();
+			class3.shouldNotProxifyJavaLangObjectMethods();
 		}
 		catch (java.lang.Exception err7) {
 			err7.printStackTrace();
 		}
-		class5.testIfObjectIsProxy();
-		class5.shouldThrowProxyInvocationExceptionIfAnErrorOccurs();
+		class3.testIfObjectIsProxy();
+		class3.shouldThrowProxyInvocationExceptionIfAnErrorOccurs();
 		try {
-			class5.shouldNotProxifyBridges();
+			class3.shouldNotProxifyBridges();
 		}
 		catch (java.lang.Exception err8) {
 			err8.printStackTrace();

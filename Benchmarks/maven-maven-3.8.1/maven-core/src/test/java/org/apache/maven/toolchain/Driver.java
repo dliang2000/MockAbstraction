@@ -19,7 +19,7 @@ public class Driver {
 		catch (java.lang.Exception err2) {
 			err2.printStackTrace();
 		}
-		org.apache.maven.toolchain.RequirementMatcherFactoryTest class2 = new org.apache.maven.toolchain.RequirementMatcherFactoryTest();
+		org.apache.maven.toolchain.RequirementMatcherFactoryTest class2 = new org.apache.maven.toolchain.RequirementMatcherFactoryTest(null);
 		class2.testCreateExactMatcher();
 		class2.testCreateVersionMatcher();
 		org.apache.maven.toolchain.DefaultToolchainTest class3 = new org.apache.maven.toolchain.DefaultToolchainTest();

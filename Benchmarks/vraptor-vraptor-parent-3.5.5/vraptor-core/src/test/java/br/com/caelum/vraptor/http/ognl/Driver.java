@@ -84,170 +84,167 @@ public class Driver {
 		catch (java.lang.NoSuchMethodException err17) {
 			err17.printStackTrace();
 		}
-		br.com.caelum.vraptor.http.ognl.Mouse class4 = new br.com.caelum.vraptor.http.ognl.Mouse();
-		br.com.caelum.vraptor.http.ognl.AbstractOgnlTestSupport class5 = new br.com.caelum.vraptor.http.ognl.AbstractOgnlTestSupport();
-		br.com.caelum.vraptor.http.ognl.ListAccessorTest class6 = new br.com.caelum.vraptor.http.ognl.ListAccessorTest();
-		class6.setup();
+		br.com.caelum.vraptor.http.ognl.ListAccessorTest class4 = new br.com.caelum.vraptor.http.ognl.ListAccessorTest();
+		class4.setup();
 		try {
-			class6.gettingShouldReturnNullIfIndexNotFound();
+			class4.gettingShouldReturnNullIfIndexNotFound();
 		}
 		catch (java.lang.Exception err18) {
 			err18.printStackTrace();
 		}
 		try {
-			class6.gettingShouldReturnValueIfIndexFound();
+			class4.gettingShouldReturnValueIfIndexFound();
 		}
 		catch (java.lang.Exception err19) {
 			err19.printStackTrace();
 		}
 		try {
-			class6.settingShouldNullifyUpToIndex();
+			class4.settingShouldNullifyUpToIndex();
 		}
 		catch (java.lang.Exception err20) {
 			err20.printStackTrace();
 		}
-		br.com.caelum.vraptor.http.ognl.GenericNullHandlerTest class7 = new br.com.caelum.vraptor.http.ognl.GenericNullHandlerTest();
-		class7.setup();
+		br.com.caelum.vraptor.http.ognl.GenericNullHandlerTest class5 = new br.com.caelum.vraptor.http.ognl.GenericNullHandlerTest();
+		class5.setup();
 		try {
-			class7.shouldDenyMostInterfaces();
+			class5.shouldDenyMostInterfaces();
 		}
 		catch (java.lang.Exception err21) {
 			err21.printStackTrace();
 		}
 		try {
-			class7.shouldDenyMostAbstractClasses();
+			class5.shouldDenyMostAbstractClasses();
 		}
 		catch (java.lang.Exception err22) {
 			err22.printStackTrace();
 		}
 		try {
-			class7.shouldCreateArrays();
+			class5.shouldCreateArrays();
 		}
 		catch (java.lang.Exception err23) {
 			err23.printStackTrace();
 		}
 		try {
-			class7.shouldInstantiateGregorianCalendarForAbstractCalendarType();
+			class5.shouldInstantiateGregorianCalendarForAbstractCalendarType();
 		}
 		catch (java.lang.Exception err24) {
 			err24.printStackTrace();
 		}
 		try {
-			class7.shouldInstantiateArrayListForCollectionInterface();
+			class5.shouldInstantiateArrayListForCollectionInterface();
 		}
 		catch (java.lang.Exception err25) {
 			err25.printStackTrace();
 		}
 		try {
-			class7.shouldInstantiateArrayListForListInterface();
+			class5.shouldInstantiateArrayListForListInterface();
 		}
 		catch (java.lang.Exception err26) {
 			err26.printStackTrace();
 		}
 		try {
-			class7.shouldInstantiateLinkedListForQueueInterface();
+			class5.shouldInstantiateLinkedListForQueueInterface();
 		}
 		catch (java.lang.Exception err27) {
 			err27.printStackTrace();
 		}
 		try {
-			class7.shouldInstantiateHashSetListForSetInterface();
+			class5.shouldInstantiateHashSetListForSetInterface();
 		}
 		catch (java.lang.Exception err28) {
 			err28.printStackTrace();
 		}
 		try {
-			class7.shouldInstantiateTreeSetListForSortedSetInterface();
+			class5.shouldInstantiateTreeSetListForSortedSetInterface();
 		}
 		catch (java.lang.Exception err29) {
 			err29.printStackTrace();
 		}
-		br.com.caelum.vraptor.http.ognl.ArrayAccessorTest class8 = new br.com.caelum.vraptor.http.ognl.ArrayAccessorTest();
-		class8.setup();
+		br.com.caelum.vraptor.http.ognl.ArrayAccessorTest class6 = new br.com.caelum.vraptor.http.ognl.ArrayAccessorTest();
+		class6.setup();
 		try {
-			class8.gettingShouldReturnNullIfIndexNotFound();
+			class6.gettingShouldReturnNullIfIndexNotFound();
 		}
 		catch (java.lang.Exception err30) {
 			err30.printStackTrace();
 		}
 		try {
-			class8.gettingShouldReturnValueIfIndexFound();
+			class6.gettingShouldReturnValueIfIndexFound();
 		}
 		catch (java.lang.Exception err31) {
 			err31.printStackTrace();
 		}
 		try {
-			class8.settingShouldNullifyUpToIndexAndIgnoreRemoval();
+			class6.settingShouldNullifyUpToIndexAndIgnoreRemoval();
 		}
 		catch (java.lang.Exception err32) {
 			err32.printStackTrace();
 		}
-		br.com.caelum.vraptor.http.ognl.MiscOgnlSupportTest class9 = new br.com.caelum.vraptor.http.ognl.MiscOgnlSupportTest();
+		br.com.caelum.vraptor.http.ognl.MiscOgnlSupportTest class7 = new br.com.caelum.vraptor.http.ognl.MiscOgnlSupportTest();
 		try {
-			class9.setup();
+			class7.setup();
 		}
 		catch (java.lang.Exception err33) {
 			err33.printStackTrace();
 		}
 		try {
-			class9.isCapableOfDealingWithEmptyParameterForInternalWrapperValue();
+			class7.isCapableOfDealingWithEmptyParameterForInternalWrapperValue();
 		}
 		catch (ognl.OgnlException err34) {
 			err34.printStackTrace();
 		}
 		try {
-			class9.isCapableOfDealingWithEmptyParameterForInternalValueWhichNeedsAConverter();
+			class7.isCapableOfDealingWithEmptyParameterForInternalValueWhichNeedsAConverter();
 		}
 		catch (ognl.OgnlException err35) {
 			err35.printStackTrace();
 		}
-		br.com.caelum.vraptor.http.ognl.OgnlParametersProviderTest class10 = new br.com.caelum.vraptor.http.ognl.OgnlParametersProviderTest();
-		br.com.caelum.vraptor.http.ognl.OgnlGenericTypesSupportTest class11 = new br.com.caelum.vraptor.http.ognl.OgnlGenericTypesSupportTest();
+		br.com.caelum.vraptor.http.ognl.OgnlGenericTypesSupportTest class8 = new br.com.caelum.vraptor.http.ognl.OgnlGenericTypesSupportTest();
 		try {
-			class11.setup();
+			class8.setup();
 		}
 		catch (java.lang.Exception err36) {
 			err36.printStackTrace();
 		}
 		try {
-			class11.canInstantiatingStringsInAListSettingItsInternalValueWithoutInvokingConverters();
+			class8.canInstantiatingStringsInAListSettingItsInternalValueWithoutInvokingConverters();
 		}
 		catch (ognl.OgnlException err37) {
 			err37.printStackTrace();
 		}
 		try {
-			class11.canInstantiateAndPopulateAnArrayOfWrappers();
+			class8.canInstantiateAndPopulateAnArrayOfWrappers();
 		}
 		catch (ognl.OgnlException err38) {
 			err38.printStackTrace();
 		}
 		try {
-			class11.canInstantiateAndPopulateAListOfWrappers();
+			class8.canInstantiateAndPopulateAListOfWrappers();
 		}
 		catch (ognl.OgnlException err39) {
 			err39.printStackTrace();
 		}
-		br.com.caelum.vraptor.http.ognl.ReflectionBasedNullHandlerTest class12 = new br.com.caelum.vraptor.http.ognl.ReflectionBasedNullHandlerTest();
+		br.com.caelum.vraptor.http.ognl.ReflectionBasedNullHandlerTest class9 = new br.com.caelum.vraptor.http.ognl.ReflectionBasedNullHandlerTest();
 		try {
-			class12.setup();
+			class9.setup();
 		}
 		catch (java.lang.Exception err40) {
 			err40.printStackTrace();
 		}
 		try {
-			class12.shouldInstantiateAnObjectIfRequiredToSetAProperty();
+			class9.shouldInstantiateAnObjectIfRequiredToSetAProperty();
 		}
 		catch (ognl.OgnlException err41) {
 			err41.printStackTrace();
 		}
 		try {
-			class12.shouldInstantiateAListOfStrings();
+			class9.shouldInstantiateAListOfStrings();
 		}
 		catch (ognl.OgnlException err42) {
 			err42.printStackTrace();
 		}
 		try {
-			class12.shouldNotInstantiateIfLastTerm();
+			class9.shouldNotInstantiateIfLastTerm();
 		}
 		catch (ognl.OgnlException err43) {
 			err43.printStackTrace();
@@ -256,25 +253,25 @@ public class Driver {
 			err44.printStackTrace();
 		}
 		try {
-			class12.shouldFoundASetter();
+			class9.shouldFoundASetter();
 		}
 		catch (java.lang.Exception err45) {
 			err45.printStackTrace();
 		}
 		try {
-			class12.shouldFoundAGetter();
+			class9.shouldFoundAGetter();
 		}
 		catch (java.lang.Exception err46) {
 			err46.printStackTrace();
 		}
 		try {
-			class12.shouldFoundASetterEvenWithAProxyObject();
+			class9.shouldFoundASetterEvenWithAProxyObject();
 		}
 		catch (java.lang.Exception err47) {
 			err47.printStackTrace();
 		}
 		try {
-			class12.shouldFoundAGetterWithAProxyObject();
+			class9.shouldFoundAGetterWithAProxyObject();
 		}
 		catch (java.lang.Exception err48) {
 			err48.printStackTrace();

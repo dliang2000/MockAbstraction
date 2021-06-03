@@ -126,6 +126,5 @@ public class RootDriver {
 		catch (javax.servlet.ServletException err10) {
 			err10.printStackTrace();
 		}
-		br.com.caelum.vraptor.VRaptorMatchers class42 = new br.com.caelum.vraptor.VRaptorMatchers();
 	}
 }

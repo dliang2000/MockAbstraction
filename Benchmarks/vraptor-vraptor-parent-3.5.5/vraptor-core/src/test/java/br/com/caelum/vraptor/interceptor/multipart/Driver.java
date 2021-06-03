@@ -19,83 +19,81 @@ public class Driver {
 		br.com.caelum.vraptor.interceptor.multipart.NullMultipartInterceptorTest class2 = new br.com.caelum.vraptor.interceptor.multipart.NullMultipartInterceptorTest();
 		class2.shouldNeverAccept();
 		class2.shouldThrowUnsuportedOperationExceptionWhenInvoked();
-		br.com.caelum.vraptor.interceptor.multipart.MockFilesCommonsFileUpload class3 = new br.com.caelum.vraptor.interceptor.multipart.MockFilesCommonsFileUpload();
-		br.com.caelum.vraptor.interceptor.multipart.CommonsUploadMultipartInterceptorTest class4 = new br.com.caelum.vraptor.interceptor.multipart.CommonsUploadMultipartInterceptorTest();
-		class4.setup();
-		class4.shouldNotAcceptFormURLEncoded();
-		class4.shouldAcceptMultipart();
+		br.com.caelum.vraptor.interceptor.multipart.CommonsUploadMultipartInterceptorTest class3 = new br.com.caelum.vraptor.interceptor.multipart.CommonsUploadMultipartInterceptorTest();
+		class3.setup();
+		class3.shouldNotAcceptFormURLEncoded();
+		class3.shouldAcceptMultipart();
 		try {
-			class4.withFieldsOnly();
+			class3.withFieldsOnly();
 		}
 		catch (java.lang.Exception err3) {
 			err3.printStackTrace();
 		}
 		try {
-			class4.withFieldsOnlyWithInvalidCharset();
+			class3.withFieldsOnlyWithInvalidCharset();
 		}
 		catch (java.lang.Exception err4) {
 			err4.printStackTrace();
 		}
 		try {
-			class4.withFilesAndFields();
+			class3.withFilesAndFields();
 		}
 		catch (java.lang.Exception err5) {
 			err5.printStackTrace();
 		}
 		try {
-			class4.emptyFiles();
+			class3.emptyFiles();
 		}
 		catch (java.lang.Exception err6) {
 			err6.printStackTrace();
 		}
 		try {
-			class4.throwsInvalidParameterExceptionIfIOExceptionOccurs();
+			class3.throwsInvalidParameterExceptionIfIOExceptionOccurs();
 		}
 		catch (java.lang.Exception err7) {
 			err7.printStackTrace();
 		}
 		try {
-			class4.fieldsWithSameName();
+			class3.fieldsWithSameName();
 		}
 		catch (java.lang.Exception err8) {
 			err8.printStackTrace();
 		}
 		try {
-			class4.multipleUpload();
+			class3.multipleUpload();
 		}
 		catch (java.lang.Exception err9) {
 			err9.printStackTrace();
 		}
 		try {
-			class4.doNothingWhenFileUploadExceptionOccurs();
+			class3.doNothingWhenFileUploadExceptionOccurs();
 		}
 		catch (java.lang.Exception err10) {
 			err10.printStackTrace();
 		}
 		try {
-			class4.shouldValidateWhenSizeLimitExceededExceptionOccurs();
+			class3.shouldValidateWhenSizeLimitExceededExceptionOccurs();
 		}
 		catch (java.lang.Exception err11) {
 			err11.printStackTrace();
 		}
 		try {
-			class4.shouldCreateDirInsideAppIfTempDirAreNotAvailable();
+			class3.shouldCreateDirInsideAppIfTempDirAreNotAvailable();
 		}
 		catch (java.lang.Exception err12) {
 			err12.printStackTrace();
 		}
 		try {
-			class4.checkIfFileHasBeenUploaded();
+			class3.checkIfFileHasBeenUploaded();
 		}
 		catch (java.lang.Exception err13) {
 			err13.printStackTrace();
 		}
 		try {
-			class4.handleValidatorMessageWhenFileUploadExceptionOccurs();
+			class3.handleValidatorMessageWhenFileUploadExceptionOccurs();
 		}
 		catch (java.lang.Exception err14) {
 			err14.printStackTrace();
 		}
-		br.com.caelum.vraptor.interceptor.multipart.MockFileItem class5 = new br.com.caelum.vraptor.interceptor.multipart.MockFileItem();
 	}
 }
