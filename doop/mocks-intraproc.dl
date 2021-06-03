@@ -14,18 +14,49 @@ MockSourceMethod("<org.mockito.internal.InOrderImpl: java.lang.Object verify(jav
 .decl MockFieldAnnotation(a: Annotation)
 MockFieldAnnotation("org.mockito.Mock").
 
-// TODO handle addAll
+// TODO handle iteration
 .decl CollectionPutMethod(m:Method)
 CollectionPutMethod("<java.util.Collection: boolean add(java.lang.Object)>").
 CollectionPutMethod(m) :-
   CollectionPutMethod(m0),
   basic.MethodOverridesOther(m, m0).
+CollectionPutMethod(m) :-
+  CollectionPutMethod(m0),
+  Method_DeclaringType(m, t),
+  Method_DeclaringType(m0, t0),
+  SameMethodExceptDeclaringType(m, m0),
+  basic.Superinterface(t0, t).
+
+.decl CollectionAddAllMethod(m:Method)
+CollectionAddAllMethod("<java.util.Collection: boolean addAll(java.util.Collection)>").
+CollectionAddAllMethod(m) :-
+  CollectionAddAllMethod(m0),
+  basic.MethodOverridesOther(m, m0).
+CollectionAddAllMethod(m) :-
+  CollectionAddAllMethod(m0),
+  Method_DeclaringType(m, t),
+  Method_DeclaringType(m0, t0),
+  SameMethodExceptDeclaringType(m, m0),
+  basic.Superinterface(t0, t).
 
 .decl CollectionGetMethod(m:Method)
 CollectionGetMethod("<java.util.List: java.lang.Object get(int)>").
 CollectionGetMethod(m) :-
   CollectionGetMethod(m0),
   basic.MethodOverridesOther(m, m0).
+CollectionGetMethod(m) :-
+  CollectionGetMethod(m0),
+  Method_DeclaringType(m, t),
+  Method_DeclaringType(m0, t0),
+  SameMethodExceptDeclaringType(m, m0),
+  basic.Superinterface(t0, t).
+
+.decl SameMethodExceptDeclaringType(m:Method, m0:Method)
+SameMethodExceptDeclaringType(m, m0) :-
+  Method_SimpleName(m, n),
+  Method_SimpleName(m0, n),
+  Method_Descriptor(m, d),
+  Method_Descriptor(m0, d).
 
 .decl callsMockSource(mi: MethodInvocation)
 callsMockSource(mi) :-
@@ -74,6 +105,12 @@ isCollectionLocalThatContainsMocks(c, inmethod) :-
 isCollectionLocalThatContainsMocks(c, inmethod) :-
   isCollectionLocalThatContainsMocks(c1, inmethod),
   AssignLocal(c1, c, inmethod).
+isCollectionLocalThatContainsMocks(c, inmethod) :-
+  isCollectionLocalThatContainsMocks(c1, inmethod),
+  CollectionAddAllMethod(add_all),
+  VirtualMethodInvocation(mi, add_all, inmethod),
+  VirtualMethodInvocation_Base(mi, c),
+  ActualParam(0, mi, c1).
 .output isCollectionLocalThatContainsMocks
 
 .decl isCollectionFieldThatContainsMocks(f:Field)
