@@ -73,15 +73,15 @@ public class PayRollMockTest {
         when(e.getName()).thenReturn("J. Doe");
         assertEquals(e.getName(), "J. Doe");
 
-	employees1_intra.add(e);
-	employees2_intra.addAll(employees1_intra);
+        employees1_intra.add(e);
+        employees2_intra.addAll(employees1_intra);
 
-	Employee e1 = employees1_intra.get(0);
-	// *mock* call below
+        Employee e1 = employees1_intra.get(0);
+	    // *mock* call below
         assertEquals(e1.getName(), "J. Doe");
 
-	Employee e2 = employees2_intra.get(0);
-	// *mock* call below
+	    Employee e2 = employees2_intra.get(0);
+	    // *mock* call below
         assertEquals(e2.getName(), "J. Doe");
     }
     // total mock calls: 1
