@@ -84,7 +84,7 @@ public class PayRollMockTest {
 	    // *mock* call below
         assertEquals(e2.getName(), "J. Doe");
     }
-    // total mock calls: 1
+    // total mock calls: 4
 
     @Test
     public void testSingleEmployee() {
