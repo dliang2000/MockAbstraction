@@ -86,12 +86,12 @@ public class MockAnalysisMain extends SceneTransformer {
         pd.add("-process-dir");
         pd.add(target_tests);
         // enable Spark whole-program analysis
-        pd.add("-p");
-        pd.add("cg.spark");
-        pd.add("enabled:true");
-        pd.add("-p");
-        pd.add("jb");
-        pd.add("use-original-names:true");
+        // pd.add("-p");
+        // pd.add("cg.spark");
+        // pd.add("enabled:true");
+        // pd.add("-p");
+        // pd.add("jb");
+        // pd.add("use-original-names:true");
         Options.v().set_soot_classpath(mvn_dependencies);
         //MockAnalysisMain.benchmark = args[4];
         //MockAnalysisMain.output_path = args[5];
@@ -169,7 +169,7 @@ public class MockAnalysisMain extends SceneTransformer {
                     G.v().out.println(body);
                 }*/
                 
-                Iterator<Edge> edges = callGraph.edgesOutOf(method);
+                /*Iterator<Edge> edges = callGraph.edgesOutOf(method);
                 
                 while (edges.hasNext()) {
                     Edge e = edges.next();
@@ -198,7 +198,7 @@ public class MockAnalysisMain extends SceneTransformer {
                         
                         
                     }
-                }
+                }*/
                 
                 mockSummary = new ProcSummary(method);
                 
