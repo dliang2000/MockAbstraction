@@ -20,7 +20,7 @@ import soot.jimple.Stmt;
 import soot.tagkit.AnnotationTag;
 import soot.util.Chain;
 
-public class MockAnnotationTransformer extends SceneTransformer {
+public class FieldMockTransformer extends SceneTransformer {
     
     private static HashSet<SootField> annotatedMocks = new HashSet<>();
     

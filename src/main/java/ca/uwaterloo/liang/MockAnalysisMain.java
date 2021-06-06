@@ -68,7 +68,7 @@ public class MockAnalysisMain extends SceneTransformer {
     
     private static final Logger logger = LoggerFactory.getLogger(PackManager.class);
     public static void main(String[] args) throws IOException {
-        PackManager.v().getPack("wjtp").add(new Transform("wjtp.initialTransform", new MockAnnotationTransformer()) {
+        PackManager.v().getPack("wjtp").add(new Transform("wjtp.initialTransform", new FieldMockTransformer()) {
         });
         PackManager.v().getPack("wjtp").add(new Transform("wjtp.myTransform", new MockAnalysisMain()) {
         });
