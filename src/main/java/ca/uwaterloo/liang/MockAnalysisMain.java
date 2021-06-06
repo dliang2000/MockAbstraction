@@ -1,12 +1,19 @@
 package ca.uwaterloo.liang;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -235,6 +242,49 @@ public class MockAnalysisMain extends SceneTransformer {
         G.v().out.println(msg);
         
         printMockInvocationStats();
+        
+        printMockInvocationToFile();
+    }
+    
+    private void printMockInvocationToFile() {
+        List<String[]> linesToAdd = new ArrayList<>();
+        
+        for(SootClass nc : Scene.v().getApplicationClasses()) {
+            
+            List<SootMethod> ncM = nc.getMethods();
+            
+            ProcSummary pSmy = null;
+            
+            for(SootMethod m : ncM) {
+                pSmy = procSummaries.get(m);
+                if (pSmy == null) 
+                    continue;
+                ArrayList<InvokeExpr> totalInvokes = pSmy.getTotalInvokeExprs();
+                
+                ArrayList<InvokeExpr> invokeOnMocks = pSmy.getInvokeExprsOnMocks();
+                
+                if (!invokeOnMocks.isEmpty()) {
+                    linesToAdd.add(new String[] {nc.getName()+":", m.getSubSignature(), String.valueOf(invokeOnMocks.size())});
+                }
+            }
+        }
+        
+        Collections.sort(linesToAdd, new SortStringArrayList());
+        
+        File outputFile = new File(output_path + "/" + benchmark + "-mock-intraprocedural-counts-soot");
+        try (PrintWriter pw = new PrintWriter(outputFile)) {
+            linesToAdd.stream().map(this::convertToCSV).forEach(pw::println);
+        } catch (FileNotFoundException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        
+    }
+    
+    // Because the subsignature of methods could contain comma, we use tab as
+    // delimiter for csv
+    private String convertToCSV(String[] data) {
+        return Stream.of(data).collect(Collectors.joining(" "));
     }
     
     private void printMockInvocationStats() {
@@ -402,4 +452,14 @@ public class MockAnalysisMain extends SceneTransformer {
         }
         return false;
     }
+    
+    class SortStringArrayList implements Comparator<String[]> {
+        @Override
+        public int compare(String[] a, String[] b) {
+            if (a[0].equals(b[0]))
+                return a[1].compareTo(b[1]);
+            return a[0].compareTo(b[0]);
+        }
+    }
+
 }
