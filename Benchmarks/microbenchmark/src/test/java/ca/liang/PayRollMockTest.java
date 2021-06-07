@@ -92,7 +92,9 @@ public class PayRollMockTest {
         List<Employee> employees1_intra = new ArrayList<Employee>();
 
         Employee e = mock(Employee.class);
+        // *mock* call below
         when(e.getName()).thenReturn("J. Doe");
+        // *mock* call below
         assertEquals(e.getName(), "J. Doe");
 
         employees1_intra.add(e);
@@ -102,7 +104,7 @@ public class PayRollMockTest {
             assertEquals(ee.getName(), "J. Doe");
         }
     }
-    // total mock calls: 1
+    // total mock calls: 3
 
     @Test
     public void testSingleEmployee() {
