@@ -19,7 +19,7 @@ with open('last-analysis/isMockInvocation.csv', newline='') as csvfile:
             results_by_method[m.group(2)] = results_by_method.get(m.group(2), 0) + 1
             results_by_class[m.group(1)] = results_by_method
         else:
-            println ('warning: bad line '+row)
+            print ('warning: bad line '+str(row))
 
 for claz in sorted(results_by_class.keys()):
     for meth in sorted(results_by_class[claz].keys()):
