@@ -1,0 +1,92 @@
+// -- cut here --
+// .decl VarPointsTo(hctx:symbol, heap:symbol, ctx:symbol, var:symbol)
+// .input VarPointsTo(IO="file", filename="VarPointsTo.csv", delimiter="\t")
+
+/* let's try putting in points-to */
+// doesn't do anything?
+/*isMockVar(v) :-
+  MockVarVPT(h1, v),
+  MockVarVPT(h1, v1),
+  Var_Type(v, t),
+  Var_Type(v1, t).*/
+// doesn't do anything?
+/*isMockVar(v) :-
+  isMockVar(from),
+  AssignLocal_From(insn, from),
+  AssignInstruction_To(insn, v).
+.decl MockVarVPT(h:symbol, v:Var)
+MockVarVPT(h,v) :-
+  isMockVar(v),
+  VarPointsTo(_, h, _, v).
+*/
+
+/* expensive
+isMockVar(v) :-
+  isMockVar(v1),
+  VarPointsTo(_, h1, _, v),
+  VarPointsTo(_, h1, _, v1),
+  Var_Type(v, t),
+  Var_Type(v1, t).
+*/
+
+// reference info
+//  VirtualMethodInvocation(?invocation:MethodInvocation, ?signature:Method, ?inmethod:Method)  
+
+// we want this to be identified as mock
+// AssignReturnValue.facts:<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/ca.liang.EmployeeDB.getAllEmployees/0   <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/$stack9
+// VirtualMethodInvocation.facts:<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/ca.liang.EmployeeDB.getAllEmployees/0     11      <ca.liang.EmployeeDB: java.util.List getAllEmployees()> <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/employeeDB_intra#_47    <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>
+// yet stack9 isn't a mock, why?
+// we don't have any assignments to it here
+// and it's not at all in VarPointsTo
+
+
+// ok let's debug the different meanings of methodinvocation
+// line, receiver  54      <ca.liang.PayRollArrayMockTest: void testEmployeesPaidIntra()>/bankService_intra#_55
+// VirtualMethodInvocation:
+//  <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/ca.liang.PayRoll.monthlyPayment/0       <ca.liang.PayRoll: int monthlyPayment()>        <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>
+// ActualParam:
+//  <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/ca.liang.PayRoll.<init>/0
+// 
+
+
+/* identifying employeeDB.getAllEmployees() as a call to a mock:
+it is a VirtualMethodInvocation on employeeDB_intra#_47 as follows,
+* <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/ca.liang.EmployeeDB.getAllEmployees/0   11      <ca.liang.EmployeeDB: java.util.List getAllEmployees()> <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/employeeDB_intra#_47    <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>
+intra#_47 is assigned from AssignCast from <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/\$stack7
+* OK <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/assign/instruction7	7	<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/$stack7	<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/employeeDB_intra#_47	ca.liang.EmployeeDB	<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>
+stack7 is assigned in AssignReturnValue:
+<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/org.mockito.Mockito.mock/0	<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/$stack7
+and the method occurs in both mainAnalysis.CallGraphEdge and StaticMethodInvocation
+* OK mainAnalysis.CallGraphEdge: <<immutable-context>>	    <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/org.mockito.Mockito.mock/0	<<immutable-context>>	<org.mockito.Mockito: java.lang.Object mock(java.lang.Class)>
+* OK StaticMethodInvocation: <ca.liang.PayRollMockTest: void testNoEmployeesIntra()>/org.mockito.Mockito.mock/0			5			<org.mockito.Mockito: java.lang.Object mock(java.lang.Class)>	<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>
+*/
+
+// ok, so we start with the staticmethodinvocation, then we look for an assignreturnvalue, then assigncast, through the virtualmethodinvocation of interest
+// basically this is pretty equivalent to doing the flow analysis
+
+
+/*
+// experimenting with points-to
+.decl Var_DeclaringMethod(v: symbol, m: symbol)
+.input Var_DeclaringMethod(IO="file", filename="Var-DeclaringMethod.facts", delimiter="\t")
+
+// VarPointsTo: hctx:HContext, heap:HeapAllocation, ctx:Context, var:Var
+.decl VarPointsTo(c1: symbol, h: symbol, c2: symbol, v: symbol)
+.input VarPointsTo(IO="file", filename="VarPointsTo.csv", delimiter="\t")
+
+.decl Temp(v: symbol, h: symbol)
+Temp(v,h) :-
+  VarPointsTo(_, h, _, v),
+  Var_DeclaringMethod(v, "<ca.liang.PayRollMockTest: void testNoEmployeesIntra()>").
+.output Temp
+*/
+
+/*
+.decl thisIsMock(mi: MethodInvocation, receiver: symbol)
+thisIsMock(mi, receiver) :-
+  ActualParam(0, mi, receiver),
+  // oops assign isn't actually a relation
+  //Move(intermediate, receiver),
+  isMockVar(receiver).
+.output thisIsMock
+*/
