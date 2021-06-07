@@ -4,7 +4,7 @@ import csv
 import re
 
 results_by_class = {}
-sig_re = re.compile(r"<([\w.]+): ([\w.]+ \w+\(\))>")
+sig_re = re.compile(r"<([\w.]+): ([\w.]+ \w+\(.*\))>")
 with open('last-analysis/isMockInvocation.csv', newline='') as csvfile:
     reader = csv.reader(csvfile, delimiter='\t')
     for row in reader:
