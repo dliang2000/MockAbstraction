@@ -28,6 +28,7 @@ public class RootDriver {
 		class5.testNoEmployees();
 		class5.testNoEmployeesIntra();
 		class5.testAddAll();
+		class5.testIteration();
 		class5.testSingleEmployee();
 		class5.testSingleEmployeeMockInter();
 		class5.testEmployeeIsPaid();

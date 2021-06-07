@@ -86,6 +86,24 @@ public class PayRollMockTest {
     }
     // total mock calls: 4
 
+    // Contains mock object
+    @Test
+    public void testIteration() {
+        List<Employee> employees1_intra = new ArrayList<Employee>();
+
+        Employee e = mock(Employee.class);
+        when(e.getName()).thenReturn("J. Doe");
+        assertEquals(e.getName(), "J. Doe");
+
+        employees1_intra.add(e);
+
+        for (Employee ee : employees1_intra) {
+            // *mock* call below
+            assertEquals(ee.getName(), "J. Doe");
+        }
+    }
+    // total mock calls: 1
+
     @Test
     public void testSingleEmployee() {
 	// not a mock call on employees
