@@ -55,7 +55,7 @@ or if you want to run Mock Analysis for all benchmarks:
 ## LOC and Runtime Information for benchmarks
 
 | Benchmark | LOC Total | LOC (Main) | LOC (Test) | Soot Runtime (s) | doop Runtime - mock count (s) | doop Runtime - intraproc-mock count (s) |
-| --- | --- | --- | --- | --- | --- | --- |
+| --- | --: | --: | --: | --: | --: | --: |
 | bootique-2.0.B1-bootique | 15530 | 6935 | 8595 | TBD | 39:15 - 2355 | TBD |
 | commons-collections4-4.4 | 65273 | 28955 | 36318 | TBD | TBD | TBD |
 | flink-core-1.13.0-rc1 | 117310 | 67580 | 49730 | TBD | TBD | TBD |
@@ -69,7 +69,7 @@ or if you want to run Mock Analysis for all benchmarks:
 
 ## Field Mutation Data
 | Benchmark |  Total # of Fields Mutated in Test Cases / Total # of Fields |
-| --- | --- |
+| --- | --: |
 | bootique-2.0.B1-bootique | 0 / 271 |
 | commons-collections4-4.4 | 3 / 697 |
 | flink-core-1.13.0-rc1 | 8 / 2675 |
@@ -83,7 +83,7 @@ or if you want to run Mock Analysis for all benchmarks:
 
 ## Mock Analysis table (May Analysis, Intraprocedural)
 | Benchmark | Total Number of Test/Before/After Methods Invoked | Number of Test/Before/After Methods with MustMock (Intra) | Number of Test/Before/After Methods with ArrayMock (Intra) | Number of Test/Before/After Methods with CollectionMock (Intra) |
-| --- | --- | --- | --- | --- |
+| --- | --: | --: | --: | --: |
 | bootique-2.0.B1-bootique | 420 | 27 | 3 | 0 |
 | commons-collections4-4.4 | 1152 | 3 | 1 | 0 |
 | flink-core-1.13.0-rc1 | 1091 | 4 | 0 | 0 |
@@ -97,7 +97,7 @@ or if you want to run Mock Analysis for all benchmarks:
 
 ## Mock Analysis - Analyzing InvokeExpr results (May Analysis, Intraprocedural)
 | Benchmark | Total Number of Invocations | Number of Invocations on Mocks |
-| --- | --- | --- |
+| --- | --: | --: |
 | bootique-2.0.B1-bootique | 2923 | 82 |
 | commons-collections-4.3 | 10913 | 13 |
 | flink-core-1.13.0-rc1 | 10079 | 40 |
@@ -112,13 +112,13 @@ or if you want to run Mock Analysis for all benchmarks:
 ## Manual Inspection on microbenchmark  (Intraprocedural)
 
 | Benchmark | Number of Test/Before/After Methods with MayMock | Number of Test/Before/After Methods with ArrayMock | Number of Test/Before/After Methods with CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
-| --- | --- | --- | --- | --- | --- |
+| --- | --: | --: | --: | --: | --: |
 | microbenchmark | 23 | 5 | 4 | 47 | 5 |
 
 For DirtyTest:
 
 | Test Method | MayMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
-| --- | --- | --- | --- | --- | --- |
+| --- | --: | --: | --: | --: | --: |
 | init | 1 | 0 | 0 | 1 | 0 |
 | testSingleEmployeeFieldArrayNomock | 0 | 0 | 0 | 0 | 0 |
 | Total | 1 | 0 | 0 | 1 | 0 |
@@ -126,7 +126,7 @@ For DirtyTest:
 For PayRollAnnotationMockTest:
 
 | Test Method | MayMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
-| --- | --- | --- | --- | --- | --- |
+| --- | --: | --: | --: | --: | --: |
 | init | 1 | 0 | 0 | 1 | 0 |
 | testEmployeesPaidIntra | 1 | 1 | 0 | 0 | 0 |
 | testSingleEmployee | 0 | 0 | 0 | 0 | 0 |
@@ -138,7 +138,7 @@ For PayRollAnnotationMockTest:
 For PayRollMockTest:
 
 | Test Method | MayMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
-| --- | --- | --- | --- | --- | --- |
+| --- | --: | --: | --: | --: | --: |
 | init | 1 | 0 | 0 | 1 | 0 |
 | testNoEmployees | 0 | 0 | 0 | 0 | 0 |
 | testNoEmployeesIntra | 1 | 0 | 0 | 1 | 0 |
@@ -152,7 +152,7 @@ For PayRollMockTest:
 For PayRollArrayMockTest:
 
 | Test Method | MayMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
-| --- | --- | --- | --- | --- | --- |
+| --- | --: | --: | --: | --: | --: |
 | init | 1 | 1 | 0 | 1 | 0 |
 | testSingleEmployee | 0 | 0 | 0 | 0 | 0 |
 | testEmployeesPaidIntra | 1 | 1 | 0 | 0 | 0 |
@@ -165,7 +165,7 @@ For PayRollArrayMockTest:
 For PayRollArrayNoMockTest:
 
 | Test Method | MayMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
-| --- | --- | --- | --- | --- | --- |
+| --- | --: | --: | --: | --: | --: |
 | init | 1 | 0 | 0 | 1 | 0 |
 | testNoEmployees | 0 | 0 | 0 | 0 | 0 |
 | testSingleEmployeeFieldArrayNomock | 0 | 0 | 0 | 0 | 0 |
@@ -176,7 +176,7 @@ For PayRollArrayNoMockTest:
 For PayRollMultipleEmployeeTest:
 
 | Test Method | MayMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
-| --- | --- | --- | --- | --- | --- |
+| --- | --: | --: | --: | --: | --: |
 | init | 1 | 0 | 1 | 1 | 0 |
 | testAllEmployeesArePaid1 | 1 | 0 | 0 | 5 (field) | 0 |
 | testAllEmployeesArePaid2 | 1 | 0 | 1 | 6 (field) | 0 |
@@ -186,7 +186,7 @@ For PayRollMultipleEmployeeTest:
 For PayRollMultipleEmployee2Test:
 
 | Test Method | MayMock | ArrayMock | CollectionMock | Total Mock Calls | Total Mock Calls (Inter-procedural) |
-| --- | --- | --- | --- | --- | --- |
+| --- | --: | --: | --: | --: | --: |
 | init | 1 | 0 | 1 | 1 | 0 |
 | testAllEmployeesArePaid1 | 1 | 0 | 0 | 5 (field) | 0 |
 | Total | 2 | 0 | 1 | 6 | 0 |
