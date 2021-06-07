@@ -31,7 +31,7 @@ public class PayRollMockTest {
         employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
 
-	// *mock* call below, employeeDB.getAllEmployees()
+        // *mock* call below, employeeDB.getAllEmployees()
         when(employeeDB.getAllEmployees()).thenReturn(employees);
 
         payRoll = new PayRoll(employeeDB, bankService);
@@ -52,12 +52,12 @@ public class PayRollMockTest {
         EmployeeDB employeeDB_intra = mock(EmployeeDB.class);
         BankService bankService_intra = mock(BankService.class);
 
-	// *mock* call below employeeDB_intra.getAllEmployees()
+        // *mock* call below employeeDB_intra.getAllEmployees()
         when(employeeDB_intra.getAllEmployees()).thenReturn(employees_intra);
 
         PayRoll payRoll_intra = new PayRoll(employeeDB_intra, bankService_intra);
 
-	// not a mock call, we have a real PayRoll object
+        // not a mock call, we have a real PayRoll object
         int numberOfPayments = payRoll_intra.monthlyPayment();
         assertEquals(0, numberOfPayments);
     }
@@ -77,11 +77,11 @@ public class PayRollMockTest {
         employees2_intra.addAll(employees1_intra);
 
         Employee e1 = employees1_intra.get(0);
-	    // *mock* call below
+            // *mock* call below
         assertEquals(e1.getName(), "J. Doe");
 
-	    Employee e2 = employees2_intra.get(0);
-	    // *mock* call below
+            Employee e2 = employees2_intra.get(0);
+            // *mock* call below
         assertEquals(e2.getName(), "J. Doe");
     }
     // total mock calls: 4
@@ -106,7 +106,7 @@ public class PayRollMockTest {
 
     @Test
     public void testSingleEmployee() {
-	// not a mock call on employees
+        // not a mock call on employees
         employees.add(createTestEmployee("Test Employee", "ID0", 1000));
         assertNumberOfPayments(1);
     }
@@ -115,8 +115,8 @@ public class PayRollMockTest {
     // Contains inter-procedural mock object 
     @Test
     public void testSingleEmployeeMockInter() {
-    	Employee e = createMockEmployee();
-    	assertEquals(e.getName(), "J. Doe");
+        Employee e = createMockEmployee();
+        assertEquals(e.getName(), "J. Doe");
     }
     // total mock calls: 1
     
@@ -126,12 +126,12 @@ public class PayRollMockTest {
         String bankId = "ID0";
         int salary = 1000;
 
-	// not a mock call on employees
+        // not a mock call on employees
         employees.add(createTestEmployee("Test Employee", bankId, salary));
 
         assertNumberOfPayments(1);
 
-	// makePayment is a *mock* call on what gets returned from verify(), which is a mock verification object
+        // makePayment is a *mock* call on what gets returned from verify(), which is a mock verification object
         verify(bankService, times(1)).makePayment(bankId, salary);
     }
     // total mock calls: 1
@@ -147,14 +147,14 @@ public class PayRollMockTest {
         assertNumberOfPayments(1);
 
         InOrder inOrder = inOrder(employeeDB, bankService);
-	// these calls below are on mock-verify objects
+        // these calls below are on mock-verify objects
         inOrder.verify(employeeDB).getAllEmployees();
         inOrder.verify(bankService).makePayment(bankId, salary);
     }
     // total mock calls: 2
 
     private void assertNumberOfPayments(int expected) {
-	// not mock
+        // not mock
         int numberOfPayments = payRoll.monthlyPayment();
         assertEquals(expected, numberOfPayments);
     }
@@ -166,11 +166,11 @@ public class PayRollMockTest {
     // total mock calls: 0
 
     private Employee createMockEmployee() {
-    	Employee e = mock(Employee.class);
-    	when(e.getName()).thenReturn("J. Doe");
-    	when(e.getBankId()).thenReturn("ID21");
-    	when(e.getSalary()).thenReturn(234);
-    	return e;
+        Employee e = mock(Employee.class);
+        when(e.getName()).thenReturn("J. Doe");
+        when(e.getBankId()).thenReturn("ID21");
+        when(e.getSalary()).thenReturn(234);
+        return e;
     }
     // total mock calls: 3
 }
