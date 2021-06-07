@@ -19,8 +19,20 @@
 
 # TODO/Notes on current doop implementation
 
-mocks.dl is interprocedural, mocks-intraproc.dl is intraprocedural (but does not make conservative assumptions, e.g. it assumes that mocks never come from callees)
+* Collection iteration should be handled too
+
 if you specify --cache and you include MainClass("ca.liang.RootDriver") or whatever then it doesn't recompute facts. It will have to recompile the .dl when you change it.
 
-* isMockInvocation only handles VirtualMethodInvocation; are there any other invocation types that are relevant? (not StaticMethodInvocation, but maybe SpecialMethodInvocation, DynamicMethodInvocation, SuperMethodInvocation?)
-* Collection iteration should be handled too
+in mocks.dl, comment out #define INTERPROC to get an intra-procedural version of the analysis (it assumes that everything coming in as a return value is non-mock)
+
+## method call types
+
+1. We look for Collection calls to be VirtualMethodInvocation, which I think is fine, as it appears to include interface invoke.
+
+2. Let's analyze the different method call types:
+* VirtualMethodInvocation: we handle this one
+* StaticMethodInvocation: can't have a mock call through static, the point of mock is to have a mock receiver object
+* SuperMethodInvocation, SpecialMethodInvocation: private methods, constructors, superclass methods, i.e. not mock
+* DynamicMethodInvocation: could probably be used for mock calls but isn't in current Java versions
+// https://www.infoq.com/articles/Invokedynamic-Javas-secret-weapon/
+
