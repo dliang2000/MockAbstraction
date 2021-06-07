@@ -1,5 +1,7 @@
 // ./doop -a context-insensitive -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT-tests.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/mvn_dependencies/ --id context-insensitive-with-mocks --souffle-jobs 32 --main ca.liang.RootDriver --extra-logic souffle-logic/analyses/mocks/mocks.dl
 
+#define INTERPROC 1
+
 // MainClass("ca.liang.RootDriver").
 
 // m: Method
@@ -67,11 +69,13 @@ callsMockSource(mi) :-
 .output callsMockSource
 
 .decl isInterprocMockVar(v:Var)
+#ifdef INTERPROC
 isInterprocMockVar(v) :-
   AssignReturnValue(mi, v),
   mainAnalysis.CallGraphEdge(_, mi, _, callee),
   ReturnVar(v_callee, callee),
   isMockVar(v_callee).
+#endif
 .output isInterprocMockVar
 
 // v:Var
@@ -133,11 +137,13 @@ isCollectionFieldThatContainsMocks(f) :-
 .output isCollectionFieldThatContainsMocks
 
 .decl isInterprocArrayLocalThatContainsMocks(c:Var)
+#ifdef INTERPROC
 isInterprocArrayLocalThatContainsMocks(v) :-
   AssignReturnValue(mi, v),
   mainAnalysis.CallGraphEdge(_, mi, _, callee),
   ReturnVar(v_callee, callee),
   isArrayLocalThatContainsMocks(v_callee).
+#endif
 .output isInterprocArrayLocalThatContainsMocks
 
 .decl isArrayLocalThatContainsMocks(c:Var)
