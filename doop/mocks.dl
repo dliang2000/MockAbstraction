@@ -18,7 +18,6 @@ MockSourceMethod("<org.mockito.internal.InOrderImpl: java.lang.Object verify(jav
 .decl MockFieldAnnotation(a: Annotation)
 MockFieldAnnotation("org.mockito.Mock").
 
-// TODO handle iteration
 .decl CollectionPutMethod(m:Method)
 CollectionPutMethod("<java.util.Collection: boolean add(java.lang.Object)>").
 CollectionPutMethod(m) :-
@@ -45,11 +44,28 @@ CollectionAddAllMethod(m) :-
 
 .decl CollectionGetMethod(m:Method)
 CollectionGetMethod("<java.util.List: java.lang.Object get(int)>").
+CollectionGetMethod("<java.util.Iterator: java.lang.Object next()>").
+CollectionGetMethod("<java.util.ListIterator: java.lang.Object previous()>").
+// ... also, forEachRemaining()
 CollectionGetMethod(m) :-
   CollectionGetMethod(m0),
   basic.MethodOverridesOther(m, m0).
 CollectionGetMethod(m) :-
   CollectionGetMethod(m0),
+  Method_DeclaringType(m, t),
+  Method_DeclaringType(m0, t0),
+  SameMethodExceptDeclaringType(m, m0),
+  basic.Superinterface(t0, t).
+
+.decl CollectionIteratorMethod(m:Method)
+CollectionIteratorMethod("<java.util.Iterable: java.util.Iterator iterator()>").
+CollectionIteratorMethod("<java.util.Collection: java.util.Iterator iterator()>").
+CollectionIteratorMethod("<java.util.List: java.util.ListIterator listIterator()>").
+CollectionIteratorMethod(m) :-
+  CollectionIteratorMethod(m0),
+  basic.MethodOverridesOther(m, m0).
+CollectionIteratorMethod(m) :-
+  CollectionIteratorMethod(m0),
   Method_DeclaringType(m, t),
   Method_DeclaringType(m0, t0),
   SameMethodExceptDeclaringType(m, m0),
@@ -115,18 +131,28 @@ isCollectionLocalThatContainsMocks(c, inmethod) :-
   VirtualMethodInvocation_Base(mi, c),
   ActualParam(0, mi, mv),
   isMockVar(mv).
+// c = _.f
 isCollectionLocalThatContainsMocks(c, inmethod) :-
   isCollectionFieldThatContainsMocks(f),
   LoadInstanceField(_, f, c, inmethod).
+// c1 = c
 isCollectionLocalThatContainsMocks(c, inmethod) :-
   isCollectionLocalThatContainsMocks(c1, inmethod),
   AssignLocal(c1, c, inmethod).
+// c.addAll(c1)
 isCollectionLocalThatContainsMocks(c, inmethod) :-
   isCollectionLocalThatContainsMocks(c1, inmethod),
   CollectionAddAllMethod(add_all),
   VirtualMethodInvocation(mi, add_all, inmethod),
   VirtualMethodInvocation_Base(mi, c),
   ActualParam(0, mi, c1).
+// it = c.iterator()
+isCollectionLocalThatContainsMocks(it, inmethod) :-
+  isCollectionLocalThatContainsMocks(c, inmethod),
+  CollectionIteratorMethod(it_method),
+  VirtualMethodInvocation(mi, it_method, inmethod),
+  VirtualMethodInvocation_Base(mi, c),
+  AssignReturnValue(mi, it).
 .output isCollectionLocalThatContainsMocks
 
 .decl isCollectionFieldThatContainsMocks(f:Field)
@@ -189,7 +215,6 @@ fieldContainsMock(signature) :-
   MockFieldAnnotation(a).
 .output fieldContainsMock
 
-.output CollectionPutMethod
 .output VirtualMethodInvocation_Base
 .output VirtualMethodInvocation
 .output ActualParam
