@@ -19,7 +19,9 @@
 
 # TODO/Notes on current doop implementation
 
-* Collection iteration should be handled too
+* Collection.spliterator, forEachRemaining not handled yet
+* List.add(int, Object), addAll(int, Collection); listIterator(int), .set(int, Object), subList, stream, parallelStream
+* Set, Vector
 
 if you specify --cache and you include MainClass("ca.liang.RootDriver") or whatever then it doesn't recompute facts. It will have to recompile the .dl when you change it.
 
