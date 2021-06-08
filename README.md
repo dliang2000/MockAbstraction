@@ -56,10 +56,10 @@ or if you want to run Mock Analysis for all benchmarks:
 
 | Benchmark | LOC Total | LOC (Main) | LOC (Test) | Soot Runtime (s) | doop Runtime - mock count (s) | doop Runtime - intraproc-mock count (s) |
 | --- | --: | --: | --: | --: | --: | --: |
-| bootique-2.0.B1-bootique | 15530 | 6935 | 8595 | TBD | 39:15 - 2355 | TBD |
-| commons-collections4-4.4 | 65273 | 28955 | 36318 | TBD | TBD | TBD |
+| bootique-2.0.B1-bootique | 15530 | 6935 | 8595 | TBD | 38:11 - 2291 | 39:25 - 2365 |
+| commons-collections4-4.4 | 65273 | 28955 | 36318 | TBD | 06:54 - 414 | 07:08 - 428 |
 | flink-core-1.13.0-rc1 | 117310 | 67580 | 49730 | TBD | TBD | TBD |
-| jsonschema2pojo-core-1.1.1 | 8233 | 5348 | 2885 | TBD | TBD | TBD |
+| jsonschema2pojo-core-1.1.1 | 8233 | 5348 | 2885 | TBD | 12:08 - 728 | 11:36 - 696 |
 | maven-core-3.8.1 | 38866 | 27762 | 11104 | TBD | TBD | TBD |
 | microbenchmark | 559 | 68 | 491 | TBD | TBD | TBD |
 | mybatis-3.5.6 | 68268 | 21934 | 46334 | TBD | TBD | TBD |
