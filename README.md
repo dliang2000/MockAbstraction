@@ -63,7 +63,7 @@ or if you want to run Mock Analysis for all benchmarks:
 | maven-core-3.8.1 | 38866 | 27762 | 11104 | TBD | 07:44 - 464 | 08:17 - 497 |
 | microbenchmark | 559 | 68 | 491 | TBD | TBD | TBD |
 | mybatis-3.5.6 | 68268 | 21934 | 46334 | TBD | TBD | TBD |
-| quartz-core-2.3.1 | 35355 | 26932 | 8423 | TBD | TBD | TBD |
+| quartz-core-2.3.1 | 35355 | 26932 | 8423 | TBD | 10:27 - 627 | 10:35 - 635 |
 | vraptor-core-3.5.5 | 34244 | 14111 | 20133 | TBD | TBD | TBD |
 | Total | 383638 | 199625 | 184013 | TBD | TBD | TBD |
 
