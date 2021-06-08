@@ -2,10 +2,22 @@
 
 import csv
 import re
+import argparse, os
+
+def dir_file(string):
+    if os.path.isfile(string):
+        return string
+    else:
+        raise FileNotFoundError(string)
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--file', default='last-analysis/isMockInvocation.csv', type=dir_file)
+
+args = parser.parse_args()
 
 results_by_class = {}
 sig_re = re.compile(r"<([\w.]+): ([\w.]+ \w+\(.*\))>")
-with open('last-analysis/isMockInvocation.csv', newline='') as csvfile:
+with open(args.file, newline='') as csvfile:
     reader = csv.reader(csvfile, delimiter='\t')
     for row in reader:
         mi, signature, inMethod, line, receiver = row
