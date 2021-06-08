@@ -137,6 +137,22 @@ public class PayRollMockTest {
         verify(bankService, times(1)).makePayment(bankId, salary);
     }
     // total mock calls: 1
+
+    // Contains mock object (from verify() call)
+    @Test
+    public void testEmployeeIsPaid_singleVerify() {
+        String bankId = "ID0";
+        int salary = 1000;
+
+	// not a mock call on employees
+        employees.add(createTestEmployee("Test Employee", bankId, salary));
+
+        assertNumberOfPayments(1);
+
+	// makePayment is a *mock* call on what gets returned from verify(), which is a mock verification object
+        verify(bankService).makePayment(bankId, salary);
+    }
+    // total mock calls: 1
     
     // tests marking fields (employeeDB, bankService) as mock-containing (due to init)
     @Test
