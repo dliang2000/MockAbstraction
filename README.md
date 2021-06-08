@@ -60,7 +60,7 @@ or if you want to run Mock Analysis for all benchmarks:
 | commons-collections4-4.4 | 65273 | 28955 | 36318 | TBD | 06:54 - 414 | 07:08 - 428 |
 | flink-core-1.13.0-rc1 | 117310 | 67580 | 49730 | TBD | TBD | TBD |
 | jsonschema2pojo-core-1.1.1 | 8233 | 5348 | 2885 | TBD | 12:08 - 728 | 11:36 - 696 |
-| maven-core-3.8.1 | 38866 | 27762 | 11104 | TBD | 05:32 - 332 | 05:09 - 309 |
+| maven-core-3.8.1 | 38866 | 27762 | 11104 | TBD | 07:44 - 464 | 08:17 - 497 |
 | microbenchmark | 559 | 68 | 491 | TBD | TBD | TBD |
 | mybatis-3.5.6 | 68268 | 21934 | 46334 | TBD | TBD | TBD |
 | quartz-core-2.3.1 | 35355 | 26932 | 8423 | TBD | TBD | TBD |
@@ -80,6 +80,7 @@ or if you want to run Mock Analysis for all benchmarks:
 | mybatis-3.5.6 | 0 / 2618 |
 | quartz-core-2.3.1 | 2 / 878 |
 | vraptor-core-3.5.5 | 10 / 1193 |
+| Total | 29 / 9352 |
 
 
 ## Mock Analysis table (May Analysis, Intraprocedural)
