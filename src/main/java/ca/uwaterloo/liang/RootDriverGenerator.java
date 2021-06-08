@@ -15,6 +15,7 @@ import java.util.Map;
 
 import com.beust.jcommander.Parameter;
 
+import ca.uwaterloo.liang.util.Utility;
 import soot.BooleanType;
 import soot.ByteType;
 import soot.DoubleType;
@@ -250,7 +251,7 @@ public class RootDriverGenerator {
                     System.out.println(sm.getSubSignature());
                     // check that the sootmethod is indeed a test case, and it is non-private 
                     // (or else the Driver class will likely not have the access to the method)
-                    if ( (isTestMethod(sm) || isBeforeMethod(sm) || isAfterMethod(sm))
+                    if ( ( Utility.isTestMethod(sm) || Utility.isBeforeMethod(sm) || Utility.isAfterMethod(sm) )
                             && !sm.isPrivate()) {
                         if (sm.getExceptions().isEmpty()) {
                             sb.append("\t\t" + class_var + "." + sm.getName() + "();\n");
@@ -314,7 +315,7 @@ public class RootDriverGenerator {
                     System.out.println(sm.getSubSignature());
                     // check that the sootmethod is indeed a test case, and it is public 
                     // (or else the Driver class will likely not have the access to the method)
-                    if ( (isTestMethod(sm) || isBeforeMethod(sm) || isAfterMethod(sm))
+                    if ( ( Utility.isTestMethod(sm) || Utility.isBeforeMethod(sm) || Utility.isAfterMethod(sm) )
                             && !sm.isPrivate()) {
                         if (sm.getExceptions().isEmpty()) {
                             sb.append("\t\t" + class_var + "." + sm.getName() + "();\n");
@@ -387,7 +388,7 @@ public class RootDriverGenerator {
         private static boolean isTestClass(SootClass sc) {
             for (SootMethod sm : sc.getMethods()) {
                 // exclude test classes with private no-arg constructor
-                if (isTestMethod(sm)) {
+                if ( Utility.isTestMethod(sm)) {
                     return true;
                 }
             }
@@ -443,7 +444,7 @@ public class RootDriverGenerator {
         }
     }
     
-    private static boolean isBeforeMethod(SootMethod sm) {
+    /*private static boolean isBeforeMethod(SootMethod sm) {
         // JUnit 3
         if ((sm.getName().equals("init()") ||  sm.getName().equals("setUp()")) 
                 && sm.getParameterCount() == 0 && sm.getReturnType() instanceof VoidType) {
@@ -514,5 +515,5 @@ public class RootDriverGenerator {
             }
         }
         return false;
-    }
+    }*/
 }

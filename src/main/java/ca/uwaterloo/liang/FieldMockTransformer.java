@@ -8,6 +8,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import ca.uwaterloo.liang.util.Utility;
 import soot.Body;
 import soot.Scene;
 import soot.SceneTransformer;
@@ -44,7 +45,7 @@ public class FieldMockTransformer extends SceneTransformer {
             List<SootMethod> methods = appClass.getMethods();
             
             for (SootMethod m : methods) {
-                if (isBeforeMethod(m) && m.hasActiveBody()) {
+                if ( Utility.isBeforeMethod(m) && m.hasActiveBody() ) {
                     Body body = m.getActiveBody();
                     
                     Chain units = body.getUnits();
@@ -59,7 +60,7 @@ public class FieldMockTransformer extends SceneTransformer {
                             
                             SootMethod invokeMethod = aStmt.getInvokeExpr().getMethod();
                             
-                            if (isMockAPI(invokeMethod)) {
+                            if (Utility.isMockAPI(invokeMethod)) {
                                 System.out.println("Field is mock in setup() or init(): " + field);
                                 fieldMocks.add(field);
                             }
@@ -86,42 +87,6 @@ public class FieldMockTransformer extends SceneTransformer {
             for (AnnotationTag annotation : tag.getAnnotations()) {
                 if (annotation.getType().equals("Lorg/mockito/Mock;")) {
                     System.out.println("Annotated Mock found: " + field.getSubSignature());
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-    
-    private static List<String> MOCKITO_VERIFIES = Collections.unmodifiableList(
-            Arrays.asList(new String[] {"java.lang.Object verify(java.lang.Object)", 
-                                        "java.lang.Object verify(java.lang.Object,org.mockito.verification.VerificationMode)"}));
-    
-    private static boolean isMockAPI(SootMethod method) {
-        return (method.getSubSignature().equals(MockLibrary.EASYMOCK.subSignature()) 
-                                || method.getSubSignature().equals(MockLibrary.MOCKITO.subSignature())
-                                || method.getSubSignature().equals(MockLibrary.POWERMOCK.subSignature())
-                                ||  MOCKITO_VERIFIES.contains(method.getSubSignature()) );
-    }
-    
-    private static boolean isBeforeMethod(SootMethod sm) {
-        // JUnit 3
-        if ((sm.getName().equals("init()") ||  sm.getName().equals("setUp()")) 
-                && sm.getParameterCount() == 0 && sm.getReturnType() instanceof VoidType) {
-            //System.out.println("Test case found: " + sm.getSubSignature());
-            return true;
-        }
-
-        // JUnit 4+
-        List<soot.tagkit.Tag> smTags = sm.getTags();
-        soot.tagkit.VisibilityAnnotationTag tag = (soot.tagkit.VisibilityAnnotationTag) sm
-                .getTag("VisibilityAnnotationTag");
-        if (tag != null) {
-            for (AnnotationTag annotation : tag.getAnnotations()) {
-                if (annotation.getType().equals("Lorg/junit/Before;") || annotation.getType().equals("Lorg/junit/BeforeClass;")
-                        || annotation.getType().equals("Lorg/junit/jupiter/api/BeforeEach;") 
-                        || annotation.getType().equals("Lorg/junit/jupiter/api/BeforeAll;")) {
-                    //System.out.println("Test case found: " + sm.getSignature());
                     return true;
                 }
             }

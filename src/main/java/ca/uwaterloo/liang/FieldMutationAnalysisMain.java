@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 
+import ca.uwaterloo.liang.util.Utility;
 import soot.Body;
 import soot.G;
 import soot.PackManager;
@@ -129,7 +130,7 @@ public class FieldMutationAnalysisMain extends SceneTransformer {
             for (SootMethod method : myAppMethods) {
               //logger.debug("Source Method: " + srcMethod);
                 
-                if (method.hasActiveBody() && isTestCase(method) ) {
+                if (method.hasActiveBody() && Utility.isTestMethod(method) ) {
                     Body body = method.getActiveBody();
                     
                     Chain units = body.getUnits();
@@ -204,80 +205,5 @@ public class FieldMutationAnalysisMain extends SceneTransformer {
         }   
             
         G.v().out.println(msg);
-    }
-    
-    private static boolean isBeforeMethod(SootMethod sm) {
-        // JUnit 3
-        if ((sm.getName().equals("init()") ||  sm.getName().equals("setUp()")) 
-                && sm.getParameterCount() == 0 && sm.getReturnType().toString() == "void") {
-            //System.out.println("Test case found: " + sm.getSubSignature());
-            return true;
-        }
-
-        // JUnit 4+
-        List<soot.tagkit.Tag> smTags = sm.getTags();
-        soot.tagkit.VisibilityAnnotationTag tag = (soot.tagkit.VisibilityAnnotationTag) sm
-                .getTag("VisibilityAnnotationTag");
-        if (tag != null) {
-            for (AnnotationTag annotation : tag.getAnnotations()) {
-                if (annotation.getType().equals("Lorg/junit/Before;") || annotation.getType().equals("Lorg/junit/BeforeClass;")
-                        || annotation.getType().equals("Lorg/junit/jupiter/api/BeforeEach;") 
-                        || annotation.getType().equals("Lorg/junit/jupiter/api/BeforeAll;")) {
-                    //System.out.println("Test case found: " + sm.getSignature());
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-    
-    private static boolean isAfterMethod(SootMethod sm) {
-        // JUnit 3
-        if (sm.getName().equals("tearDown()") 
-                && sm.getParameterCount() == 0 && sm.getReturnType().toString() == "void") {
-            //System.out.println("Test case found: " + sm.getSubSignature());
-            return true;
-        }
-
-        // JUnit 4+
-        List<soot.tagkit.Tag> smTags = sm.getTags();
-        soot.tagkit.VisibilityAnnotationTag tag = (soot.tagkit.VisibilityAnnotationTag) sm
-                .getTag("VisibilityAnnotationTag");
-        if (tag != null) {
-            for (AnnotationTag annotation : tag.getAnnotations()) {
-                if (annotation.getType().equals("Lorg/junit/After;") || annotation.getType().equals("Lorg/junit/AfterClass;")
-                        || annotation.getType().equals("Lorg/junit/jupiter/api/AfterEach;") 
-                        || annotation.getType().equals("Lorg/junit/jupiter/api/AfterAll;")) {
-                    //System.out.println("Test case found: " + sm.getSignature());
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-    
-    private static boolean isTestCase(SootMethod sm) {
-        // JUnit 3
-        if (sm.getName().toLowerCase().startsWith("test") && sm.getParameterCount() == 0 && sm.getReturnType().toString() == "void") {
-            //System.out.println("Test case found: " + sm.getSubSignature());
-            return true;
-        }
-
-        // JUnit 4+
-
-        List<soot.tagkit.Tag> smTags = sm.getTags();
-        soot.tagkit.VisibilityAnnotationTag tag = (soot.tagkit.VisibilityAnnotationTag) sm
-                .getTag("VisibilityAnnotationTag");
-        if (tag != null) {
-            for (AnnotationTag annotation : tag.getAnnotations()) {
-                if (annotation.getType().equals("Lorg/junit/Test;") 
-                        || annotation.getType().equals("Lorg/junit/jupiter/api/Test;")) {
-                    //System.out.println("Test case found: " + sm.getSignature());
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-    
+    }    
 }

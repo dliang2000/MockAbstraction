@@ -2,12 +2,15 @@ package ca.uwaterloo.liang.util;
 
 import java.io.FileWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import ca.uwaterloo.liang.MockLibrary;
 import ca.uwaterloo.liang.MockStatus;
 import ca.uwaterloo.liang.ProcSummary;
 
@@ -18,6 +21,8 @@ import soot.SootMethod;
 import soot.Type;
 import soot.Unit;
 import soot.Value;
+import soot.VoidType;
+import soot.tagkit.AnnotationTag;
 import soot.toolkits.scalar.FlowSet;
 
 public class Utility {
@@ -44,7 +49,7 @@ public class Utility {
         return yes;
     }
     
-    public static List<int[]> gatherMocksStats(SootClass aClass, HashMap<SootMethod, ProcSummary> procSummaries) {
+    public static List<int[]> gatherTestMethodMocksStats(SootClass aClass, HashMap<SootMethod, ProcSummary> procSummaries) {
            
         List<SootMethod> ncM = aClass.getMethods();
         List<int[]> mocksStats = new ArrayList<>();
@@ -52,6 +57,54 @@ public class Utility {
         ProcSummary pSmy = null;
         
         for(SootMethod m : ncM) {
+            if ( isBeforeMethod(m) || isTestMethod(m) || isAfterMethod(m) ) {
+                pSmy = procSummaries.get(m);
+            
+                if (pSmy == null) 
+                    continue;
+                
+                HashMap<Unit, HashMap<Value, MockStatus>> mocks = pSmy.getMocks();
+                
+                int[] curr_method_mock_info = new int[3];
+                
+                for (Map.Entry<Unit, HashMap<Value, MockStatus>> entry : mocks.entrySet()) {
+                    
+                    HashMap<Value, MockStatus> val = entry.getValue();
+                                    
+                    for (Map.Entry<Value, MockStatus> curr : val.entrySet()) {
+                        Value v = curr.getKey();
+                        MockStatus ms = curr.getValue();
+                        if (ms.getMock()) {
+                            curr_method_mock_info[0] = 1;
+                        }
+                        if (ms.getArrayMock()) {
+                            curr_method_mock_info[1] = 1;
+                        }
+                        if (ms.getCollectionMock()) {
+                            curr_method_mock_info[2] = 1;
+                        }
+                    }
+                }
+                
+                if (curr_method_mock_info[0] == 1 || curr_method_mock_info[1] == 1 || curr_method_mock_info[2] == 1) {
+                    mocksStats.add(curr_method_mock_info);
+                }
+            }
+        }
+        return mocksStats;
+    }
+    
+    public static List<int[]> gatherHelperMethodMocksStats(SootClass aClass, HashMap<SootMethod, ProcSummary> procSummaries) {
+        
+        List<SootMethod> ncM = aClass.getMethods();
+        List<int[]> mocksStats = new ArrayList<>();
+        
+        ProcSummary pSmy = null;
+        
+        for(SootMethod m : ncM) {
+            if (isBeforeMethod(m) || isTestMethod(m) || isAfterMethod(m) ) 
+                continue;
+            
             pSmy = procSummaries.get(m);
             
             if (pSmy == null) 
@@ -150,6 +203,92 @@ public class Utility {
         }
         
         return false;
+    }
+    
+    public static boolean isBeforeMethod(SootMethod sm) {
+        // JUnit 3
+        if ((sm.getName().equals("init()") ||  sm.getName().equals("setUp()")) 
+                && sm.getParameterCount() == 0 && sm.getReturnType() instanceof VoidType) {
+            //System.out.println("Test case found: " + sm.getSubSignature());
+            return true;
+        }
+
+        // JUnit 4+
+        List<soot.tagkit.Tag> smTags = sm.getTags();
+        soot.tagkit.VisibilityAnnotationTag tag = (soot.tagkit.VisibilityAnnotationTag) sm
+                .getTag("VisibilityAnnotationTag");
+        if (tag != null) {
+            for (AnnotationTag annotation : tag.getAnnotations()) {
+                if (annotation.getType().equals("Lorg/junit/Before;") || annotation.getType().equals("Lorg/junit/BeforeClass;")
+                        || annotation.getType().equals("Lorg/junit/jupiter/api/BeforeEach;") 
+                        || annotation.getType().equals("Lorg/junit/jupiter/api/BeforeAll;")) {
+                    //System.out.println("Test case found: " + sm.getSignature());
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    public static boolean isAfterMethod(SootMethod sm) {
+        // JUnit 3
+        if (sm.getName().equals("tearDown()") 
+                && sm.getParameterCount() == 0 && sm.getReturnType() instanceof VoidType) {
+            //System.out.println("Test case found: " + sm.getSubSignature());
+            return true;
+        }
+
+        // JUnit 4+
+        List<soot.tagkit.Tag> smTags = sm.getTags();
+        soot.tagkit.VisibilityAnnotationTag tag = (soot.tagkit.VisibilityAnnotationTag) sm
+                .getTag("VisibilityAnnotationTag");
+        if (tag != null) {
+            for (AnnotationTag annotation : tag.getAnnotations()) {
+                if (annotation.getType().equals("Lorg/junit/After;") || annotation.getType().equals("Lorg/junit/AfterClass;")
+                        || annotation.getType().equals("Lorg/junit/jupiter/api/AfterEach;") 
+                        || annotation.getType().equals("Lorg/junit/jupiter/api/AfterAll;")) {
+                    //System.out.println("Test case found: " + sm.getSignature());
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    public static boolean isTestMethod(SootMethod sm) {
+        // JUnit 3
+        if (sm.getName().toLowerCase().startsWith("test") && sm.getParameterCount() == 0 
+                && sm.getReturnType() instanceof VoidType) {
+            //System.out.println("Test case found: " + sm.getSubSignature());
+            return true;
+        }
+
+        // JUnit 4+
+
+        List<soot.tagkit.Tag> smTags = sm.getTags();
+        soot.tagkit.VisibilityAnnotationTag tag = (soot.tagkit.VisibilityAnnotationTag) sm
+                .getTag("VisibilityAnnotationTag");
+        if (tag != null) {
+            for (AnnotationTag annotation : tag.getAnnotations()) {
+                if (annotation.getType().equals("Lorg/junit/Test;") 
+                        || annotation.getType().equals("Lorg/junit/jupiter/api/Test;")) {
+                    //System.out.println("Test case found: " + sm.getSignature());
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    private static List<String> MOCKITO_VERIFIES = Collections.unmodifiableList(
+            Arrays.asList(new String[] {"java.lang.Object verify(java.lang.Object)", 
+                                        "java.lang.Object verify(java.lang.Object,org.mockito.verification.VerificationMode)"}));
+    
+    public static boolean isMockAPI(SootMethod method) {
+        return (method.getSubSignature().equals(MockLibrary.EASYMOCK.subSignature()) 
+                                || method.getSubSignature().equals(MockLibrary.MOCKITO.subSignature())
+                                || method.getSubSignature().equals(MockLibrary.POWERMOCK.subSignature())
+                                ||  MOCKITO_VERIFIES.contains(method.getSubSignature()) );
     }
 
 }

@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -146,7 +147,7 @@ public class MockAnalysisMain extends SceneTransformer {
 
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
-        int totalNumberOfTestRelatedMethods = 0;
+        int totalNumberOfTestRelatedMethods = 0, totalNumberOfHelperMethods = 0;
     
         callGraph = Scene.v().getCallGraph();
      
@@ -156,6 +157,9 @@ public class MockAnalysisMain extends SceneTransformer {
         //Compute summaries of all methods present in the call graph
         
         for (SootClass sc : Scene.v().getApplicationClasses()) {
+            if (!isTestClass(sc))
+                continue;
+            
             appMethods.addAll(sc.getMethods());           
             classMethods.put(sc.getName(), new ArrayList<SootMethod>(sc.getMethods()) );
         } 
@@ -167,9 +171,8 @@ public class MockAnalysisMain extends SceneTransformer {
         G.v().out.println("Number of methods to be analyzed: " + appMethods.size() );
         
         for (SootMethod method : appMethods) {   
-            if (method.hasActiveBody() && 
-                    (isBeforeMethod(method) || isTestCase(method) || isAfterMethod(method)) ) {
-                totalNumberOfTestRelatedMethods++;
+            if (method.hasActiveBody()) {
+                    //&&  (isBeforeMethod(method) || isTestCase(method) || isAfterMethod(method)) ) {
                 JimpleBody body = (JimpleBody) method.getActiveBody();
                 
                 /*if (method.getDeclaringClass().getName().contains("PayRollAnnotationMockTest")) {
@@ -221,6 +224,12 @@ public class MockAnalysisMain extends SceneTransformer {
                 mockSummary.setInvokeExprsOnMocks( myMAnalysis.getInvokeExprsOnMocks() );
                 
                 procSummaries.put(method, mockSummary);
+                
+                if ( Utility.isBeforeMethod(method) || Utility.isTestMethod(method) || Utility.isAfterMethod(method) ) {
+                    totalNumberOfTestRelatedMethods++;
+                } else {
+                    totalNumberOfHelperMethods++;
+                }
             }
         }
             
@@ -239,6 +248,14 @@ public class MockAnalysisMain extends SceneTransformer {
         .append("\n");
         msg.append("Total Number of Test/Before/After Methods with Collection in class: ").append(benchmark_mock_stats[2])
         .append("\n");
+        msg.append("Total Number of Helper Methods: ").append(totalNumberOfHelperMethods)
+        .append("\n");
+        msg.append("Total Number of Helper Methods with May Mock: ").append(benchmark_mock_stats[3])
+        .append("\n");
+        msg.append("Total Number of Helper Methods with ArrayMock in class: ").append(benchmark_mock_stats[4])
+        .append("\n");
+        msg.append("Total Number of Helper Methods with Collection in class: ").append(benchmark_mock_stats[5])
+        .append("\n");
         G.v().out.println(msg);
         
         printMockInvocationStats();
@@ -250,6 +267,8 @@ public class MockAnalysisMain extends SceneTransformer {
         List<String[]> linesToAdd = new ArrayList<>();
         
         for(SootClass nc : Scene.v().getApplicationClasses()) {
+            if (!isTestClass(nc))
+                continue;
             
             List<SootMethod> ncM = nc.getMethods();
             
@@ -259,7 +278,7 @@ public class MockAnalysisMain extends SceneTransformer {
                 pSmy = procSummaries.get(m);
                 if (pSmy == null) 
                     continue;
-                ArrayList<InvokeExpr> totalInvokes = pSmy.getTotalInvokeExprs();
+                // ArrayList<InvokeExpr> totalInvokes = pSmy.getTotalInvokeExprs();
                 
                 ArrayList<InvokeExpr> invokeOnMocks = pSmy.getInvokeExprsOnMocks();
                 
@@ -294,6 +313,8 @@ public class MockAnalysisMain extends SceneTransformer {
         
         int total_count = 0, mocks_count = 0;
         for(SootClass nc : Scene.v().getApplicationClasses()) {
+            if (!isTestClass(nc))
+                continue;
             msg.append("\n** CLASS ").append(nc.toString())
             .append("\n\n");
             
@@ -334,25 +355,56 @@ public class MockAnalysisMain extends SceneTransformer {
     
     private int[] calculateMockStats() {
         int[] class_mocks = new int[3];
-        int[] benchmark_mock_stats = new int[3];
+        int[] benchmark_mock_stats = new int[6];
                     
-        for(SootClass nc : Scene.v().getApplicationClasses()) {     
-            List<int[]> mockStats = Utility.gatherMocksStats(nc, procSummaries);
+        for(SootClass nc : Scene.v().getApplicationClasses()) {
+            if (!isTestClass(nc))
+                continue;
+            List<int[]> testMockStats = Utility.gatherTestMethodMocksStats(nc, procSummaries);
+            
+            List<int[]> helperMockStats = Utility.gatherHelperMethodMocksStats(nc, procSummaries);
+            
             StringBuffer msg = new StringBuffer();
             msg.append(" ====================================== \n")
             .append("** CLASS ").append(nc.toString())
             .append("\n");  
             class_mocks = new int[3];
-            if (mockStats.isEmpty() || mockStats.size() == 0)
-                continue;
-            for (int[] mock : mockStats) {
-                // # of methods in the class with MustMock
-                class_mocks[0] += mock[0];
-                // # of methods in the class with ArrayMock
-                class_mocks[1] += mock[1];
-                // # of methods in the class with CollectionMock
-                class_mocks[2] += mock[2];
+            if (!testMockStats.isEmpty()) {
+                for (int[] testMock : testMockStats) {
+                    // # of methods in the class with MustMock
+                    class_mocks[0] += testMock[0];
+                    // # of methods in the class with ArrayMock
+                    class_mocks[1] += testMock[1];
+                    // # of methods in the class with CollectionMock
+                    class_mocks[2] += testMock[2];
+                    
+                    // Update test/before/after method stats for benchmark
+                    benchmark_mock_stats[0] += testMock[0];
+
+                    benchmark_mock_stats[1] += testMock[1];
+                    
+                    benchmark_mock_stats[2] += testMock[2];
+                }
             }
+            
+            if (!helperMockStats.isEmpty()) {
+                for (int[] helperMock : helperMockStats) {
+                    // # of methods in the class with MustMock
+                    class_mocks[0] += helperMock[0];
+                    // # of methods in the class with ArrayMock
+                    class_mocks[1] += helperMock[1];
+                    // # of methods in the class with CollectionMock
+                    class_mocks[2] += helperMock[2];
+                    
+                    // Update helper method stats for benchmark
+                    benchmark_mock_stats[3] += helperMock[0];
+
+                    benchmark_mock_stats[4] += helperMock[1];
+                    
+                    benchmark_mock_stats[5] += helperMock[2];
+                }
+            }
+            
             msg.append("Number of Methods with May Mock in class: ").append(class_mocks[0])
             .append("\n");
             msg.append("Number of Methods with ArrayMock in class: ").append(class_mocks[1])
@@ -360,9 +412,6 @@ public class MockAnalysisMain extends SceneTransformer {
             msg.append("Number of Methods with Collection in class: ").append(class_mocks[2])
             .append("\n");
             G.v().out.println(msg);
-            benchmark_mock_stats[0] += class_mocks[0];
-            benchmark_mock_stats[1] += class_mocks[1];
-            benchmark_mock_stats[2] += class_mocks[2];
         }
         
         return benchmark_mock_stats;
@@ -378,76 +427,14 @@ public class MockAnalysisMain extends SceneTransformer {
         G.v().out.println(msg);
     }
     
-    private static boolean isBeforeMethod(SootMethod sm) {
-        // JUnit 3
-        if ((sm.getName().equals("init()") ||  sm.getName().equals("setUp()")) 
-                && sm.getParameterCount() == 0 && sm.getReturnType() instanceof VoidType) {
-            //System.out.println("Test case found: " + sm.getSubSignature());
-            return true;
-        }
-
-        // JUnit 4+
-        List<soot.tagkit.Tag> smTags = sm.getTags();
-        soot.tagkit.VisibilityAnnotationTag tag = (soot.tagkit.VisibilityAnnotationTag) sm
-                .getTag("VisibilityAnnotationTag");
-        if (tag != null) {
-            for (AnnotationTag annotation : tag.getAnnotations()) {
-                if (annotation.getType().equals("Lorg/junit/Before;") || annotation.getType().equals("Lorg/junit/BeforeClass;")
-                        || annotation.getType().equals("Lorg/junit/jupiter/api/BeforeEach;") 
-                        || annotation.getType().equals("Lorg/junit/jupiter/api/BeforeAll;")) {
-                    //System.out.println("Test case found: " + sm.getSignature());
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-    
-    private static boolean isAfterMethod(SootMethod sm) {
-        // JUnit 3
-        if (sm.getName().equals("tearDown()") 
-                && sm.getParameterCount() == 0 && sm.getReturnType() instanceof VoidType) {
-            //System.out.println("Test case found: " + sm.getSubSignature());
-            return true;
-        }
-
-        // JUnit 4+
-        List<soot.tagkit.Tag> smTags = sm.getTags();
-        soot.tagkit.VisibilityAnnotationTag tag = (soot.tagkit.VisibilityAnnotationTag) sm
-                .getTag("VisibilityAnnotationTag");
-        if (tag != null) {
-            for (AnnotationTag annotation : tag.getAnnotations()) {
-                if (annotation.getType().equals("Lorg/junit/After;") || annotation.getType().equals("Lorg/junit/AfterClass;")
-                        || annotation.getType().equals("Lorg/junit/jupiter/api/AfterEach;") 
-                        || annotation.getType().equals("Lorg/junit/jupiter/api/AfterAll;")) {
-                    //System.out.println("Test case found: " + sm.getSignature());
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-    
-    private static boolean isTestCase(SootMethod sm) {
-        // JUnit 3
-        if (sm.getName().toLowerCase().startsWith("test") && sm.getParameterCount() == 0 
-                && sm.getReturnType() instanceof VoidType) {
-            //System.out.println("Test case found: " + sm.getSubSignature());
-            return true;
-        }
-
-        // JUnit 4+
-
-        List<soot.tagkit.Tag> smTags = sm.getTags();
-        soot.tagkit.VisibilityAnnotationTag tag = (soot.tagkit.VisibilityAnnotationTag) sm
-                .getTag("VisibilityAnnotationTag");
-        if (tag != null) {
-            for (AnnotationTag annotation : tag.getAnnotations()) {
-                if (annotation.getType().equals("Lorg/junit/Test;") 
-                        || annotation.getType().equals("Lorg/junit/jupiter/api/Test;")) {
-                    //System.out.println("Test case found: " + sm.getSignature());
-                    return true;
-                }
+    // Determine if the SootClass is a test class. This version only checks if there
+    // are any test cases inside the class itself. Future version will take care off
+    // test cases in any of its superclasses invoked.
+    private static boolean isTestClass(SootClass sc) {
+        for (SootMethod sm : sc.getMethods()) {
+            // exclude test classes with private no-arg constructor
+            if ( Utility.isTestMethod(sm) ) {
+                return true;
             }
         }
         return false;

@@ -21,6 +21,7 @@ package ca.uwaterloo.liang;
 import java.util.*;
 
 import ca.uwaterloo.liang.collection.CollectionModelEffect;
+import ca.uwaterloo.liang.util.Utility;
 import soot.*;
 import soot.jimple.ArrayRef;
 import soot.jimple.AssignStmt;
@@ -149,11 +150,24 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     private void gen(FlowSet<Map<Value, MockStatus>> in, Unit unit, FlowSet<Map<Value, MockStatus>> out) {
         Stmt aStmt = (Stmt) unit;
         
-        // First way to create mock: Mock Annotation
         if (aStmt.containsFieldRef()) {
             SootField sf = aStmt.getFieldRef().getField();
-            //System.out.println("SootField: " + sf);
+            // First way to create mock: Mock Annotation
             if (FieldMockTransformer.getAnnotatedMocks().contains(sf)) {
+                //System.out.println("myAnnotatedMocks contain the mock wanted");
+                HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
+                List<ValueBox> defBoxes = unit.getDefBoxes();
+                for (ValueBox vb: defBoxes) {
+                    Value v = vb.getValue();
+                    MockStatus status = new MockStatus(true);
+                    running_result.put(v, status);
+                }
+                out.add(running_result);
+                mayMocks.put(unit, running_result); 
+            }
+            
+            // Second way to create mock: Fields that are already mocks
+            if (FieldMockTransformer.getFieldMocks().contains(sf)) {
                 //System.out.println("myAnnotatedMocks contain the mock wanted");
                 HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
                 List<ValueBox> defBoxes = unit.getDefBoxes();
@@ -167,12 +181,12 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             }
         }
         
-        // Second way to create mock: Mock libraries' API. Example: mock(A.class)
+        // Third way to create mock: Mock libraries' API. Example: mock(A.class)
         if (aStmt.containsInvokeExpr()) {
             InvokeExpr invkExpr = aStmt.getInvokeExpr();
             SootMethod sootMethod = invkExpr.getMethod();
                 
-            if (isMockAPI(sootMethod)) {
+            if (Utility.isMockAPI(sootMethod)) {
                 HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
                 List<ValueBox> defBoxes = unit.getDefBoxes();
                 for (ValueBox vb: defBoxes) {
@@ -185,7 +199,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             }
         }
         
-        // Third way: Right op of an AssignStmt is a Mock, ArrayMock, or CollectionMock
+        // Fourth way: Right op of an AssignStmt is a Mock, ArrayMock, or CollectionMock
         if (aStmt instanceof AssignStmt) {
             AssignStmt assign = (AssignStmt) aStmt;
             if (assign.getRightOp() instanceof Local || assign.getRightOp() instanceof InstanceFieldRef) {
@@ -344,7 +358,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         Stmt aStmt = (Stmt) unit;
         List<Value> vals = new ArrayList<Value>();
         if (aStmt.containsArrayRef() && aStmt instanceof AssignStmt) {
-            System.out.println("ArrayRef Statement: " + aStmt);
+            // System.out.println("ArrayRef Statement: " + aStmt);
             ValueBox arrayRef = aStmt.getArrayRefBox();
             
             AssignStmt assign = (AssignStmt) aStmt;
@@ -424,9 +438,9 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                             if (isCollectionASuperInterface(hierarchy, sc) && isReadEffect(sm)) {
                                 isCollection = true;
                                 vals.add(innerBox.getValue());
-                                G.v().out.println("Statement: " + aStmt.toString());
-                                G.v().out.println("InnerBox value: " + (Local) innerBox.getValue());
-                                G.v().out.println("SootClass Type: " + sc.getType());
+                                //G.v().out.println("Statement: " + aStmt.toString());
+                                //G.v().out.println("InnerBox value: " + (Local) innerBox.getValue());
+                                //G.v().out.println("SootClass Type: " + sc.getType());
                             }
                         } else {
                             Chain<SootClass> interfaces = sc.getInterfaces();
@@ -434,9 +448,9 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                                 if(isCollectionASuperInterface(hierarchy, curr_interface) && isReadEffect(sm)) {
                                     isCollection = true;
                                     vals.add(innerBox.getValue());
-                                    G.v().out.println("Statement: " + aStmt.toString());
-                                    G.v().out.println("InnerBox value: " + (Local) innerBox.getValue());
-                                    G.v().out.println("SootClass Type: " + sc.getType());
+                                   // G.v().out.println("Statement: " + aStmt.toString());
+                                   // G.v().out.println("InnerBox value: " + (Local) innerBox.getValue());
+                                   // G.v().out.println("SootClass Type: " + sc.getType());
                                 }
                             }
                         }                        
@@ -480,7 +494,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             if (aStmt.containsInvokeExpr()) {
                 InvokeExpr invkExpr = aStmt.getInvokeExpr();
                 if (invkExpr instanceof InstanceInvokeExpr) {
-                    System.out.println("InvokeExpr: " + invkExpr);
+                    // System.out.println("InvokeExpr: " + invkExpr);
                     // Add InvokeExpr to myTotalInvokeExprs
                     myTotalInvokeExprs.add(invkExpr);
                     
@@ -590,17 +604,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     }
     
     private static boolean doesNotCreateMock(Stmt stmt) {
-        return (!stmt.containsInvokeExpr() || !isMockAPI(stmt.getInvokeExpr().getMethod()));
-    }
-    
-    public static List<String> MOCKITO_VERIFIES = Collections.unmodifiableList(
-            Arrays.asList(new String[] {"java.lang.Object verify(java.lang.Object)", 
-                                        "java.lang.Object verify(java.lang.Object,org.mockito.verification.VerificationMode)"}));
-    
-    private static boolean isMockAPI(SootMethod method) {
-        return (method.getSubSignature().equals(MockLibrary.EASYMOCK.subSignature()) 
-                                || method.getSubSignature().equals(MockLibrary.MOCKITO.subSignature())
-                                || method.getSubSignature().equals(MockLibrary.POWERMOCK.subSignature())
-                                ||  MOCKITO_VERIFIES.contains(method.getSubSignature()) );
+        return (!stmt.containsInvokeExpr() || !Utility.isMockAPI(stmt.getInvokeExpr().getMethod()));
     }
 }
