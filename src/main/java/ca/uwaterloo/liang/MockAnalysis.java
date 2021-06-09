@@ -153,7 +153,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         if (aStmt.containsFieldRef()) {
             SootField sf = aStmt.getFieldRef().getField();
             // First way to create mock: Mock Annotation
-            if (FieldMockTransformer.getAnnotatedMocks().contains(sf)) {
+            if (AnnotatedMockTransformer.getAnnotatedMocks().contains(sf)) {
                 //System.out.println("myAnnotatedMocks contain the mock wanted");
                 HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
                 List<ValueBox> defBoxes = unit.getDefBoxes();
@@ -167,7 +167,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             }
             
             // Second way to create mock: Fields that are already mocks
-            if (FieldMockTransformer.getFieldMocks().contains(sf)) {
+            if (AnnotatedMockTransformer.getFieldMocks().contains(sf)) {
                 //System.out.println("myAnnotatedMocks contain the mock wanted");
                 HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
                 List<ValueBox> defBoxes = unit.getDefBoxes();

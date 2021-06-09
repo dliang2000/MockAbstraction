@@ -280,6 +280,19 @@ public class Utility {
         return false;
     }
     
+    // Determine if the SootClass is a test class. This version only checks if there
+    // are any test cases inside the class itself. Future version will take care off
+    // test cases in any of its superclasses invoked.
+    public static boolean isTestClass(SootClass sc) {
+        for (SootMethod sm : sc.getMethods()) {
+            // exclude test classes with private no-arg constructor
+            if ( isTestMethod(sm) ) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
     private static List<String> MOCKITO_VERIFIES = Collections.unmodifiableList(
             Arrays.asList(new String[] {"java.lang.Object verify(java.lang.Object)", 
                                         "java.lang.Object verify(java.lang.Object,org.mockito.verification.VerificationMode)"}));

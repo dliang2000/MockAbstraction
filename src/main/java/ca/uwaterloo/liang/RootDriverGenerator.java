@@ -229,7 +229,7 @@ public class RootDriverGenerator {
             for (SootClass sootClass : sootclasses) {
                 // skip classes that are final or not concrete, and classes that are not public
                 if (!sootClass.isConcrete() || sootClass.getName().contains("$") 
-                        || sootClass.isLibraryClass() || !isTestClass(sootClass))
+                        || sootClass.isLibraryClass() || !Utility.isTestClass(sootClass))
                     continue;
                 
                 // skip the test classes with a constructor
@@ -289,7 +289,7 @@ public class RootDriverGenerator {
             for (SootClass sootClass : sootClasses) {
                 // skip classes that are final or not concrete
                 if (!sootClass.isConcrete() || sootClass.getName().contains("$") 
-                        || sootClass.isLibraryClass() || !isTestClass(sootClass)) {
+                        || sootClass.isLibraryClass() || !Utility.isTestClass(sootClass)) {
                     //System.out.println("SootClass " + sootClass.getName() + " excluded");
                     continue;
                 }
@@ -382,18 +382,6 @@ public class RootDriverGenerator {
             return containsPrivateConstructor;
         }
         
-        // Determine if the SootClass is a test class. This version only checks if there
-        // are any test cases inside the class itself. Future version will take care off
-        // test cases in any of its superclasses invoked.
-        private static boolean isTestClass(SootClass sc) {
-            for (SootMethod sm : sc.getMethods()) {
-                // exclude test classes with private no-arg constructor
-                if ( Utility.isTestMethod(sm)) {
-                    return true;
-                }
-            }
-            return false;
-        }
         
         private static List<Type> constructorParameterTypes(SootClass sc) {
             for (SootMethod sm : sc.getMethods()) {

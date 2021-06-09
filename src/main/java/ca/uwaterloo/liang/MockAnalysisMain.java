@@ -69,7 +69,9 @@ public class MockAnalysisMain extends SceneTransformer {
     
     private static final Logger logger = LoggerFactory.getLogger(PackManager.class);
     public static void main(String[] args) throws IOException {
-        PackManager.v().getPack("wjtp").add(new Transform("wjtp.initialTransform", new FieldMockTransformer()) {
+        PackManager.v().getPack("wjtp").add(new Transform("wjtp.initialTransform", new AnnotatedMockTransformer()) {
+        });
+        PackManager.v().getPack("wjtp").add(new Transform("wjtp.preTransform", new MockAnalysisPreTransformer()) {
         });
         PackManager.v().getPack("wjtp").add(new Transform("wjtp.myTransform", new MockAnalysisMain()) {
         });
@@ -157,7 +159,7 @@ public class MockAnalysisMain extends SceneTransformer {
         //Compute summaries of all methods present in the call graph
         
         for (SootClass sc : Scene.v().getApplicationClasses()) {
-            if (!isTestClass(sc))
+            if (!Utility.isTestClass(sc))
                 continue;
             
             appMethods.addAll(sc.getMethods());           
@@ -267,7 +269,7 @@ public class MockAnalysisMain extends SceneTransformer {
         List<String[]> linesToAdd = new ArrayList<>();
         
         for(SootClass nc : Scene.v().getApplicationClasses()) {
-            if (!isTestClass(nc))
+            if (!Utility.isTestClass(nc))
                 continue;
             
             List<SootMethod> ncM = nc.getMethods();
@@ -313,7 +315,7 @@ public class MockAnalysisMain extends SceneTransformer {
         
         int total_count = 0, mocks_count = 0;
         for(SootClass nc : Scene.v().getApplicationClasses()) {
-            if (!isTestClass(nc))
+            if (!Utility.isTestClass(nc))
                 continue;
             msg.append("\n** CLASS ").append(nc.toString())
             .append("\n\n");
@@ -358,7 +360,7 @@ public class MockAnalysisMain extends SceneTransformer {
         int[] benchmark_mock_stats = new int[6];
                     
         for(SootClass nc : Scene.v().getApplicationClasses()) {
-            if (!isTestClass(nc))
+            if (!Utility.isTestClass(nc))
                 continue;
             List<int[]> testMockStats = Utility.gatherTestMethodMocksStats(nc, procSummaries);
             
@@ -427,18 +429,6 @@ public class MockAnalysisMain extends SceneTransformer {
         G.v().out.println(msg);
     }
     
-    // Determine if the SootClass is a test class. This version only checks if there
-    // are any test cases inside the class itself. Future version will take care off
-    // test cases in any of its superclasses invoked.
-    private static boolean isTestClass(SootClass sc) {
-        for (SootMethod sm : sc.getMethods()) {
-            // exclude test classes with private no-arg constructor
-            if ( Utility.isTestMethod(sm) ) {
-                return true;
-            }
-        }
-        return false;
-    }
     
     class SortStringArrayList implements Comparator<String[]> {
         @Override
