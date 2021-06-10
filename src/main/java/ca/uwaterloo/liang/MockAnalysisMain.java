@@ -139,7 +139,7 @@ public class MockAnalysisMain extends SceneTransformer {
     public MockAnalysisMain() {
         super();
         
-        procSummaries = new HashMap<SootMethod, ProcSummary>();
+        procSummaries = MockAnalysisPreTransformer.getProcSummaries();
             
         classMethods = new HashMap<String, ArrayList<SootMethod> >();
                 
@@ -217,7 +217,7 @@ public class MockAnalysisMain extends SceneTransformer {
                     
                     aCfg = new ExceptionalUnitGraph(method.getActiveBody());
                     
-                    myMAnalysis = new MockAnalysis(aCfg, sc, method);
+                    myMAnalysis = new MockAnalysis(aCfg, method);
                     myMAnalysis.updateInvocations(aCfg);
                     
                     mockSummary.setMocks( myMAnalysis.getMocks() );           
@@ -430,7 +430,7 @@ public class MockAnalysisMain extends SceneTransformer {
         StringBuffer msg = new StringBuffer();
                     
         for(SootClass nc : Scene.v().getApplicationClasses()) {     
-            msg.append( Utility.printMustMocks(nc, procSummaries) );
+            msg.append( Utility.printMayMocks(nc, procSummaries) );
         }   
             
         G.v().out.println(msg);

@@ -64,7 +64,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     
     private static HashMap<Unit, HashMap<Value, MockStatus>> emptyMocks = new HashMap<Unit, HashMap<Value, MockStatus>>();
     
-    private static HashMap<SootField, MockStatus> emptyFieldMocks = new HashMap<SootField, MockStatus>();
+    private static HashMap<FieldRef, MockStatus> emptyFieldMocks = new HashMap<FieldRef, MockStatus>();
     
     // Contains all method invocations
     private ArrayList<InvokeExpr> myTotalInvokeExprs;
@@ -77,7 +77,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     private HashMap<Unit, HashMap<Value, MockStatus>> mayMocks;
     
     // Contains all soot field that are mocks or mock-containing defined in before method
-    private HashMap<SootField, MockStatus> fieldMocks;
+    private HashMap<FieldRef, MockStatus> fieldRefMocks;
     
     // The current SootClass
     private SootClass myContextClass;
@@ -86,10 +86,10 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     private SootMethod myContextMethod;
     
     @SuppressWarnings("unchecked")
-    public MockAnalysis(ExceptionalUnitGraph graph, SootClass aCurrentSootClass, SootMethod aCurrentSootMethod) {
+    public MockAnalysis(ExceptionalUnitGraph graph, SootMethod aCurrentSootMethod) {
         super(graph);
         
-        myContextClass = aCurrentSootClass;
+        myContextClass = aCurrentSootMethod.getDeclaringClass();
         
         myContextMethod = aCurrentSootMethod;
         
@@ -99,7 +99,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         
         myInvokeExprsOnMocks = (ArrayList<InvokeExpr>) emptyInvokeExprsOnMocks.clone();
         
-        fieldMocks = (HashMap<SootField, MockStatus>) emptyFieldMocks.clone();
+        fieldRefMocks = (HashMap<FieldRef, MockStatus>) emptyFieldMocks.clone();
                 
         doAnalysis();
     }
@@ -134,9 +134,9 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             for (Map<Value, MockStatus> element : out) {
                 for (Value v : element.keySet()) {
                     if (v instanceof FieldRef) {
-                        FieldRef fieldRef = (FieldRef) v;
-                        SootField mockField = fieldRef.getField();                        
-                        fieldMocks.put(mockField, element.get(v));
+                        // We have found SootField (mocked) in before method
+                        FieldRef fieldRef = (FieldRef) v;                       
+                        fieldRefMocks.put(fieldRef, element.get(v));
                     }
                 }
             }
@@ -194,7 +194,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                 mayMocks.put(unit, running_result); 
             }
             
-            // Second way to create mock: Fields that are defined as mocks in before method
+            // Second way to create mock: Fields that are already defined as mocks in before method
             if (MockAnalysisPreTransformer.getFieldMocks().containsKey(myContextClass)) {
                 
                 HashMap<SootField, MockStatus> fieldMocksInClass = MockAnalysisPreTransformer.getFieldMocks().get(myContextClass); 
@@ -537,6 +537,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                     // on a mock
                     for (Map<Value, MockStatus> element : getFlowAfter(unit)) {
                         if (element.containsKey(val) && element.get(val).getMock() && !myInvokeExprsOnMocks.contains(invkExpr)) { //may be an invocation on Mock
+                            System.out.println("InvokeExpr: " + invkExpr);
                             myInvokeExprsOnMocks.add(invkExpr);
                         }
                     }
@@ -558,8 +559,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         return mayMocks;
     }
     
-    public HashMap<SootField, MockStatus> getFieldMocks() {
-        return fieldMocks;
+    public HashMap<FieldRef, MockStatus> getFieldMocks() {
+        return fieldRefMocks;
     }
     
     @Override
@@ -585,7 +586,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         
         ExceptionalUnitGraph targetCfg = new ExceptionalUnitGraph(targetMethod.getActiveBody());
         
-        MockAnalysis targetMAnalysis = new MockAnalysis(targetCfg, targetClass, targetMethod);
+        MockAnalysis targetMAnalysis = new MockAnalysis(targetCfg, targetMethod);
         targetMAnalysis.updateInvocations(targetCfg);
         
         targetSummary.setMocks( targetMAnalysis.getMocks() );           

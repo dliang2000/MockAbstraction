@@ -141,7 +141,7 @@ public class Utility {
         return mocksStats;
     }
     
-    public static StringBuffer printMustMocks
+    public static StringBuffer printMayMocks
                         (SootClass aClass, HashMap<SootMethod, ProcSummary> procSummaries) {
         StringBuffer msg = new StringBuffer();
         

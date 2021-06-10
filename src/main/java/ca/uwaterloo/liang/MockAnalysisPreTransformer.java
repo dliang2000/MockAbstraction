@@ -12,6 +12,7 @@ import soot.SceneTransformer;
 import soot.SootClass;
 import soot.SootField;
 import soot.SootMethod;
+import soot.jimple.FieldRef;
 import soot.jimple.toolkits.callgraph.CallGraph;
 import soot.toolkits.graph.ExceptionalUnitGraph;
 import soot.util.Chain;
@@ -80,7 +81,7 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
                     
                     aCfg = new ExceptionalUnitGraph(method.getActiveBody());
                     
-                    myMAnalysis = new MockAnalysis(aCfg, sc, method);
+                    myMAnalysis = new MockAnalysis(aCfg, method);
                     myMAnalysis.updateInvocations(aCfg);
                     
                     mockSummary.setMocks( myMAnalysis.getMocks() );           
@@ -91,11 +92,16 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
                     
                     procSummaries.put(method, mockSummary);
                     
-                    HashMap<SootField, MockStatus> currFieldMocks = myMAnalysis.getFieldMocks();
+                    HashMap<FieldRef, MockStatus> fieldRefMap = myMAnalysis.getFieldMocks();
                     
-                    if (!currFieldMocks.isEmpty()) {
-                        fieldMocks.put(sc, currFieldMocks);
+                    HashMap<SootField, MockStatus> fieldMap = new HashMap<SootField, MockStatus>();
+                    if (!fieldRefMap.isEmpty()) {
+                        for (FieldRef ref : fieldRefMap.keySet()) {
+                            SootField field = ref.getField();
+                            fieldMap.put(field, fieldRefMap.get(ref));
+                        }
                     }
+                    fieldMocks.put(sc, fieldMap);                   
                 }
             }
         }
@@ -107,6 +113,10 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
     
     public static int getNumberOfBeforeMethods() {
         return totalNumberofBeforeMethods;
+    }
+    
+    public static HashMap<SootMethod, ProcSummary> getProcSummaries() {
+        return procSummaries;
     }
 
 }
