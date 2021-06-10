@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
-import ca.uwaterloo.liang.util.Utility;
+import ca.uwaterloo.liang.util.Util;
 import soot.PointsToAnalysis;
 import soot.Scene;
 import soot.SceneTransformer;
@@ -65,7 +65,7 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
         // TODO Auto-generated method stub
         for (SootClass sc : Scene.v().getApplicationClasses()) {
             
-            if (!Utility.isTestClass(sc))
+            if (!Util.isTestClass(sc))
                 continue;
             
             ProcSummary mockSummary = null;  
@@ -73,7 +73,7 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
             ExceptionalUnitGraph aCfg = null;
             
             for (SootMethod method : sc.getMethods()) {
-                if (Utility.isBeforeMethod(method) && method.hasActiveBody()) {
+                if (Util.isBeforeMethod(method) && method.hasActiveBody()) {
                     
                     totalNumberofBeforeMethods++;
                     

@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 
-import ca.uwaterloo.liang.util.Utility;
+import ca.uwaterloo.liang.util.Util;
 import soot.G;
 import soot.PackManager;
 import soot.PointsToAnalysis;
@@ -139,7 +139,7 @@ public class MockAnalysisMain extends SceneTransformer {
     public MockAnalysisMain() {
         super();
         
-        procSummaries = MockAnalysisPreTransformer.getProcSummaries();
+        procSummaries = new HashMap<SootMethod, ProcSummary>();
             
         classMethods = new HashMap<String, ArrayList<SootMethod> >();
                 
@@ -156,10 +156,12 @@ public class MockAnalysisMain extends SceneTransformer {
         // get points to analysis object
         pointsToAnalysis = Scene.v().getPointsToAnalysis();
         
+        procSummaries = MockAnalysisPreTransformer.getProcSummaries();
+        
         //Compute summaries of all methods present in the call graph
         
         for (SootClass sc : Scene.v().getApplicationClasses()) {
-            if (!Utility.isTestClass(sc))
+            if (!Util.isTestClass(sc))
                 continue;
             
             ProcSummary mockSummary = null;  
@@ -172,7 +174,7 @@ public class MockAnalysisMain extends SceneTransformer {
                 if (method.hasActiveBody()) {
                     
                     // Before Method is handled in MockAnalysisPreTransformer
-                    if (Utility.isBeforeMethod(method))
+                    if (Util.isBeforeMethod(method))
                         continue;
                         
                     
@@ -228,7 +230,7 @@ public class MockAnalysisMain extends SceneTransformer {
                     
                     procSummaries.put(method, mockSummary);
                     
-                    if ( Utility.isTestMethod(method) || Utility.isAfterMethod(method) ) {
+                    if ( Util.isTestMethod(method) || Util.isAfterMethod(method) ) {
                         totalNumberOfTestRelatedMethods++;
                     } else {
                         totalNumberOfHelperMethods++;
@@ -276,7 +278,7 @@ public class MockAnalysisMain extends SceneTransformer {
         List<String[]> linesToAdd = new ArrayList<>();
         
         for(SootClass nc : Scene.v().getApplicationClasses()) {
-            if (!Utility.isTestClass(nc))
+            if (!Util.isTestClass(nc))
                 continue;
             
             List<SootMethod> ncM = nc.getMethods();
@@ -322,7 +324,7 @@ public class MockAnalysisMain extends SceneTransformer {
         
         int total_count = 0, mocks_count = 0;
         for(SootClass nc : Scene.v().getApplicationClasses()) {
-            if (!Utility.isTestClass(nc))
+            if (!Util.isTestClass(nc))
                 continue;
             msg.append("\n** CLASS ").append(nc.toString())
             .append("\n\n");
@@ -367,11 +369,11 @@ public class MockAnalysisMain extends SceneTransformer {
         int[] benchmark_mock_stats = new int[6];
                     
         for(SootClass nc : Scene.v().getApplicationClasses()) {
-            if (!Utility.isTestClass(nc))
+            if (!Util.isTestClass(nc))
                 continue;
-            List<int[]> testMockStats = Utility.gatherTestMethodMocksStats(nc, procSummaries);
+            List<int[]> testMockStats = Util.gatherTestMethodMocksStats(nc, procSummaries);
             
-            List<int[]> helperMockStats = Utility.gatherHelperMethodMocksStats(nc, procSummaries);
+            List<int[]> helperMockStats = Util.gatherHelperMethodMocksStats(nc, procSummaries);
             
             StringBuffer msg = new StringBuffer();
             msg.append(" ====================================== \n")
@@ -430,7 +432,7 @@ public class MockAnalysisMain extends SceneTransformer {
         StringBuffer msg = new StringBuffer();
                     
         for(SootClass nc : Scene.v().getApplicationClasses()) {     
-            msg.append( Utility.printMayMocks(nc, procSummaries) );
+            msg.append( Util.printMayMocks(nc, procSummaries) );
         }   
             
         G.v().out.println(msg);

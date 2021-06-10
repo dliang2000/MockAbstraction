@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 
-import ca.uwaterloo.liang.util.Utility;
+import ca.uwaterloo.liang.util.Util;
 import soot.Body;
 import soot.G;
 import soot.PackManager;
@@ -130,7 +130,7 @@ public class FieldMutationAnalysisMain extends SceneTransformer {
             for (SootMethod method : myAppMethods) {
               //logger.debug("Source Method: " + srcMethod);
                 
-                if (method.hasActiveBody() && Utility.isTestMethod(method) ) {
+                if (method.hasActiveBody() && Util.isTestMethod(method) ) {
                     Body body = method.getActiveBody();
                     
                     Chain units = body.getUnits();

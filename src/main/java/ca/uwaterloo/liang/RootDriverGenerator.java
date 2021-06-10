@@ -15,7 +15,7 @@ import java.util.Map;
 
 import com.beust.jcommander.Parameter;
 
-import ca.uwaterloo.liang.util.Utility;
+import ca.uwaterloo.liang.util.Util;
 import soot.BooleanType;
 import soot.ByteType;
 import soot.DoubleType;
@@ -229,7 +229,7 @@ public class RootDriverGenerator {
             for (SootClass sootClass : sootclasses) {
                 // skip classes that are final or not concrete, and classes that are not public
                 if (!sootClass.isConcrete() || sootClass.getName().contains("$") 
-                        || sootClass.isLibraryClass() || !Utility.isTestClass(sootClass))
+                        || sootClass.isLibraryClass() || !Util.isTestClass(sootClass))
                     continue;
                 
                 // skip the test classes with a constructor
@@ -251,7 +251,7 @@ public class RootDriverGenerator {
                     System.out.println(sm.getSubSignature());
                     // check that the sootmethod is indeed a test case, and it is non-private 
                     // (or else the Driver class will likely not have the access to the method)
-                    if ( ( Utility.isTestMethod(sm) || Utility.isBeforeMethod(sm) || Utility.isAfterMethod(sm) )
+                    if ( ( Util.isTestMethod(sm) || Util.isBeforeMethod(sm) || Util.isAfterMethod(sm) )
                             && !sm.isPrivate()) {
                         if (sm.getExceptions().isEmpty()) {
                             sb.append("\t\t" + class_var + "." + sm.getName() + "();\n");
@@ -289,7 +289,7 @@ public class RootDriverGenerator {
             for (SootClass sootClass : sootClasses) {
                 // skip classes that are final or not concrete
                 if (!sootClass.isConcrete() || sootClass.getName().contains("$") 
-                        || sootClass.isLibraryClass() || !Utility.isTestClass(sootClass)) {
+                        || sootClass.isLibraryClass() || !Util.isTestClass(sootClass)) {
                     //System.out.println("SootClass " + sootClass.getName() + " excluded");
                     continue;
                 }
@@ -315,7 +315,7 @@ public class RootDriverGenerator {
                     System.out.println(sm.getSubSignature());
                     // check that the sootmethod is indeed a test case, and it is public 
                     // (or else the Driver class will likely not have the access to the method)
-                    if ( ( Utility.isTestMethod(sm) || Utility.isBeforeMethod(sm) || Utility.isAfterMethod(sm) )
+                    if ( ( Util.isTestMethod(sm) || Util.isBeforeMethod(sm) || Util.isAfterMethod(sm) )
                             && !sm.isPrivate()) {
                         if (sm.getExceptions().isEmpty()) {
                             sb.append("\t\t" + class_var + "." + sm.getName() + "();\n");

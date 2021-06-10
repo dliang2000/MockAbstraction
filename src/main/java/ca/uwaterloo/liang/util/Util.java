@@ -25,7 +25,7 @@ import soot.VoidType;
 import soot.tagkit.AnnotationTag;
 import soot.toolkits.scalar.FlowSet;
 
-public class Utility {
+public class Util {
 
     public static SootClass getSootClassFromRefType(Type aRefType) 
     {

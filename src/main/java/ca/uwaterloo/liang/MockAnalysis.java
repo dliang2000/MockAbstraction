@@ -21,7 +21,7 @@ package ca.uwaterloo.liang;
 import java.util.*;
 
 import ca.uwaterloo.liang.collection.CollectionModelEffect;
-import ca.uwaterloo.liang.util.Utility;
+import ca.uwaterloo.liang.util.Util;
 import soot.*;
 import soot.jimple.ArrayRef;
 import soot.jimple.AssignStmt;
@@ -130,7 +130,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         
         // We collect all the SootField that are defined to be mayMock, arrayMock, or collectionMock
         // in Before Method
-        if (Utility.isBeforeMethod(myContextMethod)) {
+        if (Util.isBeforeMethod(myContextMethod)) {
             for (Map<Value, MockStatus> element : out) {
                 for (Value v : element.keySet()) {
                     if (v instanceof FieldRef) {
@@ -217,7 +217,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             InvokeExpr invkExpr = aStmt.getInvokeExpr();
             SootMethod sootMethod = invkExpr.getMethod();
                 
-            if (Utility.isMockAPI(sootMethod)) {
+            if (Util.isMockAPI(sootMethod)) {
                 HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
                 List<ValueBox> defBoxes = unit.getDefBoxes();
                 for (ValueBox vb: defBoxes) {
@@ -641,6 +641,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     }
     
     private static boolean doesNotCreateMock(Stmt stmt) {
-        return (!stmt.containsInvokeExpr() || !Utility.isMockAPI(stmt.getInvokeExpr().getMethod()));
+        return (!stmt.containsInvokeExpr() || !Util.isMockAPI(stmt.getInvokeExpr().getMethod()));
     }
 }

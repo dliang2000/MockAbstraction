@@ -8,7 +8,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import ca.uwaterloo.liang.util.Utility;
 import soot.Body;
 import soot.Scene;
 import soot.SceneTransformer;
