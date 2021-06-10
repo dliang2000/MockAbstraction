@@ -149,7 +149,7 @@ public class MockAnalysisMain extends SceneTransformer {
 
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
-        int totalNumberOfTestRelatedMethods = 0, totalNumberOfHelperMethods = 0;
+        int totalNumberOfTestRelatedMethods = MockAnalysisPreTransformer.getNumberOfBeforeMethods(), totalNumberOfHelperMethods = 0;
     
         callGraph = Scene.v().getCallGraph();
      
@@ -162,78 +162,85 @@ public class MockAnalysisMain extends SceneTransformer {
             if (!Utility.isTestClass(sc))
                 continue;
             
-            appMethods.addAll(sc.getMethods());           
-            classMethods.put(sc.getName(), new ArrayList<SootMethod>(sc.getMethods()) );
-        } 
-        
-        ProcSummary mockSummary = null;  
-           
-        ExceptionalUnitGraph aCfg = null;
+            ProcSummary mockSummary = null;  
             
-        G.v().out.println("Number of methods to be analyzed: " + appMethods.size() );
-        
-        for (SootMethod method : appMethods) {   
-            if (method.hasActiveBody()) {
-                    //&&  (isBeforeMethod(method) || isTestCase(method) || isAfterMethod(method)) ) {
-                JimpleBody body = (JimpleBody) method.getActiveBody();
+            ExceptionalUnitGraph aCfg = null;
                 
-                /*if (method.getDeclaringClass().getName().contains("PayRollAnnotationMockTest")) {
-                    G.v().out.println(body);
-                }*/
-                
-                /*Iterator<Edge> edges = callGraph.edgesOutOf(method);
-                
-                while (edges.hasNext()) {
-                    Edge e = edges.next();
+            G.v().out.println("Number of methods to be analyzed: " + appMethods.size() );
+            
+            for (SootMethod method : sc.getMethods()) {   
+                if (method.hasActiveBody()) {
                     
-                    SootMethod targetMethod = e.getTgt().method();
-                    
-                    // Skip Java Library methods
-                    if (targetMethod.isJavaLibraryMethod())
+                    // Before Method is handled in MockAnalysisPreTransformer
+                    if (Utility.isBeforeMethod(method))
                         continue;
+                        
                     
-                    if (!procSummaries.containsKey(targetMethod) && targetMethod.hasActiveBody()) {
-                        ProcSummary targetSummary = new ProcSummary(targetMethod);
+                    JimpleBody body = (JimpleBody) method.getActiveBody();
+                    
+                    /*if (method.getDeclaringClass().getName().contains("PayRollAnnotationMockTest")) {
+                        G.v().out.println(body);
+                    }*/
+                    
+                    /*Iterator<Edge> edges = callGraph.edgesOutOf(method);
+                    
+                    while (edges.hasNext()) {
+                        Edge e = edges.next();
                         
-                        ExceptionalUnitGraph targetCfg = new ExceptionalUnitGraph(targetMethod.getActiveBody());
+                        SootMethod targetMethod = e.getTgt().method();
                         
-                        MockAnalysis targetMAnalysis = new MockAnalysis(targetCfg, targetMethod);
-                        targetMAnalysis.updateInvocations(targetCfg);
+                        // Skip Java Library methods
+                        if (targetMethod.isJavaLibraryMethod())
+                            continue;
                         
-                        targetSummary.setMocks( targetMAnalysis.getMocks() );           
-                        
-                        targetSummary.setTotalInvokeExprs( targetMAnalysis.getTotalInvokeExprs() );
-                        
-                        targetSummary.setInvokeExprsOnMocks( targetMAnalysis.getInvokeExprsOnMocks() );
-                        
-                        procSummaries.put(targetMethod, targetSummary);
-                        
-                        
+                        if (!procSummaries.containsKey(targetMethod) && targetMethod.hasActiveBody()) {
+                            ProcSummary targetSummary = new ProcSummary(targetMethod);
+                            
+                            ExceptionalUnitGraph targetCfg = new ExceptionalUnitGraph(targetMethod.getActiveBody());
+                            
+                            MockAnalysis targetMAnalysis = new MockAnalysis(targetCfg, targetMethod);
+                            targetMAnalysis.updateInvocations(targetCfg);
+                            
+                            targetSummary.setMocks( targetMAnalysis.getMocks() );           
+                            
+                            targetSummary.setTotalInvokeExprs( targetMAnalysis.getTotalInvokeExprs() );
+                            
+                            targetSummary.setInvokeExprsOnMocks( targetMAnalysis.getInvokeExprsOnMocks() );
+                            
+                            procSummaries.put(targetMethod, targetSummary);
+                            
+                            
+                        }
+                    }*/
+                    
+                    mockSummary = new ProcSummary(method);
+                    
+                    aCfg = new ExceptionalUnitGraph(method.getActiveBody());
+                    
+                    myMAnalysis = new MockAnalysis(aCfg, sc, method);
+                    myMAnalysis.updateInvocations(aCfg);
+                    
+                    mockSummary.setMocks( myMAnalysis.getMocks() );           
+                    
+                    mockSummary.setTotalInvokeExprs( myMAnalysis.getTotalInvokeExprs() );
+                    
+                    mockSummary.setInvokeExprsOnMocks( myMAnalysis.getInvokeExprsOnMocks() );
+                    
+                    procSummaries.put(method, mockSummary);
+                    
+                    if ( Utility.isTestMethod(method) || Utility.isAfterMethod(method) ) {
+                        totalNumberOfTestRelatedMethods++;
+                    } else {
+                        totalNumberOfHelperMethods++;
                     }
-                }*/
-                
-                mockSummary = new ProcSummary(method);
-                
-                aCfg = new ExceptionalUnitGraph(method.getActiveBody());
-                
-                myMAnalysis = new MockAnalysis(aCfg, method);
-                myMAnalysis.updateInvocations(aCfg);
-                
-                mockSummary.setMocks( myMAnalysis.getMocks() );           
-                
-                mockSummary.setTotalInvokeExprs( myMAnalysis.getTotalInvokeExprs() );
-                
-                mockSummary.setInvokeExprsOnMocks( myMAnalysis.getInvokeExprsOnMocks() );
-                
-                procSummaries.put(method, mockSummary);
-                
-                if ( Utility.isBeforeMethod(method) || Utility.isTestMethod(method) || Utility.isAfterMethod(method) ) {
-                    totalNumberOfTestRelatedMethods++;
-                } else {
-                    totalNumberOfHelperMethods++;
                 }
             }
-        }
+            
+            // appMethods.addAll(sc.getMethods());           
+            //classMethods.put(sc.getName(), new ArrayList<SootMethod>(sc.getMethods()) );
+        } 
+        
+       
             
         printOutput();
         

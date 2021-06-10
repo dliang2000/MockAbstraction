@@ -27,6 +27,7 @@ import soot.jimple.ArrayRef;
 import soot.jimple.AssignStmt;
 import soot.jimple.CastExpr;
 import soot.jimple.Expr;
+import soot.jimple.FieldRef;
 import soot.jimple.InstanceFieldRef;
 import soot.jimple.InstanceInvokeExpr;
 import soot.jimple.InvokeExpr;
@@ -63,22 +64,32 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     
     private static HashMap<Unit, HashMap<Value, MockStatus>> emptyMocks = new HashMap<Unit, HashMap<Value, MockStatus>>();
     
-    //Contains all method invocations
+    private static HashMap<SootField, MockStatus> emptyFieldMocks = new HashMap<SootField, MockStatus>();
+    
+    // Contains all method invocations
     private ArrayList<InvokeExpr> myTotalInvokeExprs;
     
-    //Contains all method invocations on mocks
+    // Contains all method invocations on mocks
     private ArrayList<InvokeExpr> myInvokeExprsOnMocks;
     
     // For each unit x local, will store a boolean for if it is a may mock,
     // if is a may mock within Collection, or if it is a may mock within Array.
     private HashMap<Unit, HashMap<Value, MockStatus>> mayMocks;
-
+    
+    // Contains all soot field that are mocks or mock-containing defined in before method
+    private HashMap<SootField, MockStatus> fieldMocks;
+    
+    // The current SootClass
+    private SootClass myContextClass;
+    
     // The current analyzed method
     private SootMethod myContextMethod;
     
     @SuppressWarnings("unchecked")
-    public MockAnalysis(ExceptionalUnitGraph graph, SootMethod aCurrentSootMethod) {
+    public MockAnalysis(ExceptionalUnitGraph graph, SootClass aCurrentSootClass, SootMethod aCurrentSootMethod) {
         super(graph);
+        
+        myContextClass = aCurrentSootClass;
         
         myContextMethod = aCurrentSootMethod;
         
@@ -87,6 +98,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         myTotalInvokeExprs = (ArrayList<InvokeExpr>) emptyInvokeExprs.clone();
         
         myInvokeExprsOnMocks = (ArrayList<InvokeExpr>) emptyInvokeExprsOnMocks.clone();
+        
+        fieldMocks = (HashMap<SootField, MockStatus>) emptyFieldMocks.clone();
                 
         doAnalysis();
     }
@@ -102,7 +115,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     }
     
     @Override
-    protected void flowThrough(FlowSet<Map<Value, MockStatus>> in, Unit unit, FlowSet<Map<Value, MockStatus>> out) {      
+    protected void flowThrough(FlowSet<Map<Value, MockStatus>> in, Unit unit, FlowSet<Map<Value, MockStatus>> out) { 
+        
         // Performs kills
         kill(in, unit, out);
         // Performs gens
@@ -113,6 +127,20 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         propagateMocknessToContainingArray(in, unit, out);
         // Find collection container stores mayMock objects.
         propagateMocknessToContainingCollection(in, unit, out);
+        
+        // We collect all the SootField that are defined to be mayMock, arrayMock, or collectionMock
+        // in Before Method
+        if (Utility.isBeforeMethod(myContextMethod)) {
+            for (Map<Value, MockStatus> element : out) {
+                for (Value v : element.keySet()) {
+                    if (v instanceof FieldRef) {
+                        FieldRef fieldRef = (FieldRef) v;
+                        SootField mockField = fieldRef.getField();                        
+                        fieldMocks.put(mockField, element.get(v));
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -166,18 +194,21 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                 mayMocks.put(unit, running_result); 
             }
             
-            // Second way to create mock: Fields that are already mocks
-            if (AnnotatedMockTransformer.getFieldMocks().contains(sf)) {
-                //System.out.println("myAnnotatedMocks contain the mock wanted");
-                HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
-                List<ValueBox> defBoxes = unit.getDefBoxes();
-                for (ValueBox vb: defBoxes) {
-                    Value v = vb.getValue();
-                    MockStatus status = new MockStatus(true);
-                    running_result.put(v, status);
+            // Second way to create mock: Fields that are defined as mocks in before method
+            if (MockAnalysisPreTransformer.getFieldMocks().containsKey(myContextClass)) {
+                
+                HashMap<SootField, MockStatus> fieldMocksInClass = MockAnalysisPreTransformer.getFieldMocks().get(myContextClass); 
+                
+                if (fieldMocksInClass.containsKey(sf)) {
+                    HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
+                    List<ValueBox> defBoxes = unit.getDefBoxes();
+                    for (ValueBox vb: defBoxes) {
+                        Value v = vb.getValue();
+                        running_result.put(v, fieldMocksInClass.get(sf));
+                    }
+                    out.add(running_result);
+                    mayMocks.put(unit, running_result); 
                 }
-                out.add(running_result);
-                mayMocks.put(unit, running_result); 
             }
         }
         
@@ -527,6 +558,10 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         return mayMocks;
     }
     
+    public HashMap<SootField, MockStatus> getFieldMocks() {
+        return fieldMocks;
+    }
+    
     @Override
     protected void merge(FlowSet<Map<Value, MockStatus>> in1, FlowSet<Map<Value, MockStatus>> in2, FlowSet<Map<Value, MockStatus>> out) {
         in1.union(in2, out);
@@ -544,12 +579,13 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
 //        
 //    }
     
-    private static void runMockAnalysisForTarget(HashMap<SootMethod, ProcSummary> procSummaries, SootMethod targetMethod) {
+    private static void runMockAnalysisForTarget(HashMap<SootMethod, ProcSummary> procSummaries, 
+                                                                    SootClass targetClass, SootMethod targetMethod) {
         ProcSummary targetSummary = new ProcSummary(targetMethod);
         
         ExceptionalUnitGraph targetCfg = new ExceptionalUnitGraph(targetMethod.getActiveBody());
         
-        MockAnalysis targetMAnalysis = new MockAnalysis(targetCfg, targetMethod);
+        MockAnalysis targetMAnalysis = new MockAnalysis(targetCfg, targetClass, targetMethod);
         targetMAnalysis.updateInvocations(targetCfg);
         
         targetSummary.setMocks( targetMAnalysis.getMocks() );           
