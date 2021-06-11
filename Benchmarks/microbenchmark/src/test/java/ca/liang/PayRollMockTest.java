@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Vector;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -105,6 +106,24 @@ public class PayRollMockTest {
             // *mock* call below
             assertEquals(ee.getName(), "J. Doe");
         }
+
+        // and with Vector
+        // Vector<Employee> employees1_intra = new Vector<Employee>();
+        // employees1_intra.insertElementAt(e,0);
+        // Vector<Employee> employees2_intra = new Vector<Employee>();
+        // employees2_intra.add(null);
+        // employees2_intra.setElementAt(e,0);
+        // java.util.Enumeration<Employee> it = employees1_intra.elements();
+        // while (it.hasMoreElements()) {
+        //     Employee ee = it.nextElement();
+        //     assertEquals(ee.getName(), "J. Doe");
+        // }
+        // Employee ee = employees1_intra.elementAt(0);
+        // assertEquals(ee.getName(), "J. Doe");
+        // Employee ef = employees2_intra.firstElement();
+        // assertEquals(ef.getName(), "J. Doe");
+        // Employee eg = employees1_intra.lastElement();
+        // assertEquals(eg.getName(), "J. Doe");
     }
     // total mock calls: 3
 
@@ -146,12 +165,12 @@ public class PayRollMockTest {
         String bankId = "ID0";
         int salary = 1000;
 
-	// not a mock call on employees
+        // not a mock call on employees
         employees.add(createTestEmployee("Test Employee", bankId, salary));
 
         assertNumberOfPayments(1);
 
-	// makePayment is a *mock* call on what gets returned from verify(), which is a mock verification object
+        // makePayment is a *mock* call on what gets returned from verify(), which is a mock verification object
         verify(bankService).makePayment(bankId, salary);
     }
     // total mock calls: 1

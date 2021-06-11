@@ -22,11 +22,15 @@
 not handled yet:
 * Collection.spliterator, forEachRemaining
 * subList, stream, parallelStream
-* toArray
-* Vector (ctor, elementAt, firstElement, lastElement, setElementAt, insertElementAt, addElement)
-* addAll-equivalent constructors
 
-Set is just a Collection
+relatively straightforward
+* toArray
+* Vector (ctor, copyInto)
+* addAll-equivalent constructors in general
+
+handled:
+* Set is just a Collection
+* Vector.elements(), elementAt, firstElement, lastElement, setElementAt, insertElementAt, addElement)
 
 if you specify --cache and you include MainClass("ca.liang.RootDriver") or whatever then it doesn't recompute facts. It will have to recompile the .dl when you change it.
 
