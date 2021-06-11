@@ -56,7 +56,7 @@ public class PayRollMultipleEmployee2Test {
         // *mock* call below, verify(bankService).makePayment
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
-        // *mock* calls below because employees is a collection containing mocks
+        // *mock* x4 calls below because employees is a collection containing mocks
         assertEquals(employees.get(0).getBankId(), idCaptor.getAllValues().get(0));
         assertEquals(employees.get(1).getBankId(), idCaptor.getAllValues().get(1));
         assertEquals(employees.get(0).getSalary(), salaryCaptor.getAllValues().get(0).intValue());

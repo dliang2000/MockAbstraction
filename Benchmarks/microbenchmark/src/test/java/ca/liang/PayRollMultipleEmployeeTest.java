@@ -57,7 +57,7 @@ public class PayRollMultipleEmployeeTest {
 	// *mock* call to makePayment
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
-        // *mock* calls (4) to getBankId and getSalary through a container
+        // *mock* calls (4) to getBankId and getSalary through a collection
         // note: things that come from getAllValues().get(N) are not actually mocks
         assertEquals(employees.get(0).getBankId(), idCaptor.getAllValues().get(0));
         assertEquals(employees.get(1).getBankId(), idCaptor.getAllValues().get(1));
@@ -78,6 +78,7 @@ public class PayRollMultipleEmployeeTest {
 
         employees = mockEmployessList;
 
+	// *mock* call to getAllEmployees
         when(employeeDB.getAllEmployees()).thenReturn(employees);
 
         payRoll = new PayRoll(employeeDB, bankService);
@@ -87,8 +88,10 @@ public class PayRollMultipleEmployeeTest {
         ArgumentCaptor<String> idCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Integer> salaryCaptor = ArgumentCaptor.forClass(Integer.class);
 
+	// *mock* call to makePayment
         verify(bankService, times(2)).makePayment(idCaptor.capture(), salaryCaptor.capture());
 
+        // *mock* calls (4) to getBankId and getSalary through a collection
         assertEquals(employees.get(0).getBankId(), idCaptor.getAllValues().get(0));
         assertEquals(employees.get(1).getBankId(), idCaptor.getAllValues().get(1));
         assertEquals(employees.get(0).getSalary(), salaryCaptor.getAllValues().get(0).intValue());
