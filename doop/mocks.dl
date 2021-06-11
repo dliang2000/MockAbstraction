@@ -8,6 +8,8 @@
 
 // MainClass("ca.liang.RootDriver").
 
+.input _SpecialMethodInvocation(filename="SpecialMethodInvocation.facts")
+
 // m: Method
 .decl MockSourceMethod(m: Method)
 MockSourceMethod("<org.easymock.EasyMock: java.lang.Object createMock(java.lang.Class)>").
@@ -47,6 +49,7 @@ CollectionPutMethod(m) :-
 .decl CollectionAddAllMethod(m:Method)
 CollectionAddAllMethod("<java.util.Collection: boolean addAll(java.util.Collection)>").
 CollectionAddAllMethod("<java.util.List: boolean addAll(int,java.util.Collection)>").
+CollectionAddAllMethod("<java.util.Vector: void <init>(java.util.Collection)>").
 CollectionAddAllMethod(m) :-
   CollectionAddAllMethod(m0),
   basic.MethodOverridesOther(m, m0).
@@ -182,6 +185,12 @@ isCollectionLocalThatContainsMocks(c, inmethod) :-
   CollectionAddAllMethod(add_all),
   VirtualMethodInvocation(mi, add_all, inmethod),
   VirtualMethodInvocation_Base(mi, c),
+  ActualParam(_, mi, c1).
+// c = new Collection(c1)
+isCollectionLocalThatContainsMocks(c, inmethod) :-
+  isCollectionLocalThatContainsMocks(c1, inmethod),
+  CollectionAddAllMethod(add_all),
+  _SpecialMethodInvocation(mi, _, add_all, c, inmethod),
   ActualParam(_, mi, c1).
 // it = c.iterator()
 isCollectionLocalThatContainsMocks(it, inmethod) :-

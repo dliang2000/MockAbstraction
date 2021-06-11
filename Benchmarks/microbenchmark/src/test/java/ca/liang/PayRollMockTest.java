@@ -108,7 +108,15 @@ public class PayRollMockTest {
         }
 
         // and with Vector
-        // Vector<Employee> employees1_intra = new Vector<Employee>();
+        // Employee e0 = mock(Employee.class);
+        // employees0_intra.add(e0);
+        // Vector<Employee> employees1_intra = new Vector<Employee>(employees0_intra);
+        // for (Employee ee : employees1_intra) {
+        //     // *mock* call below
+        //     assertEquals(ee.getName(), null);
+        // }
+
+        // OR Vector<Employee> employees1_intra = new Vector<Employee>();
         // employees1_intra.insertElementAt(e,0);
         // Vector<Employee> employees2_intra = new Vector<Employee>();
         // employees2_intra.add(null);
