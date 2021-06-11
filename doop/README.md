@@ -22,7 +22,11 @@
 not handled yet:
 * Collection.spliterator, forEachRemaining
 * subList, stream, parallelStream
-* Set, Vector
+* toArray
+* Vector (ctor, elementAt, firstElement, lastElement, setElementAt, insertElementAt, addElement)
+* addAll-equivalent constructors
+
+Set is just a Collection
 
 if you specify --cache and you include MainClass("ca.liang.RootDriver") or whatever then it doesn't recompute facts. It will have to recompile the .dl when you change it.
 
