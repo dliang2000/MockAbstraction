@@ -23,8 +23,14 @@ MockSourceMethod("<org.mockito.internal.InOrderImpl: java.lang.Object verify(jav
 .decl MockFieldAnnotation(a: Annotation)
 MockFieldAnnotation("org.mockito.Mock").
 
+// List.add(int,Object); addAll(int,Collection); listIterator(int); .set(int,Object)
+// subList, toArray
+// stream, parallelStream
+
 .decl CollectionPutMethod(m:Method)
 CollectionPutMethod("<java.util.Collection: boolean add(java.lang.Object)>").
+CollectionPutMethod("<java.util.List: void add(int,java.lang.Object)>").
+CollectionPutMethod("<java.util.List: java.lang.Object set(int,java.lang.Object)>").
 CollectionPutMethod(m) :-
   CollectionPutMethod(m0),
   basic.MethodOverridesOther(m, m0).
@@ -37,6 +43,7 @@ CollectionPutMethod(m) :-
 
 .decl CollectionAddAllMethod(m:Method)
 CollectionAddAllMethod("<java.util.Collection: boolean addAll(java.util.Collection)>").
+CollectionAddAllMethod("<java.util.List: boolean addAll(int,java.util.Collection)>").
 CollectionAddAllMethod(m) :-
   CollectionAddAllMethod(m0),
   basic.MethodOverridesOther(m, m0).
@@ -66,6 +73,7 @@ CollectionGetMethod(m) :-
 CollectionIteratorMethod("<java.util.Iterable: java.util.Iterator iterator()>").
 CollectionIteratorMethod("<java.util.Collection: java.util.Iterator iterator()>").
 CollectionIteratorMethod("<java.util.List: java.util.ListIterator listIterator()>").
+CollectionIteratorMethod("<java.util.List: java.util.ListIterator listIterator(int)>").
 CollectionIteratorMethod(m) :-
   CollectionIteratorMethod(m0),
   basic.MethodOverridesOther(m, m0).
@@ -150,7 +158,7 @@ isCollectionLocalThatContainsMocks(c, inmethod) :-
   CollectionPutMethod(put),
   VirtualMethodInvocation(mi, put, inmethod),
   VirtualMethodInvocation_Base(mi, c),
-  ActualParam(0, mi, mv),
+  ActualParam(_, mi, mv),
   isMockVar(mv).
 // c = _.f
 isCollectionLocalThatContainsMocks(c, inmethod) :-
@@ -166,7 +174,7 @@ isCollectionLocalThatContainsMocks(c, inmethod) :-
   CollectionAddAllMethod(add_all),
   VirtualMethodInvocation(mi, add_all, inmethod),
   VirtualMethodInvocation_Base(mi, c),
-  ActualParam(0, mi, c1).
+  ActualParam(_, mi, c1).
 // it = c.iterator()
 isCollectionLocalThatContainsMocks(it, inmethod) :-
   isCollectionLocalThatContainsMocks(c, inmethod),
