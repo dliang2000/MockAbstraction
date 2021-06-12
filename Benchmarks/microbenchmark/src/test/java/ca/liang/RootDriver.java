@@ -31,6 +31,8 @@ public class RootDriver {
 		class5.testIteration();
 		class5.testVector();
 		class5.testVector2();
+		class5.testVectorToArray();
+		class5.testArrayToVector();
 		class5.testSingleEmployee();
 		class5.testSingleEmployeeMockInter();
 		class5.testEmployeeIsPaid();

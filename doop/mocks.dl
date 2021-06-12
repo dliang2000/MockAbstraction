@@ -98,6 +98,22 @@ CollectionIteratorMethod(m) :-
   SameMethodExceptDeclaringType(m, m0),
   basic.Superinterface(t0, t).
 
+.decl CollectionCopyIntoMethod(m:Method)
+CollectionCopyIntoMethod("<java.util.Vector: void copyInto(java.lang.Object[])>").
+
+.decl CollectionToArrayMethod(m:Method)
+CollectionToArrayMethod("<java.util.Collection: java.lang.Object[] toArray()>").
+CollectionToArrayMethod("<java.util.Collection: java.lang.Object[] toArray(java.lang.Object[])>").
+CollectionToArrayMethod(m) :-
+  CollectionToArrayMethod(m0),
+  basic.MethodOverridesOther(m, m0).
+CollectionToArrayMethod(m) :-
+  CollectionToArrayMethod(m0),
+  Method_DeclaringType(m, t),
+  Method_DeclaringType(m0, t0),
+  SameMethodExceptDeclaringType(m, m0),
+  basic.Superinterface(t0, t).
+
 .decl SameMethodExceptDeclaringType(m:Method, m0:Method)
 SameMethodExceptDeclaringType(m, m0) :-
   Method_SimpleName(m, n),
@@ -204,6 +220,7 @@ isCollectionLocalThatContainsMocks(it, inmethod) :-
   VirtualMethodInvocation(mi, it_method, inmethod),
   VirtualMethodInvocation_Base(mi, c),
   AssignReturnValue(mi, it).
+
 .output isCollectionLocalThatContainsMocks
 
 // ** collections \times fields
@@ -236,9 +253,33 @@ isArrayLocalThatContainsMocks(c) :-
 isArrayLocalThatContainsMocks(c) :-
   isArrayFieldThatContainsMocks(f),
   LoadInstanceField(_, f, c, _).
+// c = c1, c1 contains mocks
 isArrayLocalThatContainsMocks(c) :-
   isArrayLocalThatContainsMocks(c1),
   AssignLocal(c1, c, _).
+// c = (Type) c1, c1 contains mocks
+isArrayLocalThatContainsMocks(c) :-
+  isArrayLocalThatContainsMocks(c1),
+  AssignCast(_, c1, c, _).
+
+// ** collections \times arrays
+// c.copyInto(array)
+#ifndef NO_COLLECTIONS
+isArrayLocalThatContainsMocks(array) :-
+  isCollectionLocalThatContainsMocks(c, inmethod),
+  CollectionCopyIntoMethod(copy_into),
+  VirtualMethodInvocation(mi, copy_into, inmethod),
+  VirtualMethodInvocation_Base(mi, c),
+  ActualParam(0, mi, array).
+// a = c.toArray(*)
+isArrayLocalThatContainsMocks(array) :-
+  isCollectionLocalThatContainsMocks(c, inmethod),
+  CollectionToArrayMethod(toarray),
+  VirtualMethodInvocation(mi, toarray, inmethod),
+  VirtualMethodInvocation_Base(mi, c),
+  AssignReturnValue(mi, array).
+#endif
+
 isArrayLocalThatContainsMocks(v) :-
   isInterprocArrayLocalThatContainsMocks(v).
 .output isArrayLocalThatContainsMocks

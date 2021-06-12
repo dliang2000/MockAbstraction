@@ -140,20 +140,59 @@ public class PayRollMockTest {
         java.util.Enumeration<Employee> it = employees1_intra.elements();
         while (it.hasMoreElements()) {
             Employee ee = it.nextElement();
-	    // *mock* call below
+            // *mock* call below
             assertEquals(ee.getName(), "J. Doe");
         }
         Employee ee = employees1_intra.elementAt(0);
-	// *mock* call below
+        // *mock* call below
         assertEquals(ee.getName(), "J. Doe");
         Employee ef = employees2_intra.firstElement();
-	// *mock* call below
+        // *mock* call below
         assertEquals(ef.getName(), "J. Doe");
         Employee eg = employees1_intra.lastElement();
-	// *mock* call below
+        // *mock* call below
         assertEquals(eg.getName(), "J. Doe");
     }
     // total mock calls: 5
+
+    @Test
+    public void testVectorToArray() {
+        Employee e = mock(Employee.class);
+        // *mock* call below
+        when(e.getName()).thenReturn("J. Doe");
+
+        Vector<Employee> employees1_intra = new Vector<Employee>();
+        employees1_intra.insertElementAt(e,0);
+
+        Object[] employees_array = employees1_intra.toArray();
+        Employee ef = (Employee)employees_array[0];
+        // *mock* call below
+        assertEquals(ef.getName(), "J. Doe");
+
+        Employee[] employees_array2 = employees1_intra.toArray(new Employee[1]);
+        Employee eg = employees_array2[0];
+        // *mock* call below
+        assertEquals(eg.getName(), "J. Doe");
+    }
+    // total mock calls: 3
+
+    @Test
+    public void testArrayToVector() {
+        Employee e = mock(Employee.class);
+        // *mock* call below
+        when(e.getName()).thenReturn("J. Doe");
+
+        Vector<Employee> employees1_intra = new Vector<Employee>();
+        employees1_intra.add(e);
+
+        Employee[] employees_array = new Employee[1];
+        employees1_intra.copyInto(employees_array);
+
+        Employee ef = employees_array[0];
+        // *mock* call below
+        assertEquals(ef.getName(), "J. Doe");
+    }
+    // total mock calls: 2
 
     @Test
     public void testSingleEmployee() {
