@@ -167,8 +167,6 @@ public class MockAnalysisMain extends SceneTransformer {
             ProcSummary mockSummary = null;  
             
             ExceptionalUnitGraph aCfg = null;
-                
-            G.v().out.println("Number of methods to be analyzed: " + appMethods.size() );
             
             for (SootMethod method : sc.getMethods()) {   
                 if (method.hasActiveBody()) {

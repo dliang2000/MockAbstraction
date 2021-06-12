@@ -84,14 +84,6 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
                     myMAnalysis = new MockAnalysis(aCfg, method);
                     myMAnalysis.updateInvocations(aCfg);
                     
-                    mockSummary.setMocks( myMAnalysis.getMocks() );           
-                    
-                    mockSummary.setTotalInvokeExprs( myMAnalysis.getTotalInvokeExprs() );
-                    
-                    mockSummary.setInvokeExprsOnMocks( myMAnalysis.getInvokeExprsOnMocks() );
-                    
-                    procSummaries.put(method, mockSummary);
-                    
                     HashMap<FieldRef, MockStatus> fieldRefMap = myMAnalysis.getFieldMocks();
                     
                     HashMap<SootField, MockStatus> fieldMap = new HashMap<SootField, MockStatus>();
@@ -101,7 +93,15 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
                             fieldMap.put(field, fieldRefMap.get(ref));
                         }
                     }
-                    fieldMocks.put(sc, fieldMap);                   
+                    fieldMocks.put(sc, fieldMap);       
+                    
+                    mockSummary.setMocks( myMAnalysis.getMocks() );           
+                    
+                    mockSummary.setTotalInvokeExprs( myMAnalysis.getTotalInvokeExprs() );
+                    
+                    mockSummary.setInvokeExprsOnMocks( myMAnalysis.getInvokeExprsOnMocks() );
+                    
+                    procSummaries.put(method, mockSummary);
                 }
             }
         }
