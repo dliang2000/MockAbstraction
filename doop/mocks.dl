@@ -8,8 +8,6 @@
 
 // MainClass("ca.liang.RootDriver").
 
-.input _SpecialMethodInvocation(filename="SpecialMethodInvocation.facts")
-
 // m: Method
 .decl MockSourceMethod(m: Method)
 MockSourceMethod("<org.easymock.EasyMock: java.lang.Object createMock(java.lang.Class)>").
@@ -49,7 +47,6 @@ CollectionPutMethod(m) :-
 .decl CollectionAddAllMethod(m:Method)
 CollectionAddAllMethod("<java.util.Collection: boolean addAll(java.util.Collection)>").
 CollectionAddAllMethod("<java.util.List: boolean addAll(int,java.util.Collection)>").
-CollectionAddAllMethod("<java.util.Vector: void <init>(java.util.Collection)>").
 CollectionAddAllMethod(m) :-
   CollectionAddAllMethod(m0),
   basic.MethodOverridesOther(m, m0).
@@ -59,6 +56,12 @@ CollectionAddAllMethod(m) :-
   Method_DeclaringType(m0, t0),
   SameMethodExceptDeclaringType(m, m0),
   basic.Superinterface(t0, t).
+// special case for the addAll-like ctor
+CollectionAddAllMethod(m) :-
+  basic.Superinterface("java.util.Collection", t),
+  Method_DeclaringType(m, t),
+  Method_Descriptor(m, "void(java.util.Collection)"),
+  Method_SimpleName(m, "<init>").
 
 .decl CollectionGetMethod(m:Method)
 CollectionGetMethod("<java.util.List: java.lang.Object get(int)>").
@@ -163,7 +166,7 @@ isInterprocMockVar(v) :-
 .output isInterprocMockVar
 
 // ** collections
-.decl isCollectionLocalThatContainsMocks(c:Var, inmethod:symbol)
+.decl isCollectionLocalThatContainsMocks(c:Var, inmethod:Method)
 // c.add(mv)
 isCollectionLocalThatContainsMocks(c, inmethod) :-
   CollectionPutMethod(put),
@@ -190,7 +193,9 @@ isCollectionLocalThatContainsMocks(c, inmethod) :-
 isCollectionLocalThatContainsMocks(c, inmethod) :-
   isCollectionLocalThatContainsMocks(c1, inmethod),
   CollectionAddAllMethod(add_all),
-  _SpecialMethodInvocation(mi, _, add_all, c, inmethod),
+  MethodInvocation_Method(mi, add_all),
+  Instruction_Method(mi, inmethod),
+  SpecialMethodInvocation_Base(mi, c),
   ActualParam(_, mi, c1).
 // it = c.iterator()
 isCollectionLocalThatContainsMocks(it, inmethod) :-
