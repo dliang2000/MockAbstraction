@@ -1,10 +1,10 @@
 // ./doop -a context-insensitive -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT-tests.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/mvn_dependencies/ --id context-insensitive-with-mocks --souffle-jobs 32 --main ca.liang.RootDriver --extra-logic souffle-logic/analyses/mocks/mocks.dl
 
 // these are mostly used in isMockVar, but the places where we combine two things will have specific #ifdef tests also
-#define INTERPROC 1
-#define COLLECTIONS 1
-#define ARRAYS 1
-#define FIELDS 1
+// #define NO_INTERPROC 1
+// #define NO_COLLECTIONS 1
+// #define NO_ARRAYS 1
+// #define NO_FIELDS 1
 
 // MainClass("ca.liang.RootDriver").
 
@@ -122,16 +122,16 @@ isMockVar(v) :-
 isMockVar(v) :-
   isMockVar(v1),
   AssignLocal(v1, v, _).
-#ifdef INTERPROC
+#ifndef NO_INTERPROC
 isMockVar(v) :-
   isInterprocMockVar(v).
 #endif
-#ifdef FIELDS
+#ifndef NO_FIELDS
 isMockVar(v) :-
   LoadInstanceField(_, field, v, _),
   fieldContainsMock(field).
 #endif
-#ifdef COLLECTIONS
+#ifndef NO_COLLECTIONS
 isMockVar(v) :-
 // v = c.get(_);
   isCollectionLocalThatContainsMocks(c, _),
@@ -140,7 +140,7 @@ isMockVar(v) :-
   VirtualMethodInvocation_Base(mi, c),
   AssignReturnValue(mi, v).
 #endif
-#ifdef ARRAYS
+#ifndef NO_ARRAYS
 isMockVar(v) :-
 // v = c[_];
   isArrayLocalThatContainsMocks(c),
@@ -209,7 +209,7 @@ isCollectionLocalThatContainsMocks(it, inmethod) :-
 // ** collections \times fields
 .decl isCollectionFieldThatContainsMocks(f:Field)
 // base.f = c where c is a CollectionLocalThatContainsMocks -> f is a field that contains mocks
-#ifdef FIELDS
+#ifndef NO_FIELDS
 isCollectionFieldThatContainsMocks(f) :-
   isCollectionLocalThatContainsMocks(c, _),
   StoreInstanceField(c, _, f, _).
@@ -218,7 +218,7 @@ isCollectionFieldThatContainsMocks(f) :-
 
 // ** arrays
 .decl isInterprocArrayLocalThatContainsMocks(c:Var)
-#ifdef INTERPROC
+#ifndef NO_INTERPROC
 isInterprocArrayLocalThatContainsMocks(v) :-
   AssignReturnValue(mi, v),
   mainAnalysis.CallGraphEdge(_, mi, _, callee),
@@ -247,7 +247,7 @@ isArrayLocalThatContainsMocks(v) :-
 .decl isArrayFieldThatContainsMocks(f:Field)
 // arr = _.f <- (2) propagates so that field f is a field that contains mocks
 // arr[i] = mv <- (1) marks arr as an arraylocalthatcontainsmocks
-#ifdef FIELDS
+#ifndef NO_FIELDS
 isArrayFieldThatContainsMocks(f) :-
   isArrayLocalThatContainsMocks(arr),
   LoadInstanceField(_, f, arr, _).
