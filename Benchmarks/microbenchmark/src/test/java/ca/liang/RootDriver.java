@@ -42,6 +42,9 @@ public class RootDriver {
 		class5.testDescendingSet();
 		class5.testFloorCeiling();
 		class5.testHigherLower();
+		class5.testHeadSet();
+		class5.testTailSet();
+		class5.testSubSet();
 		ca.liang.PayRollMockTest class6 = new ca.liang.PayRollMockTest();
 		class6.init();
 		class6.testNoEmployees();

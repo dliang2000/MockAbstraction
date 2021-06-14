@@ -68,52 +68,52 @@ public class PayRollMockMarginalCollectionsTest {
         employees5.offer(e);
         employees6.push(e);
 
-	pq = new PriorityQueue<Employee>();
-	pq.add(e);
-	pq1 = new PriorityQueue<Employee>(pq);
+        pq = new PriorityQueue<Employee>();
+        pq.add(e);
+        pq1 = new PriorityQueue<Employee>(pq);
 
-	ss = new TreeSet<Employee>();
-	ss.add(e);
-	pq2 = new PriorityQueue<Employee>(ss);
+        ss = new TreeSet<Employee>();
+        ss.add(e);
+        pq2 = new PriorityQueue<Employee>(ss);
 
-	ts = new TreeSet<Employee>(ss);
+        ts = new TreeSet<Employee>(ss);
 
-	dq = new ArrayDeque<Employee>();
+        dq = new ArrayDeque<Employee>();
         // *mock* x5
         when(e.getName()).thenReturn("J. Doe");
         when(e.getName()).thenReturn("J. Doe");
         when(e.getName()).thenReturn("J. Doe");
         when(e.getName()).thenReturn("J. Doe");
         when(e.getName()).thenReturn("J. Doe");
-	dq.add(e);
+        dq.add(e);
 
         Employee ee = mock(Employee.class);
-	// *mock*
+        // *mock*
         when(ee.getName()).thenReturn("J. Doe");
 
-	dq1 = new ArrayDeque<Employee>();
-	dq1.add(ee);
+        dq1 = new ArrayDeque<Employee>();
+        dq1.add(ee);
 
         Employee eee = mock(Employee.class);
         // *mock*
         when(eee.getName()).thenReturn("J. Doe");
 
-	dq2 = new ArrayDeque<Employee>();
-	dq2.add(eee);
+        dq2 = new ArrayDeque<Employee>();
+        dq2.add(eee);
 
         Employee ee3 = mock(Employee.class);
         // *mock*
         when(ee3.getName()).thenReturn("J. Doe");
 
-	dq3 = new ArrayDeque<Employee>();
-	dq3.add(ee3);
+        dq3 = new ArrayDeque<Employee>();
+        dq3.add(ee3);
 
         Employee ee4 = mock(Employee.class);
         // *mock*
         when(ee4.getName()).thenReturn("J. Doe");
 
-	dq4 = new ArrayDeque<Employee>();
-	dq4.add(eee);
+        dq4 = new ArrayDeque<Employee>();
+        dq4.add(eee);
     }
     // total mock calls: 11
 
@@ -232,7 +232,7 @@ public class PayRollMockMarginalCollectionsTest {
         // *mock*
         assertEquals(e3.getName(), "J. Doe");
 
-	Employee e4 = dq.getFirst();
+        Employee e4 = dq.getFirst();
         // *mock*
         assertEquals(e4.getName(), "J. Doe");
 
@@ -252,7 +252,7 @@ public class PayRollMockMarginalCollectionsTest {
         // *mock*
         assertEquals(e1.getName(), "J. Doe");
 
-	Employee ee4 = dq1.removeLast();
+        Employee ee4 = dq1.removeLast();
         // *mock*
         assertEquals(ee4.getName(), "J. Doe");
 
@@ -264,9 +264,9 @@ public class PayRollMockMarginalCollectionsTest {
 
     @Test
     public void testDescendingSet() {
-	// check descendingSet
-	NavigableSet<Employee> ds = ts.descendingSet();
-	Employee e = ds.first();
+        // check descendingSet
+        NavigableSet<Employee> ds = ts.descendingSet();
+        Employee e = ds.first();
         // *mock*
         assertEquals(e.getName(), "J. Doe");
     }
@@ -274,48 +274,122 @@ public class PayRollMockMarginalCollectionsTest {
 
     @Test
     public void testFloorCeiling() {
-	TreeSet<Employee> ts_intra = new TreeSet<Employee>();
+        TreeSet<Employee> ts_intra = new TreeSet<Employee>();
 
         Employee e0 = new Employee("P", "", 5);
-	Employee e1 = new Employee("Q", "", 1);
+        Employee e1 = new Employee("Q", "", 1);
 
         Employee em = mock(Employee.class);
         // *mock* x3
         when(em.getSalary()).thenReturn(5);
         when(em.getName()).thenReturn("R");
-	when(em.compareTo(any(Employee.class))).thenReturn(0);
-	ts_intra.add(em);
+        when(em.compareTo(any(Employee.class))).thenReturn(0);
+        ts_intra.add(em);
 
-	Employee e2 = ts_intra.floor(e0);
-	// *mock*
-	assertEquals(e2.getName(), "R");
+        Employee e2 = ts_intra.floor(e0);
+        // *mock*
+        assertEquals(e2.getName(), "R");
 
-	Employee e3 = ts_intra.ceiling(e1);
-	// *mock*
-	assertEquals(e2.getName(), "R");
+        Employee e3 = ts_intra.ceiling(e1);
+        // *mock*
+        assertEquals(e2.getName(), "R");
     }
     // total mock calls: 5
 
     @Test
     public void testHigherLower() {
-	TreeSet<Employee> ts_intra = new TreeSet<Employee>();
+        TreeSet<Employee> ts_intra = new TreeSet<Employee>();
 
         Employee e0 = new Employee("P", "", 10);
-	Employee e1 = new Employee("Q", "", 1);
+        Employee e1 = new Employee("Q", "", 1);
 
         Employee em = mock(Employee.class);
         // *mock* x2
         when(em.getSalary()).thenReturn(5);
         when(em.getName()).thenReturn("R");
-	ts_intra.add(em);
+        ts_intra.add(em);
 
-	Employee e2 = ts_intra.lower(e1);
-	// *mock*
-	assertEquals(e2.getName(), "R");
+        Employee e2 = ts_intra.lower(e1);
+        // *mock*
+        assertEquals(e2.getName(), "R");
 
-	Employee e3 = ts_intra.higher(e0);
-	// *mock*
-	assertEquals(e2.getName(), "R");
+        Employee e3 = ts_intra.higher(e0);
+        // *mock*
+        assertEquals(e2.getName(), "R");
     }
     // total mock calls: 4
+
+    @Test
+    public void testHeadSet() {
+        TreeSet<Employee> ts_intra = new TreeSet<Employee>();
+
+        Employee e0 = new Employee("P", "", 10);
+        Employee e1 = new Employee("Q", "", 1);
+
+        Employee em = mock(Employee.class);
+        // *mock* x2
+        when(em.getSalary()).thenReturn(5);
+        when(em.getName()).thenReturn("R");
+        ts_intra.add(e1);
+        ts_intra.add(em);
+
+        SortedSet<Employee> sse = ts_intra.headSet(e0);
+        // *mock*
+        assertEquals(sse.first().getName(), "Q");
+
+        NavigableSet<Employee> ssei = ts_intra.headSet(e0, false);
+        // *mock*
+        assertEquals(ssei.first().getName(), "Q");
+    }
+    // total mock calls: 4
+
+    @Test
+    public void testTailSet() {
+        TreeSet<Employee> ts_intra = new TreeSet<Employee>();
+
+        Employee e0 = new Employee("P", "", 10);
+        Employee e1 = new Employee("Q", "", 1);
+
+        Employee em = mock(Employee.class);
+        // *mock* x2
+        when(em.getSalary()).thenReturn(5);
+        when(em.getName()).thenReturn("R");
+        ts_intra.add(em);
+        ts_intra.add(e0);
+
+        SortedSet<Employee> sse = ts_intra.tailSet(e1);
+        // *mock*
+        assertEquals(sse.first().getName(), "P");
+
+        NavigableSet<Employee> ssei = ts_intra.tailSet(e1, true);
+        // *mock*
+        assertEquals(ssei.first().getName(), "P");
+    }
+    // total mock calls: 4
+
+    @Test
+    public void testSubSet() {
+        TreeSet<Employee> ts_intra = new TreeSet<Employee>();
+
+        Employee e0 = new Employee("P_", "", 1);
+        Employee e1 = new Employee("Q_", "", 10);
+
+        Employee em = mock(Employee.class);
+        // *mock* x3
+        when(em.getSalary()).thenReturn(5);
+        when(em.getName()).thenReturn("R_");
+        ts_intra.add(e1);
+        ts_intra.add(em);
+        ts_intra.add(e0);
+
+        SortedSet<Employee> sse = ts_intra.subSet(e0, e1);
+        // *mock*
+        sse.first().getName();
+
+        SortedSet<Employee> sse1 = ts_intra.subSet(e0, false, e1, true);
+        // *mock*
+        sse1.first().getName();
+
+    }
+    // total mock calls: 5
 }
