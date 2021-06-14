@@ -106,8 +106,22 @@ public class PayRollMockTest {
             // *mock* call below
             assertEquals(ee.getName(), "J. Doe");
         }
+
+	List<Employee> employees1_sublist = employees1_intra.subList(0, 1);
+        for (Employee ee : employees1_sublist) {
+            // *mock* call below
+            assertEquals(ee.getName(), "J. Doe");
+        }
+
+	java.util.LinkedList<Employee> ll = new java.util.LinkedList<Employee>(employees1_intra);
+	java.util.Iterator<Employee> it = ll.descendingIterator();
+	while (it.hasNext()) {
+	    Employee ee = it.next();
+            // *mock* call below
+            assertEquals(ee.getName(), "J. Doe");
+        }
     }
-    // total mock calls: 3
+    // total mock calls: 5
 
     @Test
     public void testVector() {

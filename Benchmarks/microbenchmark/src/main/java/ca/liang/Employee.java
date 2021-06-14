@@ -1,6 +1,6 @@
 package ca.liang;
 
-public class Employee {
+public class Employee implements Comparable<Employee> {
     private String name;
     private String bankId;
     private int salary;
@@ -21,5 +21,9 @@ public class Employee {
 
     public int getSalary() {
         return salary;
+    }
+
+    public int compareTo(Employee o) {
+	return salary - o.salary;
     }
 }
