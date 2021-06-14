@@ -25,7 +25,7 @@ Mutator, no effects on abstraction
 Accessor, no need to handle
 * contains(Object), containsAll(Collection), equals(Object), hashCode(), isEmpty(), size()
 
-Accessors, not handled:
+Accessors, not handled (these are the only ones we don't handle):
 * parallelStream(), spliterator(), stream(), forEach(Consumer)
 
 The documentation also mentions two expected constructors, one of
@@ -158,7 +158,7 @@ Mutator:
 * TreeSet(SortedSet)
 
 ## java.util.NavigableSet
-Accessor:
+Accessor, handled:
 * ceiling(Object), floor(Object), higher(Object), lower(Object)
 * descendingSet(), 
 * headSet(Object), headSet(Object, boolean)
@@ -167,7 +167,7 @@ Accessor:
 * subSet(Object,Object)
 
 ## java.util.SortedSet
-Accessor, need to handle:
+Accessor, handled:
 * first(), last()
 
 ## Vector
