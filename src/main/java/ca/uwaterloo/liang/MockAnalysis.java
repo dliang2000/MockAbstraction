@@ -166,7 +166,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                     }
                 }
             }
-            if (!running_result.isEmpty()) {
+            if (!killSet.isEmpty()) {
                 mayMocks.put(unit, running_result);
             }
         }
@@ -192,7 +192,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                     MockStatus status = new MockStatus(true);
                     running_result.put(v, status);
                 }
-                if (!running_result.isEmpty() && !out.contains(running_result)) {
+                if ( !running_result.isEmpty() ) {
                     out.add(running_result);
                     mayMocks.put(unit, running_result);
                 }
@@ -210,7 +210,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                         Value v = vb.getValue();
                         running_result.put(v, fieldMocksInClass.get(sf));
                     }
-                    if (!running_result.isEmpty() && !out.contains(running_result)) {
+                    if (!running_result.isEmpty()) {
                         out.add(running_result);
                         mayMocks.put(unit, running_result);
                     } 
@@ -231,15 +231,17 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                     MockStatus status = new MockStatus(true);
                     running_result.put(v, status);
                 }
-                if (!running_result.isEmpty() && !out.contains(running_result)) {
+                if (!running_result.isEmpty()) {
                     out.add(running_result);
                     mayMocks.put(unit, running_result);
                 }
             }
             
-            // Fourth Way: Collection Mock write method returns a mock.
+            // Fourth Way: Collection/Vector Mock write method returns a mock.
             
-            if (isWriteEffect(sootMethod) && aStmt instanceof AssignStmt) {
+            if ( (isWriteEffect(sootMethod) || isVectorWriteEffect(sootMethod) || 
+                    isIteratorWriteEffect(sootMethod) || isEnumerationWriteEffect(sootMethod) ) 
+                    && aStmt instanceof AssignStmt) {
                 AssignStmt assign = (AssignStmt) aStmt;
                 List<ValueBox> useBoxes = unit.getUseBoxes();
                 
@@ -255,7 +257,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                                 MockStatus status = new MockStatus(true);
                                 running_result.put(left_op, status);
                             }
-                            if (!running_result.isEmpty() && !out.contains(running_result)) {
+                            if (!running_result.isEmpty()) {
                                 out.add(running_result);
                                 mayMocks.put(unit, running_result);
                             }
@@ -292,7 +294,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                             MockStatus status = new MockStatus(false, false, true);
                             running_result.put(left_op, status);
                         }
-                        if (!running_result.isEmpty() && !out.contains(running_result)) {
+                        if (!running_result.isEmpty()) {
                             out.add(running_result);
                             mayMocks.put(unit, running_result);
                         }
@@ -406,11 +408,10 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                             MockStatus status = new MockStatus(true);
                             Value left_op_val = assign.getLeftOp();
                             running_result.put(left_op_val, status);
-                            
-                            if (!out.contains(running_result)) {
-                                out.add(running_result);
-                                mayMocks.put(unit, running_result);
-                            }
+
+                            out.add(running_result);
+                            mayMocks.put(unit, running_result);
+
                             //System.out.println("Mock Local: " + right_op_local);
                             //System.out.println("Mock Casted Local: " + left_op_local);
                         }
@@ -470,10 +471,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                                 MockStatus status = new MockStatus(false, true, false);
                                 running_result.put(arrayBaseVal, status);
                                 
-                                if (!out.contains(running_result)) {
-                                    out.add(running_result);
-                                    mayMocks.put(unit, running_result); 
-                                }
+                                out.add(running_result);
+                                mayMocks.put(unit, running_result); 
                             }
                         }
                     }
@@ -490,14 +489,16 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                                 Unit unit, FlowSet<Map<Value, MockStatus>> out) {
         Stmt aStmt = (Stmt) unit;
         List<Value> vals = new ArrayList<Value>();
+        List<Value> iter_vals = new ArrayList<Value>();
         
         Hierarchy hierarchy = Scene.v().getActiveHierarchy();
-        RefType target = RefType.v("java.util.Collection");
-        boolean isCollection = false;
+        // RefType target = RefType.v("java.util.AbstractCollection");
+        boolean isCollection = false, isIterator = false;
         if (aStmt.containsInvokeExpr()) {
             List<ValueBox> ub = aStmt.getUseBoxes();
             SootMethod sm = aStmt.getInvokeExpr().getMethod();
             
+            // For Collection, Vector
             for (ValueBox box : ub) {
                 List<ValueBox> innerBoxes = box.getValue().getUseBoxes();
                 for (ValueBox innerBox : innerBoxes) {
@@ -509,7 +510,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                         List<SootClass> classes;
                         
                         if (sc.isInterface()) {
-                            if (isCollectionASuperInterface(hierarchy, sc) && (isReadEffect(sm) || isAddAllEffect(sm))) {
+                            if (isCollectionASuperInterface(hierarchy, sc) 
+                                    && (isReadEffect(sm) || isAddAllEffect(sm) || isVectorReadEffect(sm) )) {
                                 isCollection = true;
                                 vals.add(innerBox.getValue());
                                 //G.v().out.println("Statement: " + aStmt.toString());
@@ -519,7 +521,10 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                         } else {
                             Chain<SootClass> interfaces = sc.getInterfaces();
                             for (SootClass curr_interface : interfaces) {
-                                if(isCollectionASuperInterface(hierarchy, curr_interface) && (isReadEffect(sm) || isAddAllEffect(sm))) {
+                                if(isCollectionASuperInterface(hierarchy, curr_interface) 
+                                        && (isReadEffect(sm) || isAddAllEffect(sm) || isVectorReadEffect(sm))) {
+                                    System.out.println("Interface: " + curr_interface);
+                                    System.out.println("SootMethod: " + sm.getSignature());
                                     isCollection = true;
                                     vals.add(innerBox.getValue());
                                    // G.v().out.println("Statement: " + aStmt.toString());
@@ -527,8 +532,23 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                                    // G.v().out.println("SootClass Type: " + sc.getType());
                                 }
                             }
-                        }                        
+                        }  
                     }
+                }
+            }
+            
+            // For Iterator, Enumeration
+            List<ValueBox> db = aStmt.getDefBoxes();
+            for (ValueBox box : db) {
+                System.out.println("Value: " + box.getValue());
+                // The useBox that is a container (to be refined)
+                // Iterator is always over a collection, and enumeration always enumerate through elements of a vector
+                if (isIteratorReadEffect(sm) || isEnumerationReadEffect(sm)) {
+                    System.out.println("The method is an iterator or enumeration read method");
+                    System.out.println("SootMethod: " + sm.getSignature());
+                    System.out.println("Value: " + box.getValue());
+                    isIterator = true;
+                    vals.add(box.getValue());
                 }
             }
             
@@ -544,15 +564,39 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                             if (element.containsKey(col_val) && (element.get(col_val).getMock() || element.get(col_val).getCollectionMock()) ) {
                                 //System.out.println("col_local found in hashmap: " + col_local);
                                 HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
-                                for (Value v: vals) {
-                                    if (!v.equals(col_val)) {
-                                        MockStatus status = new MockStatus(false, false, true);
-                                        running_result.put(v, status);
-                                        
-                                        if (!out.contains(running_result)) {
+                                if (!vals.isEmpty()) {
+                                    for (Value v: vals) {
+                                        if (!v.equals(col_val)) {
+                                            MockStatus status = new MockStatus(false, false, true);
+                                            running_result.put(v, status);
+    
                                             out.add(running_result);
                                             mayMocks.put(unit, running_result);
                                         }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (isIterator) {
+                for (ValueBox box : invoke_ub) {
+                    if (box.getValue() instanceof Local || box.getValue() instanceof InstanceFieldRef) {
+                        Value col_val = box.getValue();
+                        //System.out.println("col_local: " + col_local);
+                        for (Map<Value, MockStatus> element : in) {
+                            if (element.containsKey(col_val) && (element.get(col_val).getMock() || element.get(col_val).getCollectionMock()) ) {
+                                //System.out.println("col_local found in hashmap: " + col_local);
+                                HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
+                                for (Value v: iter_vals) {
+                                    System.out.println("col_local found in hashmap: " + col_val);
+                                    if (!v.equals(col_val)) {
+                                        MockStatus status = new MockStatus(false, false, true);
+                                        running_result.put(v, status);
+
+                                        out.add(running_result);
+                                        mayMocks.put(unit, running_result);
                                     }
                                 }
                             }
@@ -668,7 +712,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         List<String> reads = CollectionModelEffect.READ.getMethods();
         
         for (String read : reads) {
-            if (sm.getSignature().contains(read))
+            if (sm.getSubSignature().contains(read))
                 return true;
         }
         return false;
@@ -678,7 +722,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         List<String> addAlls = CollectionModelEffect.ADDALL.getMethods();
         
         for (String addAll : addAlls) {
-            if (sm.getSignature().contains(addAll))
+            if (sm.getSubSignature().contains(addAll))
                 return true;
         }
         return false;
@@ -688,7 +732,67 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         List<String> writes = CollectionModelEffect.WRITE.getMethods();
         
         for (String write : writes) {
-            if (sm.getSignature().contains(write))
+            if (sm.getSubSignature().contains(write))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isIteratorReadEffect(SootMethod sm) {
+        List<String> iterator_reads = CollectionModelEffect.ITERATOR_READ.getMethods();
+        
+        for (String read : iterator_reads) {
+            if (sm.getSubSignature().contains(read))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isIteratorWriteEffect(SootMethod sm) {
+        List<String> iterator_writes = CollectionModelEffect.ITERATOR_WRITE.getMethods();
+        
+        for (String write : iterator_writes) {
+            if (sm.getSubSignature().contains(write))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isVectorReadEffect(SootMethod sm) {
+        List<String> vector_reads = CollectionModelEffect.VECTOR_READ.getMethods();
+        
+        for (String read : vector_reads) {
+            if (sm.getSubSignature().contains(read))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isVectorWriteEffect(SootMethod sm) {
+        List<String> vector_writes = CollectionModelEffect.VECTOR_WRITE.getMethods();
+        
+        for (String read : vector_writes) {
+            if (sm.getSubSignature().contains(read))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isEnumerationReadEffect(SootMethod sm) {
+        List<String> enumeration_reads = CollectionModelEffect.ENUMERATION_READ.getMethods();
+        
+        for (String read : enumeration_reads) {
+            if (sm.getSubSignature().contains(read))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isEnumerationWriteEffect(SootMethod sm) {
+        List<String> enumeration_writes = CollectionModelEffect.ENUMERATION_WRITE.getMethods();
+        
+        for (String read : enumeration_writes) {
+            if (sm.getSubSignature().contains(read))
                 return true;
         }
         return false;
@@ -697,7 +801,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     private static boolean isCollectionASuperInterface(Hierarchy hierarchy, SootClass sc) {
         RefType collection = RefType.v("java.util.Collection");
         
-        List<SootClass> classes = hierarchy.getSuperinterfacesOf(sc);
+        List<SootClass> classes = hierarchy.getSuperinterfacesOfIncluding(sc);
         for (SootClass curr_class : classes) {
             if (curr_class.getType().equals(collection)) {
                 return true;
