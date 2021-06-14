@@ -156,8 +156,6 @@ public class MockAnalysisMain extends SceneTransformer {
         // get points to analysis object
         pointsToAnalysis = Scene.v().getPointsToAnalysis();
         
-        procSummaries = MockAnalysisPreTransformer.getProcSummaries();
-        
         //Compute summaries of all methods present in the call graph
         
         for (SootClass sc : Scene.v().getApplicationClasses()) {
@@ -170,17 +168,6 @@ public class MockAnalysisMain extends SceneTransformer {
             
             for (SootMethod method : sc.getMethods()) {   
                 if (method.hasActiveBody()) {
-                    
-                    // Before Method is handled in MockAnalysisPreTransformer
-                    if (Util.isBeforeMethod(method))
-                        continue;
-                        
-                    
-                    JimpleBody body = (JimpleBody) method.getActiveBody();
-                    
-                    /*if (method.getDeclaringClass().getName().contains("PayRollAnnotationMockTest")) {
-                        G.v().out.println(body);
-                    }*/
                     
                     /*Iterator<Edge> edges = callGraph.edgesOutOf(method);
                     
@@ -228,7 +215,7 @@ public class MockAnalysisMain extends SceneTransformer {
                     
                     procSummaries.put(method, mockSummary);
                     
-                    if ( Util.isTestMethod(method) || Util.isAfterMethod(method) ) {
+                    if ( Util.isBeforeMethod(method) || Util.isTestMethod(method) || Util.isAfterMethod(method) ) {
                         totalNumberOfTestRelatedMethods++;
                     } else {
                         totalNumberOfHelperMethods++;
