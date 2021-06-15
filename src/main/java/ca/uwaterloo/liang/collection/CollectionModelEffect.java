@@ -16,7 +16,8 @@ public enum CollectionModelEffect {
     
     VECTOR_READ (new ArrayList<String> (Arrays.asList("void setElementAt(java.lang.Object,int)",
                                                       "void insertElementAt(java.lang.Object,int)",
-                                                      "void addElement(java.lang.Object)"))),
+                                                      "void addElement(java.lang.Object)",
+                                                      "void <init>(java.util.Collection)"))),
     
     VECTOR_WRITE (new ArrayList<String> (Arrays.asList("java.lang.Object elementAt(int)",
                                                        "java.lang.Object firstElement()",
@@ -56,7 +57,8 @@ public enum CollectionModelEffect {
     
     ENUMERATION_READ (new ArrayList<String> (Arrays.asList("void setElementAt(java.lang.Object,int)",
                                                            "void insertElementAt(java.lang.Object,int)",
-                                                           "void addElement(java.lang.Object)"))),
+                                                           "void addElement(java.lang.Object)",
+                                                           "java.util.Enumeration elements()"))),
 
     ENUMERATION_WRITE (new ArrayList<String> (Arrays.asList("java.lang.Object nextElement()"))), 
     
