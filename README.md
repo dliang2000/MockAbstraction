@@ -54,17 +54,17 @@ or if you want to run Mock Analysis for all benchmarks:
 
 ## LOC and Runtime Information for benchmarks
 
-| Benchmark | LOC Total | LOC (Main) | LOC (Test) | Soot Runtime (s) | doop Runtime - mock (s) | doop Runtime - mock-intraproc (s) |
+| Benchmark | LOC Total | LOC (Main) | LOC (Test) | Soot Runtime (s) | doop Runtime - NORMAL (s) | doop Runtime - NO_INTERPROC (s) |
 | --- | --: | --: | --: | --: | --: | --: |
-| bootique-2.0.B1-bootique | 15530 | 6935 | 8595 | TBD | 2291 | 2365 |
-| commons-collections4-4.4 | 65273 | 28955 | 36318 | TBD | 414 | 428 |
-| flink-core-1.13.0-rc1 | 117310 | 67580 | 49730 | TBD | TBD | TBD |
-| jsonschema2pojo-core-1.1.1 | 8233 | 5348 | 2885 | TBD | 728 | 696 |
-| maven-core-3.8.1 | 38866 | 27762 | 11104 | TBD | 464 | 497 |
-| microbenchmark | 559 | 68 | 491 | TBD | TBD | TBD |
-| mybatis-3.5.6 | 68268 | 21934 | 46334 | TBD | TBD | TBD |
-| quartz-core-2.3.1 | 35355 | 26932 | 8423 | TBD | 627 | 635 |
-| vraptor-core-3.5.5 | 34244 | 14111 | 20133 | TBD | TBD | TBD |
+| bootique-2.0.B1-bootique | 15530 | 6935 | 8595 | TBD | 2730 | 2501 |
+| commons-collections4-4.4 | 65273 | 28955 | 36318 | TBD | 453 | 455 |
+| flink-core-1.13.0-rc1 | 117310 | 67580 | 49730 | TBD | 600 | 615 |
+| jsonschema2pojo-core-1.1.1 | 8233 | 5348 | 2885 | TBD | 756 | 783 |
+| maven-core-3.8.1 | 38866 | 27762 | 11104 | TBD | 526 | 511 |
+| microbenchmark | 559 | 68 | 491 | TBD | 193 | 192 |
+| mybatis-3.5.6 | 68268 | 21934 | 46334 | TBD | 3800 | 3640 |
+| quartz-core-2.3.1 | 35355 | 26932 | 8423 | TBD | 779 | 727 |
+| vraptor-core-3.5.5 | 34244 | 14111 | 20133 | TBD | 1386 | 1504 |
 | Total | 383638 | 199625 | 184013 | TBD | TBD | TBD |
 
 
