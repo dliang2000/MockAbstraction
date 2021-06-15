@@ -43,4 +43,28 @@ public class MockStatus {
     public boolean getCollectionMock() {
         return collectionMock;
     }
+    
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        
+        if (! (o instanceof MockStatus) )
+            return false;
+        
+        MockStatus other = (MockStatus) o;
+        
+        return this.mock == other.mock 
+                && this.arrayMock == other.arrayMock 
+                && this.collectionMock == other.collectionMock; 
+    }
+    
+    @Override
+    public int hashCode() {
+        Boolean mock_prim = new Boolean(mock);
+        Boolean arrayMock_prim = new Boolean(arrayMock);
+        Boolean collectionMock_prim = new Boolean(collectionMock);
+        
+        return mock_prim.hashCode() * 139 + arrayMock_prim.hashCode() * 383 + collectionMock_prim.hashCode() * 97;
+    }
 }

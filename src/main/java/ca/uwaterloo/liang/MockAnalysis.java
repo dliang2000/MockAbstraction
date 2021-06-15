@@ -240,6 +240,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             // Fourth Way: Collection/Vector Mock write method returns a mock.
             
             if ( (isWriteEffect(sootMethod) || isVectorWriteEffect(sootMethod) || 
+                    isQueueWriteEffect(sootMethod) || isDequeWriteEffect(sootMethod) ||
                     isIteratorWriteEffect(sootMethod) || isEnumerationWriteEffect(sootMethod) ) 
                     && aStmt instanceof AssignStmt) {
                 AssignStmt assign = (AssignStmt) aStmt;
@@ -510,8 +511,9 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                         List<SootClass> classes;
                         
                         if (sc.isInterface()) {
-                            if (isCollectionASuperInterface(hierarchy, sc) 
-                                    && (isReadEffect(sm) || isAddAllEffect(sm) || isVectorReadEffect(sm) )) {
+                            if ( isCollectionASuperInterface(hierarchy, sc) 
+                                    && ( isReadEffect(sm) || isAddAllEffect(sm) || isVectorReadEffect(sm) 
+                                            || isQueueReadEffect(sm) || isDequeReadEffect(sm) )) {
                                 isCollection = true;
                                 vals.add(innerBox.getValue());
                                 //G.v().out.println("Statement: " + aStmt.toString());
@@ -521,8 +523,9 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                         } else {
                             Chain<SootClass> interfaces = sc.getInterfaces();
                             for (SootClass curr_interface : interfaces) {
-                                if(isCollectionASuperInterface(hierarchy, curr_interface) 
-                                        && (isReadEffect(sm) || isAddAllEffect(sm) || isVectorReadEffect(sm))) {
+                                if( isCollectionASuperInterface(hierarchy, curr_interface) 
+                                        && ( isReadEffect(sm) || isAddAllEffect(sm) || isVectorReadEffect(sm) 
+                                                || isQueueReadEffect(sm) || isDequeReadEffect(sm) )) {
                                     System.out.println("Interface: " + curr_interface);
                                     System.out.println("SootMethod: " + sm.getSignature());
                                     isCollection = true;
@@ -539,16 +542,19 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             
             // For Iterator, Enumeration
             List<ValueBox> db = aStmt.getDefBoxes();
-            for (ValueBox box : db) {
-                System.out.println("Value: " + box.getValue());
-                // The useBox that is a container (to be refined)
-                // Iterator is always over a collection, and enumeration always enumerate through elements of a vector
-                if (isIteratorReadEffect(sm) || isEnumerationReadEffect(sm)) {
+            HashSet<Value> seen = new HashSet<Value>();
+            
+            if ( isIteratorReadEffect(sm) || isEnumerationReadEffect(sm) ) {
+                for (ValueBox box : db) {
+                    Value box_val = box.getValue();
+                    if (seen.contains(box_val))
+                        continue;
                     System.out.println("The method is an iterator or enumeration read method");
                     System.out.println("SootMethod: " + sm.getSignature());
-                    System.out.println("Value: " + box.getValue());
+                    System.out.println("Value: " + box_val);
+                    seen.add(box_val);
                     isIterator = true;
-                    vals.add(box.getValue());
+                    iter_vals.add(box_val);
                 }
             }
             
@@ -584,13 +590,12 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                 for (ValueBox box : invoke_ub) {
                     if (box.getValue() instanceof Local || box.getValue() instanceof InstanceFieldRef) {
                         Value col_val = box.getValue();
-                        //System.out.println("col_local: " + col_local);
+                        System.out.println("col_val: " + col_val);
                         for (Map<Value, MockStatus> element : in) {
                             if (element.containsKey(col_val) && (element.get(col_val).getMock() || element.get(col_val).getCollectionMock()) ) {
-                                //System.out.println("col_local found in hashmap: " + col_local);
                                 HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
                                 for (Value v: iter_vals) {
-                                    System.out.println("col_local found in hashmap: " + col_val);
+                                    System.out.println("col_val found in hashmap: " + col_val);
                                     if (!v.equals(col_val)) {
                                         MockStatus status = new MockStatus(false, false, true);
                                         running_result.put(v, status);
@@ -771,8 +776,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     private static boolean isVectorWriteEffect(SootMethod sm) {
         List<String> vector_writes = CollectionModelEffect.VECTOR_WRITE.getMethods();
         
-        for (String read : vector_writes) {
-            if (sm.getSubSignature().contains(read))
+        for (String write : vector_writes) {
+            if (sm.getSubSignature().contains(write))
                 return true;
         }
         return false;
@@ -791,8 +796,48 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     private static boolean isEnumerationWriteEffect(SootMethod sm) {
         List<String> enumeration_writes = CollectionModelEffect.ENUMERATION_WRITE.getMethods();
         
-        for (String read : enumeration_writes) {
+        for (String write : enumeration_writes) {
+            if (sm.getSubSignature().contains(write))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isQueueReadEffect(SootMethod sm) {
+        List<String> queue_reads = CollectionModelEffect.QUEUE_READ.getMethods();
+        
+        for (String read : queue_reads) {
             if (sm.getSubSignature().contains(read))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isQueueWriteEffect(SootMethod sm) {
+        List<String> queue_writes = CollectionModelEffect.QUEUE_WRITE.getMethods();
+        
+        for (String write : queue_writes) {
+            if (sm.getSubSignature().contains(write))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isDequeReadEffect(SootMethod sm) {
+        List<String> deque_reads = CollectionModelEffect.DEQUE_READ.getMethods();
+        
+        for (String read : deque_reads) {
+            if (sm.getSubSignature().contains(read))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isDequeWriteEffect(SootMethod sm) {
+        List<String> deque_writes = CollectionModelEffect.DEQUE_WRITE.getMethods();
+        
+        for (String write : deque_writes) {
+            if (sm.getSubSignature().contains(write))
                 return true;
         }
         return false;
