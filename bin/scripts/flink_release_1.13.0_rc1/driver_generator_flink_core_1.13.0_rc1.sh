@@ -8,7 +8,8 @@ JAVA_PATH="$MACHINE_SPECIFIC_PATH/target/classes"
 CC_CLASS="ca.uwaterloo.liang.RootDriverGenerator"
 BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/flink-release-1.13.0-rc1"
 CORE="flink-core"
-TEXT_PATH="benchmark_info.config"
+ARGS_PATH="benchmark_info.config"
+/bin/sed "s|\$MACHINE_SPECIFIC_PATH|$MACHINE_SPECIFIC_PATH|g"< $BENCHMARK_PATH/$ARGS_PATH > $BENCHMARK_PATH/$ARGS_PATH.local
 
 MVN_DEPENDENCY_PATH="$BENCHMARK_PATH/flink-core/mvn_dependencies"
 
@@ -34,6 +35,6 @@ fi
 
 cd ..
 
-echo java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$TEXT_PATH
-java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$TEXT_PATH
+echo java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$ARGS_PATH.local
+java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$ARGS_PATH.local
 # rm -rf "sootOutput/"
