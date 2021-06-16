@@ -19,9 +19,16 @@
 
 # TODO/Notes on current doop implementation
 
+We generate a lot more output relations than we strictly speaking need. It's probably good to do 
+that while we're still debugging, but longer-term, it may make the analysis run more slowly than 
+it should. Relations that we probably don't need to output and that show up prominently in du 
+-hs * | sort -h:
+
+* InstanceFieldPointsTo, AssignLocal, Instruction_Method, VarPointsTo, ActualParam
+
 not handled yet:
 * Collection.spliterator, forEachRemaining
-* subList, stream, parallelStream
+* stream, parallelStream
 
 handled:
 * Set is just a Collection
