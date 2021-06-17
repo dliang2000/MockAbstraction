@@ -16,7 +16,7 @@ parser.add_argument('--file', default='last-analysis/isMockInvocation.csv', type
 args = parser.parse_args()
 
 results_by_class = {}
-sig_re = re.compile(r"<([\w.]+): ([\w.]+ \w+\(.*\))>")
+sig_re = re.compile(r"<([\w.]+): ([\w.]+ ((\w+)|(<init>))\(.*\))>")
 with open(args.file, newline='') as csvfile:
     reader = csv.reader(csvfile, delimiter='\t')
     for row in reader:
