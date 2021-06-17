@@ -34,17 +34,17 @@ public enum CollectionModelEffect {
                                                      "void addLast(java.lang.Object)",
                                                      "boolean offerFirst(java.lang.Object)",
                                                      "boolean offerLast(java.lang.Object)",
-                                                     "java.lang.Object getFirst()",
-                                                     "java.lang.Object getLast()",
-                                                     "java.lang.Object peekFirst()",
-                                                     "java.lang.Object peekLast()",
-                                                     "java.lang.Object pop()"))),
+                                                     "void push(java.lang.Object)"))),
     
     DEQUE_WRITE (new ArrayList<String> (Arrays.asList("java.lang.Object removeFirst()",
                                                       "java.lang.Object removeLast()",
                                                       "java.lang.Object pollFirst()",
                                                       "java.lang.Object pollLast()",
-                                                      "void push(java.lang.Object)"))),
+                                                      "java.lang.Object getFirst()",
+                                                      "java.lang.Object getLast()",
+                                                      "java.lang.Object peekFirst()",
+                                                      "java.lang.Object peekLast()",
+                                                      "java.lang.Object pop()"))),
     
     ITERATOR_READ (new ArrayList<String> (Arrays.asList("java.util.Iterator iterator()",
                                                         "java.util.ListIterator listIterator()",
@@ -63,7 +63,9 @@ public enum CollectionModelEffect {
     ENUMERATION_WRITE (new ArrayList<String> (Arrays.asList("java.lang.Object nextElement()"))), 
     
     ADDALL (new ArrayList<String> (Arrays.asList("boolean addAll(java.util.Collection)",
-                                                 "boolean addAll(int,java.util.Collection)")));
+                                                 "boolean addAll(int,java.util.Collection)",
+                                                 "void <init>(java.util.PriorityQueue)",
+                                                 "void <init>(java.util.SortedSet)")));
     
 
     private final List<String> methods;
