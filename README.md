@@ -101,16 +101,16 @@ or if you want to run Mock Analysis for all benchmarks:
 ## Mock Analysis - Analyzing InvokeExpr results (May Analysis, Intraprocedural)
 | Benchmark | Total Number of Invocations | Number of Invocations on Mocks (Soot) | Number of Invocations on Mocks (Doop) |
 | --- | --: | --: | --: |
-| bootique-2.0.B1-bootique | 3366 | 99 | N/A |
-| commons-collections-4.3 | 12753 | 14 | N/A |
-| flink-core-1.13.0-rc1 | 11923 | 40 | N/A |
-| jsonschema2pojo-core-1.1.1 | 1896 | 226 | N/A |
-| maven-core-3.8.1 | 4072 | 23 | N/A |
-| microbenchmark | 465 | 102 | N/A |
-| mybatis-3.5.6 | 19232 | 575 | N/A |
-| quartz-core-2.3.1 | 3436 | 21 | N/A |
-| vraptor-core-3.5.51 | 5868 | 942 | N/A |
-| Total | 63011 | 2042 | N/A |
+| bootique-2.0.B1-bootique | 3366 | 99 | 99 |
+| commons-collections-4.3 | 12753 | 14 | 3 |
+| flink-core-1.13.0-rc1 | 11923 | 40 | 40 |
+| jsonschema2pojo-core-1.1.1 | 1896 | 226 | 282 |
+| maven-core-3.8.1 | 4072 | 23 | 23 |
+| microbenchmark | 465 | 102 | 122 |
+| mybatis-3.5.6 | 19232 | 575 | 577 |
+| quartz-core-2.3.1 | 3436 | 21 | 21 |
+| vraptor-core-3.5.51 | 5868 | 942 | 957 |
+| Total | 63011 | 2042 | 2124 |
 
 
 ## Manual Inspection on microbenchmark  (Intraprocedural)
