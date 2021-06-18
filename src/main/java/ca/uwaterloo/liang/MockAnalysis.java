@@ -549,8 +549,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                                 if( isCollectionASuperInterface(hierarchy, curr_interface) 
                                         && ( isReadEffect(sm) || isAddAllEffect(sm) || isVectorReadEffect(sm) 
                                                 || isQueueReadEffect(sm) || isDequeReadEffect(sm) )) {
-                                    System.out.println("Interface: " + curr_interface);
-                                    System.out.println("SootMethod: " + sm.getSignature());
+                                    // System.out.println("Interface: " + curr_interface);
+                                    // System.out.println("SootMethod: " + sm.getSignature());
                                     isCollection = true;
                                     vals.add(innerBox.getValue());
                                    // G.v().out.println("Statement: " + aStmt.toString());
@@ -572,9 +572,9 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                     Value box_val = box.getValue();
                     if (seen.contains(box_val))
                         continue;
-                    System.out.println("The method is an iterator or enumeration read method");
-                    System.out.println("SootMethod: " + sm.getSignature());
-                    System.out.println("Value: " + box_val);
+                    //System.out.println("The method is an iterator or enumeration read method");
+                    //System.out.println("SootMethod: " + sm.getSignature());
+                    //System.out.println("Value: " + box_val);
                     seen.add(box_val);
                     isIterator = true;
                     iter_vals.add(box_val);
@@ -618,12 +618,12 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                 for (ValueBox box : invoke_ub) {
                     if (box.getValue() instanceof Local || box.getValue() instanceof InstanceFieldRef) {
                         Value col_val = box.getValue();
-                        System.out.println("col_val: " + col_val);
+                        // System.out.println("col_val: " + col_val);
                         for (Map<Value, MockStatus> element : in) {
                             if (element.containsKey(col_val) && (element.get(col_val).getMock() || element.get(col_val).getCollectionMock()) ) {
                                 HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
                                 for (Value v: iter_vals) {
-                                    System.out.println("col_val found in hashmap: " + col_val);
+                                    // System.out.println("col_val found in hashmap: " + col_val);
                                     if (!v.equals(col_val)) {
                                         MockStatus status = new MockStatus(false, false, true);
                                         running_result.put(v, status);
@@ -665,7 +665,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                     // on a mock
                     for (Map<Value, MockStatus> element : getFlowAfter(unit)) {
                         if (element.containsKey(val) && element.get(val).getMock() && !myInvokeExprsOnMocks.contains(invkExpr)) { //may be an invocation on Mock
-                            System.out.println("InvokeExpr: " + invkExpr);
+                            // System.out.println("InvokeExpr: " + invkExpr);
                             myInvokeExprsOnMocks.add(invkExpr);
                         }
                     }

@@ -84,33 +84,33 @@ or if you want to run Mock Analysis for all benchmarks:
 
 
 ## Mock Analysis table (May Analysis, Intraprocedural)
-| Benchmark | Total Number of Test/Before/After Methods Invoked | Number of Test/Before/After Methods with MayMock (Intra) | Number of Test/Before/After Methods with ArrayMock (Intra) | Number of Test/Before/After Methods with CollectionMock (Intra) |
-| --- | --: | --: | --: | --: |
-| bootique-2.0.B1-bootique | 420 | 27 | 3 | 0 |
-| commons-collections4-4.4 | 1152 | 3 | 1 | 0 |
-| flink-core-1.13.0-rc1 | 1091 | 4 | 0 | 0 |
-| jsonschema2pojo-core-1.1.1 | 145 | 48 | 1 | 0 |
-| maven-core-3.8.1 | 337 | 15 | 0 | 0 |
-| microbenchmark | 30 | 21 | 5 | 4 |
-| mybatis-3.5.6 | 1769 | 330 | 3 | 1 |
-| quartz-core-2.3.1 | 218 | 7 | 0 | 0 |
-| vraptor-core-3.5.5 | 1120 | 526 | 15 | 12 |
-| Total | 6282 | 981 | 28 | 17 |
+| Benchmark | Total Number of Test/Before/After Methods Invoked | Number of Test/Before/After Methods with MayMock (Intra) | Number of Test/Before/After Methods with ArrayMock (Intra) | Number of Test/Before/After Methods with CollectionMock (Intra) | Total Number of Helper Methods | Total Number of Helper Methods with MayMock |  Total Number of Helper Methods with ArrayMock | Total Number of Helper Methods with CollectionMock |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: |
+| bootique-2.0.B1-bootique | 436 | 32 | 7 | 0 | 223 | 6 | 0 | 0 |
+| commons-collections4-4.4 | 1162 | 3 | 1 | 1 | 1096 | 2 | 2 | 0 |
+| flink-core-1.13.0-rc1 | 1106 | 4 | 0 | 0 | 406 | 0 | 0 | 0 |
+| jsonschema2pojo-core-1.1.1 | 156 | 48 | 1 | 0 | 54 | 16 | 0 | 0 |
+| maven-core-3.8.1 | 342 | 24 | 0 | 0 | 125 | 2 | 0 | 0 |
+| microbenchmark | 65 | 42 | 7 | 25 | 18 | 2 | 1 | 0 |
+| mybatis-3.5.6 | 1948 | 330 | 3 | 0 | 599 | 4 | 0 | 0 |
+| quartz-core-2.3.1 | 223 | 7 | 0 | 0 | 103 | 1 | 0 | 0 |
+| vraptor-core-3.5.5 | 1262 | 565 | 15 | 0 | 229 | 12 | 0 | 0 |
+| Total | 6700 | 1055 | 34 | 26 | 2853 | 45 | 3 | 0 |
 
 
 ## Mock Analysis - Analyzing InvokeExpr results (May Analysis, Intraprocedural)
-| Benchmark | Total Number of Invocations | Number of Invocations on Mocks |
-| --- | --: | --: |
-| bootique-2.0.B1-bootique | 2923 | 82 |
-| commons-collections-4.3 | 10913 | 13 |
-| flink-core-1.13.0-rc1 | 10079 | 40 |
-| jsonschema2pojo-core-1.1.1 | 1730 | 217 |
-| maven-core-3.8.1 | 3367 | 21 |
-| microbenchmark | 207 | 21 |
-| mybatis-3.5.6 | 17798 | 569 |
-| quartz-core-2.3.1 | 3217 | 21 |
-| vraptor-core-3.5.51 | 5529 | 827 |
-| Total | 55763 | 1811 |
+| Benchmark | Total Number of Invocations | Number of Invocations on Mocks (Soot) | Number of Invocations on Mocks (Doop) |
+| --- | --: | --: | --: |
+| bootique-2.0.B1-bootique | 3366 | 99 | N/A |
+| commons-collections-4.3 | 12753 | 14 | N/A |
+| flink-core-1.13.0-rc1 | 11923 | 40 | N/A |
+| jsonschema2pojo-core-1.1.1 | 1896 | 226 | N/A |
+| maven-core-3.8.1 | 4072 | 23 | N/A |
+| microbenchmark | 465 | 102 | N/A |
+| mybatis-3.5.6 | 19232 | 575 | N/A |
+| quartz-core-2.3.1 | 3436 | 21 | N/A |
+| vraptor-core-3.5.51 | 5868 | 942 | N/A |
+| Total | 63011 | 2042 | N/A |
 
 
 ## Manual Inspection on microbenchmark  (Intraprocedural)

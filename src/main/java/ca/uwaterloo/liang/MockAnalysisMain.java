@@ -169,6 +169,8 @@ public class MockAnalysisMain extends SceneTransformer {
             for (SootMethod method : sc.getMethods()) {   
                 if (method.hasActiveBody()) {
                     
+                    JimpleBody body = (JimpleBody) method.getActiveBody();
+
                     /*Iterator<Edge> edges = callGraph.edgesOutOf(method);
                     
                     while (edges.hasNext()) {
@@ -240,17 +242,17 @@ public class MockAnalysisMain extends SceneTransformer {
         .append("\n");
         msg.append("Total Number of Test/Before/After Methods with May Mock: ").append(benchmark_mock_stats[0])
         .append("\n");
-        msg.append("Total Number of Test/Before/After Methods with ArrayMock in class: ").append(benchmark_mock_stats[1])
+        msg.append("Total Number of Test/Before/After Methods with ArrayMock: ").append(benchmark_mock_stats[1])
         .append("\n");
-        msg.append("Total Number of Test/Before/After Methods with Collection in class: ").append(benchmark_mock_stats[2])
+        msg.append("Total Number of Test/Before/After Methods with Collection: ").append(benchmark_mock_stats[2])
         .append("\n");
         msg.append("Total Number of Helper Methods: ").append(totalNumberOfHelperMethods)
         .append("\n");
-        msg.append("Total Number of Helper Methods with May Mock: ").append(benchmark_mock_stats[3])
+        msg.append("Total Number of Helper Methods with MayMock: ").append(benchmark_mock_stats[3])
         .append("\n");
-        msg.append("Total Number of Helper Methods with ArrayMock in class: ").append(benchmark_mock_stats[4])
+        msg.append("Total Number of Helper Methods with ArrayMock: ").append(benchmark_mock_stats[4])
         .append("\n");
-        msg.append("Total Number of Helper Methods with Collection in class: ").append(benchmark_mock_stats[5])
+        msg.append("Total Number of Helper Methods with CollectionMock: ").append(benchmark_mock_stats[5])
         .append("\n");
         G.v().out.println(msg);
         
@@ -360,10 +362,7 @@ public class MockAnalysisMain extends SceneTransformer {
             
             List<int[]> helperMockStats = Util.gatherHelperMethodMocksStats(nc, procSummaries);
             
-            StringBuffer msg = new StringBuffer();
-            msg.append(" ====================================== \n")
-            .append("** CLASS ").append(nc.toString())
-            .append("\n");  
+            StringBuffer msg = new StringBuffer(); 
             class_mocks = new int[3];
             if (!testMockStats.isEmpty()) {
                 for (int[] testMock : testMockStats) {
@@ -401,12 +400,18 @@ public class MockAnalysisMain extends SceneTransformer {
                 }
             }
             
-            msg.append("Number of Methods with May Mock in class: ").append(class_mocks[0])
-            .append("\n");
-            msg.append("Number of Methods with ArrayMock in class: ").append(class_mocks[1])
-            .append("\n");
-            msg.append("Number of Methods with Collection in class: ").append(class_mocks[2])
-            .append("\n");
+            if (class_mocks[0] > 0 || class_mocks[1] > 0 || class_mocks[2] > 0) {
+                msg.append(" ====================================== \n")
+                .append("** CLASS ").append(nc.toString())
+                .append("\n"); 
+                
+                msg.append("Number of Methods with MayMock in class: ").append(class_mocks[0])
+                .append("\n");
+                msg.append("Number of Methods with ArrayMock in class: ").append(class_mocks[1])
+                .append("\n");
+                msg.append("Number of Methods with CollectionMock in class: ").append(class_mocks[2])
+                .append("\n");
+            }
             G.v().out.println(msg);
         }
         
