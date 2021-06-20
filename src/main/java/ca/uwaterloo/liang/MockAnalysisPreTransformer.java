@@ -46,7 +46,7 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
         
     private MockAnalysis myMAnalysis;
     
-    private static int totalNumberofBeforeMethods = 0;
+    //private static int totalNumberofBeforeMethods = 0;
     
     public MockAnalysisPreTransformer() {
         super();
@@ -73,9 +73,9 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
             ExceptionalUnitGraph aCfg = null;
             
             for (SootMethod method : sc.getMethods()) {
-                if (Util.isBeforeMethod(method) && method.hasActiveBody()) {
+                if ( (Util.isBeforeMethod(method) || Util.isDefaultInitMethod(method) ) && method.hasActiveBody()) {
                     
-                    totalNumberofBeforeMethods++;
+                    //totalNumberofBeforeMethods++;
                     
                     mockSummary = new ProcSummary(method);
                     
@@ -111,9 +111,9 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
         return fieldMocks;
     }
     
-    public static int getNumberOfBeforeMethods() {
+    /*public static int getNumberOfBeforeMethods() {
         return totalNumberofBeforeMethods;
-    }
+    }*/
     
     public static HashMap<SootMethod, ProcSummary> getProcSummaries() {
         return procSummaries;

@@ -205,6 +205,14 @@ public class Util {
         return false;
     }
     
+    public static boolean isDefaultInitMethod(SootMethod sm) {
+        if ( sm.getName().contains("<init>") && sm.getParameterCount() == 0 && sm.getReturnType() instanceof VoidType) {
+            //System.out.println("Test case found: " + sm.getSubSignature());
+            return true;
+        }
+        return false;
+    }
+    
     public static boolean isBeforeMethod(SootMethod sm) {
         // JUnit 3
         if ((sm.getName().equals("init()") ||  sm.getName().equals("setUp()")) 
