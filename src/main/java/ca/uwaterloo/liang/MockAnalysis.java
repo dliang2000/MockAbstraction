@@ -246,9 +246,9 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             
             // Fourth Way: Collection/Vector Mock write method returns a mock.
             
-            if ( (isWriteEffect(sootMethod) || isVectorWriteEffect(sootMethod) || 
-                    isQueueWriteEffect(sootMethod) || isDequeWriteEffect(sootMethod) ||
-                    isIteratorWriteEffect(sootMethod) || isEnumerationWriteEffect(sootMethod) ) 
+            if ( (isGetEffect(sootMethod) || isVectorGetEffect(sootMethod) || 
+                    isQueueGetEffect(sootMethod) || isDequeGetEffect(sootMethod) ||
+                    isIteratorGetEffect(sootMethod) || isEnumerationGetEffect(sootMethod) ) 
                     && aStmt instanceof AssignStmt) {
                 AssignStmt assign = (AssignStmt) aStmt;
                 List<ValueBox> useBoxes = unit.getUseBoxes();
@@ -535,8 +535,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                         
                         if (sc.isInterface()) {
                             if ( isCollectionASuperInterface(hierarchy, sc) 
-                                    && ( isReadEffect(sm) || isAddAllEffect(sm) || isVectorReadEffect(sm) 
-                                            || isQueueReadEffect(sm) || isDequeReadEffect(sm) )) {
+                                    && ( isPutEffect(sm) || isAddAllEffect(sm) || isVectorPutEffect(sm) 
+                                            || isQueuePutEffect(sm) || isDequePutEffect(sm) )) {
                                 isCollection = true;
                                 vals.add(innerBox.getValue());
                                 //G.v().out.println("Statement: " + aStmt.toString());
@@ -547,8 +547,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                             Chain<SootClass> interfaces = sc.getInterfaces();
                             for (SootClass curr_interface : interfaces) {
                                 if( isCollectionASuperInterface(hierarchy, curr_interface) 
-                                        && ( isReadEffect(sm) || isAddAllEffect(sm) || isVectorReadEffect(sm) 
-                                                || isQueueReadEffect(sm) || isDequeReadEffect(sm) )) {
+                                        && ( isPutEffect(sm) || isAddAllEffect(sm) || isVectorPutEffect(sm) 
+                                                || isQueuePutEffect(sm) || isDequePutEffect(sm) )) {
                                     // System.out.println("Interface: " + curr_interface);
                                     // System.out.println("SootMethod: " + sm.getSignature());
                                     isCollection = true;
@@ -567,7 +567,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             List<ValueBox> db = aStmt.getDefBoxes();
             HashSet<Value> seen = new HashSet<Value>();
             
-            if ( isIteratorReadEffect(sm) || isEnumerationReadEffect(sm) ) {
+            if ( isIteratorEffect(sm) || isEnumerationEffect(sm) ) {
                 for (ValueBox box : db) {
                     Value box_val = box.getValue();
                     if (seen.contains(box_val))
@@ -746,11 +746,121 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         return null;
     }
     
-    private static boolean isReadEffect(SootMethod sm) {
-        List<String> reads = CollectionModelEffect.READ.getMethods();
+    private static boolean isPutEffect(SootMethod sm) {
+        List<String> puts = CollectionModelEffect.PUT.getMethods();
         
-        for (String read : reads) {
-            if (sm.getSubSignature().contains(read))
+        for (String put : puts) {
+            if (sm.getSubSignature().contains(put))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isGetEffect(SootMethod sm) {
+        List<String> gets = CollectionModelEffect.GET.getMethods();
+        
+        for (String get : gets) {
+            if (sm.getSubSignature().contains(get))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isVectorPutEffect(SootMethod sm) {
+        List<String> vector_puts = CollectionModelEffect.VECTOR_PUT.getMethods();
+        
+        for (String put : vector_puts) {
+            if (sm.getSubSignature().contains(put))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isVectorGetEffect(SootMethod sm) {
+        List<String> vector_gets = CollectionModelEffect.VECTOR_GET.getMethods();
+        
+        for (String get : vector_gets) {
+            if (sm.getSubSignature().contains(get))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isQueuePutEffect(SootMethod sm) {
+        List<String> queue_puts = CollectionModelEffect.QUEUE_PUT.getMethods();
+        
+        for (String put : queue_puts) {
+            if (sm.getSubSignature().contains(put))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isQueueGetEffect(SootMethod sm) {
+        List<String> queue_gets = CollectionModelEffect.QUEUE_GET.getMethods();
+        
+        for (String get : queue_gets) {
+            if (sm.getSubSignature().contains(get))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isDequePutEffect(SootMethod sm) {
+        List<String> deque_puts = CollectionModelEffect.DEQUE_PUT.getMethods();
+        
+        for (String put : deque_puts) {
+            if (sm.getSubSignature().contains(put))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isDequeGetEffect(SootMethod sm) {
+        List<String> deque_gets = CollectionModelEffect.DEQUE_GET.getMethods();
+        
+        for (String get : deque_gets) {
+            if (sm.getSubSignature().contains(get))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isIteratorEffect(SootMethod sm) {
+        List<String> iterators = CollectionModelEffect.ITERATOR.getMethods();
+        
+        for (String iter : iterators) {
+            if (sm.getSubSignature().contains(iter))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isIteratorGetEffect(SootMethod sm) {
+        List<String> iterator_gets = CollectionModelEffect.ITERATOR_GET.getMethods();
+        
+        for (String get : iterator_gets) {
+            if (sm.getSubSignature().contains(get))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isEnumerationEffect(SootMethod sm) {
+        List<String> enumerations = CollectionModelEffect.ENUMERATION.getMethods();
+        
+        for (String enumeration : enumerations) {
+            if (sm.getSubSignature().contains(enumeration))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isEnumerationGetEffect(SootMethod sm) {
+        List<String> enumeration_gets = CollectionModelEffect.ENUMERATION_GET.getMethods();
+        
+        for (String get : enumeration_gets) {
+            if (sm.getSubSignature().contains(get))
                 return true;
         }
         return false;
@@ -761,116 +871,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         
         for (String addAll : addAlls) {
             if (sm.getSubSignature().contains(addAll))
-                return true;
-        }
-        return false;
-    }
-    
-    private static boolean isWriteEffect(SootMethod sm) {
-        List<String> writes = CollectionModelEffect.WRITE.getMethods();
-        
-        for (String write : writes) {
-            if (sm.getSubSignature().contains(write))
-                return true;
-        }
-        return false;
-    }
-    
-    private static boolean isIteratorReadEffect(SootMethod sm) {
-        List<String> iterator_reads = CollectionModelEffect.ITERATOR_READ.getMethods();
-        
-        for (String read : iterator_reads) {
-            if (sm.getSubSignature().contains(read))
-                return true;
-        }
-        return false;
-    }
-    
-    private static boolean isIteratorWriteEffect(SootMethod sm) {
-        List<String> iterator_writes = CollectionModelEffect.ITERATOR_WRITE.getMethods();
-        
-        for (String write : iterator_writes) {
-            if (sm.getSubSignature().contains(write))
-                return true;
-        }
-        return false;
-    }
-    
-    private static boolean isVectorReadEffect(SootMethod sm) {
-        List<String> vector_reads = CollectionModelEffect.VECTOR_READ.getMethods();
-        
-        for (String read : vector_reads) {
-            if (sm.getSubSignature().contains(read))
-                return true;
-        }
-        return false;
-    }
-    
-    private static boolean isVectorWriteEffect(SootMethod sm) {
-        List<String> vector_writes = CollectionModelEffect.VECTOR_WRITE.getMethods();
-        
-        for (String write : vector_writes) {
-            if (sm.getSubSignature().contains(write))
-                return true;
-        }
-        return false;
-    }
-    
-    private static boolean isEnumerationReadEffect(SootMethod sm) {
-        List<String> enumeration_reads = CollectionModelEffect.ENUMERATION_READ.getMethods();
-        
-        for (String read : enumeration_reads) {
-            if (sm.getSubSignature().contains(read))
-                return true;
-        }
-        return false;
-    }
-    
-    private static boolean isEnumerationWriteEffect(SootMethod sm) {
-        List<String> enumeration_writes = CollectionModelEffect.ENUMERATION_WRITE.getMethods();
-        
-        for (String write : enumeration_writes) {
-            if (sm.getSubSignature().contains(write))
-                return true;
-        }
-        return false;
-    }
-    
-    private static boolean isQueueReadEffect(SootMethod sm) {
-        List<String> queue_reads = CollectionModelEffect.QUEUE_READ.getMethods();
-        
-        for (String read : queue_reads) {
-            if (sm.getSubSignature().contains(read))
-                return true;
-        }
-        return false;
-    }
-    
-    private static boolean isQueueWriteEffect(SootMethod sm) {
-        List<String> queue_writes = CollectionModelEffect.QUEUE_WRITE.getMethods();
-        
-        for (String write : queue_writes) {
-            if (sm.getSubSignature().contains(write))
-                return true;
-        }
-        return false;
-    }
-    
-    private static boolean isDequeReadEffect(SootMethod sm) {
-        List<String> deque_reads = CollectionModelEffect.DEQUE_READ.getMethods();
-        
-        for (String read : deque_reads) {
-            if (sm.getSubSignature().contains(read))
-                return true;
-        }
-        return false;
-    }
-    
-    private static boolean isDequeWriteEffect(SootMethod sm) {
-        List<String> deque_writes = CollectionModelEffect.DEQUE_WRITE.getMethods();
-        
-        for (String write : deque_writes) {
-            if (sm.getSubSignature().contains(write))
                 return true;
         }
         return false;
