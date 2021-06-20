@@ -86,15 +86,15 @@ or if you want to run Mock Analysis for all benchmarks:
 ## Mock Analysis table (May Analysis, Intraprocedural)
 | Benchmark | Total Number of Test/Before/After Methods Invoked | Number of Test/Before/After Methods with MayMock (Intra) | Number of Test/Before/After Methods with ArrayMock (Intra) | Number of Test/Before/After Methods with CollectionMock (Intra) | Total Number of Helper Methods | Total Number of Helper Methods with MayMock |  Total Number of Helper Methods with ArrayMock | Total Number of Helper Methods with CollectionMock |
 | --- | --: | --: | --: | --: | --: | --: | --: | --: |
-| bootique-2.0.B1-bootique | 436 | 32 | 7 | 0 | 223 | 6 | 0 | 0 |
-| commons-collections4-4.4 | 1162 | 3 | 1 | 1 | 1096 | 2 | 2 | 0 |
-| flink-core-1.13.0-rc1 | 1106 | 4 | 0 | 0 | 406 | 0 | 0 | 0 |
-| jsonschema2pojo-core-1.1.1 | 156 | 48 | 1 | 0 | 54 | 16 | 0 | 0 |
-| maven-core-3.8.1 | 342 | 24 | 0 | 0 | 125 | 2 | 0 | 0 |
-| microbenchmark | 65 | 42 | 7 | 25 | 18 | 2 | 1 | 0 |
-| mybatis-3.5.6 | 1948 | 330 | 3 | 0 | 599 | 4 | 0 | 0 |
-| quartz-core-2.3.1 | 223 | 7 | 0 | 0 | 103 | 1 | 0 | 0 |
-| vraptor-core-3.5.5 | 1262 | 565 | 15 | 0 | 229 | 12 | 0 | 0 |
+| bootique-2.0.B1-bootique | 420 | 32 | 7 | 0 | 223 | 6 | 0 | 0 |
+| commons-collections4-4.4 | 1152 | 3 | 1 | 1 | 1096 | 2 | 2 | 0 |
+| flink-core-1.13.0-rc1 | 1091 | 4 | 0 | 0 | 406 | 0 | 0 | 0 |
+| jsonschema2pojo-core-1.1.1 | 145 | 48 | 1 | 0 | 54 | 16 | 0 | 0 |
+| maven-core-3.8.1 | 337 | 24 | 0 | 0 | 125 | 2 | 0 | 0 |
+| microbenchmark | 57 | 42 | 7 | 25 | 18 | 2 | 1 | 0 |
+| mybatis-3.5.6 | 1769 | 330 | 3 | 0 | 599 | 4 | 0 | 0 |
+| quartz-core-2.3.1 | 218 | 7 | 0 | 0 | 103 | 1 | 0 | 0 |
+| vraptor-core-3.5.5 | 1119 | 565 | 15 | 0 | 229 | 12 | 0 | 0 |
 | Total | 6700 | 1055 | 34 | 26 | 2853 | 45 | 3 | 0 |
 
 
@@ -104,7 +104,7 @@ or if you want to run Mock Analysis for all benchmarks:
 | bootique-2.0.B1-bootique | 3366 | 99 | 99 |
 | commons-collections-4.3 | 12753 | 14 | 3 |
 | flink-core-1.13.0-rc1 | 11923 | 40 | 40 |
-| jsonschema2pojo-core-1.1.1 | 1896 | 226 | 282 |
+| jsonschema2pojo-core-1.1.1 | 1896 | 235 | 282 |
 | maven-core-3.8.1 | 4072 | 23 | 23 |
 | microbenchmark | 465 | 112 | 122 |
 | mybatis-3.5.6 | 19232 | 575 | 577 |
