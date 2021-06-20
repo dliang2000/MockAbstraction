@@ -60,7 +60,21 @@ public enum CollectionModelEffect {
                                                            "void addElement(java.lang.Object)",
                                                            "java.util.Enumeration elements()"))),
 
-    ENUMERATION_GET (new ArrayList<String> (Arrays.asList("java.lang.Object nextElement()"))), 
+    ENUMERATION_GET (new ArrayList<String> (Arrays.asList("java.lang.Object nextElement()"))),
+    
+    SET_ITERATOR (new ArrayList<String> (Arrays.asList("java.util.SortedSet headSet(java.lang.Object)",
+                                                       "java.util.NavigableSet headSet(java.lang.Object,boolean)",
+                                                       "java.util.SortedSet tailSet(java.lang.Object)",
+                                                       "java.util.NavigableSet tailSet(java.lang.Object,boolean)",
+                                                       "java.util.NavigableSet subSet(java.lang.Object,boolean,java.lang.Object,boolean)",
+                                                       "java.util.SortedSet subSet(java.lang.Object,java.lang.Object)"))),
+    
+    SET_GET (new ArrayList<String> (Arrays.asList("java.lang.Object first()",
+                                                       "java.lang.Object last()",
+                                                       "java.lang.Object ceiling(java.lang.Object)",
+                                                       "java.lang.Object floor(java.lang.Object)",
+                                                       "java.lang.Object higher(java.lang.Object)",
+                                                       "java.lang.Object lower(java.lang.Object)"))),
     
     ADDALL (new ArrayList<String> (Arrays.asList("boolean addAll(java.util.Collection)",
                                                  "boolean addAll(int,java.util.Collection)",

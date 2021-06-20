@@ -248,7 +248,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             
             if ( (isGetEffect(sootMethod) || isVectorGetEffect(sootMethod) || 
                     isQueueGetEffect(sootMethod) || isDequeGetEffect(sootMethod) ||
-                    isIteratorGetEffect(sootMethod) || isEnumerationGetEffect(sootMethod) ) 
+                    isIteratorGetEffect(sootMethod) || isEnumerationGetEffect(sootMethod) || isSetGetEffect(sootMethod) ) 
                     && aStmt instanceof AssignStmt) {
                 AssignStmt assign = (AssignStmt) aStmt;
                 List<ValueBox> useBoxes = unit.getUseBoxes();
@@ -567,7 +567,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             List<ValueBox> db = aStmt.getDefBoxes();
             HashSet<Value> seen = new HashSet<Value>();
             
-            if ( isIteratorEffect(sm) || isEnumerationEffect(sm) ) {
+            if ( isIteratorEffect(sm) || isEnumerationEffect(sm) || isSetIteratorEffect(sm) ) {
                 for (ValueBox box : db) {
                     Value box_val = box.getValue();
                     if (seen.contains(box_val))
@@ -860,6 +860,26 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
         List<String> enumeration_gets = CollectionModelEffect.ENUMERATION_GET.getMethods();
         
         for (String get : enumeration_gets) {
+            if (sm.getSubSignature().contains(get))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isSetIteratorEffect(SootMethod sm) {
+        List<String> set_iterators = CollectionModelEffect.SET_ITERATOR.getMethods();
+        
+        for (String iter : set_iterators) {
+            if (sm.getSubSignature().contains(iter))
+                return true;
+        }
+        return false;
+    }
+    
+    private static boolean isSetGetEffect(SootMethod sm) {
+        List<String> set_gets = CollectionModelEffect.SET_GET.getMethods();
+        
+        for (String get : set_gets) {
             if (sm.getSubSignature().contains(get))
                 return true;
         }
