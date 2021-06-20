@@ -109,7 +109,7 @@ or if you want to run Mock Analysis for all benchmarks:
 | microbenchmark | 465 | 102 | 122 |
 | mybatis-3.5.6 | 19232 | 575 | 577 |
 | quartz-core-2.3.1 | 3436 | 21 | 21 |
-| vraptor-core-3.5.51 | 5868 | 942 | 957 |
+| vraptor-core-3.5.51 | 5868 | 942 | 962 |
 | Total | 63011 | 2042 | 2124 |
 
 
