@@ -95,14 +95,14 @@ or if you want to run Mock Analysis for all benchmarks:
 | mybatis-3.5.6 | 1769 | 330 | 3 | 0 | 599 | 4 | 0 | 0 |
 | quartz-core-2.3.1 | 218 | 7 | 0 | 0 | 103 | 1 | 0 | 0 |
 | vraptor-core-3.5.5 | 1119 | 565 | 15 | 0 | 229 | 12 | 0 | 0 |
-| Total | 6700 | 1055 | 34 | 26 | 2853 | 45 | 3 | 0 |
+| Total | 6308 | 1055 | 34 | 26 | 2853 | 45 | 3 | 0 |
 
 
 ## Mock Analysis - Analyzing InvokeExpr results (May Analysis, Intraprocedural)
 | Benchmark | Total Number of Invocations | Number of Invocations on Mocks (Soot) | Number of Invocations on Mocks (Doop) |
 | --- | --: | --: | --: |
 | bootique-2.0.B1-bootique | 3366 | 99 | 99 |
-| commons-collections-4.3 | 12753 | 14 | 3 |
+| commons-collections4-4.4 | 12753 | 14 | 3 |
 | flink-core-1.13.0-rc1 | 11923 | 40 | 40 |
 | jsonschema2pojo-core-1.1.1 | 1896 | 235 | 282 |
 | maven-core-3.8.1 | 4072 | 23 | 23 |
