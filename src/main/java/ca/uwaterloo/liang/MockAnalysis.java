@@ -31,6 +31,7 @@ import soot.jimple.InstanceInvokeExpr;
 import soot.jimple.InvokeExpr;
 import soot.jimple.ReturnStmt;
 import soot.jimple.Stmt;
+import soot.jimple.toolkits.annotation.parity.ParityAnalysis.Parity;
 import soot.toolkits.graph.*;
 import soot.toolkits.scalar.ArraySparseSet;
 import soot.toolkits.scalar.FlowSet;
@@ -101,12 +102,13 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
     
     @Override
     protected Map<Value, MockStatus> newInitialFlow() { 
-        return emptyFlowMap;
+        Map<Value, MockStatus> initMap = new HashMap<Value, MockStatus>();
+        return initMap;
     }
     
     @Override
     protected Map<Value, MockStatus> entryInitialFlow() { 
-        return emptyFlowMap;
+        return newInitialFlow();
     }
     
     @Override
@@ -593,7 +595,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
             if (aStmt.containsInvokeExpr()) {
                 InvokeExpr invkExpr = aStmt.getInvokeExpr();
                 if (invkExpr instanceof InstanceInvokeExpr) {
-                    // System.out.println("InvokeExpr: " + invkExpr);
+                    System.out.println("InvokeExpr: " + invkExpr);
                     // Add InvokeExpr to myTotalInvokeExprs
                     totalInvokeExprs.add(invkExpr);
                     
@@ -601,6 +603,10 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
                     Value val = iie.getBase();
                     
                     Map<Value, MockStatus> currMap = getFlowAfter(unit);
+                    
+                    if (currMap.containsKey(val)) {
+                        System.out.println("val: " + val);
+                    }
                     
                     if (currMap.containsKey(val) && currMap.get(val).getMock() && !invokeExprsOnMocks.contains(invkExpr)) {
                         invokeExprsOnMocks.add(invkExpr);
