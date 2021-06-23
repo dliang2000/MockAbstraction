@@ -26,22 +26,15 @@ import soot.*;
 import soot.jimple.ArrayRef;
 import soot.jimple.AssignStmt;
 import soot.jimple.CastExpr;
-import soot.jimple.Expr;
-import soot.jimple.FieldRef;
 import soot.jimple.FieldRef;
 import soot.jimple.InstanceInvokeExpr;
 import soot.jimple.InvokeExpr;
 import soot.jimple.ReturnStmt;
 import soot.jimple.Stmt;
-import soot.jimple.internal.JArrayRef;
-import soot.jimple.toolkits.callgraph.Edge;
-import soot.options.*;
-import soot.tagkit.AnnotationTag;
 import soot.toolkits.graph.*;
 import soot.toolkits.scalar.ArraySparseSet;
 import soot.toolkits.scalar.FlowSet;
 import soot.toolkits.scalar.ForwardFlowAnalysis;
-import soot.util.Chain;
 
 /**
  * Find all locals that are mocks
@@ -69,10 +62,10 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     private static HashMap<Value, Value> emptyLocalFieldRefMap = new HashMap<Value, Value>();
     
     // Contains all method invocations
-    private ArrayList<InvokeExpr> myTotalInvokeExprs;
+    private ArrayList<InvokeExpr> totalInvokeExprs;
     
     // Contains all method invocations on mocks
-    private ArrayList<InvokeExpr> myInvokeExprsOnMocks;
+    private ArrayList<InvokeExpr> invokeExprsOnMocks;
     
     // For each unit x local, will store a boolean for if it is a may mock,
     // if is a may mock within Collection, or if it is a may mock within Array.
@@ -85,10 +78,10 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     private HashMap<Value, Value> localFieldRefMap;
     
     // The current SootClass
-    private SootClass myContextClass;
+    private SootClass clazz;
     
     // The current analyzed method
-    private SootMethod myContextMethod;
+    private SootMethod method;
     
     // Flag to determine if the analysis is from MockAnalysisPreTransformer
     private boolean isInPreAnalysis;
@@ -97,17 +90,17 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     public MockAnalysis(ExceptionalUnitGraph graph, SootMethod aCurrentSootMethod, boolean isPre) {
         super(graph);
         
-        myContextClass = aCurrentSootMethod.getDeclaringClass();
+        clazz = aCurrentSootMethod.getDeclaringClass();
         
-        myContextMethod = aCurrentSootMethod;
+        method = aCurrentSootMethod;
         
         isInPreAnalysis = isPre;
         
         mayMocks = (HashMap<Unit, HashMap<Value, MockStatus>>) emptyMocks.clone();
         
-        myTotalInvokeExprs = (ArrayList<InvokeExpr>) emptyInvokeExprs.clone();
+        totalInvokeExprs = (ArrayList<InvokeExpr>) emptyInvokeExprs.clone();
         
-        myInvokeExprsOnMocks = (ArrayList<InvokeExpr>) emptyInvokeExprsOnMocks.clone();
+        invokeExprsOnMocks = (ArrayList<InvokeExpr>) emptyInvokeExprsOnMocks.clone();
         
         // fieldMocks = (HashMap<SootField, MockStatus>) emptyFieldMocks.clone();
         
@@ -197,9 +190,9 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             }
             
             // Second way to create mock: Fields that are already defined as mocks in before and <init> method
-            if (MockAnalysisPreTransformer.getFieldMocks().containsKey(myContextClass) && !isInPreAnalysis) {
+            if (MockAnalysisPreTransformer.getFieldMocks().containsKey(clazz) && !isInPreAnalysis) {
                 
-                HashMap<SootField, MockStatus> fieldMocksInClass = MockAnalysisPreTransformer.getFieldMocks().get(myContextClass); 
+                HashMap<SootField, MockStatus> fieldMocksInClass = MockAnalysisPreTransformer.getFieldMocks().get(clazz); 
                 // System.out.println("SootMethod visited: " + myContextMethod);
                 // System.out.println("SootField is in the method, before the If Statement: " + sf);
                 
@@ -263,7 +256,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                                 MockStatus status = new MockStatus(true);
                                 running_result.put(left_op, status);
                                 
-                                if ( (Util.isBeforeMethod(myContextMethod) || Util.isDefaultInitMethod(myContextMethod)) &&
+                                if ( (Util.isBeforeMethod(method) || Util.isDefaultInitMethod(method)) &&
                                         localFieldRefMap.containsKey(left_op)) {
                                     running_result.put(localFieldRefMap.get(left_op), status);
                                 }
@@ -284,20 +277,21 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
             
             // Preliminary : Perform this FieldRef check in Before methods
             if ( (assign.getLeftOp() instanceof Local && assign.getRightOp() instanceof FieldRef) &&
-                   (Util.isBeforeMethod(myContextMethod) || Util.isDefaultInitMethod(myContextMethod)) ) {
-                Value local_val = assign.getLeftOp();
+                   (Util.isBeforeMethod(method) || Util.isDefaultInitMethod(method)) ) {
+                Value localVal = assign.getLeftOp();
                 Value fieldRef = assign.getRightOp();
                 
-                localFieldRefMap.put(local_val, fieldRef);
+                localFieldRefMap.put(localVal, fieldRef);
             }
             
+            // Looking for: x.f = local (where the left_op is a fieldRef and right side is 
             if ( (assign.getLeftOp() instanceof FieldRef && assign.getRightOp() instanceof Local) &&
-                    (Util.isBeforeMethod(myContextMethod) || Util.isDefaultInitMethod(myContextMethod)) ) {
-                 Value local_val = assign.getRightOp();
+                    (Util.isBeforeMethod(method) || Util.isDefaultInitMethod(method)) ) {
+                 Value localVal = assign.getRightOp();
                  Value fieldRef = assign.getLeftOp();
                  
-                 localFieldRefMap.put(local_val, fieldRef);
-             }
+                 localFieldRefMap.put(localVal, fieldRef);
+            }
             
             if (assign.getRightOp() instanceof Local || assign.getRightOp() instanceof FieldRef) {
                 Value right_op = assign.getRightOp();
@@ -316,11 +310,11 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                         MockStatus status = element.get(right_op);
                         running_result.put(left_op, status);
                         
-                        if ( (Util.isBeforeMethod(myContextMethod) || Util.isDefaultInitMethod(myContextMethod)) &&
+                        if ( (Util.isBeforeMethod(method) || Util.isDefaultInitMethod(method)) &&
                                 localFieldRefMap.containsKey(right_op)) {
                             running_result.put(localFieldRefMap.get(right_op), element.get(right_op));
                         }
-                        if ( (Util.isBeforeMethod(myContextMethod) || Util.isDefaultInitMethod(myContextMethod)) &&
+                        if ( (Util.isBeforeMethod(method) || Util.isDefaultInitMethod(method)) &&
                                 localFieldRefMap.containsKey(left_op)) {
                             running_result.put(localFieldRefMap.get(left_op), element.get(right_op));
                         }
@@ -503,7 +497,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                                 MockStatus status = new MockStatus(false, true, false);
                                 running_result.put(arrayBaseVal, status);
                                 
-                                if ( (Util.isBeforeMethod(myContextMethod) || Util.isDefaultInitMethod(myContextMethod)) &&
+                                if ( (Util.isBeforeMethod(method) || Util.isDefaultInitMethod(method)) &&
                                         localFieldRefMap.containsKey(arrayBaseVal)) {
                                     running_result.put(localFieldRefMap.get(arrayBaseVal), status);
                                 }
@@ -627,7 +621,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                                             MockStatus status = new MockStatus(false, false, true);
                                             running_result.put(v, status);
                                             
-                                            if ( (Util.isBeforeMethod(myContextMethod) || Util.isDefaultInitMethod(myContextMethod)) 
+                                            if ( (Util.isBeforeMethod(method) || Util.isDefaultInitMethod(method)) 
                                                     && localFieldRefMap.containsKey(v)) {
                                                 running_result.put(localFieldRefMap.get(v), status);
                                             }
@@ -658,7 +652,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                                         MockStatus status = new MockStatus(false, false, true);
                                         running_result.put(v, status);
                                         
-                                        if ( (Util.isBeforeMethod(myContextMethod) || Util.isDefaultInitMethod(myContextMethod))
+                                        if ( (Util.isBeforeMethod(method) || Util.isDefaultInitMethod(method))
                                                 && localFieldRefMap.containsKey(v)) {
                                             running_result.put(localFieldRefMap.get(v), status);
                                         }
@@ -685,7 +679,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                 if (invkExpr instanceof InstanceInvokeExpr) {
                     // System.out.println("InvokeExpr: " + invkExpr);
                     // Add InvokeExpr to myTotalInvokeExprs
-                    myTotalInvokeExprs.add(invkExpr);
+                    totalInvokeExprs.add(invkExpr);
                     
                     InstanceInvokeExpr iie = (InstanceInvokeExpr) invkExpr;
                     Value val = iie.getBase();
@@ -694,9 +688,9 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
                     // and can be found in the in FlowSet, then InvokeExpr is 
                     // on a mock
                     for (Map<Value, MockStatus> element : getFlowAfter(unit)) {
-                        if (element.containsKey(val) && element.get(val).getMock() && !myInvokeExprsOnMocks.contains(invkExpr)) { //may be an invocation on Mock
+                        if (element.containsKey(val) && element.get(val).getMock() && !invokeExprsOnMocks.contains(invkExpr)) { //may be an invocation on Mock
                             // System.out.println("InvokeExpr: " + invkExpr);
-                            myInvokeExprsOnMocks.add(invkExpr);
+                            invokeExprsOnMocks.add(invkExpr);
                         }
                     }
                 }
@@ -706,15 +700,19 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, FlowSet<Map<Value, M
     }
     
     public ArrayList<InvokeExpr> getTotalInvokeExprs() {
-        return myTotalInvokeExprs;
+        return totalInvokeExprs;
     }
     
     public ArrayList<InvokeExpr> getInvokeExprsOnMocks() {
-        return myInvokeExprsOnMocks;
+        return invokeExprsOnMocks;
     }
     
     public HashMap<Unit, HashMap<Value, MockStatus>> getMocks() {
         return mayMocks;
+    }
+    
+    public Map<Unit, FlowSet<Map<Value, MockStatus>>> getDefaultMocks() {
+        return unitToAfterFlow;
     }
     
     /*public HashMap<SootField, MockStatus> getFieldMocks() {
