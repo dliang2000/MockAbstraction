@@ -69,8 +69,10 @@ public class MockAnalysisMain extends SceneTransformer {
     
     private static final Logger logger = LoggerFactory.getLogger(PackManager.class);
     public static void main(String[] args) throws IOException {
-        PackManager.v().getPack("wjtp").add(new Transform("wjtp.initialTransform", new AnnotatedMockTransformer()) {
+        // Perform Analysis on field mocks defined through annotation and in <init> method
+        PackManager.v().getPack("wjtp").add(new Transform("wjtp.initialTransform", new AnnotatedAndInitMockTransformer()) {
         });
+        // Perform Analysis on field mocks defined in @Before methods (init() or setup())
         PackManager.v().getPack("wjtp").add(new Transform("wjtp.preTransform", new MockAnalysisPreTransformer()) {
         });
         PackManager.v().getPack("wjtp").add(new Transform("wjtp.myTransform", new MockAnalysisMain()) {
@@ -134,7 +136,7 @@ public class MockAnalysisMain extends SceneTransformer {
      */
     private static HashMap<SootMethod, ProcSummary> procSummaries;
         
-    private MockAnalysis myMAnalysis;
+    private MockAnalysis mockAnalysis;
         
     public MockAnalysisMain() {
         super();
@@ -149,7 +151,7 @@ public class MockAnalysisMain extends SceneTransformer {
 
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
-        int totalNumberOfTestRelatedMethods = MockAnalysisPreTransformer.getNumberOfBeforeMethods(), totalNumberOfHelperMethods = 0;
+        int totalNumberOfTestRelatedMethods = 0, totalNumberOfHelperMethods = 0;
     
         callGraph = Scene.v().getCallGraph();
      
@@ -169,7 +171,13 @@ public class MockAnalysisMain extends SceneTransformer {
             for (SootMethod method : sc.getMethods()) {   
                 if (method.hasActiveBody()) {
                     
-                    JimpleBody body = (JimpleBody) method.getActiveBody();
+                    // For testing
+                    /*JimpleBody body = (JimpleBody) method.getActiveBody();
+                    
+                    if ( method.getDeclaringClass().getName().contains("ParametersProviderTest") ) {
+                        G.v().out.println(body);
+                    }*/
+
 
                     /*Iterator<Edge> edges = callGraph.edgesOutOf(method);
                     
@@ -206,14 +214,14 @@ public class MockAnalysisMain extends SceneTransformer {
                     
                     aCfg = new ExceptionalUnitGraph(method.getActiveBody());
                     
-                    myMAnalysis = new MockAnalysis(aCfg, method);
-                    myMAnalysis.updateInvocations(aCfg);
+                    mockAnalysis = new MockAnalysis(aCfg, method, false);
+                    mockAnalysis.updateInvocations(aCfg);
                     
-                    mockSummary.setMocks( myMAnalysis.getMocks() );           
+                    mockSummary.setMocks( mockAnalysis.getMocks() );
                     
-                    mockSummary.setTotalInvokeExprs( myMAnalysis.getTotalInvokeExprs() );
+                    mockSummary.setTotalInvokeExprs( mockAnalysis.getTotalInvokeExprs() );
                     
-                    mockSummary.setInvokeExprsOnMocks( myMAnalysis.getInvokeExprsOnMocks() );
+                    mockSummary.setInvokeExprsOnMocks( mockAnalysis.getInvokeExprsOnMocks() );
                     
                     procSummaries.put(method, mockSummary);
                     

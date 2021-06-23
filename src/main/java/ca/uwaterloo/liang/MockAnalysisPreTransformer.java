@@ -30,7 +30,7 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
      */
     private static HashMap<SootClass, HashMap<SootField, MockStatus>> fieldMocks;
         
-    private MockAnalysis myMAnalysis;
+    private MockAnalysis mockAnalysis;
 
     public MockAnalysisPreTransformer() {
         super();
@@ -68,11 +68,11 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
                     
                     aCfg = new ExceptionalUnitGraph(method.getActiveBody());
                     
-                    myMAnalysis = new MockAnalysis(aCfg, method, true);
-                    myMAnalysis.updateInvocations(aCfg);
+                    mockAnalysis = new MockAnalysis(aCfg, method, true);
+                    mockAnalysis.updateInvocations(aCfg);
                     
                     // update fieldMocks from the output mayMocks analyzed from before method and init<> method
-                    HashMap<Unit, HashMap<Value, MockStatus>> mayMocks = myMAnalysis.getMocks();
+                    HashMap<Unit, HashMap<Value, MockStatus>> mayMocks = mockAnalysis.getMocks();
                     
                     for (Map.Entry<Unit, HashMap<Value, MockStatus>> entry : mayMocks.entrySet()) {
                         
@@ -86,22 +86,22 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
                                 FieldRef ref = (FieldRef) value;
                                 SootField sootField = ref.getField();
                                 fieldMap.put(sootField, ms);
-                                System.out.println("FieldMocks updated for SootField: " + sootField);
+                                System.out.println("FieldMocks updated for SootField in MockAnalysisPre: " + sootField);
                             }
                         }
                     }
                     
-                    if (!fieldMap.isEmpty()) {
-                        fieldMocks.put(sc, fieldMap);
-                    }
+                    mockSummary.setMocks( mockAnalysis.getMocks() );
                     
-                    mockSummary.setMocks( myMAnalysis.getMocks() );           
+                    mockSummary.setTotalInvokeExprs( mockAnalysis.getTotalInvokeExprs() );
                     
-                    mockSummary.setTotalInvokeExprs( myMAnalysis.getTotalInvokeExprs() );
-                    
-                    mockSummary.setInvokeExprsOnMocks( myMAnalysis.getInvokeExprsOnMocks() );
+                    mockSummary.setInvokeExprsOnMocks( mockAnalysis.getInvokeExprsOnMocks() );
                     
                     procSummaries.put(method, mockSummary);
+                }
+                
+                if (!fieldMap.isEmpty()) {
+                    fieldMocks.put(sc, fieldMap);
                 }
             }
         }

@@ -41,7 +41,7 @@ public class AnnotatedAndInitMockTransformer extends SceneTransformer {
      */
     private static HashMap<SootClass, HashMap<SootField, MockStatus>> fieldMocks;
         
-    private MockAnalysis myMAnalysis;
+    private MockAnalysis mockAnalysis;
     
     public AnnotatedAndInitMockTransformer() {
         super();
@@ -82,11 +82,11 @@ public class AnnotatedAndInitMockTransformer extends SceneTransformer {
                     
                     aCfg = new ExceptionalUnitGraph(method.getActiveBody());
                     
-                    myMAnalysis = new MockAnalysis(aCfg, method, true);
-                    myMAnalysis.updateInvocations(aCfg);
+                    mockAnalysis = new MockAnalysis(aCfg, method, true);
+                    mockAnalysis.updateInvocations(aCfg);
                     
                     // update fieldMocks from the output mayMocks analyzed from before method and init<> method
-                    HashMap<Unit, HashMap<Value, MockStatus>> mayMocks = myMAnalysis.getMocks();
+                    HashMap<Unit, HashMap<Value, MockStatus>> mayMocks = mockAnalysis.getMocks();
                     
                     HashMap<SootField, MockStatus> fieldMap = new HashMap<SootField, MockStatus>();
                     
@@ -112,11 +112,11 @@ public class AnnotatedAndInitMockTransformer extends SceneTransformer {
                         fieldMocks.put(sc, fieldMap);
                     }
                     
-                    mockSummary.setMocks( myMAnalysis.getMocks() );           
+                    mockSummary.setMocks( mockAnalysis.getMocks() );
                     
-                    mockSummary.setTotalInvokeExprs( myMAnalysis.getTotalInvokeExprs() );
+                    mockSummary.setTotalInvokeExprs( mockAnalysis.getTotalInvokeExprs() );
                     
-                    mockSummary.setInvokeExprsOnMocks( myMAnalysis.getInvokeExprsOnMocks() );
+                    mockSummary.setInvokeExprsOnMocks( mockAnalysis.getInvokeExprsOnMocks() );
                     
                     procSummaries.put(method, mockSummary);
                 }
