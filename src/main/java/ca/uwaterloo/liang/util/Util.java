@@ -22,6 +22,7 @@ import soot.Type;
 import soot.Unit;
 import soot.Value;
 import soot.VoidType;
+import soot.jimple.FieldRef;
 import soot.tagkit.AnnotationTag;
 import soot.toolkits.scalar.FlowSet;
 
@@ -63,13 +64,13 @@ public class Util {
                 if (pSmy == null) 
                     continue;
                 
-                HashMap<Unit, HashMap<Value, MockStatus>> mocks = pSmy.getMocks();
+                Map<Unit, Map<Value, MockStatus>> mocks = pSmy.getMocks();
                 
                 int[] curr_method_mock_info = new int[3];
                 
-                for (Map.Entry<Unit, HashMap<Value, MockStatus>> entry : mocks.entrySet()) {
+                for (Map.Entry<Unit, Map<Value, MockStatus>> entry : mocks.entrySet()) {
                     
-                    HashMap<Value, MockStatus> val = entry.getValue();
+                    Map<Value, MockStatus> val = entry.getValue();
                                     
                     for (Map.Entry<Value, MockStatus> curr : val.entrySet()) {
                         Value v = curr.getKey();
@@ -110,13 +111,13 @@ public class Util {
             if (pSmy == null) 
                 continue;
             
-            HashMap<Unit, HashMap<Value, MockStatus>> mocks = pSmy.getMocks();
+            Map<Unit, Map<Value, MockStatus>> mocks = pSmy.getMocks();
             
             int[] curr_method_mock_info = new int[3];
             
-            for (Map.Entry<Unit, HashMap<Value, MockStatus>> entry : mocks.entrySet()) {
+            for (Map.Entry<Unit, Map<Value, MockStatus>> entry : mocks.entrySet()) {
                 
-                HashMap<Value, MockStatus> val = entry.getValue();
+                Map<Value, MockStatus> val = entry.getValue();
                                 
                 for (Map.Entry<Value, MockStatus> curr : val.entrySet()) {
                     Value v = curr.getKey();
@@ -162,14 +163,14 @@ public class Util {
             if (pSmy == null) 
                 continue;
             
-            HashMap<Unit, HashMap<Value, MockStatus>> mocks = pSmy.getMocks();
+            Map<Unit, Map<Value, MockStatus>> mocks = pSmy.getMocks();
             
-            for (Map.Entry<Unit, HashMap<Value, MockStatus>> entry : mocks.entrySet()) {
+            for (Map.Entry<Unit, Map<Value, MockStatus>> entry : mocks.entrySet()) {
                 // How to print output?
                 Unit u = entry.getKey();
                 msg.append("Unit: ").append(u).append("\n"); 
                 
-                HashMap<Value, MockStatus> abstraction = entry.getValue();
+                Map<Value, MockStatus> abstraction = entry.getValue();
                 
                 
                 for (Map.Entry<Value, MockStatus> curr : abstraction.entrySet()) {
@@ -177,6 +178,10 @@ public class Util {
                     MockStatus ms = curr.getValue();
                     
                     msg.append("Value: ").append(value).append("\n");
+                    /*if (value instanceof FieldRef) {
+                        msg.append("Field Ref: true").append("\n");
+                        msg.append("SootField: ").append(((FieldRef) value).getField()).append("\n");
+                    }*/
                     
                     if (ms.getMock()) {
                         msg.append("May Mock: true").append("\n\n");
@@ -186,7 +191,7 @@ public class Util {
                     }
                     if (ms.getCollectionMock()) {
                         msg.append("Collection Mock: true").append("\n\n");
-                    }
+                    }                   
                 }
             }   
             
@@ -207,7 +212,7 @@ public class Util {
     
     public static boolean isDefaultInitMethod(SootMethod sm) {
         if ( sm.getName().contains("<init>") && sm.getParameterCount() == 0 && sm.getReturnType() instanceof VoidType) {
-            //System.out.println("Test case found: " + sm.getSubSignature());
+            System.out.println("<init> case found: " + sm.getSubSignature());
             return true;
         }
         return false;

@@ -86,13 +86,13 @@ public class AnnotatedAndInitMockTransformer extends SceneTransformer {
                     mockAnalysis.updateInvocations(aCfg);
                     
                     // update fieldMocks from the output mayMocks analyzed from before method and init<> method
-                    HashMap<Unit, HashMap<Value, MockStatus>> mayMocks = mockAnalysis.getMocks();
+                    Map<Unit, Map<Value, MockStatus>> mayMocks = mockAnalysis.getMocks();
                     
                     HashMap<SootField, MockStatus> fieldMap = new HashMap<SootField, MockStatus>();
                     
-                    for (Map.Entry<Unit, HashMap<Value, MockStatus>> entry : mayMocks.entrySet()) {
+                    for (Map.Entry<Unit, Map<Value, MockStatus>> entry : mayMocks.entrySet()) {
                         
-                        HashMap<Value, MockStatus> abstraction = entry.getValue();
+                        Map<Value, MockStatus> abstraction = entry.getValue();
                         
                         for (Map.Entry<Value, MockStatus> curr : abstraction.entrySet()) {
                             Value value = curr.getKey();

@@ -15,13 +15,13 @@ import soot.toolkits.scalar.FlowSet;
 
 public class ProcSummary {
     
-    private static HashMap<Unit, HashMap<Value, MockStatus>> emptyPossiblyMocks = new HashMap<Unit, HashMap<Value, MockStatus>>();
+    private static Map<Unit, Map<Value, MockStatus>> emptyPossiblyMocks = new HashMap<Unit, Map<Value, MockStatus>>();
     
     private static ArrayList<InvokeExpr> emptyInvokeExprs = new ArrayList<InvokeExpr>();
     
     private static ArrayList<InvokeExpr> emptyInvokeExprsOnMocks = new ArrayList<InvokeExpr>();
     
-    private HashMap<Unit, HashMap<Value, MockStatus>> mocks;
+    private Map<Unit, Map<Value, MockStatus>> mocks;
     //Contains all method invocations
     private ArrayList<InvokeExpr> myTotalInvokeExprs;
     //Contains all method invocations on mocks
@@ -32,11 +32,11 @@ public class ProcSummary {
     public ProcSummary(SootMethod aSootMethod) {
         mySootMethod = aSootMethod;
         
-        mocks = (HashMap<Unit, HashMap<Value, MockStatus>>) emptyPossiblyMocks.clone();
+        mocks = emptyPossiblyMocks;
         
-        myTotalInvokeExprs = (ArrayList<InvokeExpr>) emptyInvokeExprs.clone();
+        myTotalInvokeExprs = emptyInvokeExprs;
         
-        myInvokeExprsOnMocks = (ArrayList<InvokeExpr>) emptyInvokeExprsOnMocks.clone();
+        myInvokeExprsOnMocks = emptyInvokeExprsOnMocks;
     }
     
     public SootMethod getSootMethod() {
@@ -47,11 +47,11 @@ public class ProcSummary {
         this.mySootMethod = mySootMethod;
     }
 
-    public HashMap<Unit, HashMap<Value, MockStatus>> getMocks() {
+    public Map<Unit, Map<Value, MockStatus>> getMocks() {
         return mocks;
     }
 
-    public void setMocks(HashMap<Unit, HashMap<Value, MockStatus>> mocks) {
+    public void setMocks(Map<Unit, Map<Value, MockStatus>> mocks) {
         this.mocks = mocks;
     }
     
