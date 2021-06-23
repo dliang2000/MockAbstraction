@@ -62,9 +62,9 @@ or if you want to run Mock Analysis for all benchmarks:
 | jsonschema2pojo-core-1.1.1 | 8233 | 5348 | 2885 | 218 | 756 | 783 |
 | maven-core-3.8.1 | 38866 | 27762 | 11104 | 275 | 526 | 511 |
 | microbenchmark | 559 | 68 | 491 | 52 | 193 | 192 |
-| mybatis-3.5.6 | 68268 | 21934 | 46334 | TBD | 3800 | 3640 |
-| quartz-core-2.3.1 | 35355 | 26932 | 8423 | TBD | 779 | 727 |
-| vraptor-core-3.5.5 | 34244 | 14111 | 20133 | TBD | 1386 | 1504 |
+| mybatis-3.5.6 | 68268 | 21934 | 46334 | 486 | 3800 | 3640 |
+| quartz-core-2.3.1 | 35355 | 26932 | 8423 | 187 | 779 | 727 |
+| vraptor-core-3.5.5 | 34244 | 14111 | 20133 | 225 | 1386 | 1504 |
 | Total | 383638 | 199625 | 184013 | TBD | TBD | TBD |
 
 
