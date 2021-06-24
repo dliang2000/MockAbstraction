@@ -58,7 +58,7 @@ or if you want to run Mock Analysis for all benchmarks:
 | --- | --: | --: | --: | --: | --: | --: |
 | bootique-2.0.B1-bootique | 15530 | 6935 | 8595 | 52 | 2730 | 2501 |
 | commons-collections4-4.4 | 65273 | 28955 | 36318 | 101 | 453 | 455 |
-| flink-core-1.13.0-rc1 | 117310 | 67580 | 49730 | 324 | 1387 | 1465 |
+| flink-core-1.13.0-rc1 | 117310 | 67580 | 49730 | 282 | 1387 | 1465 |
 | jsonschema2pojo-core-1.1.1 | 8233 | 5348 | 2885 | 218 | 756 | 783 |
 | maven-core-3.8.1 | 38866 | 27762 | 11104 | 275 | 526 | 511 |
 | microbenchmark | 559 | 68 | 491 | 52 | 193 | 192 |
@@ -89,7 +89,7 @@ or if you want to run Mock Analysis for all benchmarks:
 | bootique-2.0.B1-bootique | 420 | 32 | 7 | 0 | 223 | 6 | 0 | 0 |
 | commons-collections4-4.4 | 1152 | 3 | 1 | 1 | 1096 | 2 | 2 | 0 |
 | flink-core-1.13.0-rc1 | 1091 | 4 | 0 | 0 | 406 | 0 | 0 | 0 |
-| jsonschema2pojo-core-1.1.1 | 145 | 48 | 1 | 0 | 54 | 16 | 0 | 0 |
+| jsonschema2pojo-core-1.1.1 | 145 | 76 | 1 | 0 | 54 | 16 | 0 | 0 |
 | maven-core-3.8.1 | 337 | 24 | 0 | 0 | 125 | 2 | 0 | 0 |
 | microbenchmark | 57 | 42 | 7 | 25 | 18 | 2 | 1 | 0 |
 | mybatis-3.5.6 | 1769 | 330 | 3 | 0 | 599 | 4 | 0 | 0 |
@@ -104,7 +104,7 @@ or if you want to run Mock Analysis for all benchmarks:
 | bootique-2.0.B1-bootique | 3366 | 99 | 99 |
 | commons-collections4-4.4 | 12753 | 14 | 3 |
 | flink-core-1.13.0-rc1 | 11923 | 40 | 40 |
-| jsonschema2pojo-core-1.1.1 | 1896 | 267 | 282 |
+| jsonschema2pojo-core-1.1.1 | 1896 | 276 | 282 |
 | maven-core-3.8.1 | 4072 | 23 | 23 |
 | microbenchmark | 465 | 112 | 122 |
 | mybatis-3.5.6 | 19232 | 575 | 577 |
