@@ -56,15 +56,15 @@ or if you want to run Mock Analysis for all benchmarks:
 
 | Benchmark | LOC Total | LOC (Main) | LOC (Test) | Soot Runtime (s) | doop Runtime - NORMAL (s) | doop Runtime - NO_INTERPROC (s) |
 | --- | --: | --: | --: | --: | --: | --: |
-| bootique-2.0.B1-bootique | 15530 | 6935 | 8595 | 52 | 2730 | 2501 |
-| commons-collections4-4.4 | 65273 | 28955 | 36318 | 101 | 453 | 455 |
+| bootique-2.0.B1-bootique | 15530 | 6935 | 8595 | 59 | 2730 | 2501 |
+| commons-collections4-4.4 | 65273 | 28955 | 36318 | 88 | 453 | 455 |
 | flink-core-1.13.0-rc1 | 117310 | 67580 | 49730 | 282 | 1387 | 1465 |
-| jsonschema2pojo-core-1.1.1 | 8233 | 5348 | 2885 | 218 | 756 | 783 |
-| maven-core-3.8.1 | 38866 | 27762 | 11104 | 275 | 526 | 511 |
-| microbenchmark | 559 | 68 | 491 | 52 | 193 | 192 |
-| mybatis-3.5.6 | 68268 | 21934 | 46334 | 486 | 3800 | 3640 |
-| quartz-core-2.3.1 | 35355 | 26932 | 8423 | 187 | 779 | 727 |
-| vraptor-core-3.5.5 | 34244 | 14111 | 20133 | 225 | 1386 | 1504 |
+| jsonschema2pojo-core-1.1.1 | 8233 | 5348 | 2885 | 187 | 756 | 783 |
+| maven-core-3.8.1 | 38866 | 27762 | 11104 | 169 | 526 | 511 |
+| microbenchmark | 559 | 68 | 491 | 50 | 193 | 192 |
+| mybatis-3.5.6 | 68268 | 21934 | 46334 | 391 | 3800 | 3640 |
+| quartz-core-2.3.1 | 35355 | 26932 | 8423 | 210 | 779 | 727 |
+| vraptor-core-3.5.5 | 34244 | 14111 | 20133 | 177 | 1386 | 1504 |
 | Total | 383638 | 199625 | 184013 | TBD | TBD | TBD |
 
 
@@ -102,11 +102,11 @@ or if you want to run Mock Analysis for all benchmarks:
 | Benchmark | Total Number of Invocations | Number of Invocations on Mocks (Soot) | Number of Invocations on Mocks (Doop) |
 | --- | --: | --: | --: |
 | bootique-2.0.B1-bootique | 3366 | 99 | 99 |
-| commons-collections4-4.4 | 12753 | 14 | 3 |
+| commons-collections4-4.4 | 12753 | 11 | 3 |
 | flink-core-1.13.0-rc1 | 11923 | 40 | 40 |
 | jsonschema2pojo-core-1.1.1 | 1896 | 276 | 282 |
 | maven-core-3.8.1 | 4072 | 23 | 23 |
-| microbenchmark | 465 | 112 | 122 |
+| microbenchmark | 465 | 107 | 122 |
 | mybatis-3.5.6 | 19232 | 575 | 577 |
 | quartz-core-2.3.1 | 3436 | 21 | 21 |
 | vraptor-core-3.5.51 | 5868 | 942 | 962 |
