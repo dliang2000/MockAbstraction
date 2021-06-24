@@ -61,7 +61,7 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
             //|| Util.isDefaultInitMethod(method) )
             for (SootMethod method : sc.getMethods()) {
                 if ( Util.isBeforeMethod(method)  && method.hasActiveBody()) {
-                    
+                     
                     //totalNumberofBeforeMethods++;
                     
                     mockSummary = new ProcSummary(method);
@@ -69,7 +69,6 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
                     aCfg = new ExceptionalUnitGraph(method.getActiveBody());
                     
                     mockAnalysis = new MockAnalysis(aCfg, method, true);
-                    mockAnalysis.updateInvocations(aCfg);
                     
                     // update fieldMocks from the output mayMocks analyzed from before method and init<> method
                     Map<Unit, Map<Value, MockStatus>> mayMocks = mockAnalysis.getMocks();
@@ -81,7 +80,8 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
                         for (Map.Entry<Value, MockStatus> curr : abstraction.entrySet()) {
                             Value value = curr.getKey();
                             MockStatus ms = curr.getValue();
-                            
+                            //System.out.println("In MOckAnalysisPreTransformer, Unit: " + entry.getKey());
+                            //System.out.println("curr_value: " + value);
                             if (value instanceof FieldRef) {
                                 FieldRef ref = (FieldRef) value;
                                 SootField sootField = ref.getField();

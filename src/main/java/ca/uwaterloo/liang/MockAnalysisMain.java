@@ -215,7 +215,6 @@ public class MockAnalysisMain extends SceneTransformer {
                     aCfg = new ExceptionalUnitGraph(method.getActiveBody());
                     
                     mockAnalysis = new MockAnalysis(aCfg, method, false);
-                    mockAnalysis.updateInvocations(aCfg);
                     
                     mockSummary.setMocks( mockAnalysis.getMocks() );
                     

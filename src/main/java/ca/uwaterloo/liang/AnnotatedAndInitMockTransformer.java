@@ -83,7 +83,6 @@ public class AnnotatedAndInitMockTransformer extends SceneTransformer {
                     aCfg = new ExceptionalUnitGraph(method.getActiveBody());
                     
                     mockAnalysis = new MockAnalysis(aCfg, method, true);
-                    mockAnalysis.updateInvocations(aCfg);
                     
                     // update fieldMocks from the output mayMocks analyzed from before method and init<> method
                     Map<Unit, Map<Value, MockStatus>> mayMocks = mockAnalysis.getMocks();
@@ -92,13 +91,14 @@ public class AnnotatedAndInitMockTransformer extends SceneTransformer {
                     
                     for (Map.Entry<Unit, Map<Value, MockStatus>> entry : mayMocks.entrySet()) {
                         
+                        //System.out.println("getMocks() returns non-empty.");
                         Map<Value, MockStatus> abstraction = entry.getValue();
                         
                         for (Map.Entry<Value, MockStatus> curr : abstraction.entrySet()) {
                             Value value = curr.getKey();
                             MockStatus ms = curr.getValue();
-                            
-                            
+                           // System.out.println("In AnnotatedAndInitMockTransformer, Unit: " + entry.getKey());
+                            //System.out.println("curr_value: " + value);
                             if (value instanceof FieldRef) {
                                 FieldRef ref = (FieldRef) value;
                                 SootField sootField = ref.getField();

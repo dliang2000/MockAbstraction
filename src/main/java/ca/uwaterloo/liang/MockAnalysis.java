@@ -83,21 +83,27 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
     public MockAnalysis(ExceptionalUnitGraph graph, SootMethod aCurrentSootMethod, boolean isPre) {
         super(graph);
         
-        clazz = aCurrentSootMethod.getDeclaringClass();
+        this.clazz = aCurrentSootMethod.getDeclaringClass();
         
-        method = aCurrentSootMethod;
+        this.method = aCurrentSootMethod;
         
-        isInPreAnalysis = isPre;
+        this.isInPreAnalysis = isPre;
         
-        totalInvokeExprs = (ArrayList<InvokeExpr>) emptyInvokeExprs.clone();
+        this.totalInvokeExprs = (ArrayList<InvokeExpr>) emptyInvokeExprs.clone();
         
-        invokeExprsOnMocks = (ArrayList<InvokeExpr>) emptyInvokeExprsOnMocks.clone();
+        this.invokeExprsOnMocks = (ArrayList<InvokeExpr>) emptyInvokeExprsOnMocks.clone();
         
-        localFieldRefMap = (HashMap<Value, Value>) emptyLocalFieldRefMap.clone();
+        this.localFieldRefMap = (HashMap<Value, Value>) emptyLocalFieldRefMap.clone();
 
-        unitToAfterFlow = new HashMap<Unit, Map<Value, MockStatus>>();
-             
+        this.unitToAfterFlow = new HashMap<Unit, Map<Value, MockStatus>>();
+        
+        System.out.println("unitToAfterFlow size before doAnalysis: " + unitToAfterFlow.keySet().size());
+        
         doAnalysis();
+        
+        System.out.println("unitToAfterFlow size after doAnalysis: " + unitToAfterFlow.keySet().size());
+        
+        updateInvocations();
     }
     
     @Override
@@ -113,8 +119,11 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
     
     @Override
     protected void flowThrough(Map<Value, MockStatus> in, Unit unit, Map<Value, MockStatus> out) { 
-        System.out.println("In flowThrough, method: " + method.getSignature());
-        System.out.println("In flowThrough, Unit: " + unit);
+        //System.out.println("In flowThrough, method: " + method.getSignature());
+        //System.out.println("In flowThrough, Unit: " + unit);
+        
+        // copy in to out
+        out.putAll(in);
         // Performs kills
         kill(in, unit, out);
         // Performs gens
@@ -125,6 +134,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
         propagateMocknessToContainingArray(in, unit, out);
         // Find collection container stores mayMock objects.
         propagateMocknessToContainingCollection(in, unit, out);
+        
+        //unitToAfterFlow.put(unit,  out);
     }
 
     /**
@@ -269,7 +280,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
                     }
                     if ( (Util.isBeforeMethod(method) || Util.isDefaultInitMethod(method)) &&
                             localFieldRefMap.containsKey(left_op)) {
-                        out.put(localFieldRefMap.get(left_op), in.get(right_op));
+                        out.put(localFieldRefMap.get(left_op), in.get(left_op));
                     }
                 }
             }
@@ -587,10 +598,15 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
         }   
     }
     
-    public void updateInvocations(ExceptionalUnitGraph graph) {
-        UnitPatchingChain units = graph.getBody().getUnits();
+    public void updateInvocations() {
+        UnitPatchingChain units = ((UnitGraph) this.graph).getBody().getUnits();
         
         for (Unit unit : units) {
+            System.out.println("Unit in updateInvocations: " + unit);
+            Map<Value, MockStatus> temp = getFlowAfter(unit);
+            System.out.println("keySet size: " + temp.keySet().size());
+            
+                       
             Stmt aStmt = (Stmt) unit;
             if (aStmt.containsInvokeExpr()) {
                 InvokeExpr invkExpr = aStmt.getInvokeExpr();
@@ -602,11 +618,18 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
                     InstanceInvokeExpr iie = (InstanceInvokeExpr) invkExpr;
                     Value val = iie.getBase();
                     
+                    System.out.println("Base Value: " + val);
+                    
                     Map<Value, MockStatus> currMap = getFlowAfter(unit);
                     
-                    if (currMap.containsKey(val)) {
-                        System.out.println("val: " + val);
+                    //System.out.println("keySet size: " + currMap.keySet().size());
+                    for (Value key : currMap.keySet()) {
+                        System.out.println("Value in the unitToAfterFlow for the unit: " + key);
                     }
+                    
+                    /*if (currMap.containsKey(val)) {
+                        System.out.println("val: " + val);
+                    }*/
                     
                     if (currMap.containsKey(val) && currMap.get(val).getMock() && !invokeExprsOnMocks.contains(invkExpr)) {
                         invokeExprsOnMocks.add(invkExpr);
@@ -626,8 +649,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
     }
     
     public Map<Unit, Map<Value, MockStatus>> getMocks() {
-        System.out.println("In getMocks(), method: " + method.getSignature());
-        return unitToAfterFlow;
+        //System.out.println("In getMocks(), method: " + method.getSignature());
+        return this.unitToAfterFlow;
     }
     
     /*public HashMap<SootField, MockStatus> getFieldMocks() {
@@ -638,9 +661,9 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
     protected void merge(Map<Value, MockStatus> in1, Map<Value, MockStatus> in2, Map<Value, MockStatus> out) {
         out.putAll(in1);
         
-        for (Map.Entry<Value, MockStatus> entry : in2.entrySet()) {
+        /*for (Map.Entry<Value, MockStatus> entry : in2.entrySet()) {
             out.put(entry.getKey(), entry.getValue());
-        }
+        }*/
     }
     
     @Override
@@ -663,7 +686,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
         ExceptionalUnitGraph targetCfg = new ExceptionalUnitGraph(targetMethod.getActiveBody());
         
         MockAnalysis targetMAnalysis = new MockAnalysis(targetCfg, targetMethod, false);
-        targetMAnalysis.updateInvocations(targetCfg);
+        targetMAnalysis.updateInvocations();
         
         targetSummary.setMocks( targetMAnalysis.getMocks() );           
         
