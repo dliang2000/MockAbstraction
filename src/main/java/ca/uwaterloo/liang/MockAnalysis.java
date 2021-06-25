@@ -31,10 +31,7 @@ import soot.jimple.InstanceInvokeExpr;
 import soot.jimple.InvokeExpr;
 import soot.jimple.ReturnStmt;
 import soot.jimple.Stmt;
-import soot.jimple.toolkits.annotation.parity.ParityAnalysis.Parity;
 import soot.toolkits.graph.*;
-import soot.toolkits.scalar.ArraySparseSet;
-import soot.toolkits.scalar.FlowSet;
 import soot.toolkits.scalar.ForwardFlowAnalysis;
 
 /**
@@ -134,8 +131,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
         propagateMocknessToContainingArray(in, unit, out);
         // Find collection container stores mayMock objects.
         propagateMocknessToContainingCollection(in, unit, out);
-        
-        //unitToAfterFlow.put(unit,  out);
+
     }
 
     /**
@@ -161,7 +157,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
 
     /**
      * Add locals which are assigned to the return value 
-     * from mock creation API to out FlowSet
+     * from mock creation API to out Map
      */
     private void gen(Map<Value, MockStatus> in, Unit unit, Map<Value, MockStatus> out) {
         Stmt aStmt = (Stmt) unit;
@@ -248,7 +244,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
         if (aStmt instanceof AssignStmt) {
             AssignStmt assign = (AssignStmt) aStmt;
             
-            // Preliminary : Perform this FieldRef check in Before methods
+            // Preliminary : Perform this FieldRef check in Before methods 
+            // Look for: local = x.f 
             if ( (assign.getLeftOp() instanceof Local && assign.getRightOp() instanceof FieldRef) &&
                    (Util.isBeforeMethod(method) || Util.isDefaultInitMethod(method)) ) {
                 Value localVal = assign.getLeftOp();
@@ -257,7 +254,8 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
                 localFieldRefMap.put(localVal, fieldRef);
             }
             
-            // Looking for: x.f = local (where the left_op is a fieldRef and right side is 
+            // Preliminary : Perform this FieldRef check in Before methods
+            // Look for: x.f = local
             if ( (assign.getLeftOp() instanceof FieldRef && assign.getRightOp() instanceof Local) &&
                     (Util.isBeforeMethod(method) || Util.isDefaultInitMethod(method)) ) {
                  Value localVal = assign.getRightOp();
@@ -266,6 +264,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
                  localFieldRefMap.put(localVal, fieldRef);
             }
             
+            // Resolve for the case: x = r1 or x = r1.f
             if (assign.getRightOp() instanceof Local || assign.getRightOp() instanceof FieldRef) {
                 Value right_op = assign.getRightOp();
                 if (in.containsKey(right_op)) {                                            
@@ -363,7 +362,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
     
     /**
      * Add locals that are CastExpr of mayMock locals
-     * to the out FlowSet
+     * to the out Map
      */
     private void genCastExprLocal(Map<Value, MockStatus> in, Unit unit, Map<Value, MockStatus> out) {
         if (unit instanceof AssignStmt) {
@@ -490,8 +489,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
                             //G.v().out.println("InnerBox value: " + (Local) innerBox.getValue());
                             vals.add(innerBox.getValue());
                         }
-                        
-                        
+                                               
                         
                         /*RefType ref = (RefType) innerBox.getValue().getType();
                         SootClass sc = ref.getSootClass();
@@ -618,17 +616,13 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
                     InstanceInvokeExpr iie = (InstanceInvokeExpr) invkExpr;
                     Value val = iie.getBase();
                     
-                    System.out.println("Base Value: " + val);
+                    //System.out.println("Base Value: " + val);
                     
                     Map<Value, MockStatus> currMap = getFlowAfter(unit);
                     
                     //System.out.println("keySet size: " + currMap.keySet().size());
-                    for (Value key : currMap.keySet()) {
+                    /*for (Value key : currMap.keySet()) {
                         System.out.println("Value in the unitToAfterFlow for the unit: " + key);
-                    }
-                    
-                    /*if (currMap.containsKey(val)) {
-                        System.out.println("val: " + val);
                     }*/
                     
                     if (currMap.containsKey(val) && currMap.get(val).getMock() && !invokeExprsOnMocks.contains(invkExpr)) {
@@ -659,11 +653,32 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
     
     @Override
     protected void merge(Map<Value, MockStatus> in1, Map<Value, MockStatus> in2, Map<Value, MockStatus> out) {
-        out.putAll(in1);
         
-        /*for (Map.Entry<Value, MockStatus> entry : in2.entrySet()) {
-            out.put(entry.getKey(), entry.getValue());
-        }*/
+        for (Value var1 : in1.keySet()) {
+            MockStatus status1 = in1.get(var1);
+            
+            MockStatus status2 = in2.get(var1);
+            
+            if (status2 == null) { 
+                // when status2 is null
+                out.put(var1, status1);
+            } else if ( status1.getMock() || status2.getMock() ) { 
+                // when either status1 or status2 is a mayMock
+                MockStatus statusMock = new MockStatus(true);
+                out.put(var1, statusMock);
+            } else if ( status1.getArrayMock() || status2.getArrayMock() ) {
+                // when either status1 or status2 is an arrayMock
+                MockStatus statusArrayMock = new MockStatus(false, true, false);
+                out.put(var1, statusArrayMock);
+            } else if ( status1.getCollectionMock() || status2.getCollectionMock() ) {
+             // when either status1 or status2 is an collectionMock
+                MockStatus statusCollectionyMock = new MockStatus(false, false, true);
+                out.put(var1, statusCollectionyMock);
+            } else {
+                // when status1 is null
+                out.put(var1, status2);
+            }
+        }
     }
     
     @Override
@@ -671,13 +686,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
         destOut.clear();
         destOut.putAll(srcIn);
     }
-    
-//    @Override
-//    public FlowSet<Map<Local, MockStatus>> getFlowAfter(Unit u) {
-//        
-//        return null;
-//        
-//    }
     
     private static void runMockAnalysisForTarget(HashMap<SootMethod, ProcSummary> procSummaries, 
                                                                     SootClass targetClass, SootMethod targetMethod) {
