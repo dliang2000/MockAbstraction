@@ -91,8 +91,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
         this.invokeExprsOnMocks = (ArrayList<InvokeExpr>) emptyInvokeExprsOnMocks.clone();
         
         this.localFieldRefMap = (HashMap<Value, Value>) emptyLocalFieldRefMap.clone();
-
-        this.unitToAfterFlow = new HashMap<Unit, Map<Value, MockStatus>>();
         
         System.out.println("unitToAfterFlow size before doAnalysis: " + unitToAfterFlow.keySet().size());
         
@@ -696,7 +694,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
         ExceptionalUnitGraph targetCfg = new ExceptionalUnitGraph(targetMethod.getActiveBody());
         
         MockAnalysis targetMAnalysis = new MockAnalysis(targetCfg, targetMethod, false);
-        targetMAnalysis.updateInvocations();
         
         targetSummary.setMocks( targetMAnalysis.getMocks() );           
         
