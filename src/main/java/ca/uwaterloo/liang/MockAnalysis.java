@@ -653,30 +653,32 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
     
     @Override
     protected void merge(Map<Value, MockStatus> in1, Map<Value, MockStatus> in2, Map<Value, MockStatus> out) {
-        
-        for (Value var1 : in1.keySet()) {
-            MockStatus status1 = in1.get(var1);
+        ArrayList<Value> mergeList = new ArrayList<Value>();
+        mergeList.addAll(in1.keySet());
+        mergeList.addAll(in2.keySet());
+        for (Value val : mergeList) {
+            MockStatus status1 = in1.get(val);
             
-            MockStatus status2 = in2.get(var1);
+            MockStatus status2 = in2.get(val);
             
             if (status2 == null) { 
                 // when status2 is null
-                out.put(var1, status1);
+                out.put(val, status1);
             } else if ( status1.getMock() || status2.getMock() ) { 
                 // when either status1 or status2 is a mayMock
                 MockStatus statusMock = new MockStatus(true);
-                out.put(var1, statusMock);
+                out.put(val, statusMock);
             } else if ( status1.getArrayMock() || status2.getArrayMock() ) {
                 // when either status1 or status2 is an arrayMock
                 MockStatus statusArrayMock = new MockStatus(false, true, false);
-                out.put(var1, statusArrayMock);
+                out.put(val, statusArrayMock);
             } else if ( status1.getCollectionMock() || status2.getCollectionMock() ) {
              // when either status1 or status2 is an collectionMock
                 MockStatus statusCollectionyMock = new MockStatus(false, false, true);
-                out.put(var1, statusCollectionyMock);
+                out.put(val, statusCollectionyMock);
             } else {
                 // when status1 is null
-                out.put(var1, status2);
+                out.put(val, status2);
             }
         }
     }
