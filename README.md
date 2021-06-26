@@ -95,7 +95,7 @@ or if you want to run Mock Analysis for all benchmarks:
 | mybatis-3.5.6 | 1769 | 330 | 3 | 0 | 599 | 4 | 0 | 0 |
 | quartz-core-2.3.1 | 218 | 7 | 0 | 0 | 103 | 1 | 0 | 0 |
 | vraptor-core-3.5.5 | 1119 | 565 | 15 | 0 | 229 | 12 | 0 | 0 |
-| Total | 6308 | 1055 | 34 | 26 | 2853 | 45 | 3 | 0 |
+| Total | 6308 | 1083 | 34 | 26 | 2853 | 45 | 3 | 0 |
 
 
 ## Mock Analysis - Analyzing InvokeExpr results (May Analysis, Intraprocedural)
@@ -110,7 +110,7 @@ or if you want to run Mock Analysis for all benchmarks:
 | mybatis-3.5.6 | 19232 | 575 | 577 |
 | quartz-core-2.3.1 | 3436 | 21 | 21 |
 | vraptor-core-3.5.51 | 5868 | 942 | 962 |
-| Total | 63011 | 2042 | 2124 |
+| Total | 63011 | 2094 | 2124 |
 
 
 ## Manual Inspection on microbenchmark  (Intraprocedural)
