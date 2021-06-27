@@ -1,6 +1,7 @@
 package ca.liang;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.mockito.Mockito.*;
 
 import java.util.ArrayList;
@@ -23,6 +24,8 @@ public class PayRollMockTest {
     private BankService bankService;
 
     private List<Employee> employees;
+
+    private boolean flag;
     
     // Contains Mock object
     @Before
@@ -38,6 +41,17 @@ public class PayRollMockTest {
         payRoll = new PayRoll(employeeDB, bankService);
     }
     // total mock calls: 1
+
+    @Test
+    public void testMerge() {
+        Object m = mock(Object.class);
+        if (flag) {
+            m = null;
+        } else {
+            m = new Object();
+        }
+        assertFalse(m.equals(null));
+    }
 
     @Test
     public void testNoEmployees() {
