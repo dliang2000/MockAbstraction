@@ -77,9 +77,15 @@ public enum CollectionModelEffect {
                                                        "java.lang.Object lower(java.lang.Object)"))),
     
     ADDALL (new ArrayList<String> (Arrays.asList("boolean addAll(java.util.Collection)",
-                                                 "boolean addAll(int,java.util.Collection)",
-                                                 "void <init>(java.util.PriorityQueue)",
-                                                 "void <init>(java.util.SortedSet)")));
+                                                           "boolean addAll(int,java.util.Collection)"))), 
+    
+    QUEUE_SET_ADDALL (new ArrayList<String> (Arrays.asList("void <init>(java.util.PriorityQueue)",
+                                                           "void <init>(java.util.SortedSet)"))),
+    
+    TOARRAY (new ArrayList<String> (Arrays.asList("java.lang.Object[] toArray()",
+                                                  "java.lang.Object[] toArray(java.lang.Object[])")));
+    
+    
     
 
     private final List<String> methods;
