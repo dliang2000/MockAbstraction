@@ -54,18 +54,18 @@ or if you want to run Mock Analysis for all benchmarks:
 
 ## LOC and Runtime Information for benchmarks
 
-| Benchmark | LOC Total | LOC (Main) | LOC (Test) | Soot Runtime (s) | doop Runtime - NORMAL (s) | doop Runtime - NO_INTERPROC (s) |
-| --- | --: | --: | --: | --: | --: | --: |
-| bootique-2.0.B1-bootique | 15530 | 6935 | 8595 | 59 | 2730 | 2501 |
-| commons-collections4-4.4 | 65273 | 28955 | 36318 | 88 | 453 | 455 |
-| flink-core-1.13.0-rc1 | 117310 | 67580 | 49730 | 282 | 1387 | 1465 |
-| jsonschema2pojo-core-1.1.1 | 8233 | 5348 | 2885 | 187 | 756 | 783 |
-| maven-core-3.8.1 | 38866 | 27762 | 11104 | 169 | 526 | 511 |
-| microbenchmark | 559 | 68 | 491 | 50 | 193 | 192 |
-| mybatis-3.5.6 | 68268 | 21934 | 46334 | 391 | 3800 | 3640 |
-| quartz-core-2.3.1 | 35355 | 26932 | 8423 | 210 | 779 | 727 |
-| vraptor-core-3.5.5 | 34244 | 14111 | 20133 | 177 | 1386 | 1504 |
-| Total | 383638 | 199625 | 184013 | TBD | TBD | TBD |
+| Benchmark | LOC Total | LOC (Main) | LOC (Test) | Soot Runtime (s) | Doop runtime on mock.dl | Doop runtime on NO_INTERPROC mock | Doop Total Runtime - NORMAL (s) | Doop Total Runtime - NO_INTERPROC (s) |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: |
+| bootique-2.0.B1-bootique | 15530 | 6935 | 8595 | 59 | 315 | 86 | 2730 | 2501 |
+| commons-collections4-4.4 | 65273 | 28955 | 36318 | 88 | 51 | 53 | 453 | 455 |
+| flink-core-1.13.0-rc1 | 117310 | 67580 | 49730 | 282 | 116 | 194 | 1387 | 1465 |
+| jsonschema2pojo-core-1.1.1 | 8233 | 5348 | 2885 | 187 | 153 | 180 | 756 | 783 |
+| maven-core-3.8.1 | 38866 | 27762 | 11104 | 169 | 111 | 126 | 511 | 526 |
+| microbenchmark | 559 | 68 | 491 | 50 | 25 | 24 | 193 | 192 |
+| mybatis-3.5.6 | 68268 | 21934 | 46334 | 391 | 504 | 344 | 3800 | 3640 |
+| quartz-core-2.3.1 | 35355 | 26932 | 8423 | 210 | 92 | 40 | 779 | 727 |
+| vraptor-core-3.5.5 | 34244 | 14111 | 20133 | 177 | 133 | 251 | 1386 | 1504 |
+| Total | 383638 | 199625 | 184013 | TBD | 1500 | 1298 | TBD | TBD |
 
 
 ## Field Mutation Data
