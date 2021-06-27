@@ -30,6 +30,8 @@ import soot.Scene;
 import soot.SceneTransformer;
 import soot.SootClass;
 import soot.SootMethod;
+import soot.Timer;
+import soot.Timers;
 import soot.Transform;
 import soot.Transformer;
 import soot.Unit;
@@ -68,6 +70,13 @@ public class MockAnalysisMain extends SceneTransformer {
     boolean verbose = true;
     
     private static final Logger logger = LoggerFactory.getLogger(PackManager.class);
+    
+    private long startNano;
+    
+    private long finishNano;
+    
+    public Timer mainTimer = new soot.Timer();
+    
     public static void main(String[] args) throws IOException {
         // Perform Analysis on field mocks defined through annotation and in <init> method
         PackManager.v().getPack("wjtp").add(new Transform("wjtp.initialTransform", new AnnotatedAndInitMockTransformer()) {
@@ -75,8 +84,10 @@ public class MockAnalysisMain extends SceneTransformer {
         // Perform Analysis on field mocks defined in @Before methods (init() or setup())
         PackManager.v().getPack("wjtp").add(new Transform("wjtp.preTransform", new MockAnalysisPreTransformer()) {
         });
+
         PackManager.v().getPack("wjtp").add(new Transform("wjtp.myTransform", new MockAnalysisMain()) {
         });
+
         Options.v().set_prepend_classpath(true);
         Options.v().set_verbose(true);
         Options.v().set_whole_program(true); // enable Spark whole-program analysis
@@ -151,6 +162,9 @@ public class MockAnalysisMain extends SceneTransformer {
 
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
+        startNano = System.nanoTime();
+        mainTimer.start();
+        
         int totalNumberOfTestRelatedMethods = 0, totalNumberOfHelperMethods = 0;
     
         callGraph = Scene.v().getCallGraph();
@@ -171,6 +185,10 @@ public class MockAnalysisMain extends SceneTransformer {
             for (SootMethod method : sc.getMethods()) {   
                 if (method.hasActiveBody()) {
                     
+                    /*JimpleBody body = (JimpleBody) method.getActiveBody();
+                    if ( method.getName().contains("canCreateCompositeAnnotator") ) {
+                        G.v().out.println(body);
+                    }*/
                     // For testing
                     /*JimpleBody body = (JimpleBody) method.getActiveBody();
                     
@@ -266,6 +284,11 @@ public class MockAnalysisMain extends SceneTransformer {
         printMockInvocationStats();
         
         printMockInvocationToFile();
+        
+        mainTimer.end();
+        finishNano = System.nanoTime();
+        long runtime = (finishNano - startNano) / 1000000l;
+        System.out.println("" + "Soot has run MockAnalysisMainTransformer for " + (runtime / 60000) + " min. " + ((runtime % 60000) / 1000) + " sec.");
     }
     
     private void printMockInvocationToFile() {

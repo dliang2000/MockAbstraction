@@ -17,6 +17,8 @@ import soot.SceneTransformer;
 import soot.SootClass;
 import soot.SootField;
 import soot.SootMethod;
+import soot.Timer;
+import soot.Timers;
 import soot.Unit;
 import soot.Value;
 import soot.VoidType;
@@ -43,6 +45,12 @@ public class AnnotatedAndInitMockTransformer extends SceneTransformer {
         
     private MockAnalysis mockAnalysis;
     
+    private long startNano;
+    
+    private long finishNano;
+    
+    public Timer annotatedTimer = new soot.Timer();
+    
     public AnnotatedAndInitMockTransformer() {
         super();
         
@@ -51,7 +59,10 @@ public class AnnotatedAndInitMockTransformer extends SceneTransformer {
         fieldMocks = new HashMap<SootClass, HashMap<SootField, MockStatus>>();
     }
     @Override
-    protected void internalTransform(String phaseName, Map<String, String> options) {        
+    protected void internalTransform(String phaseName, Map<String, String> options) {
+        startNano = System.nanoTime();
+        annotatedTimer.start();
+        
         Chain<SootClass> appClasses = Scene.v().getApplicationClasses();
         for (SootClass appClass : appClasses) {
             Chain<SootField> fields = appClass.getFields();
@@ -103,7 +114,7 @@ public class AnnotatedAndInitMockTransformer extends SceneTransformer {
                                 FieldRef ref = (FieldRef) value;
                                 SootField sootField = ref.getField();
                                 fieldMap.put(sootField, ms);
-                                System.out.println("FieldMocks updated for SootField: " + sootField);
+                                //System.out.println("FieldMocks updated for SootField: " + sootField);
                             }
                         }
                     }
@@ -122,6 +133,12 @@ public class AnnotatedAndInitMockTransformer extends SceneTransformer {
                 }
             }
         }
+        
+        annotatedTimer.end();
+        finishNano = System.nanoTime();
+        long runtime = (finishNano - startNano) / 1000000l;
+        
+        System.out.println("" + "Soot has run AnnotatedAndInitMockTransformer for " + (runtime / 60000) + " min. " + ((runtime % 60000) / 1000) + " sec.");
     }
     
     public static HashMap<SootClass, HashMap<SootField, MockStatus>> getFieldMocks() {

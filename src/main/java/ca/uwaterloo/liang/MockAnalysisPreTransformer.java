@@ -12,6 +12,8 @@ import soot.SceneTransformer;
 import soot.SootClass;
 import soot.SootField;
 import soot.SootMethod;
+import soot.Timer;
+import soot.Timers;
 import soot.Unit;
 import soot.Value;
 import soot.jimple.FieldRef;
@@ -31,7 +33,13 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
     private static HashMap<SootClass, HashMap<SootField, MockStatus>> fieldMocks;
         
     private MockAnalysis mockAnalysis;
-
+    
+    private long startNano;
+    
+    private long finishNano;
+    
+    public Timer preTimer = new soot.Timer();
+    
     public MockAnalysisPreTransformer() {
         super();
         
@@ -42,6 +50,9 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
     
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
+        startNano = System.nanoTime();
+        
+        preTimer.start();
         
         for (SootClass sc : Scene.v().getApplicationClasses()) {
             
@@ -86,7 +97,7 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
                                 FieldRef ref = (FieldRef) value;
                                 SootField sootField = ref.getField();
                                 fieldMap.put(sootField, ms);
-                                System.out.println("FieldMocks updated for SootField in MockAnalysisPre: " + sootField);
+                                //System.out.println("FieldMocks updated for SootField in MockAnalysisPre: " + sootField);
                             }
                         }
                     }
@@ -105,6 +116,11 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
                 }
             }
         }
+        
+        preTimer.end();
+        finishNano = System.nanoTime();
+        long runtime = (finishNano - startNano) / 1000000l;
+        System.out.println("" + "Soot has run MockAnalysisPreTransformer for " + (runtime / 60000) + " min. " + ((runtime % 60000) / 1000) + " sec.");
     }
     
     public static HashMap<SootClass, HashMap<SootField, MockStatus>> getFieldMocks() {
