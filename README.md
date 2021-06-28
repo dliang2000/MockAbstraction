@@ -54,18 +54,36 @@ or if you want to run Mock Analysis for all benchmarks:
 
 ## LOC and Runtime Information for benchmarks
 
-| Benchmark | LOC Total | LOC (Main) | LOC (Test) | Soot Runtime (s) | Doop runtime on mock.dl | Doop runtime on NO_INTERPROC mock | Doop Total Runtime - NORMAL (s) | Doop Total Runtime - NO_INTERPROC (s) |
-| --- | --: | --: | --: | --: | --: | --: | --: | --: |
-| bootique-2.0.B1-bootique | 15530 | 6935 | 8595 | 59 | 315 | 86 | 2730 | 2501 |
-| commons-collections4-4.4 | 65273 | 28955 | 36318 | 88 | 51 | 53 | 453 | 455 |
-| flink-core-1.13.0-rc1 | 117310 | 67580 | 49730 | 282 | 116 | 194 | 1387 | 1465 |
-| jsonschema2pojo-core-1.1.1 | 8233 | 5348 | 2885 | 187 | 153 | 180 | 756 | 783 |
-| maven-core-3.8.1 | 38866 | 27762 | 11104 | 169 | 111 | 126 | 511 | 526 |
-| microbenchmark | 559 | 68 | 491 | 50 | 25 | 24 | 193 | 192 |
-| mybatis-3.5.6 | 68268 | 21934 | 46334 | 391 | 504 | 344 | 3800 | 3640 |
-| quartz-core-2.3.1 | 35355 | 26932 | 8423 | 210 | 92 | 40 | 779 | 727 |
-| vraptor-core-3.5.5 | 34244 | 14111 | 20133 | 177 | 133 | 251 | 1386 | 1504 |
-| Total | 383638 | 199625 | 184013 | TBD | 1500 | 1298 | TBD | TBD |
+| Benchmark | LOC Total | LOC (Main) | LOC (Test) |
+| --- | --: | --: | --: |
+| bootique-2.0.B1-bootique | 15530 | 6935 | 8595 |
+| commons-collections4-4.4 | 65273 | 28955 | 36318 |
+| flink-core-1.13.0-rc1 | 117310 | 67580 | 49730 |
+| jsonschema2pojo-core-1.1.1 | 8233 | 5348 | 2885 |
+| maven-core-3.8.1 | 38866 | 27762 | 11104 |
+| microbenchmark | 559 | 68 | 491 |
+| mybatis-3.5.6 | 68268 | 21934 | 46334 |
+| quartz-core-2.3.1 | 35355 | 26932 | 8423 |
+| vraptor-core-3.5.5 | 34244 | 14111 | 20133 |
+| Total | 383638 | 199625 | 184013 |
+
+| Benchmark | Soot Runtime on Annotated Transformer (s) | Soot Runtime on Pre Transformer (s) | Soot Runtime on Main Transformer (s) | Total Soot Runtime on all three Transformers (s) | Doop NORMAL mock analysis (s) | Doop Intra-proc mock analysis only (s) | Doop Total Runtime - NORMAL (s) | Doop Total Runtime - NO_INTERPROC (s) |
+| --- | --: | --: | --: | --: | --: |
+| bootique-2.0.B1-bootique | 0.061 | 0.007 | 0.225 | 0.293 | 315 | 86 | 2730 | 2501 |
+| commons-collections4-4.4 | 0.052 | 0.012 | 0.281 | 0.345 | 51 | 53 | 453 | 455 |
+| flink-core-1.13.0-rc1 | 0.091 | 0.008 | 0.259 | 0.358 | 116 | 194 | 1387 | 1465 |
+| jsonschema2pojo-core-1.1.1 | 0.150 | 0.005 | 0.127 | 0.282 | 153 | 180 | 756 | 783 |
+| maven-core-3.8.1 | 0.060 | 0.006 | 0.126 | 0.192 | 111 | 126 | 511 | 526 |
+| microbenchmark | 0.032 | 0.009 | 0.072 | 0.113 | 25 | 24 | 193 | 192 |
+| mybatis-3.5.6 | 0.094 | 0.040 | 0.390 | 0.524 | 504 | 344 | 3800 | 3640 |
+| quartz-core-2.3.1 | 0.087 | 0.012 | 0.116 | 0.215 | 92 | 40 | 779 | 727 |
+| vraptor-core-3.5.5 | 0.087 | 0.027 | 0.226 | 0.340 | 133 | 251 | 1386 | 1504 |
+| Total | 0.714 | 0.126 | 1.822 | 2.659 | 1500 | 1298 | TBD | TBD |
+
+
+Doop NORMAL mock analysis (s) : Runtime of (regular doop run + extra-logic on NORMAL mock analysis) MINUS Runtime of (regular doop run)
+
+Doop Intra-proc mock analysis only (s) : Runtime of (regular doop run + extra-logic on NO_INTERPROC mock analysis) MINUS Runtime of (regular doop run)
 
 
 ## Field Mutation Data
@@ -81,7 +99,6 @@ or if you want to run Mock Analysis for all benchmarks:
 | quartz-core-2.3.1 | 2 / 878 |
 | vraptor-core-3.5.5 | 10 / 1193 |
 | Total | 29 / 9352 |
-
 
 ## Mock Analysis table (May Analysis, Intraprocedural)
 | Benchmark | Total Number of Test/Before/After Methods Invoked | Number of Test/Before/After Methods with MayMock (Intra) | Number of Test/Before/After Methods with ArrayMock (Intra) | Number of Test/Before/After Methods with CollectionMock (Intra) | Total Number of Helper Methods | Total Number of Helper Methods with MayMock |  Total Number of Helper Methods with ArrayMock | Total Number of Helper Methods with CollectionMock |
