@@ -50,8 +50,6 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
     
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
-        startNano = System.nanoTime();
-        
         preTimer.start();
         
         for (SootClass sc : Scene.v().getApplicationClasses()) {
@@ -118,9 +116,8 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
         }
         
         preTimer.end();
-        finishNano = System.nanoTime();
-        long runtime = (finishNano - startNano) / 1000000l;
-        System.out.println("" + "Soot has run MockAnalysisPreTransformer for " + (runtime / 60000) + " min. " + ((runtime % 60000) / 1000) + " sec.");
+        long runtime = preTimer.getTime();
+        System.out.println("" + "Soot has run MockAnalysisPreTransformer for " + runtime + " ms.");
     }
     
     public static HashMap<SootClass, HashMap<SootField, MockStatus>> getFieldMocks() {

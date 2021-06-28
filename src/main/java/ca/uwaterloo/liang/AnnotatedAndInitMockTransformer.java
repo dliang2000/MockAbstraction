@@ -60,7 +60,6 @@ public class AnnotatedAndInitMockTransformer extends SceneTransformer {
     }
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
-        startNano = System.nanoTime();
         annotatedTimer.start();
         
         Chain<SootClass> appClasses = Scene.v().getApplicationClasses();
@@ -135,10 +134,9 @@ public class AnnotatedAndInitMockTransformer extends SceneTransformer {
         }
         
         annotatedTimer.end();
-        finishNano = System.nanoTime();
-        long runtime = (finishNano - startNano) / 1000000l;
+        long runtime = annotatedTimer.getTime();
         
-        System.out.println("" + "Soot has run AnnotatedAndInitMockTransformer for " + (runtime / 60000) + " min. " + ((runtime % 60000) / 1000) + " sec.");
+        System.out.println("" + "Soot has run AnnotatedAndInitMockTransformer for " + runtime + " ms.");
     }
     
     public static HashMap<SootClass, HashMap<SootField, MockStatus>> getFieldMocks() {

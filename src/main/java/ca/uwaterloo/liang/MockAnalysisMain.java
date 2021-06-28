@@ -162,7 +162,6 @@ public class MockAnalysisMain extends SceneTransformer {
 
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
-        startNano = System.nanoTime();
         mainTimer.start();
         
         int totalNumberOfTestRelatedMethods = 0, totalNumberOfHelperMethods = 0;
@@ -256,7 +255,7 @@ public class MockAnalysisMain extends SceneTransformer {
         
        
             
-        printOutput();
+        // printOutput();
         
         int[] benchmark_mock_stats = calculateMockStats();
         StringBuffer msg = new StringBuffer();
@@ -286,9 +285,8 @@ public class MockAnalysisMain extends SceneTransformer {
         printMockInvocationToFile();
         
         mainTimer.end();
-        finishNano = System.nanoTime();
-        long runtime = (finishNano - startNano) / 1000000l;
-        System.out.println("" + "Soot has run MockAnalysisMainTransformer for " + (runtime / 60000) + " min. " + ((runtime % 60000) / 1000) + " sec.");
+        long runtime = mainTimer.getTime();
+        System.out.println("" + "Soot has run MockAnalysisMainTransformer for " + runtime + " ms.");
     }
     
     private void printMockInvocationToFile() {
