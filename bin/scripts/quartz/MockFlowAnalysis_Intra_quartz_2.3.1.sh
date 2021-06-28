@@ -3,18 +3,18 @@
 source ./config.sh
 echo $MACHINE_SPECIFIC_PATH
 
-PACKAGE="org.apache.ibatis"
+PACKAGE="org.quartz"
 SOOT_JAR="$MACHINE_SPECIFIC_PATH/soot_jar/sootclasses-trunk-jar-with-dependencies.jar"
 JAVA_PATH="$MACHINE_SPECIFIC_PATH/target/classes":$JCOMMANDER_JAR
-CC_CLASS="ca.uwaterloo.liang.MockAnalysisMain"
-BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/mybatis-3-mybatis-3.5.6"
-TARGET_PATH="target/classes"
-TARGET_TEST_PATH="target/test-classes"
-BENCHMARK="mybatis_3_mybatis-3.5.6"
-DRIVER_PATH="org.apache.ibatis.RootDriver"
+CC_CLASS="ca.uwaterloo.liang.Runner"
+BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/quartz-quartz-2.3.1-patched"
+TARGET_PATH="quartz-core/target/classes"
+TARGET_TEST_PATH="quartz-core/target/test-classes"
+BENCHMARK="quartz_quartz_core_2.3.1"
+DRIVER_PATH="org.quartz.RootDriver"
 OUTPUT_PATH="$MACHINE_SPECIFIC_PATH/analysis_output/MockAnalysis"
 
-MVN_DEPENDENCY_PATH="$BENCHMARK_PATH/mvn_dependencies"
+MVN_DEPENDENCY_PATH="$BENCHMARK_PATH/quartz-core/mvn_dependencies"
 
 # add all the jar files needed for set_soot_classpath
 for jar in $MVN_DEPENDENCY_PATH/*; do

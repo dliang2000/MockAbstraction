@@ -46,86 +46,9 @@ import soot.tagkit.AnnotationTag;
 import soot.toolkits.graph.ExceptionalUnitGraph;
 import soot.util.Chain;
 
-public class MockAnalysisMain extends SceneTransformer {
-    
-    @Parameter(names={"--benchmark", "-b"}, required = true, description="Benchmark") 
-    static String benchmark;
-    
-    @Parameter(names={"--output", "-o"}, required = true, description="output path") 
-    static String output_path;
-    
-    @Parameter(names={"--driver", "-d"}, required = true, description="driver class path for the test suite") 
-    static String driver;
-    
-    @Parameter(names={"--target", "-t"}, required = true, description="target path") 
-    static String target;
-    
-    @Parameter(names={"--target-tests", "-tt"}, required = true, description="target tests path") 
-    static String target_tests;
-    
-    @Parameter(names={"--mvn-dependencies", "-m"}, required = true, description="maven dependencies") 
-    static String mvn_dependencies;
-    
-    @Parameter(names={"--verbose", "-v"}, description="verbose mode") 
-    boolean verbose = true;
+public class MockAnalysisIntraprocTransformer extends SceneTransformer {
     
     private static final Logger logger = LoggerFactory.getLogger(PackManager.class);
-    
-    private long startNano;
-    
-    private long finishNano;
-    
-    public Timer mainTimer = new soot.Timer();
-    
-    public static void main(String[] args) throws IOException {
-        // Perform Analysis on field mocks defined through annotation and in <init> method
-        PackManager.v().getPack("wjtp").add(new Transform("wjtp.initialTransform", new AnnotatedAndInitMockTransformer()) {
-        });
-        // Perform Analysis on field mocks defined in @Before methods (init() or setup())
-        PackManager.v().getPack("wjtp").add(new Transform("wjtp.preTransform", new MockAnalysisPreTransformer()) {
-        });
-
-        PackManager.v().getPack("wjtp").add(new Transform("wjtp.myTransform", new MockAnalysisMain()) {
-        });
-
-        Options.v().set_prepend_classpath(true);
-        Options.v().set_verbose(true);
-        Options.v().set_whole_program(true); // enable Spark whole-program analysis
-        Options.v().set_output_format(1); // Output format in .jimple file
-        Options.v().set_allow_phantom_refs(true);
-        Options.v().set_xml_attributes(true);
-        
-        MockAnalysisMain main = new MockAnalysisMain();
-        JCommander.newBuilder()
-            .addObject(main)
-            .build()
-            .parse(args);
-        
-        List<String> pd = new ArrayList<>();
-        pd.add("-main-class");
-        pd.add(driver);
-        pd.add("-process-dir");
-        pd.add(target);
-        pd.add("-process-dir");
-        pd.add(target_tests);
-        // enable Spark whole-program analysis
-        // pd.add("-p");
-        // pd.add("cg.spark");
-        // pd.add("enabled:true");
-        // pd.add("-p");
-        // pd.add("jb");
-        // pd.add("use-original-names:true");
-        Options.v().set_soot_classpath(mvn_dependencies);
-        //MockAnalysisMain.benchmark = args[4];
-        //MockAnalysisMain.output_path = args[5];
-        System.out.println("args[0]: " + driver);
-        System.out.println("args[1]: " + target);
-        System.out.println("args[2]: " + target_tests);
-        System.out.println("args[3]: " + mvn_dependencies);
-        System.out.println("args[4]: " + benchmark);
-        System.out.println("args[5]: " + output_path);
-        soot.Main.main(pd.toArray(new String[0]));
-    }
         
     private CallGraph callGraph;
     
@@ -149,7 +72,7 @@ public class MockAnalysisMain extends SceneTransformer {
         
     private MockAnalysis mockAnalysis;
         
-    public MockAnalysisMain() {
+    public MockAnalysisIntraprocTransformer() {
         super();
         
         procSummaries = new HashMap<SootMethod, ProcSummary>();
@@ -158,8 +81,13 @@ public class MockAnalysisMain extends SceneTransformer {
                 
         appMethods = new ArrayList<SootMethod>();
     }
-
-
+    
+    private long startNano;
+    
+    private long finishNano;
+    
+    public Timer mainTimer = new soot.Timer();
+    
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
         mainTimer.start();
@@ -260,7 +188,7 @@ public class MockAnalysisMain extends SceneTransformer {
         int[] benchmark_mock_stats = calculateMockStats();
         StringBuffer msg = new StringBuffer();
         msg.append(" ====================================== \n")
-        .append("Benchmark ").append(MockAnalysisMain.benchmark).append(" Mock Stats")
+        .append("Benchmark ").append(Runner.benchmark).append(" Mock Stats")
         .append("\n");
         msg.append("Total Number of Test/Before/After Methods: ").append(totalNumberOfTestRelatedMethods)
         .append("\n");
@@ -316,7 +244,7 @@ public class MockAnalysisMain extends SceneTransformer {
         
         Collections.sort(linesToAdd, new SortStringArrayList());
         
-        File outputFile = new File(output_path + "/" + benchmark + "-mock-intraprocedural-counts-soot");
+        File outputFile = new File(Runner.output_path + "/" + Runner.benchmark + "-mock-intraprocedural-counts-soot");
         try (PrintWriter pw = new PrintWriter(outputFile)) {
             linesToAdd.stream().map(this::convertToCSV).forEach(pw::println);
         } catch (FileNotFoundException e) {

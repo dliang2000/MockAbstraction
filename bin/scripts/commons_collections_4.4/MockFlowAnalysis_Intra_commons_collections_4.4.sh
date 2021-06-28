@@ -3,18 +3,18 @@
 source ./config.sh
 echo $MACHINE_SPECIFIC_PATH
 
-PACKAGE="org.apache.maven"
+PACKAGE="org.apache.commons.collections4"
 SOOT_JAR="$MACHINE_SPECIFIC_PATH/soot_jar/sootclasses-trunk-jar-with-dependencies.jar"
 JAVA_PATH="$MACHINE_SPECIFIC_PATH/target/classes":$JCOMMANDER_JAR
-CC_CLASS="ca.uwaterloo.liang.MockAnalysisMain"
-BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/maven-maven-3.8.1"
-TARGET_PATH="maven-core/target/classes"
-TARGET_TEST_PATH="maven-core/target/test-classes"
-BENCHMARK="maven_maven_core_3.8.1"
-DRIVER_PATH="org.apache.maven.RootDriver"
+CC_CLASS="ca.uwaterloo.liang.Runner"
+BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/commons-collections4-4.4"
+TARGET_PATH="target/classes"
+TARGET_TEST_PATH="target/test-classes"
+BENCHMARK="commons_collections4_4.4"
+DRIVER_PATH="org.apache.commons.collections4.RootDriver"
 OUTPUT_PATH="$MACHINE_SPECIFIC_PATH/analysis_output/MockAnalysis"
 
-MVN_DEPENDENCY_PATH="$BENCHMARK_PATH/maven-core/mvn_dependencies"
+MVN_DEPENDENCY_PATH="$BENCHMARK_PATH/mvn_dependencies"
 
 # add all the jar files needed for set_soot_classpath
 for jar in $MVN_DEPENDENCY_PATH/*; do
