@@ -68,7 +68,7 @@ or if you want to run Mock Analysis for all benchmarks:
 | Total | 383638 | 199625 | 184013 |
 
 | Benchmark | Soot Runtime on Annotated Transformer (s) | Soot Runtime on Pre Transformer (s) | Soot Runtime on Main Transformer (s) | Total Soot Runtime on all three Transformers (s) | Doop NORMAL mock analysis (s) | Doop Intra-proc mock analysis only (s) | Doop Total Runtime - NORMAL (s) | Doop Total Runtime - NO_INTERPROC (s) |
-| --- | --: | --: | --: | --: | --: |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: |
 | bootique-2.0.B1-bootique | 0.061 | 0.007 | 0.225 | 0.293 | 315 | 86 | 2730 | 2501 |
 | commons-collections4-4.4 | 0.052 | 0.012 | 0.281 | 0.345 | 51 | 53 | 453 | 455 |
 | flink-core-1.13.0-rc1 | 0.091 | 0.008 | 0.259 | 0.358 | 116 | 194 | 1387 | 1465 |
