@@ -64,7 +64,7 @@ public class MockAnalysisInterprocTransformer extends SceneTransformer {
     
     private long finishNano;
     
-    public Timer mainTimer = new soot.Timer();
+    public Timer interTimer = new soot.Timer();
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
         JimpleBasedInterproceduralCFG icfg= new JimpleBasedInterproceduralCFG();
