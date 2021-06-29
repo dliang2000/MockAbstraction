@@ -65,7 +65,7 @@ or if you want to run Mock Analysis for all benchmarks:
 | mybatis-3.5.6 | 68268 | 21934 | 46334 |
 | quartz-core-2.3.1 | 35355 | 26932 | 8423 |
 | vraptor-core-3.5.5 | 34244 | 14111 | 20133 |
-| Total | 383638 | 199625 | 184013 |
+| Total | 383638 | 199628 | 184405 |
 
 | Benchmark | Soot Runtime on Annotated Transformer (s) | Soot Runtime on Pre Transformer (s) | Soot Runtime on Main Transformer (s) | Total Soot Runtime on all three Transformers (s) | Doop NORMAL mock analysis (s) | Doop Intra-proc mock analysis only (s) | Doop Total Runtime - NORMAL (s) | Doop Total Runtime - NO_INTERPROC (s) |
 | --- | --: | --: | --: | --: | --: | --: | --: | --: |
