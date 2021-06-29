@@ -61,7 +61,7 @@ or if you want to run Mock Analysis for all benchmarks:
 | flink-core-1.13.0-rc1 | 117310 | 67580 | 49730 |
 | jsonschema2pojo-core-1.1.1 | 8233 | 5348 | 2885 |
 | maven-core-3.8.1 | 38866 | 27762 | 11104 |
-| microbenchmark | 559 | 68 | 491 |
+| microbenchmark | 954 | 71 | 883 |
 | mybatis-3.5.6 | 68268 | 21934 | 46334 |
 | quartz-core-2.3.1 | 35355 | 26932 | 8423 |
 | vraptor-core-3.5.5 | 34244 | 14111 | 20133 |
