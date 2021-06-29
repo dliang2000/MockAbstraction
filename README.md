@@ -74,11 +74,11 @@ or if you want to run Mock Analysis for all benchmarks:
 | flink-core-1.13.0-rc1 | 0.091 | 0.008 | 0.259 | 0.358 | 116 | 194 | 1387 | 1465 |
 | jsonschema2pojo-core-1.1.1 | 0.150 | 0.005 | 0.127 | 0.282 | 153 | 180 | 756 | 783 |
 | maven-core-3.8.1 | 0.060 | 0.006 | 0.126 | 0.192 | 111 | 126 | 511 | 526 |
-| microbenchmark | 0.032 | 0.009 | 0.072 | 0.113 | 25 | 24 | 193 | 192 |
+| microbenchmark | 0.036 | 0.0010 | 0.080 | 0.126 | 25 | 24 | 193 | 192 |
 | mybatis-3.5.6 | 0.094 | 0.040 | 0.390 | 0.524 | 504 | 344 | 3800 | 3640 |
 | quartz-core-2.3.1 | 0.087 | 0.012 | 0.116 | 0.215 | 92 | 40 | 779 | 727 |
 | vraptor-core-3.5.5 | 0.087 | 0.027 | 0.226 | 0.340 | 133 | 251 | 1386 | 1504 |
-| Total | 0.714 | 0.126 | 1.822 | 2.659 | 1500 | 1298 | TBD | TBD |
+| Total | 0.718 | 0.127 | 1.830 | 2.675 | 1500 | 1298 | TBD | TBD |
 
 
 Doop NORMAL mock analysis (s) : Runtime of (regular doop run + extra-logic on NORMAL mock analysis) MINUS Runtime of (regular doop run)
@@ -108,11 +108,11 @@ Doop Intra-proc mock analysis only (s) : Runtime of (regular doop run + extra-lo
 | flink-core-1.13.0-rc1 | 1091 | 4 | 0 | 0 | 406 | 0 | 0 | 0 |
 | jsonschema2pojo-core-1.1.1 | 145 | 76 | 1 | 0 | 54 | 16 | 0 | 0 |
 | maven-core-3.8.1 | 337 | 24 | 0 | 0 | 125 | 2 | 0 | 0 |
-| microbenchmark | 57 | 42 | 7 | 25 | 18 | 2 | 1 | 0 |
+| microbenchmark | 59 | 43 | 7 | 25 | 19 | 2 | 1 | 0 |
 | mybatis-3.5.6 | 1769 | 330 | 3 | 0 | 599 | 4 | 0 | 0 |
 | quartz-core-2.3.1 | 218 | 7 | 0 | 0 | 103 | 1 | 0 | 0 |
 | vraptor-core-3.5.5 | 1119 | 565 | 15 | 0 | 229 | 12 | 0 | 0 |
-| Total | 6308 | 1083 | 34 | 26 | 2853 | 45 | 3 | 0 |
+| Total | 6310 | 1084 | 34 | 26 | 2854 | 45 | 3 | 0 |
 
 
 ## Mock Analysis - Analyzing InvokeExpr results (May Analysis, Intraprocedural)
@@ -123,11 +123,11 @@ Doop Intra-proc mock analysis only (s) : Runtime of (regular doop run + extra-lo
 | flink-core-1.13.0-rc1 | 11923 | 40 | 40 |
 | jsonschema2pojo-core-1.1.1 | 1896 | 276 | 282 |
 | maven-core-3.8.1 | 4072 | 23 | 23 |
-| microbenchmark | 465 | 107 | 122 |
+| microbenchmark | 471 | 108 | 123 |
 | mybatis-3.5.6 | 19232 | 575 | 577 |
 | quartz-core-2.3.1 | 3436 | 21 | 21 |
 | vraptor-core-3.5.51 | 5868 | 942 | 962 |
-| Total | 63011 | 2094 | 2124 |
+| Total | 63017 | 2095 | 2125 |
 
 
 ## Manual Inspection on microbenchmark  (Intraprocedural)
