@@ -50,8 +50,11 @@ public class PayRollMockTest {
         } else {
             m = new Object();
         }
+        m = mock(Object.class);
+        // *mock* call below
         assertFalse(m.equals(null));
     }
+    // total mock calls: 1
 
     @Test
     public void testNoEmployees() {
@@ -127,10 +130,10 @@ public class PayRollMockTest {
             assertEquals(ee.getName(), "J. Doe");
         }
 
-    	java.util.LinkedList<Employee> ll = new java.util.LinkedList<Employee>(employees1_intra);
-    	java.util.Iterator<Employee> it = ll.descendingIterator();
-    	while (it.hasNext()) {
-	    Employee ee = it.next();
+        java.util.LinkedList<Employee> ll = new java.util.LinkedList<Employee>(employees1_intra);
+        java.util.Iterator<Employee> it = ll.descendingIterator();
+        while (it.hasNext()) {
+            Employee ee = it.next();
             // *mock* call below
             assertEquals(ee.getName(), "J. Doe");
         }
@@ -235,6 +238,22 @@ public class PayRollMockTest {
     public void testSingleEmployeeMockInter() {
         Employee e = createMockEmployee();
         assertEquals(e.getName(), "J. Doe");
+    }
+    // total mock calls: 1
+
+    // Makes a method invocation with a mock object parameter
+    @Test
+    public void testSingleEmployeeMockCallout() {
+        Employee e = createMockEmployee();
+        Employee ee = invokedWithMockParameter(e);
+        assertEquals(ee.getName(), "J. Doe");
+    }
+    // total mock calls: 1
+
+    // Invoked with a mock object parameter; not a test method
+    public Employee invokedWithMockParameter(Employee e) {
+        assertEquals(e.getName(), "J. Doe");
+        return e;
     }
     // total mock calls: 1
     

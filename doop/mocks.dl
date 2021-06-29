@@ -213,11 +213,21 @@ isMockInvocation(mi, signature, inmethod, line, receiver) :-
 
 // ** interprocedural
 .decl isInterprocMockVar(v:Var)
+// propagate back to caller in m = returnsMock()
 isInterprocMockVar(v) :-
   AssignReturnValue(mi, v),
   mainAnalysis.CallGraphEdge(_, mi, _, callee),
   ReturnVar(v_callee, callee),
   isMockVar(v_callee).
+
+// propagate to callee in callSomething(mock)
+isInterprocMockVar(v_callee) :-
+  isMockVar(v),
+  ActualParam(n, mi, v),
+  FormalParam(n, callee, v_callee),
+  mainAnalysis.CallGraphEdge(_, mi, _, callee),
+  Method_DeclaringType(callee, callee_class),
+  ApplicationClass(callee_class).
 .output isInterprocMockVar
 
 // ** collections
