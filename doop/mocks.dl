@@ -1,6 +1,9 @@
-// ./doop -a context-insensitive -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT-tests.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/mvn_dependencies/ --id context-insensitive-with-mocks --souffle-jobs 32 --main ca.liang.RootDriver --extra-logic souffle-logic/analyses/mocks/mocks.dl
+// ./doop -a context-insensitive -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT-tests.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/mvn_dependencies/ --id context-insensitive-with-mocks --souffle-jobs 32 --define-cpp-macro USE_CALLGRAPH --main ca.liang.RootDriver --extra-logic souffle-logic/analyses/mocks/mocks.dl
+
+// ./doop -a basic-only -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT-tests.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/mvn_dependencies/ --id basic-only-with-mocks --souffle-jobs 32 --define-cpp-macro USE_BASIC --main ca.liang.RootDriver --extra-logic souffle-logic/analyses/mocks/mocks.dl
 
 // these are mostly used in isMockVar, but the places where we combine two things will have specific #ifdef tests also
+// use --define-cpp-macro to actually define them
 // #define NO_INTERPROC 1
 // #define NO_COLLECTIONS 1
 // #define NO_ARRAYS 1
@@ -16,8 +19,10 @@ MockSourceMethod("<org.powermock.api.mockito.PowerMockito: java.lang.Object mock
 MockSourceMethod("<org.mockito.Mockito: java.lang.Object verify(java.lang.Object)>").
 MockSourceMethod("<org.mockito.Mockito: java.lang.Object verify(java.lang.Object,org.mockito.verification.VerificationMode)>").
 MockSourceMethod("<org.mockito.internal.MockitoCore: java.lang.Object verify(java.lang.Object)>").
+MockSourceMethod("<org.mockito.InOrder: java.lang.Object verify(java.lang.Object)>").
 MockSourceMethod("<org.mockito.internal.InOrderImpl: java.lang.Object verify(java.lang.Object)>").
 MockSourceMethod("<org.mockito.internal.MockitoCore: java.lang.Object verify(java.lang.Object,org.mockito.verification.VerificationMode)>").
+MockSourceMethod("<org.mockito.InOrder: java.lang.Object verify(java.lang.Object,org.mockito.verification.VerificationMode)>").
 MockSourceMethod("<org.mockito.internal.InOrderImpl: java.lang.Object verify(java.lang.Object,org.mockito.verification.VerificationMode)>").
 
 .decl MockFieldAnnotation(a: Annotation)
@@ -160,10 +165,25 @@ SameMethodExceptDeclaringType(m, m0) :-
   Method_Descriptor(m, d),
   Method_Descriptor(m0, d).
 
+#ifdef USE_BASIC
+.decl CallGraphEdge(s:number, mi:MethodInvocation, t:number, ms:Method)
+CallGraphEdge(0, mi, 0, ms) :-
+  basic.ResolveInvocation(rv, mi, ms),
+  basic.VirtualMethodInvocation_BaseType(mi, rv).
+CallGraphEdge(0, mi, 0, ms) :-
+  MethodInvocation_Method(mi, ms).
+#endif
+
+#ifdef USE_CALLGRAPH
+.decl CallGraphEdge(callerCtx:symbol, mi:MethodInvocation, calleeCtx:symbol, ms:Method)
+CallGraphEdge(callerCtx, mi, calleeCtx, ms) :-
+  mainAnalysis.CallGraphEdge(callerCtx, mi, calleeCtx, ms).
+#endif
+
 .decl callsMockSource(mi: MethodInvocation)
 callsMockSource(mi) :-
   MockSourceMethod(ms),
-  mainAnalysis.CallGraphEdge(_, mi, _, ms).
+  CallGraphEdge(_, mi, _, ms).
 .output callsMockSource
 
 // v:Var
@@ -216,7 +236,7 @@ isMockInvocation(mi, signature, inmethod, line, receiver) :-
 // propagate back to caller in m = returnsMock()
 isInterprocMockVar(v) :-
   AssignReturnValue(mi, v),
-  mainAnalysis.CallGraphEdge(_, mi, _, callee),
+  CallGraphEdge(_, mi, _, callee),
   ReturnVar(v_callee, callee),
   isMockVar(v_callee).
 
@@ -225,7 +245,7 @@ isInterprocMockVar(v_callee) :-
   isMockVar(v),
   ActualParam(n, mi, v),
   FormalParam(n, callee, v_callee),
-  mainAnalysis.CallGraphEdge(_, mi, _, callee),
+  CallGraphEdge(_, mi, _, callee),
   Method_DeclaringType(callee, callee_class),
   ApplicationClass(callee_class).
 .output isInterprocMockVar
@@ -291,7 +311,7 @@ isCollectionFieldThatContainsMocks(f) :-
 #ifndef NO_INTERPROC
 isInterprocArrayLocalThatContainsMocks(v) :-
   AssignReturnValue(mi, v),
-  mainAnalysis.CallGraphEdge(_, mi, _, callee),
+  CallGraphEdge(_, mi, _, callee),
   ReturnVar(v_callee, callee),
   isArrayLocalThatContainsMocks(v_callee).
 #endif
