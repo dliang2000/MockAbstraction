@@ -81,6 +81,22 @@ or if you want to run Mock Analysis for all benchmarks:
 | Total | 0.718 | 0.127 | 1.830 | 2.675 | 1500 | 1298 | TBD | TBD |
 
 
+## Doop's Runtime Comparison
+
+| Benchmark | Basic-only, no-mock (s) | Basic-only, with-mock (s) | Basic-only, Delta (s) | Context-Insensitive, no-mock (s) | Context-Insensitive, with-mock (s) | Context-Insensitive, Delta (s) |
+| --- | --: | --: | --: | --: | --: | --: |
+| bootique-2.0.B1-bootique | 0.061 | 0.007 | 0.225 | 0.293 | 315 | 86 |
+| commons-collections4-4.4 | 0.052 | 0.012 | 0.281 | 0.345 | 51 | 53 |
+| flink-core-1.13.0-rc1 | 0.091 | 0.008 | 0.259 | 0.358 | 116 | 194 |
+| jsonschema2pojo-core-1.1.1 | 0.150 | 0.005 | 0.127 | 0.282 | 153 | 180 |
+| maven-core-3.8.1 | 0.060 | 0.006 | 0.126 | 0.192 | 111 | 126 |
+| microbenchmark | 0.036 | 0.0010 | 0.080 | 0.126 | 25 | 24 |
+| mybatis-3.5.6 | 0.094 | 0.040 | 0.390 | 0.524 | 504 | 344 |
+| quartz-core-2.3.1 | 0.087 | 0.012 | 0.116 | 0.215 | 92 | 40 |
+| vraptor-core-3.5.5 | 0.087 | 0.027 | 0.226 | 0.340 | 133 | 251 |
+| Total | 0.718 | 0.127 | 1.830 | 2.675 | 1500 | 1298 |
+
+
 Doop NORMAL mock analysis (s) : Runtime of (regular doop run + extra-logic on NORMAL mock analysis) MINUS Runtime of (regular doop run)
 
 Doop Intra-proc mock analysis only (s) : Runtime of (regular doop run + extra-logic on NO_INTERPROC mock analysis) MINUS Runtime of (regular doop run)
@@ -128,6 +144,21 @@ Doop Intra-proc mock analysis only (s) : Runtime of (regular doop run + extra-lo
 | quartz-core-2.3.1 | 3436 | 21 | 21 |
 | vraptor-core-3.5.51 | 5868 | 942 | 962 |
 | Total | 63017 | 2095 | 2125 |
+
+## Doop's Mock Counts Comparison
+
+| Benchmark | Basic-only, Intraproc | Context-insensitive, Intraproc | Basic-only, Interproc | Context-Insensitive, Interproc |
+| --- | --: | --: | --: | --: |
+| bootique-2.0.B1-bootique | 0.061 | 0.007 | 0.225 | 0.293 |
+| commons-collections4-4.4 | 0.052 | 0.012 | 0.281 | 0.345 |
+| flink-core-1.13.0-rc1 | 0.091 | 0.008 | 0.259 | 0.358 |
+| jsonschema2pojo-core-1.1.1 | 0.150 | 0.005 | 0.127 | 0.282 |
+| maven-core-3.8.1 | 0.060 | 0.006 | 0.126 | 0.192 |
+| microbenchmark | 0.036 | 0.0010 | 0.080 | 0.126 |
+| mybatis-3.5.6 | 0.094 | 0.040 | 0.390 | 0.524 |
+| quartz-core-2.3.1 | 0.087 | 0.012 | 0.116 | 0.215 |
+| vraptor-core-3.5.5 | 0.087 | 0.027 | 0.226 | 0.340 |
+| Total | 0.718 | 0.127 | 1.830 | 2.675 |
 
 
 ## Manual Inspection on microbenchmark  (Intraprocedural)
