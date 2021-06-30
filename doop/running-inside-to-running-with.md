@@ -50,3 +50,19 @@ provide constraints for Context, but I did provide everything else.
 After I did that, I could run my analysis in 12 seconds instead of
 2m30 (on top of the basic-only analysis) or 5m30 (on top of
 context-insensitive).
+
+# Note relevant to our context
+
+We use various #ifdefs in our Doop analysis to enable and disable various things.
+
+The selection of the call graph (USE_BASIC vs USE_CALLGRAPH along with
+-a basic-only vs -a context-insensitive respectively) is encapsulated
+in which CallGraph relation we output. The mocks-after.dl file just needs to
+.input the correct CallGraph.
+
+The NO_FIELDS, NO_INTERPROC, NO_COLLECTIONS, and NO_ARRAYS flags can be specified
+with souffle's -M flag.
+
+A typical Souffle command line therefore looks like this:
+
+```time souffle -F last-analysis -M NO_FIELDS souffle-logic/analyses/mocks/mocks-after.dl```
