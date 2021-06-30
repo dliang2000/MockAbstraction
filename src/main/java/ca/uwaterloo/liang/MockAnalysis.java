@@ -92,11 +92,11 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
         
         this.localFieldRefMap = (HashMap<Value, Value>) emptyLocalFieldRefMap.clone();
         
-        System.out.println("unitToAfterFlow size before doAnalysis: " + unitToAfterFlow.keySet().size());
+        //System.out.println("unitToAfterFlow size before doAnalysis: " + unitToAfterFlow.keySet().size());
         
         doAnalysis();
         
-        System.out.println("unitToAfterFlow size after doAnalysis: " + unitToAfterFlow.keySet().size());
+        //System.out.println("unitToAfterFlow size after doAnalysis: " + unitToAfterFlow.keySet().size());
         
         updateInvocations();
     }
@@ -180,9 +180,9 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
                 // System.out.println("SootMethod visited: " + myContextMethod);
                 // System.out.println("SootField is in the method, before the If Statement: " + sf);
                 
-                for (SootField sootField : fieldMocksInClass.keySet()) {
+                /*for (SootField sootField : fieldMocksInClass.keySet()) {
                     System.out.println("SootField found in fieldMocksInClass: " + sootField);
-                }
+                }*/
                 
                 if (fieldMocksInClass.containsKey(sf)) {
                     // System.out.println("SootField find in the map from MockAnalysisPreTransformer: " + sf);
@@ -200,6 +200,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
             SootMethod sootMethod = invkExpr.getMethod();
             
             // Third way to create mock: Mock libraries' API. Example: mock(A.class)
+            // x = mock(X);
             if (Util.isMockAPI(sootMethod)) {
                 List<ValueBox> defBoxes = unit.getDefBoxes();
                 for (ValueBox vb: defBoxes) {
@@ -282,6 +283,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
                 }
             }
             
+            // Case: x = r1[0]
             if (assign.getRightOp() instanceof ArrayRef) {
                 ArrayRef ar = (ArrayRef) assign.getRightOp();
                 Value right_op_base = ar.getBase();
@@ -574,10 +576,10 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
                         if (in.containsKey(col_val) && (in.get(col_val).getMock() || in.get(col_val).getCollectionMock()) ) {
                             HashMap<Value, MockStatus> running_result = new HashMap<Value, MockStatus>();
                             for (Value v: iter_vals) {
-                                System.out.println("col_val found in hashmap: " + col_val);
+                                //System.out.println("col_val found in hashmap: " + col_val);
                                 if (!v.equals(col_val)) {
                                     
-                                    System.out.println("value in iter_val: " + v);
+                                    //System.out.println("value in iter_val: " + v);
                                     MockStatus status = new MockStatus(false, false, true);
                                     out.put(v, status);
                                     
@@ -598,16 +600,16 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
         UnitPatchingChain units = ((UnitGraph) this.graph).getBody().getUnits();
         
         for (Unit unit : units) {
-            System.out.println("Unit in updateInvocations: " + unit);
+            //System.out.println("Unit in updateInvocations: " + unit);
             Map<Value, MockStatus> temp = getFlowAfter(unit);
-            System.out.println("keySet size: " + temp.keySet().size());
+            //System.out.println("keySet size: " + temp.keySet().size());
             
                        
             Stmt aStmt = (Stmt) unit;
             if (aStmt.containsInvokeExpr()) {
                 InvokeExpr invkExpr = aStmt.getInvokeExpr();
                 if (invkExpr instanceof InstanceInvokeExpr) {
-                    System.out.println("InvokeExpr: " + invkExpr);
+                    //System.out.println("InvokeExpr: " + invkExpr);
                     // Add InvokeExpr to myTotalInvokeExprs
                     totalInvokeExprs.add(invkExpr);
                     
@@ -662,7 +664,10 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
             if (status2 == null) { 
                 // when status2 is null
                 out.put(val, status1);
-            } else if ( status1.getMock() || status2.getMock() ) { 
+            } else if (status1 == null) {
+                // when status1 is null
+                out.put(val, status2);
+            } else if ( status1.getMock() || status2.getMock() ) {
                 // when either status1 or status2 is a mayMock
                 MockStatus statusMock = new MockStatus(true);
                 out.put(val, statusMock);
@@ -674,9 +679,6 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
              // when either status1 or status2 is an collectionMock
                 MockStatus statusCollectionyMock = new MockStatus(false, false, true);
                 out.put(val, statusCollectionyMock);
-            } else {
-                // when status1 is null
-                out.put(val, status2);
             }
         }
     }

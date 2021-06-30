@@ -153,7 +153,7 @@ public class AnnotatedAndInitMockTransformer extends SceneTransformer {
                 .getTag("VisibilityAnnotationTag");
         if (tag != null) {
             for (AnnotationTag annotation : tag.getAnnotations()) {
-                if (annotation.getType().equals("Lorg/mockito/Mock;")) {
+                if (annotation.getType().equals("Lorg/mockito/Mock;") || annotation.getType().equals("Lorg/easymock/Mock;") ) {
                     System.out.println("Annotated Mock found: " + field.getSubSignature());
                     return true;
                 }
