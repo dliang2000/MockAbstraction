@@ -149,16 +149,16 @@ Doop Intra-proc mock analysis only (s) : Runtime of (regular doop run + extra-lo
 
 | Benchmark | Basic-only, Intraproc | Context-insensitive, Intraproc | Basic-only, Interproc | Context-Insensitive, Interproc |
 | --- | --: | --: | --: | --: |
-| bootique-2.0.B1-bootique | 0.061 | 0.007 | 0.225 | 0.293 |
-| commons-collections4-4.4 | 0.052 | 0.012 | 0.281 | 0.345 |
-| flink-core-1.13.0-rc1 | 0.091 | 0.008 | 0.259 | 0.358 |
-| jsonschema2pojo-core-1.1.1 | 0.150 | 0.005 | 0.127 | 0.282 |
-| maven-core-3.8.1 | 0.060 | 0.006 | 0.126 | 0.192 |
-| microbenchmark | 0.036 | 0.0010 | 0.080 | 0.126 |
-| mybatis-3.5.6 | 0.094 | 0.040 | 0.390 | 0.524 |
-| quartz-core-2.3.1 | 0.087 | 0.012 | 0.116 | 0.215 |
-| vraptor-core-3.5.5 | 0.087 | 0.027 | 0.226 | 0.340 |
-| Total | 0.718 | 0.127 | 1.830 | 2.675 |
+| bootique-2.0.B1-bootique | 122 | 122 | 120 | 122 |
+| commons-collections4-4.4 | 3 | 3 | 23 | 23 |
+| flink-core-1.13.0-rc1 | 40 | 40 | 1262 | 1389 |
+| jsonschema2pojo-core-1.1.1 | 282 | 282 | 462 | 604 |
+| maven-core-3.8.1 | 23 | 23 | 31 | 39 |
+| microbenchmark | 123 | 123 | 132 | 132 |
+| mybatis-3.5.6 |  |  |  |  |
+| quartz-core-2.3.1 | 21 | 21 | 23 | 31 |
+| vraptor-core-3.5.5 | 963 | 962 | 1301 | 1630 |
+| Total | N/A | N/A | N/A  | N/A |
 
 
 ## Manual Inspection on microbenchmark  (Intraprocedural)
