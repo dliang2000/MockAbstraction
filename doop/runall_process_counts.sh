@@ -54,6 +54,6 @@ for n in NO_INTERPROC NORMAL; do
   # mybatis
   # echo mybatis-basic-$n
   # ./process-count.py --file mybatis-results/basic-new-counts-$n --package org.apache.ibatis
-  # echo mybatis-CI-$n
-  # ./process-count.py --file mybatis-results/new-counts-$n --package org.apache.ibatis
+  #echo mybatis-CI-$n
+  #./process-count.py --file mybatis-results/new-counts-$n --package org.apache.ibatis
 done
