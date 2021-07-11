@@ -21,11 +21,11 @@ for base_analysis in basic-only context-insensitive context-insensitive-plusplus
     echo mkdir -p results/$BENCHMARK/$base_analysis/java_8/commons-collections4-$base_analysis-$n
     mkdir -p results/$BENCHMARK/$base_analysis/java_8/commons-collections4-$base_analysis-$n
 
-    echo cp -a out/commons-collections4-$base_analysis-NORMAL/database/* results/$BENCHMARK/$base_analysis/java_8/commons-collections4-$base_analysis-$n
-    cp -a out/commons-collections4-$base_analysis-NORMAL/database/* results/$BENCHMARK/$base_analysis/java_8/commons-collections4-$base_analysis-$n
+#    echo cp -a out/commons-collections4-$base_analysis-NORMAL/database/* results/$BENCHMARK/$base_analysis/java_8/commons-collections4-$base_analysis-$n
+#    cp -a out/commons-collections4-$base_analysis-NORMAL/database/* results/$BENCHMARK/$base_analysis/java_8/commons-collections4-$base_analysis-$n
 
-    echo /usr/bin/time -o $HOME/souffle-$base_analysis-$BENCHMARK-$n souffle -F results/$BENCHMARK/$base_analysis/java_8/commons-collections4-$base_analysis-$n/ -M $n souffle-logic/analyses/mocks/mocks-after.dl -D results/$BENCHMARK/$base_analysis/java_8/commons-collections4-$base_analysis-$n/
-    /usr/bin/time -o $HOME/souffle-$base_analysis-$BENCHMARK-$n souffle -F results/$BENCHMARK/$base_analysis/java_8/commons-collections4-$base_analysis-$n/ -M $n souffle-logic/analyses/mocks/mocks-after.dl -D results/$BENCHMARK/$base_analysis/java_8/commons-collections4-$base_analysis-$n/
+    echo /usr/bin/time -o $HOME/souffle-$base_analysis-$BENCHMARK-$n souffle -F out/commons-collections4-$base_analysis-NORMAL/database/ -M $n souffle-logic/analyses/mocks/mocks-after.dl -D results/$BENCHMARK/$base_analysis/java_8/commons-collections4-$base_analysis-$n/
+    /usr/bin/time -o $HOME/souffle-$base_analysis-$BENCHMARK-$n souffle -F out/commons-collections4-$base_analysis-NORMAL/database/ -M $n souffle-logic/analyses/mocks/mocks-after.dl -D results/$BENCHMARK/$base_analysis/java_8/commons-collections4-$base_analysis-$n/
 
     echo ./count.py --file results/$BENCHMARK/$base_analysis/java_8/commons-collections4-$base_analysis-$n/isMockInvocation.csv &> $HOME/results/commons-collection4-results/$base_analysis-counts-$n
     ./count.py --file results/$BENCHMARK/$base_analysis/java_8/commons-collections4-$base_analysis-$n/isMockInvocation.csv &> $HOME/results/commons-collection4-results/$base_analysis-counts-$n
