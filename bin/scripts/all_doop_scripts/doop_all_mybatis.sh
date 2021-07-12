@@ -4,14 +4,14 @@
 BENCHMARK="mybatis-3-mybatis-3.5.6"
 RESULT="mybatis-3.5.6"
 
-for base_analysis in basic-only context-insensitive context-insensitive-plusplus; do
+for base_analysis in basic-only context-insensitive context-insensitive-plusplus 1-object-sensitive; do
   if [[ "$base_analysis" -eq "basic-only" ]]; then
     USE_WHAT=USE_BASIC
   else
     USE_WHAT=USE_CALLGRAPH
   fi
 
-  echo ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/target/mybatis-3.5.6.jar -i $HOME/Benchmarks/$BENCHMARK/target/mybatis-3.5.6-tests.jar -i $HOME/Benchmarks/$BENCHMARK/mvn_dependencies --id mybatis-$base_analysis-NORMAL --souffle-jobs 32 --main org.apache.ibatis.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &> $HOME/results/mybatis3-results/mybatis3-$base_analysis-NORMAL.log
+  echo ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/target/mybatis-3.5.6.jar -i $HOME/Benchmarks/$BENCHMARK/target/mybatis-3.5.6-tests.jar -i $HOME/Benchmarks/$BENCHMARK/mvn_dependencies --id mybatis-$base_analysis-NORMAL --souffle-jobs 32 --main org.apache.ibatis.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &>> $HOME/results/mybatis3-results/mybatis3-$base_analysis-NORMAL.log
   ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/target/mybatis-3.5.6.jar -i $HOME/Benchmarks/$BENCHMARK/target/mybatis-3.5.6-tests.jar -i $HOME/Benchmarks/$BENCHMARK/mvn_dependencies --id mybatis-$base_analysis-NORMAL --souffle-jobs 32 --main org.apache.ibatis.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &>> $HOME/results/mybatis3-results/mybatis3-$base_analysis-NORMAL.log
 
   for n in NORMAL NO_INTERPROC; do

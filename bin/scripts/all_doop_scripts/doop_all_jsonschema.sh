@@ -5,14 +5,14 @@ BENCHMARK="jsonschema2pojo-1.1.1"
 RESULT="jsonschema2pojo-core-1.1.1"
 
 # doop runs for jsonschema2pojo-1.1.1-core
-for base_analysis in basic-only context-insensitive context-insensitive-plusplus; do
+for base_analysis in basic-only context-insensitive context-insensitive-plusplus 1-object-sensitive; do
   if [[ "$base_analysis" -eq "basic-only" ]]; then
     USE_WHAT=USE_BASIC
   else
     USE_WHAT=USE_CALLGRAPH
   fi
 
-  echo ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/jsonschema2pojo-core/target/$RESULT.jar -i $HOME/Benchmarks/$BENCHMARK/jsonschema2pojo-core/target/$RESULT-tests.jar -i $HOME/Benchmarks/$BENCHMARK/jsonschema2pojo-core/mvn_dependencies --id jsonschema2pojo-$base_analysis-NORMAL --souffle-jobs 32 --main org.jsonschema2pojo.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &> $HOME/results/jsonschema2pojo-core-results/jsonschema2pojo-core-$base_analysis-NORMAL.log
+  echo ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/jsonschema2pojo-core/target/$RESULT.jar -i $HOME/Benchmarks/$BENCHMARK/jsonschema2pojo-core/target/$RESULT-tests.jar -i $HOME/Benchmarks/$BENCHMARK/jsonschema2pojo-core/mvn_dependencies --id jsonschema2pojo-$base_analysis-NORMAL --souffle-jobs 32 --main org.jsonschema2pojo.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &>> $HOME/results/jsonschema2pojo-core-results/jsonschema2pojo-core-$base_analysis-NORMAL.log
   ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/jsonschema2pojo-core/target/$RESULT.jar -i $HOME/Benchmarks/$BENCHMARK/jsonschema2pojo-core/target/$RESULT-tests.jar -i $HOME/Benchmarks/$BENCHMARK/jsonschema2pojo-core/mvn_dependencies --id jsonschema2pojo-$base_analysis-NORMAL --souffle-jobs 32 --main org.jsonschema2pojo.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &>> $HOME/results/jsonschema2pojo-core-results/jsonschema2pojo-core-$base_analysis-NORMAL.log
 
   for n in NORMAL NO_INTERPROC; do

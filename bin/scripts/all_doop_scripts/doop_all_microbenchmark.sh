@@ -4,14 +4,14 @@ BENCHMARK="microbenchmark"
 RESULT="payroll-test-0.0.1-SNAPSHOT"
 
 # doop runs for microbenchmark
-for base_analysis in basic-only context-insensitive context-insensitive-plusplus; do
+for base_analysis in basic-only context-insensitive context-insensitive-plusplus 1-object-sensitive; do
   if [[ "$base_analysis" -eq "basic-only" ]]; then
     USE_WHAT=USE_BASIC
   else
     USE_WHAT=USE_CALLGRAPH
   fi
 
-  echo ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/target/$RESULT.jar -i $HOME/Benchmarks/$BENCHMARK/target/$RESULT-tests.jar -i $HOME/Benchmarks/$BENCHMARK/mvn_dependencies --id microbenchmark-$base_analysis-NORMAL --souffle-jobs 32 --main ca.liang.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &> $HOME/results/microbenchmark-results/microbenchmark-$base_analysis-NORMAL.log
+  echo ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/target/$RESULT.jar -i $HOME/Benchmarks/$BENCHMARK/target/$RESULT-tests.jar -i $HOME/Benchmarks/$BENCHMARK/mvn_dependencies --id microbenchmark-$base_analysis-NORMAL --souffle-jobs 32 --main ca.liang.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &>> $HOME/results/microbenchmark-results/microbenchmark-$base_analysis-NORMAL.log
   ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/target/$RESULT.jar -i $HOME/Benchmarks/$BENCHMARK/target/$RESULT-tests.jar -i $HOME/Benchmarks/$BENCHMARK/mvn_dependencies --id microbenchmark-$base_analysis-NORMAL --souffle-jobs 32 --main ca.liang.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &>> $HOME/results/microbenchmark-results/microbenchmark-$base_analysis-NORMAL.log
 
   for n in NORMAL NO_INTERPROC; do

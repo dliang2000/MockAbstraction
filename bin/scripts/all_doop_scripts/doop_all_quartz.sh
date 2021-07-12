@@ -4,14 +4,14 @@
 BENCHMARK="quartz-quartz-2.3.1-patched"
 RESULT="quartz-core-2.3.1"
 
-for base_analysis in basic-only context-insensitive context-insensitive-plusplus; do
+for base_analysis in basic-only context-insensitive context-insensitive-plusplus 1-object-sensitive; do
   if [[ "$base_analysis" -eq "basic-only" ]]; then
     USE_WHAT=USE_BASIC
   else
     USE_WHAT=USE_CALLGRAPH
   fi
 
-  echo ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/quartz-core/target/$RESULT.jar -i $HOME/Benchmarks/$BENCHMARK/quartz-core/target/$RESULT-tests.jar -i $HOME/Benchmarks/$BENCHMARK/quartz-core/mvn_dependencies --id quartz-core-$base_analysis-NORMAL --souffle-jobs 32 --main org.quartz.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &> $HOME/results/quartz-core-results/quartz-core-$base_analysis-NORMAL.log
+  echo ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/quartz-core/target/$RESULT.jar -i $HOME/Benchmarks/$BENCHMARK/quartz-core/target/$RESULT-tests.jar -i $HOME/Benchmarks/$BENCHMARK/quartz-core/mvn_dependencies --id quartz-core-$base_analysis-NORMAL --souffle-jobs 32 --main org.quartz.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &>> $HOME/results/quartz-core-results/quartz-core-$base_analysis-NORMAL.log
   ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/quartz-core/target/$RESULT.jar -i $HOME/Benchmarks/$BENCHMARK/quartz-core/target/$RESULT-tests.jar -i $HOME/Benchmarks/$BENCHMARK/quartz-core/mvn_dependencies --id quartz-core-$base_analysis-NORMAL --souffle-jobs 32 --main org.quartz.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &>> $HOME/results/quartz-core-results/quartz-core-$base_analysis-NORMAL.log
 
   for n in NORMAL NO_INTERPROC; do
