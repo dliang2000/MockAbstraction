@@ -12,7 +12,7 @@ for base_analysis in basic-only context-insensitive context-insensitive-plusplus
   fi
 
   echo ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/target/mybatis-3.5.6.jar -i $HOME/Benchmarks/$BENCHMARK/target/mybatis-3.5.6-tests.jar -i $HOME/Benchmarks/$BENCHMARK/mvn_dependencies --id mybatis-$base_analysis-NORMAL --souffle-jobs 32 --main org.apache.ibatis.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &> $HOME/results/mybatis3-results/mybatis3-$base_analysis-NORMAL.log
-  ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/target/mybatis-3.5.6.jar -i $HOME/Benchmarks/$BENCHMARK/target/mybatis-3.5.6-tests.jar -i $HOME/Benchmarks/$BENCHMARK/mvn_dependencies --id mybatis-$base_analysis-NORMAL --souffle-jobs 32 --main org.apache.ibatis.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &> $HOME/results/mybatis3-results/mybatis3-$base_analysis-NORMAL.log
+  ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/target/mybatis-3.5.6.jar -i $HOME/Benchmarks/$BENCHMARK/target/mybatis-3.5.6-tests.jar -i $HOME/Benchmarks/$BENCHMARK/mvn_dependencies --id mybatis-$base_analysis-NORMAL --souffle-jobs 32 --main org.apache.ibatis.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &>> $HOME/results/mybatis3-results/mybatis3-$base_analysis-NORMAL.log
 
   for n in NORMAL NO_INTERPROC; do
     echo rm -rf results/$RESULT/$base_analysis/java_8/mybatis-$base_analysis-$n

@@ -12,7 +12,7 @@ for base_analysis in basic-only context-insensitive context-insensitive-plusplus
   fi
 
   echo ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/quartz-core/target/$RESULT.jar -i $HOME/Benchmarks/$BENCHMARK/quartz-core/target/$RESULT-tests.jar -i $HOME/Benchmarks/$BENCHMARK/quartz-core/mvn_dependencies --id quartz-core-$base_analysis-NORMAL --souffle-jobs 32 --main org.quartz.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &> $HOME/results/quartz-core-results/quartz-core-$base_analysis-NORMAL.log
-  ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/quartz-core/target/$RESULT.jar -i $HOME/Benchmarks/$BENCHMARK/quartz-core/target/$RESULT-tests.jar -i $HOME/Benchmarks/$BENCHMARK/quartz-core/mvn_dependencies --id quartz-core-$base_analysis-NORMAL --souffle-jobs 32 --main org.quartz.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &> $HOME/results/quartz-core-results/quartz-core-$base_analysis-NORMAL.log
+  ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/quartz-core/target/$RESULT.jar -i $HOME/Benchmarks/$BENCHMARK/quartz-core/target/$RESULT-tests.jar -i $HOME/Benchmarks/$BENCHMARK/quartz-core/mvn_dependencies --id quartz-core-$base_analysis-NORMAL --souffle-jobs 32 --main org.quartz.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &>> $HOME/results/quartz-core-results/quartz-core-$base_analysis-NORMAL.log
 
   for n in NORMAL NO_INTERPROC; do
     echo rm -rf results/$RESULT/$base_analysis/java_8/quartz-core-$base_analysis-$n

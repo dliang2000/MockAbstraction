@@ -12,7 +12,7 @@ for base_analysis in basic-only context-insensitive context-insensitive-plusplus
   fi
 
   echo ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/vraptor-core/target/$RESULT.jar -i $HOME/Benchmarks/$BENCHMARK/vraptor-core/target/$RESULT-tests.jar -i $HOME/Benchmarks/$BENCHMARK/vraptor-core/mvn_dependencies --id vraptor-$base_analysis-NORMAL --souffle-jobs 32 --main br.com.caelum.vraptor.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &> $HOME/results/vraptor-core-results/vraptor-core-$base_analysis-NORMAL.log
-  ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/vraptor-core/target/$RESULT.jar -i $HOME/Benchmarks/$BENCHMARK/vraptor-core/target/$RESULT-tests.jar -i $HOME/Benchmarks/$BENCHMARK/vraptor-core/mvn_dependencies --id vraptor-$base_analysis-NORMAL --souffle-jobs 32 --main br.com.caelum.vraptor.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &> $HOME/results/vraptor-core-results/vraptor-core-$base_analysis-NORMAL.log
+  ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/vraptor-core/target/$RESULT.jar -i $HOME/Benchmarks/$BENCHMARK/vraptor-core/target/$RESULT-tests.jar -i $HOME/Benchmarks/$BENCHMARK/vraptor-core/mvn_dependencies --id vraptor-$base_analysis-NORMAL --souffle-jobs 32 --main br.com.caelum.vraptor.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &>> $HOME/results/vraptor-core-results/vraptor-core-$base_analysis-NORMAL.log
 
   for n in NORMAL NO_INTERPROC; do
     echo rm -rf results/$RESULT/$base_analysis/java_8/vraptor-$base_analysis-$n
