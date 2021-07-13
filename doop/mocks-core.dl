@@ -1,0 +1,186 @@
+// v:Var
+.decl isMockVar(v: Var)
+isMockVar(v) :-
+  AssignReturnValue(mi, v),
+  callsMockSource(mi).
+isMockVar(v) :-
+  isMockVar(from),
+  AssignCast(_ /* type */, from, v, _ /* inmethod */).
+isMockVar(v) :-
+  isMockVar(v1),
+  AssignLocal(v1, v, _).
+#ifndef NO_INTERPROC
+isMockVar(v) :-
+  isInterprocMockVar(v).
+#endif
+#ifndef NO_FIELDS
+isMockVar(v) :-
+  LoadInstanceField(_, field, v, _),
+  fieldContainsMock(field).
+#endif
+#ifndef NO_COLLECTIONS
+isMockVar(v) :-
+// v = c.get(_);
+  isCollectionLocalThatContainsMocks(c, _),
+  CollectionGetMethod(get),
+  VirtualMethodInvocation(mi, get, _),
+  VirtualMethodInvocation_Base(mi, c),
+  AssignReturnValue(mi, v).
+#endif
+#ifndef NO_ARRAYS
+isMockVar(v) :-
+// v = c[_];
+  isArrayLocalThatContainsMocks(c),
+  LoadArrayIndex(c, v, _).
+#endif
+
+.decl isMockInvocation(mi: MethodInvocation, signature:Method, inMethod:Method, line: number, receiver: symbol)
+isMockInvocation(mi, signature, inmethod, line, receiver) :-
+  _MethodInvocation_Line(mi, line),
+  VirtualMethodInvocation(mi, signature, inmethod),
+  VirtualMethodInvocation_Base(mi, receiver),
+  isMockVar(receiver).
+
+// ** interprocedural
+.decl isInterprocMockVar(v:Var)
+// propagate back to caller in m = returnsMock()
+isInterprocMockVar(v) :-
+  AssignReturnValue(mi, v),
+  CallGraphEdge(_, mi, _, callee),
+  ReturnVar(v_callee, callee),
+  isMockVar(v_callee).
+
+// propagate to callee in callSomething(mock)
+isInterprocMockVar(v_callee) :-
+  isMockVar(v),
+  ActualParam(n, mi, v),
+  FormalParam(n, callee, v_callee),
+  CallGraphEdge(_, mi, _, callee),
+  Method_DeclaringType(callee, callee_class),
+  ApplicationClass(callee_class).
+
+// ** collections
+.decl isCollectionLocalThatContainsMocks(c:Var, inmethod:Method)
+// c.add(mv)
+isCollectionLocalThatContainsMocks(c, inmethod) :-
+  CollectionPutMethod(put),
+  VirtualMethodInvocation(mi, put, inmethod),
+  VirtualMethodInvocation_Base(mi, c),
+  ActualParam(_, mi, mv),
+  isMockVar(mv).
+// c = _.f
+isCollectionLocalThatContainsMocks(c, inmethod) :-
+  isCollectionFieldThatContainsMocks(f),
+  LoadInstanceField(_, f, c, inmethod).
+// c1 = c
+isCollectionLocalThatContainsMocks(c, inmethod) :-
+  isCollectionLocalThatContainsMocks(c1, inmethod),
+  AssignLocal(c1, c, inmethod).
+// c.addAll(c1)
+isCollectionLocalThatContainsMocks(c, inmethod) :-
+  isCollectionLocalThatContainsMocks(c1, inmethod),
+  CollectionAddAllMethod(add_all),
+  VirtualMethodInvocation(mi, add_all, inmethod),
+  VirtualMethodInvocation_Base(mi, c),
+  ActualParam(_, mi, c1).
+// c = new Collection(c1) [actually c.<init>(c1)]
+isCollectionLocalThatContainsMocks(c, inmethod) :-
+  isCollectionLocalThatContainsMocks(c1, inmethod),
+  CollectionAddAllMethod(add_all),
+  MethodInvocation_Method(mi, add_all),
+  Instruction_Method(mi, inmethod),
+  SpecialMethodInvocation_Base(mi, c),
+  ActualParam(_, mi, c1).
+// it = c.iterator()
+isCollectionLocalThatContainsMocks(it, inmethod) :-
+  isCollectionLocalThatContainsMocks(c, inmethod),
+  CollectionIteratorMethod(it_method),
+  VirtualMethodInvocation(mi, it_method, inmethod),
+  VirtualMethodInvocation_Base(mi, c),
+  AssignReturnValue(mi, it).
+
+
+// ** collections \times fields
+.decl isCollectionFieldThatContainsMocks(f:Field)
+// base.f = c where c is a CollectionLocalThatContainsMocks -> f is a field that contains mocks
+#ifndef NO_FIELDS
+isCollectionFieldThatContainsMocks(f) :-
+  isCollectionLocalThatContainsMocks(c, _),
+  StoreInstanceField(c, _, f, _).
+// c = base.f where c is a CollectionLocalThatContainsMocks (since we're flow-insensitive)
+isCollectionFieldThatContainsMocks(f) :-
+  isCollectionLocalThatContainsMocks(c, _),
+  LoadInstanceField(_ /*base*/, f, c, _ /*inmethod*/).
+#endif
+
+// ** arrays
+.decl isInterprocArrayLocalThatContainsMocks(c:Var)
+#ifndef NO_INTERPROC
+isInterprocArrayLocalThatContainsMocks(v) :-
+  AssignReturnValue(mi, v),
+  CallGraphEdge(_, mi, _, callee),
+  ReturnVar(v_callee, callee),
+  isArrayLocalThatContainsMocks(v_callee).
+#endif
+
+.decl isArrayLocalThatContainsMocks(c:Var)
+// c[idx] = mv @ insn
+isArrayLocalThatContainsMocks(c) :-
+  StoreArrayIndex(mv, c, _),
+  isMockVar(mv).
+// c = _.f, f contains mocks
+isArrayLocalThatContainsMocks(c) :-
+  isArrayFieldThatContainsMocks(f),
+  LoadInstanceField(_, f, c, _).
+// c = c1, c1 contains mocks
+isArrayLocalThatContainsMocks(c) :-
+  isArrayLocalThatContainsMocks(c1),
+  AssignLocal(c1, c, _).
+// c = (Type) c1, c1 contains mocks
+isArrayLocalThatContainsMocks(c) :-
+  isArrayLocalThatContainsMocks(c1),
+  AssignCast(_, c1, c, _).
+
+// ** collections \times arrays
+// c.copyInto(array)
+#ifndef NO_COLLECTIONS
+isArrayLocalThatContainsMocks(array) :-
+  isCollectionLocalThatContainsMocks(c, inmethod),
+  CollectionCopyIntoMethod(copy_into),
+  VirtualMethodInvocation(mi, copy_into, inmethod),
+  VirtualMethodInvocation_Base(mi, c),
+  ActualParam(0, mi, array).
+// a = c.toArray(*)
+isArrayLocalThatContainsMocks(array) :-
+  isCollectionLocalThatContainsMocks(c, inmethod),
+  CollectionToArrayMethod(toarray),
+  VirtualMethodInvocation(mi, toarray, inmethod),
+  VirtualMethodInvocation_Base(mi, c),
+  AssignReturnValue(mi, array).
+#endif
+
+isArrayLocalThatContainsMocks(v) :-
+  isInterprocArrayLocalThatContainsMocks(v).
+
+// ** arrays \times fields
+.decl isArrayFieldThatContainsMocks(f:Field)
+// arr = _.f <- (2) propagates so that field f is a field that contains mocks
+// arr[i] = mv <- (1) marks arr as an arraylocalthatcontainsmocks
+#ifndef NO_FIELDS
+isArrayFieldThatContainsMocks(f) :-
+  isArrayLocalThatContainsMocks(arr),
+  LoadInstanceField(_, f, arr, _).
+#endif
+
+// ** fields
+// .decl LoadInstanceField(?base:Var, ?sig:Field, ?to:Var, ?inmethod:Method)
+// .decl StoreInstanceField(?from:Var, ?base:Var, ?signature:Field, ?inmethod: Method)
+.decl fieldContainsMock(signature: Field)
+fieldContainsMock(signature) :-
+  StoreInstanceField(from, _, signature, _),
+  isMockVar(from).
+fieldContainsMock(signature) :-
+  Field_Annotation(signature, a),
+  MockFieldAnnotation(a).
+
+// output-mock-relations.dl contains outputs for these relations.
