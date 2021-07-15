@@ -26,8 +26,8 @@ def dir_file(string):
 
 with open('hyperfine_runtime.csv', mode='w') as outfile:
     writer = csv.writer(outfile)
-    header = ['benchmark', 'basic-only-intraproc (s)', 'CI-intraproc (s)', 'CIPP-intraproc (s)', '1-object-sens-intraproc (s)',
-                'basic-only-interproc (s)', 'CI-interproc (s)', 'CIPP-interproc (s)', '1-object-sens-interproc (s)']
+    header = ['benchmark', 'basic-only-intraproc (s)', "stddev", 'CI-intraproc (s)', "stddev", 'CIPP-intraproc (s)', "stddev", '1-object-sens-intraproc (s)', "stddev",
+                'basic-only-interproc (s)', "stddev", 'CI-interproc (s)', "stddev", 'CIPP-interproc (s)', "stddev", '1-object-sens-interproc (s)', "stddev"]
     writer.writerow(header)
     for benchmark in benchmarks:
         content_to_print = [benchmark]
@@ -39,8 +39,10 @@ with open('hyperfine_runtime.csv', mode='w') as outfile:
                     next(reader, None)  # skip the headers
                     for row in reader:
                         command, mean, stddev, median, user, system, min, max = row
-                        data = str(round(float(mean), 4)) + u'\u00b1' + str(round(float(stddev), 4))
-                        content_to_print.append(data)
-                        print("File: {}".format(file))
-                        print("Mean: {}".format(data))
+                        round_mean = str(round(float(mean), 4))
+                        round_stddev = str(round(float(stddev), 4))
+                        content_to_print.append(round_mean)
+                        content_to_print.append(round_stddev)
+                        #print("File: {}".format(file))
+                        #print("Mean: {}".format(round_stddev))
         writer.writerow(content_to_print)
