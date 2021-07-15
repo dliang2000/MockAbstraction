@@ -39,7 +39,8 @@ with open('hyperfine_runtime.csv', mode='w') as outfile:
                     next(reader, None)  # skip the headers
                     for row in reader:
                         command, mean, stddev, median, user, system, min, max = row
-                        content_to_print.append(mean)
+                        data = str(round(float(mean), 4)) + u'\u00b1' + str(round(float(stddev), 4))
+                        content_to_print.append(data)
                         print("File: {}".format(file))
-                        print("Mean: {}".format(mean))
+                        print("Mean: {}".format(data))
         writer.writerow(content_to_print)
