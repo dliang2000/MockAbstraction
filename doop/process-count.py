@@ -25,7 +25,7 @@ with open(args.file, newline='') as csvfile:
         if args.package in clazz:
             total_calls = total_calls + int(count)
         else:
-            print("Removed row: {}".format(row))
+            #print("Removed row: {}".format(row))
             continue;
 
-print("Total number of mock counts in {} is {} ".format(args.file, total_calls))
+print(total_calls)

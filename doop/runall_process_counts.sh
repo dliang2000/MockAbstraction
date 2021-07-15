@@ -1,59 +1,105 @@
 #!/bin/bash
 
+line="benchmark,basic-only-intraproc,CI-intraproc,CIPP-intraproc,1-object-sens-intraproc,basic-only-interproc,CI-interproc,CIPP-interproc,1-object-sens-interproc"
+echo $line
+
 # bootique
-
+line="bootique,"
 for n in NO_INTERPROC NORMAL; do
-  # bootique
-  echo bootique-basic-$n
-  ./process-count.py --file bootique-results/basic-new-counts-$n --package io.bootique
-  echo bootique-CI-$n
-  ./process-count.py --file bootique-results/new-counts-$n --package io.bootique
-
-  # commons-collections
-  echo commons-basic-$n
-  ./process-count.py --file commons-collection4-results/basic-new-counts-$n --package org.apache.commons.collections4
-  echo commons-CI-$n
-  ./process-count.py --file commons-collection4-results/new-counts-$n --package org.apache.commons.collections4
-
-  # flink-core
-  echo flink-core-basic-$n
-  ./process-count.py --file flink-core-results/basic-new-counts-$n --package org.apache.flink
-  echo flink-core-CI-$n
-  ./process-count.py --file flink-core-results/new-counts-$n --package org.apache.flink
-
-  # jsonschema2pojo-core
-  echo jsonschema2pojo-basic-$n
-  ./process-count.py --file jsonschema2pojo-core-results/basic-new-counts-$n --package org.jsonschema2pojo
-  echo jsonschema2pojo-CI-$n
-  ./process-count.py --file jsonschema2pojo-core-results/new-counts-$n --package org.jsonschema2pojo
-
-  # maven -core
-  echo maven-core-basic-$n
-  ./process-count.py --file maven-core-results/basic-new-counts-$n --package org.apache.maven
-  echo maven-core-CI-$n
-  ./process-count.py --file maven-core-results/new-counts-$n --package org.apache.maven
-
-  # microbenchmark
-  echo microbenchmark-basic-$n
-  ./process-count.py --file microbenchmark-results/basic-new-counts-$n --package ca.liang
-  echo microbenchmark-CI-$n
-  ./process-count.py --file microbenchmark-results/new-counts-$n --package ca.liang
-
-  # quartz-core
-  echo quartz-core-basic-$n
-  ./process-count.py --file quartz-core-results/basic-new-counts-$n --package org.quartz
-  echo quartz-core-CI-$n
-  ./process-count.py --file quartz-core-results/new-counts-$n --package org.quartz
-
-  # vraptor-core
-  echo vraptor-core-basic-$n
-  ./process-count.py --file vraptor-core-results/basic-new-counts-$n --package br.com.caelum.vraptor
-  echo vraptor-core-CI-$n
-  ./process-count.py --file vraptor-core-results/new-counts-$n --package br.com.caelum.vraptor
-
-  # mybatis
-  # echo mybatis-basic-$n
-  # ./process-count.py --file mybatis-results/basic-new-counts-$n --package org.apache.ibatis
-  #echo mybatis-CI-$n
-  #./process-count.py --file mybatis-results/new-counts-$n --package org.apache.ibatis
+  for base_analysis in basic-only context-insensitive context-insensitive-plusplus 1-object-sensitive; do
+    # bootique
+    #echo bootique-$base_analysis-$n
+    var=$( ./process-count.py --file bootique-results/$base_analysis-counts-$n --package io.bootique )
+    line=$line$var','
+  done
 done
+echo $line
+
+line="commons-collections,"
+for n in NO_INTERPROC NORMAL; do
+  for base_analysis in basic-only context-insensitive context-insensitive-plusplus 1-object-sensitive; do
+    # commons-collections
+    # echo commons-collections-$base_analysis-$n
+    var=$( ./process-count.py --file commons-collection4-results/$base_analysis-counts-$n --package org.apache.commons.collections4 )
+    line=$line$var","
+  done
+done
+echo $line
+
+line="flink-core,"
+for n in NO_INTERPROC NORMAL; do
+  for base_analysis in basic-only context-insensitive context-insensitive-plusplus 1-object-sensitive; do
+    # flink-core
+    #echo flink-core-$base_analysis-$n
+    var=$( ./process-count.py --file flink-core-results/$base_analysis-counts-$n --package org.apache.flink )
+    line=$line$var','
+  done
+done
+echo $line
+
+line="jsonschema2pojo-core,"
+for n in NO_INTERPROC NORMAL; do
+  for base_analysis in basic-only context-insensitive context-insensitive-plusplus 1-object-sensitive; do
+    # jsonschema2pojo-core
+    #echo jsonschema2pojo-$base_analysis-$n
+    var=$( ./process-count.py --file jsonschema2pojo-core-results/$base_analysis-counts-$n --package org.jsonschema2pojo )
+    line=$line$var','
+  done
+done
+echo $line
+
+line="maven-core,"
+for n in NO_INTERPROC NORMAL; do
+  for base_analysis in basic-only context-insensitive context-insensitive-plusplus 1-object-sensitive; do
+    # maven -core
+    #echo maven-core-$base_analysis-$n
+    var=$( ./process-count.py --file maven-core-results/$base_analysis-counts-$n --package org.apache.maven )
+    line=$line$var','
+  done
+done
+echo $line
+
+line="microbenchmark,"
+for n in NO_INTERPROC NORMAL; do
+  for base_analysis in basic-only context-insensitive context-insensitive-plusplus 1-object-sensitive; do
+    # microbenchmark
+    #echo microbenchmark-$base_analysis-$n
+    var=$( ./process-count.py --file microbenchmark-results/$base_analysis-counts-$n --package ca.liang )
+    line=$line$var','
+  done
+done
+echo $line
+
+line="quartz-core,"
+for n in NO_INTERPROC NORMAL; do
+  for base_analysis in basic-only context-insensitive context-insensitive-plusplus 1-object-sensitive; do
+    # quartz-core
+    #echo quartz-core-$base_analysis-$n
+    var=$( ./process-count.py --file quartz-core-results/$base_analysis-counts-$n --package org.quartz )
+    line=$line$var','
+  done
+done
+echo $line
+
+line="vraptor-core,"
+# context-insensitive context-insensitive-plusplus (remove these two base_analysis for the current bad lines)
+for n in NO_INTERPROC NORMAL; do
+  for base_analysis in basic-only 1-object-sensitive; do
+    # vraptor-core
+    #echo vraptor-core-$base_analysis-$n
+    var=$( ./process-count.py --file vraptor-core-results/$base_analysis-counts-$n --package br.com.caelum.vraptor )
+    line=$line$var','
+  done
+done
+echo $line
+
+line="mybatis,"
+for n in NO_INTERPROC NORMAL; do
+  for base_analysis in basic-only context-insensitive context-insensitive-plusplus 1-object-sensitive; do
+    # mybatis
+    #echo mybatis-$base_analysis-$n
+    var=$( ./process-count.py --file mybatis-results/$base_analysis-counts-$n --package org.apache.ibatis )
+    line=$line$var','
+  done
+done
+echo $line
