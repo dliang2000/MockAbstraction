@@ -84,7 +84,7 @@ echo $line
 line="vraptor-core,"
 # context-insensitive context-insensitive-plusplus (remove these two base_analysis for the current bad lines)
 for n in NO_INTERPROC NORMAL; do
-  for base_analysis in basic-only 1-object-sensitive; do
+  for base_analysis in basic-only context-insensitive context-insensitive-plusplus 1-object-sensitive; do
     # vraptor-core
     #echo vraptor-core-$base_analysis-$n
     var=$( ./process-count.py --file vraptor-core-results/$base_analysis-counts-$n --package br.com.caelum.vraptor )
