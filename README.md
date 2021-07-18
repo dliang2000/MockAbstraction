@@ -52,6 +52,38 @@ or if you want to run Mock Analysis for all benchmarks:
 ./runall_MutatedFieldAnalysis.sh
 ```
 
+### Doop Tables
+
+#### CallGraphEdge.csv size
+| Benchmark | basic-only-normal (MB) | CI-normal (MB) | CIPP-normal (MB) | 1-object-sens-NORMAL (MB) |
+| --- | --: | --: | --: | --: |
+| bootique-2.0.B1-bootique | 91.0 | 48.2 | 136.4 | 35.3 |
+| commons-collections4-4.4 | 65.2 | 36.1 | 51.5 | 23.5 |
+| flink-core-1.13.0-rc1 | 131.8 | 46.8 | 97.3 | 33.3 |
+| jsonschema2pojo-core-1.1.1 | 121.0 | 40.2 | 85.5 | 31.0 |
+| maven-core-3.8.1 | 94.2 | 28.7 | 46.1 | 20.8 |
+| microbenchmark | 50.1 | 14.1 | 24.0 | 10.8 |
+| mybatis-3.5.6 | 286.1 | 52.8 | 127.8 | N/A |
+| quartz-core-2.3.1 | 95.5 | 31.5 | 66.8 | 23.7 |
+| vraptor-core-3.5.5 | 134.0 | 50.3 | 85.7 | 37.8 |
+| Average | 118.77 | 38.74 | 80.12 | 27.02 |
+
+
+#### Doop's runtime on mock analysis (Different Base Analysis)
+
+|benchmark           |basic-only-intraproc (s)|stddev|CI-intraproc (s)|stddev|CIPP-intraproc (s)|stddev|1-object-sens-intraproc (s)|stddev|basic-only-interproc (s)|stddev|CI-interproc (s)|stddev |CIPP-interproc (s)|stddev|1-object-sens-interproc (s)|stddev |
+|--------------------|------------------------|------|----------------|------|------------------|------|---------------------------|------|------------------------|------|----------------|-------|------------------|------|---------------------------|-------|
+|bootique            |21.2622                 |1.7252|19.9262         |1.8543|19.5066           |1.7403|18.545                     |1.9442|26.4354                 |1.7282|24.8976         |0.6917 |25.4992           |1.689 |19.4426                    |0.9488 |
+|commons-collections4|15.3868                 |1.388 |14.1988         |1.3571|14.4779           |0.9716|13.389                     |1.0837|17.7987                 |1.424 |16.6437         |1.0578 |16.8178           |0.792 |15.6146                    |1.595  |
+|flink-core          |29.8686                 |2.2869|27.2052         |3.3438|27.7817           |4.5403|21.1715                    |0.486 |68.2585                 |1.9783|62.1225         |3.9866 |63.9409           |5.6385|54.1053                    |0.3201 |
+|jsonschema2pojo     |31.7246                 |1.4357|29.3279         |2.3252|30.7203           |3.5204|29.3453                    |3.6939|39.7645                 |2.3264|41.0484         |2.8956 |35.3653           |1.9621|37.2899                    |4.5524 |
+|maven-core          |20.4005                 |0.9683|19.4908         |1.7984|16.0885           |1.6083|15.7169                    |1.0893|26.412                  |1.6047|23.4187         |1.9757 |22.1553           |1.8152|19.6182                    |1.7497 |
+|microbenchmark      |13.1999                 |0.7592|11.729          |0.7322|11.6105           |0.5862|12.2276                    |1.148 |13.7641                 |1.0326|12.9192         |0.9476 |13.0155           |1.1839|12.2988                    |1.5261 |
+|mybatis             |83.2945                 |5.5664|59.8329         |4.0663|59.7556           |0.5937|46.1638                    |2.634 |113.3817                |4.5729|192.161         |23.3635|181.9194          |4.0075|68.1988                    |14.6018|
+|quartz-core         |21.9468                 |2.2774|21.0579         |2.0824|18.882            |2.8425|17.2204                    |1.9094|23.4928                 |2.4233|21.9184         |1.8406 |21.9726           |1.7784|19.8037                    |2.7528 |
+|vraptor             |49.27                   |2.5855|34.9573         |0.7945|36.4874           |1.8155|35.7696                    |1.9466|70.9163                 |2.8494|149.3771        |5.7287 |148.3501          |2.615 |138.4228                   |2.6788 |
+
+
 ## LOC and Runtime Information for benchmarks
 
 | Benchmark | LOC Total | LOC (Main) | LOC (Test) |
@@ -79,27 +111,6 @@ or if you want to run Mock Analysis for all benchmarks:
 | quartz-core-2.3.1 | 0.087 | 0.012 | 0.116 | 0.215 | 92 | 40 | 779 | 727 |
 | vraptor-core-3.5.5 | 0.087 | 0.027 | 0.226 | 0.340 | 133 | 251 | 1386 | 1504 |
 | Total | 0.718 | 0.127 | 1.830 | 2.675 | 1500 | 1298 | TBD | TBD |
-
-
-## Doop's Runtime Comparison
-
-| Benchmark | Basic-only, no-mock (s) | Basic-only, with-mock (s) | Basic-only, Delta (s) | Context-Insensitive, no-mock (s) | Context-Insensitive, with-mock (s) | Context-Insensitive, Delta (s) |
-| --- | --: | --: | --: | --: | --: | --: |
-| bootique-2.0.B1-bootique | 0.061 | 0.007 | 0.225 | 0.293 | 315 | 86 |
-| commons-collections4-4.4 | 0.052 | 0.012 | 0.281 | 0.345 | 51 | 53 |
-| flink-core-1.13.0-rc1 | 0.091 | 0.008 | 0.259 | 0.358 | 116 | 194 |
-| jsonschema2pojo-core-1.1.1 | 0.150 | 0.005 | 0.127 | 0.282 | 153 | 180 |
-| maven-core-3.8.1 | 0.060 | 0.006 | 0.126 | 0.192 | 111 | 126 |
-| microbenchmark | 0.036 | 0.0010 | 0.080 | 0.126 | 25 | 24 |
-| mybatis-3.5.6 | 0.094 | 0.040 | 0.390 | 0.524 | 504 | 344 |
-| quartz-core-2.3.1 | 0.087 | 0.012 | 0.116 | 0.215 | 92 | 40 |
-| vraptor-core-3.5.5 | 0.087 | 0.027 | 0.226 | 0.340 | 133 | 251 |
-| Total | 0.718 | 0.127 | 1.830 | 2.675 | 1500 | 1298 |
-
-
-Doop NORMAL mock analysis (s) : Runtime of (regular doop run + extra-logic on NORMAL mock analysis) MINUS Runtime of (regular doop run)
-
-Doop Intra-proc mock analysis only (s) : Runtime of (regular doop run + extra-logic on NO_INTERPROC mock analysis) MINUS Runtime of (regular doop run)
 
 
 ## Field Mutation Data
