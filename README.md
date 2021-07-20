@@ -82,6 +82,22 @@ or if you want to run Mock Analysis for all benchmarks:
 | mybatis-3.5.6 | 83.2945 | 5.5664 | 59.8329 | 4.0663 | 59.7556 | 0.5937 | 46.1638 | 2.634 | 113.3817 | 4.5729 | 192.161 | 23.3635 | 181.9194 | 4.0075 | 68.1988 | 14.6018 |
 | quartz-core-2.3.1 | 21.9468 | 2.2774 | 21.0579 | 2.0824 | 18.882 | 2.8425 | 17.2204 | 1.9094 | 23.4928 | 2.4233 | 21.9184 | 1.8406 | 21.9726 | 1.7784 | 19.8037 | 2.7528 |
 | vraptor-core-3.5.5 | 49.27 | 2.5855 | 34.9573 | 0.7945 | 36.4874 | 1.8155 | 35.7696 | 1.9466 | 70.9163 | 2.8494 | 149.3771 | 5.7287 | 148.3501 | 2.615 | 138.4228 | 2.6788 |
+| Average | 31.8171 | 2.507 | 26.414 | 2.2886 | 26.1456 | 2.3953 | 23.2832 | 1.992 | 44.4693 | 2.4241 | 60.5007 | 8.2512 | 58.7818 | 2.7865 | 42.755 | 5.3503 |
+
+#### Doop's Mock counts comparison (including Soot's)
+
+| Benchmark | Total Number of Invocations | Mock Invokes intraproc (Soot) | basic-only-intraproc | CI-intraproc | CIPP-intraproc | 1-object-sens-intraproc | basic-only-interproc | CI-interproc | CIPP-interproc | 1-object-sens-interproc |
+| --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |
+| bootique-2.0.B1-bootique | 3366 | 99 | 99 | 99 | 99 | 0 | 120 | 122 | 122 | 0 |
+| commons-collections4-4.4 | 12753 | 11 | 3 | 3 | 3 | 3 | 23 | 23 | 23 | 23 |
+| flink-core-1.13.0-rc1 | 11923 | 40 | 40 | 40 | 40 | 40 | 1262 | 1389 | 1374 | 1229 |
+| jsonschema2pojo-core | 1896 | 276 | 282 | 282 | 282 | 282 | 462 | 604 | 604 | 604 |
+| maven-core-3.8.1 | 4072 | 23 | 23 | 23 | 23 | 23 | 31 | 39 | 39 | 39 |
+| microbenchmark | 471 |108 | 123 | 123 | 123 | 123 | 132 | 132 | 132 | 132 |
+| mybatis-3.5.6 | 19232 |575 | 577 | 577 | 577 | 0 | 644 | 1345 | 1345 | 0 |
+| quartz-core-2.3.1 | 3436 | 21 | 21 | 21 | 21 | 21 | 23 | 31 | 31 | 31 |
+| vraptor-core-3.5.5 | 5868 | 942 | 963 | 962 | 962 | 0 | 1301 | 1630 | 1627 | 0 |
+
 
 
 ## LOC and Runtime Information for benchmarks
