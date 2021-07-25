@@ -54,7 +54,23 @@ or if you want to run Mock Analysis for all benchmarks:
 
 ### Doop Tables
 
+#### CallGraphEdge.csv classes counts
+
+| Benchmark | basic-only | CI | CIPP | 1-object-sens |
+| --- | --: | --: | --: | --: |
+| bootique-2.0.B1-bootique | 12187 | 3683 | 3678 | 3394 |
+| commons-collections4-4.4 | 8576 | 2762 | 2757 | 2726 |
+| flink-core-1.13.0-rc1 | 17381 | 3962 | 3946 | 3928 |
+| jsonschema2pojo-core-1.1.1 | 16876 | 2976 | 2967 | 2962 |
+| maven-core-3.8.1 | 13228 | 2858 | 2849 | 2845 |
+| microbenchmark | 7227 | 1603 | 1603 | 1591 |
+| mybatis-3.5.6 | 31778 | 4774 | 4771 | 0 |
+| quartz-core-2.3.1 | 11036 | 2919 | 2918 | 2906 |
+| vraptor-core-3.5.5 | 18294 | 4352 | 4339 | 4335 |
+
+
 #### CallGraphEdge.csv size
+
 | Benchmark | basic-only-normal (MB) | CI-normal (MB) | CIPP-normal (MB) | 1-object-sens-NORMAL (MB) |
 | --- | --: | --: | --: | --: |
 | bootique-2.0.B1-bootique | 91.0 | 48.2 | 136.4 | 35.3 |
