@@ -21,7 +21,7 @@ def dir_file(string):
     else:
         raise FileNotFoundError(string)
 
-with open('CallGraphEdgeClassCounts.csv', mode='w') as outfile:
+with open('CallGraphEdgeSourceClassCounts.csv', mode='w') as outfile:
     writer = csv.writer(outfile)
     header = ['Benchmark', 'basic-only', 'CI', 'CIPP', '1-object-sens']
     writer.writerow(header)

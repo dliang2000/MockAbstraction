@@ -54,9 +54,9 @@ or if you want to run Mock Analysis for all benchmarks:
 
 ### Doop Tables
 
-#### CallGraphEdge.csv classes counts
+#### Number of source classes in the call graph from CallGraphEdge.csv
 
-| Benchmark | basic-only | CI | CIPP | 1-object-sens |
+| Benchmark | basic-only NORMAL | CI NORMAL | CIPP NORMAL | 1-object-sens NORMAL |
 | --- | --: | --: | --: | --: |
 | bootique-2.0.B1-bootique | 12187 | 3683 | 3678 | 3394 |
 | commons-collections4-4.4 | 8576 | 2762 | 2757 | 2726 |
