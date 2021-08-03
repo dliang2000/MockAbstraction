@@ -137,11 +137,11 @@ or if you want to run Mock Analysis for all benchmarks:
 | commons-collections4-4.4 | 0.053 | 0.019 | 0.314 | 0.386 | 51 | 53 | 453 | 455 |
 | flink-core-1.13.0-rc1 | 0.098 | 0.019 | 0.298 | 0.415 | 116 | 194 | 1387 | 1465 |
 | jsonschema2pojo-core-1.1.1 | 0.093 | 0.015 | 0.174 | 0.282 | 153 | 180 | 756 | 783 |
-| maven-core-3.8.1 | 0.060 | 0.006 | 0.126 | 0.192 | 111 | 126 | 511 | 526 |
+| maven-core-3.8.1 | 0.071 | 0.014 | 0.191 | 0.276 | 111 | 126 | 511 | 526 |
 | microbenchmark | 0.034 | 0.014 | 0.082 | 0.13 | 25 | 24 | 193 | 192 |
 | mybatis-3.5.6 | 0.094 | 0.040 | 0.390 | 0.524 | 504 | 344 | 3800 | 3640 |
 | quartz-core-2.3.1 | 0.087 | 0.012 | 0.116 | 0.215 | 92 | 40 | 779 | 727 |
-| vraptor-core-3.5.5 | 0.087 | 0.027 | 0.226 | 0.340 | 133 | 251 | 1386 | 1504 |
+| vraptor-core-3.5.5 | 0.125 | 0.045 | 0.455 | 0.340 | 133 | 251 | 1386 | 1504 |
 | Total | 0.718 | 0.127 | 1.830 | 2.675 | 1500 | 1298 | TBD | TBD |
 
 ## Field Mock Objects
@@ -152,11 +152,11 @@ or if you want to run Mock Analysis for all benchmarks:
 | commons-collections4-4.4 | 0 | 0 | 0 |
 | flink-core-1.13.0-rc1 | 0 | 0 | 0 |
 | jsonschema2pojo-core-1.1.1 | 26 | 126 | 0 |
-| maven-core-3.8.1 | 38866 | 27762 | 11104 |
+| maven-core-3.8.1 | 7 | 0 | 1 |
 | microbenchmark | 2 | 0 | 29 |
 | mybatis-3.5.6 | 68268 | 21934 | 46334 |
 | quartz-core-2.3.1 | 35355 | 26932 | 8423 |
-| vraptor-core-3.5.5 | 34244 | 14111 | 20133 |
+| vraptor-core-3.5.5 | 263 | 2 | 45 |
 | Total | 383638 | 199628 | 184405 |
 
 
@@ -200,7 +200,7 @@ or if you want to run Mock Analysis for all benchmarks:
 | microbenchmark | 471 | 108 | 123 |
 | mybatis-3.5.6 | 19232 | 575 | 577 |
 | quartz-core-2.3.1 | 3436 | 21 | 21 |
-| vraptor-core-3.5.51 | 5868 | 942 | 962 |
+| vraptor-core-3.5.51 | 26 | 942 | 962 |
 | Total | 63017 | 2095 | 2125 |
 
 ## Doop's Mock Counts Comparison
