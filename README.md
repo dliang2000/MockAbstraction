@@ -139,10 +139,10 @@ or if you want to run Mock Analysis for all benchmarks:
 | jsonschema2pojo-core-1.1.1 | 0.093 | 0.015 | 0.174 | 0.282 | 153 | 180 | 756 | 783 |
 | maven-core-3.8.1 | 0.071 | 0.014 | 0.191 | 0.276 | 111 | 126 | 511 | 526 |
 | microbenchmark | 0.034 | 0.014 | 0.082 | 0.13 | 25 | 24 | 193 | 192 |
-| mybatis-3.5.6 | 0.094 | 0.040 | 0.390 | 0.524 | 504 | 344 | 3800 | 3640 |
-| quartz-core-2.3.1 | 0.087 | 0.012 | 0.116 | 0.215 | 92 | 40 | 779 | 727 |
+| mybatis-3.5.6 | 0.135 | 0.064 | 0.463 | 0.662 | 504 | 344 | 3800 | 3640 |
+| quartz-core-2.3.1 | 0.061 | 0.020 | 0.150 | 0.231 | 92 | 40 | 779 | 727 |
 | vraptor-core-3.5.5 | 0.125 | 0.045 | 0.285 | 0.455 | 133 | 251 | 1386 | 1504 |
-| Total | 0.718 | 0.127 | 1.830 | 2.675 | 1500 | 1298 | TBD | TBD |
+| Total | 0.766 | 0.222 | 2.125 | 3.123 | 1500 | 1298 | TBD | TBD |
 
 ## Field Mock Objects
 
@@ -154,10 +154,10 @@ or if you want to run Mock Analysis for all benchmarks:
 | jsonschema2pojo-core-1.1.1 | 26 | 126 | 0 |
 | maven-core-3.8.1 | 7 | 0 | 1 |
 | microbenchmark | 2 | 0 | 29 |
-| mybatis-3.5.6 | 68268 | 21934 | 46334 |
-| quartz-core-2.3.1 | 35355 | 26932 | 8423 |
+| mybatis-3.5.6 | 41 | 0 | 0 |
+| quartz-core-2.3.1 | 0 | 0 | 0 |
 | vraptor-core-3.5.5 | 263 | 2 | 45 |
-| Total | 383638 | 199628 | 184405 |
+| Total | 339 | 128 | 83 |
 
 
 ## Field Mutation Data
