@@ -212,7 +212,7 @@ public class Util {
     
     public static boolean isDefaultInitMethod(SootMethod sm) {
         if ( sm.getName().contains("<init>") && sm.getParameterCount() == 0 && sm.getReturnType() instanceof VoidType) {
-            System.out.println("<init> case found: " + sm.getSubSignature());
+            //System.out.println("<init> case found: " + sm.getSubSignature());
             return true;
         }
         return false;

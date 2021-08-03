@@ -61,6 +61,7 @@ public class AnnotatedAndInitMockTransformer extends SceneTransformer {
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
         annotatedTimer.start();
+        int totalNumberOfAnnotatedMocks = 0, totalNumberOfDefaultInitMocks = 0;
         
         Chain<SootClass> appClasses = Scene.v().getApplicationClasses();
         for (SootClass appClass : appClasses) {
@@ -68,6 +69,7 @@ public class AnnotatedAndInitMockTransformer extends SceneTransformer {
             
             for (SootField field : fields) {
                 if (isAnnotatedMock(field)) {
+                    totalNumberOfAnnotatedMocks++;
                     System.out.println(field);
                     annotatedMocks.add(field);
                 }
@@ -110,6 +112,7 @@ public class AnnotatedAndInitMockTransformer extends SceneTransformer {
                            // System.out.println("In AnnotatedAndInitMockTransformer, Unit: " + entry.getKey());
                             //System.out.println("curr_value: " + value);
                             if (value instanceof FieldRef) {
+                                totalNumberOfDefaultInitMocks++;
                                 FieldRef ref = (FieldRef) value;
                                 SootField sootField = ref.getField();
                                 fieldMap.put(sootField, ms);
@@ -137,6 +140,10 @@ public class AnnotatedAndInitMockTransformer extends SceneTransformer {
         long runtime = annotatedTimer.getTime();
         
         System.out.println("" + "Soot has run AnnotatedAndInitMockTransformer for " + runtime + " ms.");
+        
+        System.out.println("Total Number of Annotated Mocks in the benchmark: " + totalNumberOfAnnotatedMocks);
+        
+        System.out.println("Total Number of Mocks defined in default init<> in the benchmark: " + totalNumberOfDefaultInitMocks);
     }
     
     public static HashMap<SootClass, HashMap<SootField, MockStatus>> getFieldMocks() {

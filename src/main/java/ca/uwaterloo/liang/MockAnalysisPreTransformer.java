@@ -51,7 +51,7 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
         preTimer.start();
-        
+        int totalNumberOfMocksInBeforeMethod = 0;
         for (SootClass sc : Scene.v().getApplicationClasses()) {
             
             if (!Util.isTestClass(sc))
@@ -94,7 +94,11 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
                             if (value instanceof FieldRef) {
                                 FieldRef ref = (FieldRef) value;
                                 SootField sootField = ref.getField();
-                                fieldMap.put(sootField, ms);
+                                
+                                if (!fieldMap.containsKey(sootField)) {
+                                    totalNumberOfMocksInBeforeMethod++;
+                                    fieldMap.put(sootField, ms);
+                                }
                                 //System.out.println("FieldMocks updated for SootField in MockAnalysisPre: " + sootField);
                             }
                         }
@@ -118,6 +122,8 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
         preTimer.end();
         long runtime = preTimer.getTime();
         System.out.println("" + "Soot has run MockAnalysisPreTransformer for " + runtime + " ms.");
+        
+        System.out.println("Total Number of Mocks defined in @Before in the benchmark: " + totalNumberOfMocksInBeforeMethod);
     }
     
     public static HashMap<SootClass, HashMap<SootField, MockStatus>> getFieldMocks() {
