@@ -9,7 +9,9 @@ import java.util.List;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
+@Category(NoMockTests.class)
 public class PayRollArrayNoMockTest {
     private PayRoll payRoll;
 
@@ -34,13 +36,11 @@ public class PayRollArrayNoMockTest {
     }
     // total mock calls: 1
     
-
     @Test
     public void testNoEmployees() {
         assertNumberOfPayments(0);
     }
     // total mock calls: 0
-    
     
     @Test
     public void testSingleEmployeeLocalArrayNomock() {

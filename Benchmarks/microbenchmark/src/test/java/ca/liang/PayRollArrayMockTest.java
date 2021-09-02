@@ -15,6 +15,7 @@ import java.util.Map;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
@@ -43,13 +44,15 @@ public class PayRollArrayMockTest {
         payRoll = new PayRoll(employeeDB, bankService);
     }
     // total mock calls: 1
-
+    
+    @Category(NoMockTests.class)
     @Test
     public void testSingleEmployee() {
         assertNumberOfPayments(1);
     }
     // total mock calls: 0
     
+    @Category(MockTests.class)
     @Test
     public void testEmployeesPaidIntra() {
         Employee[] employees_intra = new Employee[2];
@@ -67,6 +70,7 @@ public class PayRollArrayMockTest {
     // total mock calls: 0
     
     // Contains mock object (ee, from mock-containing array)
+    @Category(MockTests.class)
     @Test
     public void testSingleEmployeeFieldArrayMock() {
         String employeeName = "Test Employee";
@@ -82,6 +86,7 @@ public class PayRollArrayMockTest {
     // total mock calls: 2
     
     // Contains mock object
+    @Category(MockTests.class)
     @Test
     public void testSingleEmployeeLocalArrayMock() {
         Employee[] employees_local = new Employee[1];
@@ -101,6 +106,7 @@ public class PayRollArrayMockTest {
     // total mock calls: 2
 
     // Contains mock object
+    @Category(MockTests.class)
     @Test
     public void testAllEmployeesArePaidArrayIntra() {
         Employee employee1 = mock(Employee.class);
@@ -133,6 +139,7 @@ public class PayRollArrayMockTest {
     // total mock calls: 6
     
     // Contains mock object (both intra- and inter-procedural mocks)
+    @Category(MockTests.class)
     @Test
     public void testAllEmployeesArePaidArrayInter() {
     	// Inter-procedural ArrayMock, must understand effects of callee createEmployees.

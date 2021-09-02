@@ -11,6 +11,7 @@ import java.util.List;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.mockito.ArgumentCaptor;
 
 public class PayRollMultipleEmployeeTest {
@@ -47,6 +48,7 @@ public class PayRollMultipleEmployeeTest {
     // total mock calls: 1
     
     // Contains mock object
+    @Category(MockTests.class)
     @Test
     public void testAllEmployeesArePaid1() {
         assertNumberOfPayments(2);
@@ -68,6 +70,7 @@ public class PayRollMultipleEmployeeTest {
     
     // Contains mock object
     // this is an intraprocedural version of testAllEmployeesArePaid1, creating everything locally instead of using fields
+    @Category(MockTests.class)
     @Test
     public void testAllEmployeesArePaid2() {
         ArrayList<Employee> mockEmployessList = new ArrayList<Employee>();

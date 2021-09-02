@@ -2,6 +2,7 @@ package ca.liang;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -43,7 +44,8 @@ public class PayRollAnnotationMockTest {
         payRoll = new PayRoll(employeeDB, bankService);
     }
     // total mock calls: 1
-
+    
+    @Category(MockTests.class)
     @Test
     public void testEmployeesPaidIntra() {
         Employee[] employees_intra = new Employee[2];
@@ -59,6 +61,7 @@ public class PayRollAnnotationMockTest {
     }
     // total mock calls: 0
     
+    @Category(NoMockTests.class)
     @Test
     public void testSingleEmployee() {
         assertNumberOfPayments(1);
@@ -66,6 +69,7 @@ public class PayRollAnnotationMockTest {
     // total mock calls: 0
 
     // Contains mock object (created by verify())
+    @Category(MockTests.class)
     @Test
     public void testEmployeeIsPaid() {
         payRoll = new PayRoll(employeeDB, bankService);
@@ -78,6 +82,7 @@ public class PayRollAnnotationMockTest {
     // total mock calls: 1
 
     // Contains mock object (from annotation)
+    @Category(MockTests.class)
     @Test
     public void testBankService() {
         // *mock* call of @Mock-annotated object

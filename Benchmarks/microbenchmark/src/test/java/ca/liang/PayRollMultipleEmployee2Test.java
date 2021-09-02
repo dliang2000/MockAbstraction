@@ -11,6 +11,7 @@ import java.util.List;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.mockito.ArgumentCaptor;
 
 public class PayRollMultipleEmployee2Test {
@@ -46,6 +47,7 @@ public class PayRollMultipleEmployee2Test {
     // total mock calls: 1
     
     // Contains mock object
+    @Category(MockTests.class)
     @Test
     public void testAllEmployeesArePaid() {
         assertNumberOfPayments(2);

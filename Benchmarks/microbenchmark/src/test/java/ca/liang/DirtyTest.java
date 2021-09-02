@@ -9,6 +9,7 @@ import java.util.List;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 public class DirtyTest {
     private PayRoll payRoll;
@@ -34,6 +35,7 @@ public class DirtyTest {
     }
     // total mock calls: 1
     
+    @Category(NoMockTests.class)
     @Test
     public void testSingleEmployeeFieldArrayNomock() {
         String employeeName = "Test Employee";

@@ -12,6 +12,7 @@ import java.util.Vector;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
@@ -41,7 +42,8 @@ public class PayRollMockTest {
         payRoll = new PayRoll(employeeDB, bankService);
     }
     // total mock calls: 1
-
+    
+    @Category(MockTests.class)
     @Test
     public void testMerge() {
         Object m = mock(Object.class);
@@ -55,7 +57,8 @@ public class PayRollMockTest {
         assertFalse(m.equals(null));
     }
     // total mock calls: 1
-
+    
+    @Category(NoMockTests.class)
     @Test
     public void testNoEmployees() {
         assertNumberOfPayments(0);
@@ -63,6 +66,7 @@ public class PayRollMockTest {
     // total mock calls: 0
     
     // Contains mock object
+    @Category(MockTests.class)
     @Test
     public void testNoEmployeesIntra() {
         List<Employee> employees_intra = new ArrayList<Employee>();
@@ -82,6 +86,7 @@ public class PayRollMockTest {
     // total mock calls: 1
 
     // Contains mock object
+    @Category(MockTests.class)
     @Test
     public void testAddAll() {
         List<Employee> employees1_intra = new ArrayList<Employee>();
@@ -107,6 +112,7 @@ public class PayRollMockTest {
     // total mock calls: 4
 
     // Contains mock object
+    @Category(MockTests.class)
     @Test
     public void testIteration() {
         List<Employee> employees1_intra = new ArrayList<Employee>();
@@ -139,7 +145,8 @@ public class PayRollMockTest {
         }
     }
     // total mock calls: 5
-
+    
+    @Category(MockTests.class)
     @Test
     public void testVector() {
         Vector<Employee> employees0_intra = new Vector<Employee>();
@@ -156,7 +163,8 @@ public class PayRollMockTest {
         }
     }
     // total mock calls: 3
-
+    
+    @Category(MockTests.class)
     @Test
     public void testVector2() {
         Employee e = mock(Employee.class);
@@ -186,6 +194,7 @@ public class PayRollMockTest {
     }
     // total mock calls: 5
 
+    @Category(MockTests.class)
     @Test
     public void testVectorToArray() {
         Employee e = mock(Employee.class);
@@ -206,7 +215,8 @@ public class PayRollMockTest {
         assertEquals(eg.getName(), "J. Doe");
     }
     // total mock calls: 3
-
+    
+    @Category(MockTests.class)
     @Test
     public void testArrayToVector() {
         Employee e = mock(Employee.class);
@@ -234,6 +244,7 @@ public class PayRollMockTest {
     // total mock calls: 0
     
     // Contains inter-procedural mock object 
+    @Category(MockTests.class)
     @Test
     public void testSingleEmployeeMockInter() {
         Employee e = createMockEmployee();
@@ -242,6 +253,7 @@ public class PayRollMockTest {
     // total mock calls: 1
 
     // Makes a method invocation with a mock object parameter
+    @Category(MockTests.class)
     @Test
     public void testSingleEmployeeMockCallout() {
         Employee e = createMockEmployee();
@@ -258,6 +270,7 @@ public class PayRollMockTest {
     // total mock calls: 1
     
     // Contains mock object (from verify() call)
+    @Category(MockTests.class)
     @Test
     public void testEmployeeIsPaid() {
         String bankId = "ID0";
@@ -274,6 +287,7 @@ public class PayRollMockTest {
     // total mock calls: 1
 
     // Contains mock object (from verify() call)
+    @Category(MockTests.class)
     @Test
     public void testEmployeeIsPaid_singleVerify() {
         String bankId = "ID0";
@@ -290,6 +304,7 @@ public class PayRollMockTest {
     // total mock calls: 1
     
     // tests marking fields (employeeDB, bankService) as mock-containing (due to init)
+    @Category(MockTests.class)
     @Test
     public void testInteractionOrder() {
         String bankId = "ID0";

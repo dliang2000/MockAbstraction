@@ -20,7 +20,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
+import org.junit.experimental.categories.Category;
 
+@Category(MockTests.class)
 public class PayRollMockMarginalCollectionsTest {
 
     private PayRoll payRoll;
