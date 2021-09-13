@@ -13,6 +13,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -212,9 +213,47 @@ public class MockAnalysisIntraprocTransformer extends SceneTransformer {
         
         printMockInvocationToFile();
         
+        printTestsWithoutIntraprocMock();
+        
         mainTimer.end();
         long runtime = mainTimer.getTime();
         System.out.println("" + "Soot has run MockAnalysisMainTransformer for " + runtime + " ms.");
+    }
+    
+    private void printTestsWithoutIntraprocMock() {
+        List<String[]> linesToAdd = new ArrayList<>();
+        
+        for(SootClass nc : Scene.v().getApplicationClasses()) {
+            if (!Util.isTestClass(nc))
+                continue;
+            
+            HashSet<SootMethod> mockMethods = Util.gatherMockTestMethods(nc, procSummaries);
+            
+            List<SootMethod> ncM = nc.getMethods();
+            
+            ProcSummary pSmy = null;
+            
+            for(SootMethod m : ncM) {
+                if ( !Util.isTestMethod(m) ) 
+                    continue;
+                
+                if (!mockMethods.contains(m)) {
+                    linesToAdd.add(new String[] {m.getDeclaringClass().toString(), m.getName()});
+                }
+            }
+               
+        }
+        
+        Collections.sort(linesToAdd, new SortStringArrayList());
+        
+        File outputFile = new File(Runner.output_path + "/" + Runner.benchmark + "-test-cases-without-intraproc-mocks");
+        try (PrintWriter pw = new PrintWriter(outputFile)) {
+            linesToAdd.stream().map(this::convertToCSV).forEach(pw::println);
+        } catch (FileNotFoundException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        
     }
     
     private void printMockInvocationToFile() {

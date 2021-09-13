@@ -6,9 +6,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import ca.uwaterloo.liang.MockLibrary;
 import ca.uwaterloo.liang.MockStatus;
@@ -49,6 +51,41 @@ public class Util {
         
         return yes;
     }
+    
+    public static HashSet<SootMethod> gatherMockTestMethods(SootClass aClass, HashMap<SootMethod, ProcSummary> procSummaries) {
+        
+        List<SootMethod> ncM = aClass.getMethods();
+        HashSet<SootMethod> mocksMethods = new HashSet<>();
+        
+        ProcSummary pSmy = null;
+        
+        for(SootMethod m : ncM) {
+            if ( isTestMethod(m) ) {
+                pSmy = procSummaries.get(m);
+            
+                if (pSmy == null) 
+                    continue;
+                
+                Map<Unit, Map<Value, MockStatus>> mocks = pSmy.getMocks();
+                
+                for (Map.Entry<Unit, Map<Value, MockStatus>> entry : mocks.entrySet()) {
+                    
+                    Map<Value, MockStatus> val = entry.getValue();
+                                    
+                    for (Map.Entry<Value, MockStatus> curr : val.entrySet()) {
+                        Value v = curr.getKey();
+                        MockStatus ms = curr.getValue();
+                        if (ms.getMock() || ms.getArrayMock() || ms.getCollectionMock()) {
+                            mocksMethods.add(m);
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+        return mocksMethods;
+    }
+    
     
     public static List<int[]> gatherTestMethodMocksStats(SootClass aClass, HashMap<SootMethod, ProcSummary> procSummaries) {
            
