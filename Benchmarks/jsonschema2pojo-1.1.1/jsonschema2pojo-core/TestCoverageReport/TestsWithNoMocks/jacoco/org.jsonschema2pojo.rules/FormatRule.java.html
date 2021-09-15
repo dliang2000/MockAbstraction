@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FormatRule.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jsonschema2pojo-core</a> &gt; <a href="index.source.html" class="el_package">org.jsonschema2pojo.rules</a> &gt; <span class="el_source">FormatRule.java</span></div><h1>FormatRule.java</h1><pre class="source lang-java linenums">/**
+ * Copyright © 2010-2020 Nokia
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.jsonschema2pojo.rules;
+
+import static java.lang.String.*;
+import static org.apache.commons.lang.StringUtils.*;
+
+import java.net.URI;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.regex.Pattern;
+
+import org.apache.commons.lang3.ClassUtils;
+import org.joda.time.DateTime;
+import org.joda.time.LocalDate;
+import org.joda.time.LocalTime;
+import org.jsonschema2pojo.GenerationConfig;
+import org.jsonschema2pojo.Schema;
+import org.jsonschema2pojo.exception.GenerationException;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.sun.codemodel.JType;
+
+/**
+ * Applies the &quot;format&quot; schema rule.
+ *
+ * @see &lt;a
+ *      href=&quot;http://tools.ietf.org/html/draft-zyp-json-schema-03#section-5.23&quot;&gt;http://tools.ietf.org/html/draft-zyp-json-schema-03#section-5.23&lt;/a&gt;
+ */
+public class FormatRule implements Rule&lt;JType, JType&gt; {
+
+<span class="fc" id="L48">    public static String ISO_8601_DATE_FORMAT = &quot;yyyy-MM-dd&quot;;</span>
+<span class="fc" id="L49">    public static String ISO_8601_TIME_FORMAT = &quot;HH:mm:ss.SSS&quot;;</span>
+<span class="fc" id="L50">    public static String ISO_8601_DATETIME_FORMAT = &quot;yyyy-MM-dd'T'HH:mm:ss.SSSXXX&quot;;</span>
+
+    private final RuleFactory ruleFactory;
+    private final Map&lt;String, Class&lt;?&gt;&gt; formatTypeMapping;
+
+<span class="fc" id="L55">    protected FormatRule(RuleFactory ruleFactory) {</span>
+<span class="fc" id="L56">        this.ruleFactory = ruleFactory;</span>
+<span class="fc" id="L57">        this.formatTypeMapping = getFormatTypeMapping(ruleFactory.getGenerationConfig());</span>
+<span class="fc" id="L58">    }</span>
+
+    /**
+     * Applies this schema rule to take the required code generation steps.
+     * &lt;p&gt;
+     * This rule maps format values to Java types. By default:
+     * &lt;ul&gt;
+     * &lt;li&gt;&quot;format&quot;:&quot;date-time&quot; =&amp;gt; {@link java.util.Date} or {@link org.joda.time.DateTime} (if config useJodaDates is set)
+     * &lt;li&gt;&quot;format&quot;:&quot;date&quot; =&amp;gt; {@link String} or {@link org.joda.time.LocalDate} (if config useJodaLocalDates is set)
+     * &lt;li&gt;&quot;format&quot;:&quot;time&quot; =&amp;gt; {@link String} or {@link org.joda.time.LocalTime} (if config useJodaLocalTimes is set)
+     * &lt;li&gt;&quot;format&quot;:&quot;utc-millisec&quot; =&amp;gt; &lt;code&gt;long&lt;/code&gt;
+     * &lt;li&gt;&quot;format&quot;:&quot;regex&quot; =&amp;gt; {@link java.util.regex.Pattern}
+     * &lt;li&gt;&quot;format&quot;:&quot;color&quot; =&amp;gt; {@link String}
+     * &lt;li&gt;&quot;format&quot;:&quot;style&quot; =&amp;gt; {@link String}
+     * &lt;li&gt;&quot;format&quot;:&quot;phone&quot; =&amp;gt; {@link String}
+     * &lt;li&gt;&quot;format&quot;:&quot;uri&quot; =&amp;gt; {@link java.net.URI}
+     * &lt;li&gt;&quot;format&quot;:&quot;email&quot; =&amp;gt; {@link String}
+     * &lt;li&gt;&quot;format&quot;:&quot;ip-address&quot; =&amp;gt; {@link String}
+     * &lt;li&gt;&quot;format&quot;:&quot;ipv6&quot; =&amp;gt; {@link String}
+     * &lt;li&gt;&quot;format&quot;:&quot;host-name&quot; =&amp;gt; {@link String}
+     * &lt;li&gt;&quot;format&quot;:&quot;uuid&quot; =&amp;gt; {@link java.util.UUID}
+     * &lt;li&gt;other (unrecognised format) =&amp;gt; baseType
+     * &lt;/ul&gt;
+     *
+     * @param nodeName
+     *            the name of the node to which this format is applied
+     * @param node
+     *            the format node
+     * @param parent
+     *            the parent node
+     * @param baseType
+     *            the type which which is being formatted e.g. for
+     *            &lt;code&gt;{ &quot;type&quot; : &quot;string&quot;, &quot;format&quot; : &quot;uri&quot; }&lt;/code&gt; the
+     *            baseType would be java.lang.String
+     * @return the Java type that is appropriate for the format value
+     */
+    @Override
+    public JType apply(String nodeName, JsonNode node, JsonNode parent, JType baseType, Schema schema) {
+
+<span class="nc" id="L97">        Class&lt;?&gt; type = getType(node.asText());</span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">        if (type != null) {</span>
+<span class="nc" id="L99">            JType jtype = baseType.owner()._ref(type);</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">            if (ruleFactory.getGenerationConfig().isUsePrimitives()) {</span>
+<span class="nc" id="L101">                jtype = jtype.unboxify();</span>
+            }
+<span class="nc" id="L103">            return jtype;</span>
+        } else {
+<span class="nc" id="L105">            return baseType;</span>
+        }
+    }
+
+    private Class&lt;?&gt; getType(String format) {
+<span class="nc" id="L110">        return formatTypeMapping.getOrDefault(format, null);</span>
+    }
+
+    private static Map&lt;String, Class&lt;?&gt;&gt; getFormatTypeMapping(GenerationConfig config) {
+
+<span class="fc" id="L115">        Map&lt;String, Class&lt;?&gt;&gt; mapping = new HashMap&lt;&gt;(14);</span>
+<span class="fc" id="L116">        mapping.put(&quot;date-time&quot;, getDateTimeType(config));</span>
+<span class="fc" id="L117">        mapping.put(&quot;date&quot;, getDateType(config));</span>
+<span class="fc" id="L118">        mapping.put(&quot;time&quot;, getTimeType(config));</span>
+<span class="fc" id="L119">        mapping.put(&quot;utc-millisec&quot;, Long.class);</span>
+<span class="fc" id="L120">        mapping.put(&quot;regex&quot;, Pattern.class);</span>
+<span class="fc" id="L121">        mapping.put(&quot;color&quot;, String.class);</span>
+<span class="fc" id="L122">        mapping.put(&quot;style&quot;, String.class);</span>
+<span class="fc" id="L123">        mapping.put(&quot;phone&quot;, String.class);</span>
+<span class="fc" id="L124">        mapping.put(&quot;uri&quot;, URI.class);</span>
+<span class="fc" id="L125">        mapping.put(&quot;email&quot;, String.class);</span>
+<span class="fc" id="L126">        mapping.put(&quot;ip-address&quot;, String.class);</span>
+<span class="fc" id="L127">        mapping.put(&quot;ipv6&quot;, String.class);</span>
+<span class="fc" id="L128">        mapping.put(&quot;host-name&quot;, String.class);</span>
+<span class="fc" id="L129">        mapping.put(&quot;uuid&quot;, UUID.class);</span>
+
+<span class="pc bpc" id="L131" title="1 of 2 branches missed.">        for (Map.Entry&lt;String, String&gt; override : config.getFormatTypeMapping().entrySet()) {</span>
+<span class="nc" id="L132">            String format = override.getKey();</span>
+<span class="nc" id="L133">            Class&lt;?&gt; type = tryLoadType(override.getValue(), format);</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">            if (type != null) {</span>
+<span class="nc" id="L135">                mapping.put(format, type);</span>
+            }
+<span class="nc" id="L137">        }</span>
+
+<span class="fc" id="L139">        return mapping;</span>
+    }
+
+    private static Class&lt;?&gt; getDateTimeType(GenerationConfig config) {
+<span class="fc" id="L143">        Class&lt;?&gt; type = tryLoadType(config.getDateTimeType(), &quot;data-time&quot;);</span>
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">        if (type != null) {</span>
+<span class="nc" id="L145">            return type;</span>
+        }
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">        return config.isUseJodaDates() ? DateTime.class : Date.class;</span>
+    }
+
+    private static Class&lt;?&gt; getDateType(GenerationConfig config) {
+<span class="fc" id="L151">        Class&lt;?&gt; type = tryLoadType(config.getDateType(), &quot;data&quot;);</span>
+<span class="pc bpc" id="L152" title="1 of 2 branches missed.">        if (type != null) {</span>
+<span class="nc" id="L153">            return type;</span>
+        }
+<span class="pc bpc" id="L155" title="1 of 2 branches missed.">        return config.isUseJodaLocalDates() ? LocalDate.class : String.class;</span>
+    }
+
+    private static Class&lt;?&gt; getTimeType(GenerationConfig config) {
+<span class="fc" id="L159">        Class&lt;?&gt; type = tryLoadType(config.getTimeType(), &quot;time&quot;);</span>
+<span class="pc bpc" id="L160" title="1 of 2 branches missed.">        if (type != null) {</span>
+<span class="nc" id="L161">            return type;</span>
+        }
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">        return config.isUseJodaLocalTimes() ? LocalTime.class : String.class;</span>
+    }
+
+    private static Class&lt;?&gt; tryLoadType(String typeName, String format) {
+<span class="pc bpc" id="L167" title="1 of 2 branches missed.">        if (!isEmpty(typeName)) {</span>
+            try {
+<span class="nc" id="L169">                Class&lt;?&gt; type = ClassUtils.getClass(Thread.currentThread().getContextClassLoader(), typeName);</span>
+<span class="nc" id="L170">                return type;</span>
+            }
+<span class="nc" id="L172">            catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L173">                throw new GenerationException(format(&quot;could not load java type %s for %s&quot;, typeName, format), e);</span>
+            }
+        }
+<span class="fc" id="L176">        return null;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

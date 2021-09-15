@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ContentResolver.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jsonschema2pojo-core</a> &gt; <a href="index.source.html" class="el_package">org.jsonschema2pojo</a> &gt; <span class="el_source">ContentResolver.java</span></div><h1>ContentResolver.java</h1><pre class="source lang-java linenums">/**
+ * Copyright © 2010-2020 Nokia
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.jsonschema2pojo;
+
+import static java.util.Arrays.*;
+import static org.apache.commons.lang3.StringUtils.*;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.util.HashSet;
+import java.util.Set;
+
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+/**
+ * Reads URI contents for various protocols.
+ */
+public class ContentResolver {
+
+<span class="fc" id="L40">    private static final Set&lt;String&gt; CLASSPATH_SCHEMES = new HashSet&lt;&gt;(asList(&quot;classpath&quot;, &quot;resource&quot;, &quot;java&quot;));</span>
+    
+    private final ObjectMapper objectMapper;
+
+    public ContentResolver() {
+<span class="fc" id="L45">        this(null);</span>
+<span class="fc" id="L46">    }</span>
+
+<span class="fc" id="L48">    public ContentResolver(JsonFactory jsonFactory) {</span>
+<span class="fc" id="L49">        this.objectMapper = new ObjectMapper(jsonFactory)</span>
+<span class="fc" id="L50">                .enable(JsonParser.Feature.ALLOW_COMMENTS)</span>
+<span class="fc" id="L51">                .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);</span>
+<span class="fc" id="L52">    }</span>
+
+    /**
+     * Resolve a given URI to read its contents and parse the result as JSON.
+     * &lt;p&gt;
+     * Supported protocols:
+     * &lt;ul&gt;
+     * &lt;li&gt;http/https
+     * &lt;li&gt;file
+     * &lt;li&gt;classpath/resource/java (all synonymous, used to resolve a schema
+     * from the classpath)
+     * &lt;/ul&gt;
+     *
+     * @param uri
+     *            the URI to read schema content from
+     * @return the JSON tree found at the given URI
+     */
+    public JsonNode resolve(URI uri) {
+
+<span class="fc bfc" id="L71" title="All 2 branches covered.">        if (CLASSPATH_SCHEMES.contains(uri.getScheme())) {</span>
+<span class="fc" id="L72">            return resolveFromClasspath(uri);</span>
+        }
+
+        try {
+<span class="fc" id="L76">            return objectMapper.readTree(uri.toURL());</span>
+<span class="nc" id="L77">        } catch (JsonProcessingException e) {</span>
+<span class="nc" id="L78">            throw new IllegalArgumentException(&quot;Error parsing document: &quot; + uri, e);</span>
+<span class="fc" id="L79">        } catch (IOException e) {</span>
+<span class="fc" id="L80">            throw new IllegalArgumentException(&quot;Unrecognised URI, can't resolve this: &quot; + uri, e);</span>
+        }
+
+    }
+
+    private JsonNode resolveFromClasspath(URI uri) {
+
+<span class="fc" id="L87">        String path = removeStart(removeStart(uri.toString(), uri.getScheme() + &quot;:&quot;), &quot;/&quot;);</span>
+<span class="fc" id="L88">        InputStream contentAsStream = Thread.currentThread().getContextClassLoader().getResourceAsStream(path);</span>
+
+<span class="pc bpc" id="L90" title="1 of 2 branches missed.">        if (contentAsStream == null) {</span>
+<span class="nc" id="L91">            throw new IllegalArgumentException(&quot;Couldn't read content from the classpath, file not found: &quot; + uri);</span>
+        }
+
+        try {
+<span class="fc" id="L95">            return objectMapper.readTree(contentAsStream);</span>
+<span class="nc" id="L96">        } catch (JsonProcessingException e) {</span>
+<span class="nc" id="L97">            throw new IllegalArgumentException(&quot;Error parsing document: &quot; + uri, e);</span>
+<span class="nc" id="L98">        } catch (IOException e) {</span>
+<span class="nc" id="L99">            throw new IllegalArgumentException(&quot;Unrecognised URI, can't resolve this: &quot; + uri, e);</span>
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

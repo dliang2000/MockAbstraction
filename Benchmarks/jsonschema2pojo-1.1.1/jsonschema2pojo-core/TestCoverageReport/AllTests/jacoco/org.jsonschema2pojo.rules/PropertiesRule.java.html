@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PropertiesRule.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jsonschema2pojo-core</a> &gt; <a href="index.source.html" class="el_package">org.jsonschema2pojo.rules</a> &gt; <span class="el_source">PropertiesRule.java</span></div><h1>PropertiesRule.java</h1><pre class="source lang-java linenums">/**
+ * Copyright © 2010-2020 Nokia
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.jsonschema2pojo.rules;
+
+import java.util.Iterator;
+
+import org.jsonschema2pojo.Schema;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.sun.codemodel.JBlock;
+import com.sun.codemodel.JDefinedClass;
+import com.sun.codemodel.JExpr;
+import com.sun.codemodel.JMethod;
+import com.sun.codemodel.JType;
+import com.sun.codemodel.JVar;
+
+/**
+ * Applies the &quot;properties&quot; schema rule.
+ *
+ * @see &lt;a
+ *      href=&quot;http://tools.ietf.org/html/draft-zyp-json-schema-03#section-5.2&quot;&gt;http://tools.ietf.org/html/draft-zyp-json-schema-03#section-5.2&lt;/a&gt;
+ */
+public class PropertiesRule implements Rule&lt;JDefinedClass, JDefinedClass&gt; {
+
+    private final RuleFactory ruleFactory;
+
+<span class="fc" id="L42">    protected PropertiesRule(RuleFactory ruleFactory) {</span>
+<span class="fc" id="L43">        this.ruleFactory = ruleFactory;</span>
+<span class="fc" id="L44">    }</span>
+
+    /**
+     * Applies this schema rule to take the required code generation steps.
+     * &lt;p&gt;
+     * For each property present within the properties node, this rule will
+     * invoke the 'property' rule provided by the given schema mapper.
+     *
+     * @param nodeName
+     *            the name of the node for which properties are being added
+     * @param node
+     *            the properties node, containing property names and their
+     *            definition
+     * @param jclass
+     *            the Java type which will have the given properties added
+     * @return the given jclass
+     */
+    @Override
+    public JDefinedClass apply(String nodeName, JsonNode node, JsonNode parent, JDefinedClass jclass, Schema schema) {
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">        if (node == null) {</span>
+<span class="nc" id="L64">            node = JsonNodeFactory.instance.objectNode();</span>
+        }
+
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        for (Iterator&lt;String&gt; properties = node.fieldNames(); properties.hasNext(); ) {</span>
+<span class="fc" id="L68">            String property = properties.next();</span>
+
+<span class="fc" id="L70">            ruleFactory.getPropertyRule().apply(property, node.get(property), node, jclass, schema);</span>
+<span class="fc" id="L71">        }</span>
+
+<span class="pc bpc" id="L73" title="3 of 4 branches missed.">        if (ruleFactory.getGenerationConfig().isGenerateBuilders() &amp;&amp; !jclass._extends().name().equals(&quot;Object&quot;)) {</span>
+<span class="nc" id="L74">            addOverrideBuilders(jclass, jclass.owner()._getClass(jclass._extends().fullName()));</span>
+        }
+
+<span class="fc" id="L77">        ruleFactory.getAnnotator().propertyOrder(jclass, node);</span>
+
+<span class="fc" id="L79">        return jclass;</span>
+    }
+
+    private void addOverrideBuilders(JDefinedClass jclass, JDefinedClass parentJclass) {
+<span class="nc bnc" id="L83" title="All 2 branches missed.">        if (parentJclass == null) {</span>
+<span class="nc" id="L84">            return;</span>
+        }
+
+<span class="nc bnc" id="L87" title="All 2 branches missed.">        for (JMethod parentJMethod : parentJclass.methods()) {</span>
+<span class="nc bnc" id="L88" title="All 4 branches missed.">            if (parentJMethod.name().startsWith(&quot;with&quot;) &amp;&amp; parentJMethod.params().size() == 1) {</span>
+<span class="nc" id="L89">                addOverrideBuilder(jclass, parentJMethod, parentJMethod.params().get(0));</span>
+            }
+<span class="nc" id="L91">        }</span>
+<span class="nc" id="L92">    }</span>
+
+    private void addOverrideBuilder(JDefinedClass thisJDefinedClass, JMethod parentBuilder, JVar parentParam) {
+
+        // Confirm that this class doesn't already have a builder method matching the same name as the parentBuilder
+<span class="nc bnc" id="L97" title="All 2 branches missed.">        if (thisJDefinedClass.getMethod(parentBuilder.name(), new JType[] {parentParam.type()}) == null) {</span>
+
+<span class="nc" id="L99">            JMethod builder = thisJDefinedClass.method(parentBuilder.mods().getValue(), thisJDefinedClass, parentBuilder.name());</span>
+<span class="nc" id="L100">            builder.annotate(Override.class);</span>
+
+<span class="nc" id="L102">            JVar param = builder.param(parentParam.type(), parentParam.name());</span>
+<span class="nc" id="L103">            JBlock body = builder.body();</span>
+<span class="nc" id="L104">            body.invoke(JExpr._super(), parentBuilder).arg(param);</span>
+<span class="nc" id="L105">            body._return(JExpr._this());</span>
+
+        }
+<span class="nc" id="L108">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

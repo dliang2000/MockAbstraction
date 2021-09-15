@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RequiredArrayRule.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jsonschema2pojo-core</a> &gt; <a href="index.source.html" class="el_package">org.jsonschema2pojo.rules</a> &gt; <span class="el_source">RequiredArrayRule.java</span></div><h1>RequiredArrayRule.java</h1><pre class="source lang-java linenums">/**
+ * Copyright © 2010-2020 Nokia
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.jsonschema2pojo.rules;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+import javax.annotation.Nonnull;
+import javax.validation.constraints.NotNull;
+
+import org.jsonschema2pojo.Schema;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.sun.codemodel.JDefinedClass;
+import com.sun.codemodel.JDocComment;
+import com.sun.codemodel.JDocCommentable;
+import com.sun.codemodel.JFieldVar;
+import com.sun.codemodel.JMethod;
+import com.sun.codemodel.JType;
+
+/**
+ * Applies the &quot;required&quot; JSON schema rule.
+ *
+ * @see &lt;a
+ * href=&quot;http://tools.ietf.org/html/draft-fge-json-schema-validation-00#section-5.4.3&quot;&gt;http://tools.ietf.org/html/draft-fge-json-schema-validation-00#section-5.4.3&lt;/a&gt;
+ */
+public class RequiredArrayRule implements Rule&lt;JDefinedClass, JDefinedClass&gt; {
+
+    private final RuleFactory ruleFactory;
+
+    public static final String REQUIRED_COMMENT_TEXT = &quot;\n(Required)&quot;;
+
+<span class="fc" id="L48">    protected RequiredArrayRule(RuleFactory ruleFactory) {</span>
+<span class="fc" id="L49">        this.ruleFactory = ruleFactory;</span>
+<span class="fc" id="L50">    }</span>
+
+    @Override
+    public JDefinedClass apply(String nodeName, JsonNode node, JsonNode parent, JDefinedClass jclass, Schema schema) {
+<span class="fc" id="L54">        List&lt;String&gt; requiredFieldMethods = new ArrayList&lt;&gt;();</span>
+
+<span class="fc" id="L56">        JsonNode properties = schema.getContent().get(&quot;properties&quot;);</span>
+
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        for (Iterator&lt;JsonNode&gt; iterator = node.elements(); iterator.hasNext(); ) {</span>
+<span class="fc" id="L59">            String requiredArrayItem = iterator.next().asText();</span>
+<span class="pc bpc" id="L60" title="1 of 2 branches missed.">            if (requiredArrayItem.isEmpty()) {</span>
+<span class="nc" id="L61">                continue;</span>
+            }
+
+<span class="fc" id="L64">            JsonNode propertyNode = null;</span>
+
+<span class="fc bfc" id="L66" title="All 2 branches covered.">            if (properties != null) {</span>
+<span class="fc" id="L67">                propertyNode = properties.findValue(requiredArrayItem);</span>
+            }
+
+<span class="fc" id="L70">            String fieldName = ruleFactory.getNameHelper().getPropertyName(requiredArrayItem, propertyNode);</span>
+<span class="fc" id="L71">            JFieldVar field = jclass.fields().get(fieldName);</span>
+
+<span class="pc bpc" id="L73" title="1 of 2 branches missed.">            if (field == null) {</span>
+<span class="nc" id="L74">                continue;</span>
+            }
+
+<span class="fc" id="L77">            addJavaDoc(field);</span>
+
+<span class="fc bfc" id="L79" title="All 2 branches covered.">            if (ruleFactory.getGenerationConfig().isIncludeJsr303Annotations()) {</span>
+<span class="fc" id="L80">                addNotNullAnnotation(field);</span>
+            }
+
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">            if (ruleFactory.getGenerationConfig().isIncludeJsr305Annotations()) {</span>
+<span class="nc" id="L84">                addNonnullAnnotation(field);</span>
+            }
+
+<span class="fc" id="L87">            requiredFieldMethods.add(getGetterName(fieldName, field.type(), node));</span>
+<span class="fc" id="L88">            requiredFieldMethods.add(getSetterName(fieldName, node));</span>
+<span class="fc" id="L89">        }</span>
+
+<span class="fc" id="L91">        updateGetterSetterJavaDoc(jclass, requiredFieldMethods);</span>
+
+<span class="fc" id="L93">        return jclass;</span>
+    }
+
+    private void updateGetterSetterJavaDoc(JDefinedClass jclass, List&lt;String&gt; requiredFieldMethods) {
+<span class="fc bfc" id="L97" title="All 2 branches covered.">        for (Iterator&lt;JMethod&gt; methods = jclass.methods().iterator(); methods.hasNext();) {</span>
+<span class="fc" id="L98">            JMethod method = methods.next();</span>
+<span class="fc bfc" id="L99" title="All 2 branches covered.">            if (requiredFieldMethods.contains(method.name())) {</span>
+<span class="fc" id="L100">                addJavaDoc(method);</span>
+            }
+<span class="fc" id="L102">        }</span>
+<span class="fc" id="L103">    }</span>
+
+    private void addNotNullAnnotation(JFieldVar field) {
+<span class="fc" id="L106">        field.annotate(NotNull.class);</span>
+<span class="fc" id="L107">    }</span>
+
+    private void addNonnullAnnotation(JFieldVar field) {
+<span class="nc" id="L110">        field.annotate(Nonnull.class);</span>
+<span class="nc" id="L111">    }</span>
+
+    private void addJavaDoc(JDocCommentable docCommentable) {
+<span class="fc" id="L114">        JDocComment javadoc = docCommentable.javadoc();</span>
+<span class="fc" id="L115">        javadoc.append(REQUIRED_COMMENT_TEXT);</span>
+<span class="fc" id="L116">    }</span>
+
+    private String getSetterName(String propertyName, JsonNode node) {
+<span class="fc" id="L119">        return ruleFactory.getNameHelper().getSetterName(propertyName, node);</span>
+    }
+
+    private String getGetterName(String propertyName, JType type, JsonNode node) {
+<span class="fc" id="L123">        return ruleFactory.getNameHelper().getGetterName(propertyName, type, node);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

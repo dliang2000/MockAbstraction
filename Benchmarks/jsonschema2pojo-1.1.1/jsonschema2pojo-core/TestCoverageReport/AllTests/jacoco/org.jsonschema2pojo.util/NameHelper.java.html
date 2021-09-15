@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NameHelper.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jsonschema2pojo-core</a> &gt; <a href="index.source.html" class="el_package">org.jsonschema2pojo.util</a> &gt; <span class="el_source">NameHelper.java</span></div><h1>NameHelper.java</h1><pre class="source lang-java linenums">/**
+ * Copyright © 2010-2020 Nokia
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.jsonschema2pojo.util;
+
+import static java.lang.Character.*;
+import static javax.lang.model.SourceVersion.*;
+import static org.apache.commons.lang3.StringUtils.*;
+
+import org.apache.commons.lang3.text.WordUtils;
+import org.jsonschema2pojo.GenerationConfig;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.sun.codemodel.JClass;
+import com.sun.codemodel.JClassAlreadyExistsException;
+import com.sun.codemodel.JDefinedClass;
+import com.sun.codemodel.JPackage;
+import com.sun.codemodel.JType;
+
+public class NameHelper {
+
+    public static final String ILLEGAL_CHARACTER_REGEX = &quot;[^0-9a-zA-Z_$]&quot;;
+
+    private final GenerationConfig generationConfig;
+
+<span class="fc" id="L39">    public NameHelper(GenerationConfig generationConfig) {</span>
+<span class="fc" id="L40">        this.generationConfig = generationConfig;</span>
+<span class="fc" id="L41">    }</span>
+
+    public String getBuilderTypeParameterName(JDefinedClass instanceClass) {
+<span class="nc" id="L44">        return &quot;T&quot;;</span>
+    }
+
+    public String replaceIllegalCharacters(String name) {
+<span class="fc" id="L48">        return name.replaceAll(ILLEGAL_CHARACTER_REGEX, &quot;_&quot;);</span>
+    }
+
+    public String normalizeName(String name) {
+<span class="fc" id="L52">        name = capitalizeTrailingWords(name);</span>
+
+<span class="pc bpc" id="L54" title="1 of 2 branches missed.">        if (isDigit(name.charAt(0))) {</span>
+<span class="nc" id="L55">            name = &quot;_&quot; + name;</span>
+        }
+
+<span class="fc" id="L58">        return name;</span>
+    }
+
+    public String capitalizeTrailingWords(String name) {
+<span class="fc" id="L62">        char[] wordDelimiters = generationConfig.getPropertyWordDelimiters();</span>
+
+<span class="fc bfc" id="L64" title="All 2 branches covered.">        if (containsAny(name, wordDelimiters)) {</span>
+            String capitalizedNodeName;
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">            if (areAllWordsUpperCaseBesideDelimiters(name, wordDelimiters)) {</span>
+<span class="nc" id="L67">                capitalizedNodeName = WordUtils.capitalizeFully(name, wordDelimiters);</span>
+            } else {
+<span class="fc" id="L69">                capitalizedNodeName = WordUtils.capitalize(name, wordDelimiters);</span>
+            }
+<span class="fc" id="L71">            name = name.charAt(0) + capitalizedNodeName.substring(1);</span>
+
+<span class="fc bfc" id="L73" title="All 2 branches covered.">            for (char c : wordDelimiters) {</span>
+<span class="fc" id="L74">                name = remove(name, c);</span>
+            }
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        } else if (areAllWordsUpperCaseBesideDelimiters(name, wordDelimiters)) {</span>
+<span class="fc" id="L77">            name = WordUtils.capitalizeFully(name, wordDelimiters);</span>
+        }
+
+<span class="fc" id="L80">        return name;</span>
+    }
+
+    private boolean areAllWordsUpperCaseBesideDelimiters(String words, char... delimiters) {
+<span class="fc" id="L84">        char[] wordChars = words.toCharArray();</span>
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        for (char c : wordChars) {</span>
+<span class="pc bpc" id="L86" title="1 of 4 branches missed.">            if (!containsAny(&quot;&quot; + c, delimiters) &amp;&amp; Character.isLowerCase(c)) {</span>
+<span class="fc" id="L87">                return false;</span>
+            }
+        }
+<span class="fc" id="L90">        return true;</span>
+    }
+
+    private String makeLowerCamelCase(String name) {
+<span class="fc" id="L94">        return toLowerCase(name.charAt(0)) + name.substring(1);</span>
+    }
+
+    /**
+     * Convert jsonFieldName into the equivalent Java fieldname by replacing
+     * illegal characters and normalizing it.
+     *
+     * @param jsonFieldName
+     * @param node
+     * @return
+     */
+    public String getPropertyName(String jsonFieldName, JsonNode node) {
+<span class="fc" id="L106">        jsonFieldName = getFieldName(jsonFieldName, node);</span>
+
+<span class="fc" id="L108">        jsonFieldName = replaceIllegalCharacters(jsonFieldName);</span>
+<span class="fc" id="L109">        jsonFieldName = normalizeName(jsonFieldName);</span>
+<span class="fc" id="L110">        jsonFieldName = makeLowerCamelCase(jsonFieldName);</span>
+
+<span class="pc bpc" id="L112" title="1 of 2 branches missed.">        if (isKeyword(jsonFieldName)) {</span>
+<span class="nc" id="L113">            jsonFieldName = &quot;_&quot; + jsonFieldName;</span>
+        }
+
+<span class="pc bpc" id="L116" title="1 of 2 branches missed.">        if (isKeyword(jsonFieldName)) {</span>
+<span class="nc" id="L117">            jsonFieldName += &quot;_&quot;;</span>
+        }
+
+<span class="fc" id="L120">        return jsonFieldName;</span>
+    }
+
+    /**
+     * Generate setter method name for property.
+     *
+     * @param propertyName
+     * @param node
+     * @return
+     */
+    public String getSetterName(String propertyName, JsonNode node) {
+<span class="fc" id="L131">        propertyName = getPropertyNameForAccessor(propertyName, node);</span>
+
+<span class="fc" id="L133">        String prefix = &quot;set&quot;;</span>
+
+        String setterName;
+<span class="pc bpc" id="L136" title="1 of 4 branches missed.">        if (propertyName.length() &gt; 1 &amp;&amp; Character.isUpperCase(propertyName.charAt(1))) {</span>
+<span class="fc" id="L137">            setterName = prefix + propertyName;</span>
+        } else {
+<span class="fc" id="L139">            setterName = prefix + capitalize(propertyName);</span>
+        }
+
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">        if (setterName.equals(&quot;setClass&quot;)) {</span>
+<span class="nc" id="L143">            setterName = &quot;setClass_&quot;;</span>
+        }
+
+<span class="fc" id="L146">        return setterName;</span>
+    }
+
+    public String getBuilderName(String propertyName, JsonNode node) {
+<span class="fc" id="L150">        propertyName = getPropertyNameForAccessor(propertyName, node);</span>
+
+<span class="fc" id="L152">        String prefix = &quot;with&quot;;</span>
+
+<span class="pc bpc" id="L154" title="1 of 4 branches missed.">        if (propertyName.length() &gt; 1 &amp;&amp; Character.isUpperCase(propertyName.charAt(1))) {</span>
+<span class="fc" id="L155">            return prefix + propertyName;</span>
+        } else {
+<span class="fc" id="L157">            return prefix + capitalize(propertyName);</span>
+        }
+    }
+
+    /**
+     * Get name of the field generated from property.
+     *
+     * @param propertyName
+     * @param node
+     * @return
+     */
+    public String getFieldName(String propertyName, JsonNode node) {
+
+<span class="pc bpc" id="L170" title="1 of 4 branches missed.">        if (node != null &amp;&amp; node.has(&quot;javaName&quot;)) {</span>
+<span class="nc" id="L171">            propertyName = node.get(&quot;javaName&quot;).textValue();</span>
+        }
+
+<span class="fc" id="L174">        return propertyName;</span>
+    }
+
+    public String getClassName(String propertyName, JsonNode node) {
+
+<span class="pc bpc" id="L179" title="1 of 2 branches missed.">        if (node != null) {</span>
+<span class="fc bfc" id="L180" title="All 2 branches covered.">            if (node.has(&quot;javaName&quot;)) {</span>
+<span class="fc" id="L181">                propertyName = node.get(&quot;javaName&quot;).textValue();</span>
+<span class="pc bpc" id="L182" title="1 of 4 branches missed.">            } else if (generationConfig.isUseTitleAsClassname() &amp;&amp; node.has(&quot;title&quot;)) {</span>
+<span class="fc" id="L183">                String title = node.get(&quot;title&quot;).textValue();</span>
+<span class="fc" id="L184">                propertyName = WordUtils.capitalize(title).replaceAll(&quot; &quot;, &quot;&quot;);</span>
+            }
+        }
+
+<span class="fc" id="L188">        return propertyName;</span>
+    }
+
+    /**
+     * Generate getter method name for property.
+     *
+     * @param propertyName
+     * @param type
+     * @param node
+     * @return
+     */
+    public String getGetterName(String propertyName, JType type, JsonNode node) {
+<span class="fc" id="L200">        propertyName = getPropertyNameForAccessor(propertyName, node);</span>
+
+<span class="fc bfc" id="L202" title="All 2 branches covered.">        String prefix = type.equals(type.owner()._ref(boolean.class)) ? &quot;is&quot; : &quot;get&quot;;</span>
+
+        String getterName;
+<span class="pc bpc" id="L205" title="1 of 4 branches missed.">        if (propertyName.length() &gt; 1 &amp;&amp; Character.isUpperCase(propertyName.charAt(1))) {</span>
+<span class="fc" id="L206">            getterName = prefix + propertyName;</span>
+        } else {
+<span class="fc" id="L208">            getterName = prefix + capitalize(propertyName);</span>
+        }
+
+<span class="pc bpc" id="L211" title="1 of 2 branches missed.">        if (getterName.equals(&quot;getClass&quot;)) {</span>
+<span class="nc" id="L212">            getterName = &quot;getClass_&quot;;</span>
+        }
+
+<span class="fc" id="L215">        return getterName;</span>
+    }
+
+    private String getPropertyNameForAccessor(String jsonPropertyName, JsonNode node) {
+<span class="fc" id="L219">        jsonPropertyName = getFieldName(jsonPropertyName, node);</span>
+<span class="fc" id="L220">        jsonPropertyName = replaceIllegalCharacters(jsonPropertyName);</span>
+<span class="fc" id="L221">        jsonPropertyName = capitalizeTrailingWords(jsonPropertyName);</span>
+<span class="fc" id="L222">        return jsonPropertyName;</span>
+    }
+
+    public String getBaseBuilderClassName(JClass outerClass) {
+<span class="nc" id="L226">        return outerClass.name() + getBuilderClassNameSuffix(outerClass) + getBaseBuilderClassNameSuffix(outerClass);</span>
+    }
+
+    public String getBaseBuilderClassNameSuffix(JClass outerClass) {
+<span class="nc" id="L230">        return &quot;Base&quot;;</span>
+    }
+
+    public String getBuilderClassName(JClass outerClass) {
+<span class="nc" id="L234">        return outerClass.name() + getBuilderClassNameSuffix(outerClass);</span>
+    }
+
+    public String getBuilderClassNameSuffix(JClass outerClass) {
+<span class="nc" id="L238">        return &quot;Builder&quot;;</span>
+    }
+
+    public String getUniqueClassName(String nodeName, JsonNode node, JPackage _package) {
+<span class="fc" id="L242">        return makeUnique(getClassName(nodeName, node, _package), _package);</span>
+    }
+
+    public String getClassName(String nodeName, JsonNode node, JPackage _package) {
+<span class="fc" id="L246">        String prefix = generationConfig.getClassNamePrefix();</span>
+<span class="fc" id="L247">        String suffix = generationConfig.getClassNameSuffix();</span>
+<span class="fc" id="L248">        String fieldName = getClassName(nodeName, node);</span>
+<span class="fc" id="L249">        String capitalizedFieldName = capitalize(fieldName);</span>
+<span class="fc" id="L250">        String fullFieldName = createFullFieldName(capitalizedFieldName, prefix, suffix);</span>
+
+<span class="fc" id="L252">        String className = replaceIllegalCharacters(fullFieldName);</span>
+<span class="fc" id="L253">        return normalizeName(className);</span>
+    }
+
+    private String createFullFieldName(String nodeName, String prefix, String suffix) {
+<span class="fc" id="L257">        String returnString = nodeName;</span>
+<span class="pc bpc" id="L258" title="1 of 2 branches missed.">        if (prefix != null) {</span>
+<span class="nc" id="L259">            returnString = prefix + returnString;</span>
+        }
+
+<span class="pc bpc" id="L262" title="1 of 2 branches missed.">        if (suffix != null) {</span>
+<span class="nc" id="L263">            returnString = returnString + suffix;</span>
+        }
+
+<span class="fc" id="L266">        return returnString;</span>
+    }
+
+    private String makeUnique(String className, JPackage _package) {
+        try {
+<span class="fc" id="L271">            JDefinedClass _class = _package._class(className);</span>
+<span class="fc" id="L272">            _package.remove(_class);</span>
+<span class="fc" id="L273">            return className;</span>
+<span class="nc" id="L274">        } catch (JClassAlreadyExistsException e) {</span>
+<span class="nc" id="L275">            return makeUnique(MakeUniqueClassName.makeUnique(className), _package);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>
