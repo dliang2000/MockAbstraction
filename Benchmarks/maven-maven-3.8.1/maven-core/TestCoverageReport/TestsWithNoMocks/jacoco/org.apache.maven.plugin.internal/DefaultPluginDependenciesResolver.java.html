@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultPluginDependenciesResolver.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.plugin.internal</a> &gt; <span class="el_source">DefaultPluginDependenciesResolver.java</span></div><h1>DefaultPluginDependenciesResolver.java</h1><pre class="source lang-java linenums">package org.apache.maven.plugin.internal;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.maven.RepositoryUtils;
+import org.apache.maven.model.Dependency;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.plugin.PluginResolutionException;
+import org.codehaus.plexus.component.annotations.Component;
+import org.codehaus.plexus.component.annotations.Requirement;
+import org.codehaus.plexus.logging.Logger;
+import org.codehaus.plexus.util.StringUtils;
+import org.eclipse.aether.DefaultRepositorySystemSession;
+import org.eclipse.aether.RepositorySystem;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.RequestTrace;
+import org.eclipse.aether.artifact.Artifact;
+import org.eclipse.aether.artifact.DefaultArtifact;
+import org.eclipse.aether.collection.CollectRequest;
+import org.eclipse.aether.collection.DependencyCollectionException;
+import org.eclipse.aether.collection.DependencyGraphTransformer;
+import org.eclipse.aether.collection.DependencySelector;
+import org.eclipse.aether.graph.DependencyFilter;
+import org.eclipse.aether.graph.DependencyNode;
+import org.eclipse.aether.graph.DependencyVisitor;
+import org.eclipse.aether.repository.RemoteRepository;
+import org.eclipse.aether.resolution.ArtifactDescriptorException;
+import org.eclipse.aether.resolution.ArtifactDescriptorRequest;
+import org.eclipse.aether.resolution.ArtifactDescriptorResult;
+import org.eclipse.aether.resolution.ArtifactRequest;
+import org.eclipse.aether.resolution.ArtifactResolutionException;
+import org.eclipse.aether.resolution.DependencyRequest;
+import org.eclipse.aether.resolution.DependencyResolutionException;
+import org.eclipse.aether.util.artifact.JavaScopes;
+import org.eclipse.aether.util.filter.AndDependencyFilter;
+import org.eclipse.aether.util.filter.ScopeDependencyFilter;
+import org.eclipse.aether.util.graph.manager.DependencyManagerUtils;
+import org.eclipse.aether.util.graph.selector.AndDependencySelector;
+import org.eclipse.aether.util.graph.transformer.ChainedDependencyGraphTransformer;
+import org.eclipse.aether.util.repository.SimpleArtifactDescriptorPolicy;
+
+/**
+ * Assists in resolving the dependencies of a plugin. &lt;strong&gt;Warning:&lt;/strong&gt; This is an internal utility class that
+ * is only public for technical reasons, it is not part of the public API. In particular, this class can be changed or
+ * deleted without prior notice.
+ *
+ * @since 3.0
+ * @author Benjamin Bentmann
+ */
+@Component( role = PluginDependenciesResolver.class )
+<span class="fc" id="L73">public class DefaultPluginDependenciesResolver</span>
+    implements PluginDependenciesResolver
+{
+
+    private static final String REPOSITORY_CONTEXT = &quot;plugin&quot;;
+
+    @Requirement
+    private Logger logger;
+
+    @Requirement
+    private RepositorySystem repoSystem;
+
+    private Artifact toArtifact( Plugin plugin, RepositorySystemSession session )
+    {
+<span class="fc" id="L87">        return new DefaultArtifact( plugin.getGroupId(), plugin.getArtifactId(), null, &quot;jar&quot;, plugin.getVersion(),</span>
+<span class="fc" id="L88">                                    session.getArtifactTypeRegistry().get( &quot;maven-plugin&quot; ) );</span>
+    }
+
+    public Artifact resolve( Plugin plugin, List&lt;RemoteRepository&gt; repositories, RepositorySystemSession session )
+        throws PluginResolutionException
+    {
+<span class="fc" id="L94">        RequestTrace trace = RequestTrace.newChild( null, plugin );</span>
+
+<span class="fc" id="L96">        Artifact pluginArtifact = toArtifact( plugin, session );</span>
+
+        try
+        {
+<span class="fc" id="L100">            DefaultRepositorySystemSession pluginSession = new DefaultRepositorySystemSession( session );</span>
+<span class="fc" id="L101">            pluginSession.setArtifactDescriptorPolicy( new SimpleArtifactDescriptorPolicy( true, false ) );</span>
+
+<span class="fc" id="L103">            ArtifactDescriptorRequest request =</span>
+                new ArtifactDescriptorRequest( pluginArtifact, repositories, REPOSITORY_CONTEXT );
+<span class="fc" id="L105">            request.setTrace( trace );</span>
+<span class="fc" id="L106">            ArtifactDescriptorResult result = repoSystem.readArtifactDescriptor( pluginSession, request );</span>
+
+<span class="fc" id="L108">            pluginArtifact = result.getArtifact();</span>
+
+<span class="fc" id="L110">            String requiredMavenVersion = (String) result.getProperties().get( &quot;prerequisites.maven&quot; );</span>
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">            if ( requiredMavenVersion != null )</span>
+            {
+<span class="nc" id="L113">                Map&lt;String, String&gt; props = new LinkedHashMap&lt;&gt;( pluginArtifact.getProperties() );</span>
+<span class="nc" id="L114">                props.put( &quot;requiredMavenVersion&quot;, requiredMavenVersion );</span>
+<span class="nc" id="L115">                pluginArtifact = pluginArtifact.setProperties( props );</span>
+            }
+        }
+<span class="nc" id="L118">        catch ( ArtifactDescriptorException e )</span>
+        {
+<span class="nc" id="L120">            throw new PluginResolutionException( plugin, e );</span>
+<span class="fc" id="L121">        }</span>
+
+        try
+        {
+<span class="fc" id="L125">            ArtifactRequest request = new ArtifactRequest( pluginArtifact, repositories, REPOSITORY_CONTEXT );</span>
+<span class="fc" id="L126">            request.setTrace( trace );</span>
+<span class="fc" id="L127">            pluginArtifact = repoSystem.resolveArtifact( session, request ).getArtifact();</span>
+        }
+<span class="nc" id="L129">        catch ( ArtifactResolutionException e )</span>
+        {
+<span class="nc" id="L131">            throw new PluginResolutionException( plugin, e );</span>
+<span class="fc" id="L132">        }</span>
+
+<span class="fc" id="L134">        return pluginArtifact;</span>
+    }
+
+    /**
+     * @since 3.3.0
+     */
+    public DependencyNode resolveCoreExtension( Plugin plugin, DependencyFilter dependencyFilter,
+                                                List&lt;RemoteRepository&gt; repositories, RepositorySystemSession session )
+        throws PluginResolutionException
+    {
+<span class="nc" id="L144">        return resolveInternal( plugin, null /* pluginArtifact */, dependencyFilter, null /* transformer */,</span>
+                                repositories, session );
+    }
+
+    public DependencyNode resolve( Plugin plugin, Artifact pluginArtifact, DependencyFilter dependencyFilter,
+                                   List&lt;RemoteRepository&gt; repositories, RepositorySystemSession session )
+        throws PluginResolutionException
+    {
+<span class="fc" id="L152">        return resolveInternal( plugin, pluginArtifact, dependencyFilter, new PlexusUtilsInjector(), repositories,</span>
+                                session );
+    }
+
+    private DependencyNode resolveInternal( Plugin plugin, Artifact pluginArtifact, DependencyFilter dependencyFilter,
+                                            DependencyGraphTransformer transformer,
+                                            List&lt;RemoteRepository&gt; repositories, RepositorySystemSession session )
+        throws PluginResolutionException
+    {
+<span class="fc" id="L161">        RequestTrace trace = RequestTrace.newChild( null, plugin );</span>
+
+<span class="fc bfc" id="L163" title="All 2 branches covered.">        if ( pluginArtifact == null )</span>
+        {
+<span class="fc" id="L165">            pluginArtifact = toArtifact( plugin, session );</span>
+        }
+
+<span class="fc" id="L168">        DependencyFilter collectionFilter = new ScopeDependencyFilter( &quot;provided&quot;, &quot;test&quot; );</span>
+<span class="fc" id="L169">        DependencyFilter resolutionFilter = AndDependencyFilter.newInstance( collectionFilter, dependencyFilter );</span>
+
+        DependencyNode node;
+
+        try
+        {
+<span class="fc" id="L175">            DependencySelector selector =</span>
+<span class="fc" id="L176">                AndDependencySelector.newInstance( session.getDependencySelector(), new WagonExcluder() );</span>
+
+<span class="fc" id="L178">            transformer =</span>
+<span class="fc" id="L179">                ChainedDependencyGraphTransformer.newInstance( session.getDependencyGraphTransformer(), transformer );</span>
+
+<span class="fc" id="L181">            DefaultRepositorySystemSession pluginSession = new DefaultRepositorySystemSession( session );</span>
+<span class="fc" id="L182">            pluginSession.setDependencySelector( selector );</span>
+<span class="fc" id="L183">            pluginSession.setDependencyGraphTransformer( transformer );</span>
+
+<span class="fc" id="L185">            CollectRequest request = new CollectRequest();</span>
+<span class="fc" id="L186">            request.setRequestContext( REPOSITORY_CONTEXT );</span>
+<span class="fc" id="L187">            request.setRepositories( repositories );</span>
+<span class="fc" id="L188">            request.setRoot( new org.eclipse.aether.graph.Dependency( pluginArtifact, null ) );</span>
+<span class="fc bfc" id="L189" title="All 2 branches covered.">            for ( Dependency dependency : plugin.getDependencies() )</span>
+            {
+<span class="fc" id="L191">                org.eclipse.aether.graph.Dependency pluginDep =</span>
+<span class="fc" id="L192">                    RepositoryUtils.toDependency( dependency, session.getArtifactTypeRegistry() );</span>
+<span class="pc bpc" id="L193" title="1 of 2 branches missed.">                if ( !JavaScopes.SYSTEM.equals( pluginDep.getScope() ) )</span>
+                {
+<span class="nc" id="L195">                    pluginDep = pluginDep.setScope( JavaScopes.RUNTIME );</span>
+                }
+<span class="fc" id="L197">                request.addDependency( pluginDep );</span>
+<span class="fc" id="L198">            }</span>
+
+<span class="fc" id="L200">            DependencyRequest depRequest = new DependencyRequest( request, resolutionFilter );</span>
+<span class="fc" id="L201">            depRequest.setTrace( trace );</span>
+
+<span class="fc" id="L203">            request.setTrace( RequestTrace.newChild( trace, depRequest ) );</span>
+
+<span class="fc" id="L205">            node = repoSystem.collectDependencies( pluginSession, request ).getRoot();</span>
+
+<span class="pc bpc" id="L207" title="1 of 2 branches missed.">            if ( logger.isDebugEnabled() )</span>
+            {
+<span class="nc" id="L209">                node.accept( new GraphLogger() );</span>
+            }
+
+<span class="fc" id="L212">            depRequest.setRoot( node );</span>
+<span class="fc" id="L213">            repoSystem.resolveDependencies( session, depRequest );</span>
+        }
+<span class="nc" id="L215">        catch ( DependencyCollectionException e )</span>
+        {
+<span class="nc" id="L217">            throw new PluginResolutionException( plugin, e );</span>
+        }
+<span class="nc" id="L219">        catch ( DependencyResolutionException e )</span>
+        {
+<span class="nc" id="L221">            throw new PluginResolutionException( plugin, e.getCause() );</span>
+<span class="fc" id="L222">        }</span>
+
+<span class="fc" id="L224">        return node;</span>
+    }
+
+    // Keep this class in sync with org.apache.maven.project.DefaultProjectDependenciesResolver.GraphLogger
+<span class="nc" id="L228">    class GraphLogger</span>
+        implements DependencyVisitor
+    {
+
+<span class="nc" id="L232">        private String indent = &quot;&quot;;</span>
+
+        public boolean visitEnter( DependencyNode node )
+        {
+<span class="nc" id="L236">            StringBuilder buffer = new StringBuilder( 128 );</span>
+<span class="nc" id="L237">            buffer.append( indent );</span>
+<span class="nc" id="L238">            org.eclipse.aether.graph.Dependency dep = node.getDependency();</span>
+<span class="nc bnc" id="L239" title="All 2 branches missed.">            if ( dep != null )</span>
+            {
+<span class="nc" id="L241">                org.eclipse.aether.artifact.Artifact art = dep.getArtifact();</span>
+
+<span class="nc" id="L243">                buffer.append( art );</span>
+<span class="nc bnc" id="L244" title="All 2 branches missed.">                if ( StringUtils.isNotEmpty( dep.getScope() ) )</span>
+                {
+<span class="nc" id="L246">                    buffer.append( ':' ).append( dep.getScope() );</span>
+                }
+
+<span class="nc bnc" id="L249" title="All 2 branches missed.">                if ( dep.isOptional() )</span>
+                {
+<span class="nc" id="L251">                    buffer.append( &quot; (optional)&quot; );</span>
+                }
+
+                // TODO We currently cannot tell which &lt;dependencyManagement&gt; section contained the management
+                //      information. When the resolver provides this information, these log messages should be updated
+                //      to contain it.
+<span class="nc bnc" id="L257" title="All 2 branches missed.">                if ( ( node.getManagedBits() &amp; DependencyNode.MANAGED_SCOPE ) == DependencyNode.MANAGED_SCOPE )</span>
+                {
+<span class="nc" id="L259">                    final String premanagedScope = DependencyManagerUtils.getPremanagedScope( node );</span>
+<span class="nc" id="L260">                    buffer.append( &quot; (scope managed from &quot; );</span>
+<span class="nc" id="L261">                    buffer.append( StringUtils.defaultString( premanagedScope, &quot;default&quot; ) );</span>
+<span class="nc" id="L262">                    buffer.append( ')' );</span>
+                }
+
+<span class="nc bnc" id="L265" title="All 2 branches missed.">                if ( ( node.getManagedBits() &amp; DependencyNode.MANAGED_VERSION ) == DependencyNode.MANAGED_VERSION )</span>
+                {
+<span class="nc" id="L267">                    final String premanagedVersion = DependencyManagerUtils.getPremanagedVersion( node );</span>
+<span class="nc" id="L268">                    buffer.append( &quot; (version managed from &quot; );</span>
+<span class="nc" id="L269">                    buffer.append( StringUtils.defaultString( premanagedVersion, &quot;default&quot; ) );</span>
+<span class="nc" id="L270">                    buffer.append( ')' );</span>
+                }
+
+<span class="nc bnc" id="L273" title="All 2 branches missed.">                if ( ( node.getManagedBits() &amp; DependencyNode.MANAGED_OPTIONAL ) == DependencyNode.MANAGED_OPTIONAL )</span>
+                {
+<span class="nc" id="L275">                    final Boolean premanagedOptional = DependencyManagerUtils.getPremanagedOptional( node );</span>
+<span class="nc" id="L276">                    buffer.append( &quot; (optionality managed from &quot; );</span>
+<span class="nc" id="L277">                    buffer.append( StringUtils.defaultString( premanagedOptional, &quot;default&quot; ) );</span>
+<span class="nc" id="L278">                    buffer.append( ')' );</span>
+                }
+
+<span class="nc bnc" id="L281" title="All 2 branches missed.">                if ( ( node.getManagedBits() &amp; DependencyNode.MANAGED_EXCLUSIONS )</span>
+                         == DependencyNode.MANAGED_EXCLUSIONS )
+                {
+<span class="nc" id="L284">                    final Collection&lt;org.eclipse.aether.graph.Exclusion&gt; premanagedExclusions =</span>
+<span class="nc" id="L285">                        DependencyManagerUtils.getPremanagedExclusions( node );</span>
+
+<span class="nc" id="L287">                    buffer.append( &quot; (exclusions managed from &quot; );</span>
+<span class="nc" id="L288">                    buffer.append( StringUtils.defaultString( premanagedExclusions, &quot;default&quot; ) );</span>
+<span class="nc" id="L289">                    buffer.append( ')' );</span>
+                }
+
+<span class="nc bnc" id="L292" title="All 2 branches missed.">                if ( ( node.getManagedBits() &amp; DependencyNode.MANAGED_PROPERTIES )</span>
+                         == DependencyNode.MANAGED_PROPERTIES )
+                {
+<span class="nc" id="L295">                    final Map&lt;String, String&gt; premanagedProperties =</span>
+<span class="nc" id="L296">                        DependencyManagerUtils.getPremanagedProperties( node );</span>
+
+<span class="nc" id="L298">                    buffer.append( &quot; (properties managed from &quot; );</span>
+<span class="nc" id="L299">                    buffer.append( StringUtils.defaultString( premanagedProperties, &quot;default&quot; ) );</span>
+<span class="nc" id="L300">                    buffer.append( ')' );</span>
+                }
+            }
+
+<span class="nc" id="L304">            logger.debug( buffer.toString() );</span>
+<span class="nc" id="L305">            indent += &quot;   &quot;;</span>
+<span class="nc" id="L306">            return true;</span>
+        }
+
+        public boolean visitLeave( DependencyNode node )
+        {
+<span class="nc" id="L311">            indent = indent.substring( 0, indent.length() - 3 );</span>
+<span class="nc" id="L312">            return true;</span>
+        }
+
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

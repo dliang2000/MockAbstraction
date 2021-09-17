@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SettingsAdapter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.execution</a> &gt; <span class="el_source">SettingsAdapter.java</span></div><h1>SettingsAdapter.java</h1><pre class="source lang-java linenums">package org.apache.maven.execution;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.maven.settings.Mirror;
+import org.apache.maven.settings.Profile;
+import org.apache.maven.settings.Proxy;
+import org.apache.maven.settings.RuntimeInfo;
+import org.apache.maven.settings.Server;
+import org.apache.maven.settings.Settings;
+import org.apache.maven.settings.SettingsUtils;
+
+/**
+ * Adapt a {@link MavenExecutionRequest} to a {@link Settings} object for use in the Maven core.
+ * We want to make sure that what is ask for in the execution request overrides what is in the settings.
+ * The CLI feeds into an execution request so if a particular value is present in the execution request
+ * then we will take that over the value coming from the user settings.
+ *
+ * @author Jason van Zyl
+ */
+class SettingsAdapter
+    extends Settings
+{
+
+    private MavenExecutionRequest request;
+
+    private RuntimeInfo runtimeInfo;
+
+    SettingsAdapter( MavenExecutionRequest request )
+<span class="fc" id="L51">    {</span>
+<span class="fc" id="L52">        this.request = request;</span>
+
+        /*
+         * NOTE: Plugins like maven-release-plugin query the path to the settings.xml to pass it into a forked Maven and
+         * the CLI will fail when called with a non-existing settings, so be sure to only point at actual files. Having
+         * a null file should be harmless as this case matches general Maven 2.x behavior...
+         */
+<span class="fc" id="L59">        File userSettings = request.getUserSettingsFile();</span>
+<span class="pc bpc" id="L60" title="3 of 4 branches missed.">        this.runtimeInfo = new RuntimeInfo( ( userSettings != null &amp;&amp; userSettings.isFile() ) ? userSettings : null );</span>
+<span class="fc" id="L61">    }</span>
+
+    @Override
+    public String getLocalRepository()
+    {
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        if ( request.getLocalRepositoryPath() != null )</span>
+        {
+<span class="nc" id="L68">            return request.getLocalRepositoryPath().getAbsolutePath();</span>
+        }
+
+<span class="nc" id="L71">        return null;</span>
+    }
+
+    @Override
+    public boolean isInteractiveMode()
+    {
+<span class="nc" id="L77">        return request.isInteractiveMode();</span>
+    }
+
+    @Override
+    public boolean isOffline()
+    {
+<span class="nc" id="L83">        return request.isOffline();</span>
+    }
+
+    @Override
+    public List&lt;Proxy&gt; getProxies()
+    {
+<span class="nc" id="L89">        return request.getProxies();</span>
+    }
+
+    @Override
+    public List&lt;Server&gt; getServers()
+    {
+<span class="nc" id="L95">        return request.getServers();</span>
+    }
+
+    @Override
+    public List&lt;Mirror&gt; getMirrors()
+    {
+<span class="nc" id="L101">        return request.getMirrors();</span>
+    }
+
+    @Override
+    public List&lt;Profile&gt; getProfiles()
+    {
+<span class="nc" id="L107">        List&lt;Profile&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        for ( org.apache.maven.model.Profile profile : request.getProfiles() )</span>
+        {
+<span class="nc" id="L110">            result.add( SettingsUtils.convertToSettingsProfile( profile ) );</span>
+<span class="nc" id="L111">        }</span>
+<span class="nc" id="L112">        return result;</span>
+    }
+
+    @Override
+    public List&lt;String&gt; getActiveProfiles()
+    {
+<span class="nc" id="L118">        return request.getActiveProfiles();</span>
+    }
+
+    @Override
+    public List&lt;String&gt; getPluginGroups()
+    {
+<span class="nc" id="L124">        return request.getPluginGroups();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

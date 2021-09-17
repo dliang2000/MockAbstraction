@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultToolchainsBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.toolchain.building</a> &gt; <span class="el_source">DefaultToolchainsBuilder.java</span></div><h1>DefaultToolchainsBuilder.java</h1><pre class="source lang-java linenums">package org.apache.maven.toolchain.building;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import org.apache.maven.building.Problem;
+import org.apache.maven.building.ProblemCollector;
+import org.apache.maven.building.ProblemCollectorFactory;
+import org.apache.maven.building.Source;
+import org.apache.maven.toolchain.io.ToolchainsParseException;
+import org.apache.maven.toolchain.io.ToolchainsReader;
+import org.apache.maven.toolchain.io.ToolchainsWriter;
+import org.apache.maven.toolchain.merge.MavenToolchainMerger;
+import org.apache.maven.toolchain.model.PersistedToolchains;
+import org.apache.maven.toolchain.model.TrackableBase;
+import org.codehaus.plexus.interpolation.EnvarBasedValueSource;
+import org.codehaus.plexus.interpolation.InterpolationException;
+import org.codehaus.plexus.interpolation.InterpolationPostProcessor;
+import org.codehaus.plexus.interpolation.RegexBasedInterpolator;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.inject.Singleton;
+import java.io.IOException;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 
+ * @author Robert Scholte
+ * @since 3.3.0
+ */
+@Named
+@Singleton
+<span class="fc" id="L54">public class DefaultToolchainsBuilder</span>
+    implements ToolchainsBuilder
+{
+<span class="fc" id="L57">    private MavenToolchainMerger toolchainsMerger = new MavenToolchainMerger();</span>
+
+    @Inject
+    private ToolchainsWriter toolchainsWriter;
+
+    @Inject
+    private ToolchainsReader toolchainsReader;
+
+    @Override
+    public ToolchainsBuildingResult build( ToolchainsBuildingRequest request )
+        throws ToolchainsBuildingException
+    {
+<span class="fc" id="L69">        ProblemCollector problems = ProblemCollectorFactory.newInstance( null );</span>
+        
+<span class="fc" id="L71">        PersistedToolchains globalToolchains = readToolchains( request.getGlobalToolchainsSource(), request, problems );</span>
+
+<span class="fc" id="L73">        PersistedToolchains userToolchains = readToolchains( request.getUserToolchainsSource(), request, problems );</span>
+
+<span class="fc" id="L75">        toolchainsMerger.merge( userToolchains, globalToolchains, TrackableBase.GLOBAL_LEVEL );</span>
+        
+<span class="fc" id="L77">        problems.setSource( &quot;&quot; );</span>
+
+<span class="fc" id="L79">        userToolchains = interpolate( userToolchains, problems );</span>
+
+<span class="fc bfc" id="L81" title="All 2 branches covered.">        if ( hasErrors( problems.getProblems() ) )</span>
+        {
+<span class="fc" id="L83">            throw new ToolchainsBuildingException( problems.getProblems() );</span>
+        }
+
+
+<span class="fc" id="L87">        return new DefaultToolchainsBuildingResult( userToolchains, problems.getProblems() );</span>
+    }
+
+    private PersistedToolchains interpolate( PersistedToolchains toolchains, ProblemCollector problems )
+    {
+
+<span class="fc" id="L93">        StringWriter stringWriter = new StringWriter( 1024 * 4 );</span>
+        try
+        {
+<span class="fc" id="L96">            toolchainsWriter.write( stringWriter, null, toolchains );</span>
+        }
+<span class="nc" id="L98">        catch ( IOException e )</span>
+        {
+<span class="nc" id="L100">            throw new IllegalStateException( &quot;Failed to serialize toolchains to memory&quot;, e );</span>
+<span class="fc" id="L101">        }</span>
+
+<span class="fc" id="L103">        String serializedToolchains = stringWriter.toString();</span>
+
+<span class="fc" id="L105">        RegexBasedInterpolator interpolator = new RegexBasedInterpolator();</span>
+
+        try
+        {
+<span class="fc" id="L109">            interpolator.addValueSource( new EnvarBasedValueSource() );</span>
+        }
+<span class="nc" id="L111">        catch ( IOException e )</span>
+        {
+<span class="nc" id="L113">            problems.add( Problem.Severity.WARNING, &quot;Failed to use environment variables for interpolation: &quot;</span>
+<span class="nc" id="L114">                    + e.getMessage(), -1, -1, e );</span>
+<span class="fc" id="L115">        }</span>
+
+<span class="fc" id="L117">        interpolator.addPostProcessor( new InterpolationPostProcessor()</span>
+<span class="fc" id="L118">        {</span>
+            @Override
+            public Object execute( String expression, Object value )
+            {
+<span class="pc bpc" id="L122" title="1 of 2 branches missed.">                if ( value != null )</span>
+                {
+                    // we're going to parse this back in as XML so we need to escape XML markup
+<span class="fc" id="L125">                    value = value.toString().replace( &quot;&amp;&quot;, &quot;&amp;amp;&quot; ).replace( &quot;&lt;&quot;, &quot;&amp;lt;&quot; ).replace( &quot;&gt;&quot;, &quot;&amp;gt;&quot; );</span>
+<span class="fc" id="L126">                    return value;</span>
+                }
+<span class="nc" id="L128">                return null;</span>
+            }
+        } );
+
+        try
+        {
+<span class="fc" id="L134">            serializedToolchains = interpolator.interpolate( serializedToolchains );</span>
+        }
+<span class="nc" id="L136">        catch ( InterpolationException e )</span>
+        {
+<span class="nc" id="L138">            problems.add( Problem.Severity.ERROR, &quot;Failed to interpolate toolchains: &quot; + e.getMessage(), -1, -1, e );</span>
+<span class="nc" id="L139">            return toolchains;</span>
+<span class="fc" id="L140">        }</span>
+
+        PersistedToolchains result;
+        try
+        {
+<span class="fc" id="L145">            Map&lt;String, ?&gt; options = Collections.singletonMap( ToolchainsReader.IS_STRICT, Boolean.FALSE );</span>
+
+<span class="fc" id="L147">            result = toolchainsReader.read( new StringReader( serializedToolchains ), options );</span>
+        }
+<span class="nc" id="L149">        catch ( IOException e )</span>
+        {
+<span class="nc" id="L151">            problems.add( Problem.Severity.ERROR, &quot;Failed to interpolate toolchains: &quot; + e.getMessage(), -1, -1, e );</span>
+<span class="nc" id="L152">            return toolchains;</span>
+<span class="fc" id="L153">        }</span>
+
+<span class="fc" id="L155">        return result;</span>
+    }
+
+    private PersistedToolchains readToolchains( Source toolchainsSource, ToolchainsBuildingRequest request,
+                                                ProblemCollector problems )
+    {
+<span class="fc bfc" id="L161" title="All 2 branches covered.">        if ( toolchainsSource == null )</span>
+        {
+<span class="fc" id="L163">            return new PersistedToolchains();</span>
+        }
+
+        PersistedToolchains toolchains;
+
+        try
+        {
+<span class="fc" id="L170">            Map&lt;String, ?&gt; options = Collections.singletonMap( ToolchainsReader.IS_STRICT, Boolean.TRUE );</span>
+
+            try
+            {
+<span class="fc" id="L174">                toolchains = toolchainsReader.read( toolchainsSource.getInputStream(), options );</span>
+            }
+<span class="fc" id="L176">            catch ( ToolchainsParseException e )</span>
+            {
+<span class="fc" id="L178">                options = Collections.singletonMap( ToolchainsReader.IS_STRICT, Boolean.FALSE );</span>
+
+<span class="nc" id="L180">                toolchains = toolchainsReader.read( toolchainsSource.getInputStream(), options );</span>
+
+<span class="nc" id="L182">                problems.add( Problem.Severity.WARNING, e.getMessage(), e.getLineNumber(), e.getColumnNumber(),</span>
+                              e );
+<span class="fc" id="L184">            }</span>
+        }
+<span class="fc" id="L186">        catch ( ToolchainsParseException e )</span>
+        {
+<span class="fc" id="L188">            problems.add( Problem.Severity.FATAL, &quot;Non-parseable toolchains &quot; + toolchainsSource.getLocation()</span>
+<span class="fc" id="L189">                + &quot;: &quot; + e.getMessage(), e.getLineNumber(), e.getColumnNumber(), e );</span>
+<span class="fc" id="L190">            return new PersistedToolchains();</span>
+        }
+<span class="fc" id="L192">        catch ( IOException e )</span>
+        {
+<span class="fc" id="L194">            problems.add( Problem.Severity.FATAL, &quot;Non-readable toolchains &quot; + toolchainsSource.getLocation()</span>
+<span class="fc" id="L195">                + &quot;: &quot; + e.getMessage(), -1, -1, e );</span>
+<span class="fc" id="L196">            return new PersistedToolchains();</span>
+<span class="fc" id="L197">        }</span>
+
+<span class="fc" id="L199">        return toolchains;</span>
+    }
+    
+    private boolean hasErrors( List&lt;Problem&gt; problems )
+    {
+<span class="pc bpc" id="L204" title="1 of 2 branches missed.">        if ( problems != null )</span>
+        {
+<span class="fc bfc" id="L206" title="All 2 branches covered.">            for ( Problem problem : problems )</span>
+            {
+<span class="pc bpc" id="L208" title="1 of 2 branches missed.">                if ( Problem.Severity.ERROR.compareTo( problem.getSeverity() ) &gt;= 0 )</span>
+                {
+<span class="fc" id="L210">                    return true;</span>
+                }
+<span class="nc" id="L212">            }</span>
+        }
+
+<span class="fc" id="L215">        return false;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

@@ -1,0 +1,538 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultMaven.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven</a> &gt; <span class="el_source">DefaultMaven.java</span></div><h1>DefaultMaven.java</h1><pre class="source lang-java linenums">package org.apache.maven;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.maven.artifact.ArtifactUtils;
+import org.apache.maven.execution.DefaultMavenExecutionResult;
+import org.apache.maven.execution.ExecutionEvent;
+import org.apache.maven.execution.MavenExecutionRequest;
+import org.apache.maven.execution.MavenExecutionResult;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.execution.ProjectDependencyGraph;
+import org.apache.maven.graph.GraphBuilder;
+import org.apache.maven.internal.aether.DefaultRepositorySystemSessionFactory;
+import org.apache.maven.lifecycle.internal.ExecutionEventCatapult;
+import org.apache.maven.lifecycle.internal.LifecycleStarter;
+import org.apache.maven.model.Prerequisites;
+import org.apache.maven.model.building.ModelProblem;
+import org.apache.maven.model.building.Result;
+import org.apache.maven.plugin.LegacySupport;
+import org.apache.maven.project.MavenProject;
+import org.apache.maven.project.ProjectBuilder;
+import org.apache.maven.repository.LocalRepositoryNotAccessibleException;
+import org.apache.maven.session.scope.internal.SessionScope;
+import org.codehaus.plexus.PlexusContainer;
+import org.codehaus.plexus.component.annotations.Component;
+import org.codehaus.plexus.component.annotations.Requirement;
+import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
+import org.codehaus.plexus.logging.Logger;
+import org.eclipse.aether.DefaultRepositorySystemSession;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.repository.WorkspaceReader;
+import org.eclipse.aether.util.repository.ChainedWorkspaceReader;
+
+/**
+ * @author Jason van Zyl
+ */
+@Component( role = Maven.class )
+<span class="fc" id="L67">public class DefaultMaven</span>
+    implements Maven
+{
+
+    @Requirement
+    private Logger logger;
+
+    @Requirement
+    protected ProjectBuilder projectBuilder;
+
+    @Requirement
+    private LifecycleStarter lifecycleStarter;
+
+    @Requirement
+    protected PlexusContainer container;
+
+    @Requirement
+    private ExecutionEventCatapult eventCatapult;
+
+    @Requirement
+    private LegacySupport legacySupport;
+
+    @Requirement
+    private SessionScope sessionScope;
+
+    @Requirement
+    private DefaultRepositorySystemSessionFactory repositorySessionFactory;
+
+    @Requirement( hint = GraphBuilder.HINT )
+    private GraphBuilder graphBuilder;
+
+    @Override
+    public MavenExecutionResult execute( MavenExecutionRequest request )
+    {
+        MavenExecutionResult result;
+
+        try
+        {
+<span class="fc" id="L105">            result = doExecute( request );</span>
+        }
+<span class="nc" id="L107">        catch ( OutOfMemoryError e )</span>
+        {
+<span class="nc" id="L109">            result = addExceptionToResult( new DefaultMavenExecutionResult(), e );</span>
+        }
+<span class="nc" id="L111">        catch ( RuntimeException e )</span>
+        {
+            // TODO Hack to make the cycle detection the same for the new graph builder
+<span class="nc bnc" id="L114" title="All 2 branches missed.">            if ( e.getCause() instanceof ProjectCycleException )</span>
+            {
+<span class="nc" id="L116">                result = addExceptionToResult( new DefaultMavenExecutionResult(), e.getCause() );</span>
+            }
+            else
+            {
+<span class="nc" id="L120">                result = addExceptionToResult( new DefaultMavenExecutionResult(),</span>
+                                               new InternalErrorException( &quot;Internal error: &quot; + e, e ) );
+            }
+        }
+        finally
+        {
+<span class="fc" id="L126">            legacySupport.setSession( null );</span>
+        }
+
+<span class="fc" id="L129">        return result;</span>
+    }
+
+    //
+    // 1) Setup initial properties.
+    //
+    // 2) Validate local repository directory is accessible.
+    //
+    // 3) Create RepositorySystemSession.
+    //
+    // 4) Create MavenSession.
+    //
+    // 5) Execute AbstractLifecycleParticipant.afterSessionStart(session)
+    //
+    // 6) Get reactor projects looking for general POM errors
+    //
+    // 7) Create ProjectDependencyGraph using trimming which takes into account --projects and reactor mode.
+    // This ensures that the projects passed into the ReactorReader are only those specified.
+    //
+    // 8) Create ReactorReader with the getProjectMap( projects ). NOTE that getProjectMap(projects) is the code that
+    // checks for duplicate projects definitions in the build. Ideally this type of duplicate checking should be
+    // part of getting the reactor projects in 6). The duplicate checking is conflated with getProjectMap(projects).
+    //
+    // 9) Execute AbstractLifecycleParticipant.afterProjectsRead(session)
+    //
+    // 10) Create ProjectDependencyGraph without trimming (as trimming was done in 7). A new topological sort is
+    // required after the execution of 9) as the AbstractLifecycleParticipants are free to mutate the MavenProject
+    // instances, which may change dependencies which can, in turn, affect the build order.
+    //
+    // 11) Execute LifecycleStarter.start()
+    //
+    @SuppressWarnings( &quot;checkstyle:methodlength&quot; )
+    private MavenExecutionResult doExecute( MavenExecutionRequest request )
+    {
+<span class="fc" id="L163">        request.setStartTime( new Date() );</span>
+
+<span class="fc" id="L165">        MavenExecutionResult result = new DefaultMavenExecutionResult();</span>
+
+        try
+        {
+<span class="fc" id="L169">            validateLocalRepository( request );</span>
+        }
+<span class="nc" id="L171">        catch ( LocalRepositoryNotAccessibleException e )</span>
+        {
+<span class="nc" id="L173">            return addExceptionToResult( result, e );</span>
+<span class="fc" id="L174">        }</span>
+
+        //
+        // We enter the session scope right after the MavenSession creation and before any of the
+        // AbstractLifecycleParticipant lookups
+        // so that @SessionScoped components can be @Injected into AbstractLifecycleParticipants.
+        //
+<span class="fc" id="L181">        sessionScope.enter();</span>
+        try
+        {
+<span class="fc" id="L184">            DefaultRepositorySystemSession repoSession =</span>
+<span class="fc" id="L185">                (DefaultRepositorySystemSession) newRepositorySession( request );</span>
+<span class="fc" id="L186">            MavenSession session = new MavenSession( container, repoSession, request, result );</span>
+
+<span class="fc" id="L188">            sessionScope.seed( MavenSession.class, session );</span>
+
+<span class="fc" id="L190">            legacySupport.setSession( session );</span>
+
+<span class="fc" id="L192">            return doExecute( request, session, result, repoSession );</span>
+        }
+        finally
+        {
+<span class="fc" id="L196">            sessionScope.exit();</span>
+        }
+    }
+
+    private MavenExecutionResult doExecute( MavenExecutionRequest request, MavenSession session,
+                                            MavenExecutionResult result, DefaultRepositorySystemSession repoSession )
+    {
+        try
+        {
+            // CHECKSTYLE_OFF: LineLength
+<span class="fc bfc" id="L206" title="All 2 branches covered.">            for ( AbstractMavenLifecycleParticipant listener : getLifecycleParticipants( Collections.&lt;MavenProject&gt;emptyList() ) )</span>
+            {
+<span class="fc" id="L208">                listener.afterSessionStart( session );</span>
+<span class="fc" id="L209">            }</span>
+            // CHECKSTYLE_ON: LineLength
+        }
+<span class="nc" id="L212">        catch ( MavenExecutionException e )</span>
+        {
+<span class="nc" id="L214">            return addExceptionToResult( result, e );</span>
+<span class="fc" id="L215">        }</span>
+
+<span class="fc" id="L217">        eventCatapult.fire( ExecutionEvent.Type.ProjectDiscoveryStarted, session, null );</span>
+
+<span class="fc" id="L219">        Result&lt;? extends ProjectDependencyGraph&gt; graphResult = buildGraph( session, result );</span>
+
+<span class="fc bfc" id="L221" title="All 2 branches covered.">        if ( graphResult.hasErrors() )</span>
+        {
+<span class="fc" id="L223">            return addExceptionToResult( result, graphResult.getProblems().iterator().next().getException() );</span>
+        }
+
+        try
+        {
+<span class="fc" id="L228">            session.setProjectMap( getProjectMap( session.getProjects() ) );</span>
+        }
+<span class="nc" id="L230">        catch ( DuplicateProjectException e )</span>
+        {
+<span class="nc" id="L232">            return addExceptionToResult( result, e );</span>
+<span class="fc" id="L233">        }</span>
+
+        WorkspaceReader reactorWorkspace;
+        try
+        {
+<span class="fc" id="L238">            reactorWorkspace = container.lookup( WorkspaceReader.class, ReactorReader.HINT );</span>
+        }
+<span class="nc" id="L240">        catch ( ComponentLookupException e )</span>
+        {
+<span class="nc" id="L242">            return addExceptionToResult( result, e );</span>
+<span class="fc" id="L243">        }</span>
+
+        //
+        // Desired order of precedence for local artifact repositories
+        //
+        // Reactor
+        // Workspace
+        // User Local Repository
+        //
+<span class="fc" id="L252">        repoSession.setWorkspaceReader( ChainedWorkspaceReader.newInstance( reactorWorkspace,</span>
+<span class="fc" id="L253">                                                                            repoSession.getWorkspaceReader() ) );</span>
+
+<span class="fc" id="L255">        repoSession.setReadOnly();</span>
+
+<span class="fc" id="L257">        ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();</span>
+        try
+        {
+<span class="fc bfc" id="L260" title="All 2 branches covered.">            for ( AbstractMavenLifecycleParticipant listener : getLifecycleParticipants( session.getProjects() ) )</span>
+            {
+<span class="fc" id="L262">                Thread.currentThread().setContextClassLoader( listener.getClass().getClassLoader() );</span>
+
+<span class="fc" id="L264">                listener.afterProjectsRead( session );</span>
+<span class="fc" id="L265">            }</span>
+        }
+<span class="nc" id="L267">        catch ( MavenExecutionException e )</span>
+        {
+<span class="nc" id="L269">            return addExceptionToResult( result, e );</span>
+        }
+        finally
+        {
+<span class="fc" id="L273">            Thread.currentThread().setContextClassLoader( originalClassLoader );</span>
+        }
+
+        //
+        // The projects need to be topologically after the participants have run their afterProjectsRead(session)
+        // because the participant is free to change the dependencies of a project which can potentially change the
+        // topological order of the projects, and therefore can potentially change the build order.
+        //
+        // Note that participants may affect the topological order of the projects but it is
+        // not expected that a participant will add or remove projects from the session.
+        //
+
+<span class="fc" id="L285">        graphResult = buildGraph( session, result );</span>
+
+<span class="pc bpc" id="L287" title="1 of 2 branches missed.">        if ( graphResult.hasErrors() )</span>
+        {
+<span class="nc" id="L289">            return addExceptionToResult( result, graphResult.getProblems().iterator().next().getException() );</span>
+        }
+
+        try
+        {
+<span class="pc bpc" id="L294" title="1 of 2 branches missed.">            if ( result.hasExceptions() )</span>
+            {
+<span class="nc" id="L296">                return result;</span>
+            }
+
+<span class="fc" id="L299">            result.setTopologicallySortedProjects( session.getProjects() );</span>
+
+<span class="fc" id="L301">            result.setProject( session.getTopLevelProject() );</span>
+
+<span class="fc" id="L303">            validatePrerequisitesForNonMavenPluginProjects( session.getProjects() );</span>
+
+<span class="fc" id="L305">            lifecycleStarter.execute( session );</span>
+
+<span class="fc" id="L307">            validateActivatedProfiles( session.getProjects(), request.getActiveProfiles() );</span>
+
+<span class="pc bpc" id="L309" title="1 of 2 branches missed.">            if ( session.getResult().hasExceptions() )</span>
+            {
+<span class="nc" id="L311">                return addExceptionToResult( result, session.getResult().getExceptions().get( 0 ) );</span>
+            }
+        }
+        finally
+        {
+            try
+            {
+<span class="fc" id="L318">                afterSessionEnd( session.getProjects(), session );</span>
+            }
+<span class="nc" id="L320">            catch ( MavenExecutionException e )</span>
+            {
+<span class="nc" id="L322">                return addExceptionToResult( result, e );</span>
+<span class="fc" id="L323">            }</span>
+        }
+
+<span class="fc" id="L326">        return result;</span>
+    }
+
+    private void afterSessionEnd( Collection&lt;MavenProject&gt; projects, MavenSession session )
+        throws MavenExecutionException
+    {
+<span class="fc" id="L332">        ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();</span>
+        try
+        {
+<span class="fc bfc" id="L335" title="All 2 branches covered.">            for ( AbstractMavenLifecycleParticipant listener : getLifecycleParticipants( projects ) )</span>
+            {
+<span class="fc" id="L337">                Thread.currentThread().setContextClassLoader( listener.getClass().getClassLoader() );</span>
+
+<span class="fc" id="L339">                listener.afterSessionEnd( session );</span>
+<span class="fc" id="L340">            }</span>
+        }
+        finally
+        {
+<span class="fc" id="L344">            Thread.currentThread().setContextClassLoader( originalClassLoader );</span>
+        }
+<span class="fc" id="L346">    }</span>
+
+    public RepositorySystemSession newRepositorySession( MavenExecutionRequest request )
+    {
+<span class="fc" id="L350">        return repositorySessionFactory.newRepositorySession( request );</span>
+    }
+
+    private void validateLocalRepository( MavenExecutionRequest request )
+        throws LocalRepositoryNotAccessibleException
+    {
+<span class="fc" id="L356">        File localRepoDir = request.getLocalRepositoryPath();</span>
+
+<span class="fc" id="L358">        logger.debug( &quot;Using local repository at &quot; + localRepoDir );</span>
+
+<span class="fc" id="L360">        localRepoDir.mkdirs();</span>
+
+<span class="pc bpc" id="L362" title="1 of 2 branches missed.">        if ( !localRepoDir.isDirectory() )</span>
+        {
+<span class="nc" id="L364">            throw new LocalRepositoryNotAccessibleException( &quot;Could not create local repository at &quot; + localRepoDir );</span>
+        }
+<span class="fc" id="L366">    }</span>
+
+    private Collection&lt;AbstractMavenLifecycleParticipant&gt; getLifecycleParticipants( Collection&lt;MavenProject&gt; projects )
+    {
+<span class="fc" id="L370">        Collection&lt;AbstractMavenLifecycleParticipant&gt; lifecycleListeners = new LinkedHashSet&lt;&gt;();</span>
+
+<span class="fc" id="L372">        ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();</span>
+        try
+        {
+            try
+            {
+<span class="fc" id="L377">                lifecycleListeners.addAll( container.lookupList( AbstractMavenLifecycleParticipant.class ) );</span>
+            }
+<span class="nc" id="L379">            catch ( ComponentLookupException e )</span>
+            {
+                // this is just silly, lookupList should return an empty list!
+<span class="nc" id="L382">                logger.warn( &quot;Failed to lookup lifecycle participants: &quot; + e.getMessage() );</span>
+<span class="fc" id="L383">            }</span>
+
+<span class="fc" id="L385">            Collection&lt;ClassLoader&gt; scannedRealms = new HashSet&lt;&gt;();</span>
+
+<span class="fc bfc" id="L387" title="All 2 branches covered.">            for ( MavenProject project : projects )</span>
+            {
+<span class="fc" id="L389">                ClassLoader projectRealm = project.getClassRealm();</span>
+
+<span class="pc bpc" id="L391" title="3 of 4 branches missed.">                if ( projectRealm != null &amp;&amp; scannedRealms.add( projectRealm ) )</span>
+                {
+<span class="nc" id="L393">                    Thread.currentThread().setContextClassLoader( projectRealm );</span>
+
+                    try
+                    {
+<span class="nc" id="L397">                        lifecycleListeners.addAll( container.lookupList( AbstractMavenLifecycleParticipant.class ) );</span>
+                    }
+<span class="nc" id="L399">                    catch ( ComponentLookupException e )</span>
+                    {
+                        // this is just silly, lookupList should return an empty list!
+<span class="nc" id="L402">                        logger.warn( &quot;Failed to lookup lifecycle participants: &quot; + e.getMessage() );</span>
+<span class="nc" id="L403">                    }</span>
+                }
+<span class="fc" id="L405">            }</span>
+        }
+        finally
+        {
+<span class="fc" id="L409">            Thread.currentThread().setContextClassLoader( originalClassLoader );</span>
+        }
+
+<span class="fc" id="L412">        return lifecycleListeners;</span>
+    }
+
+    private MavenExecutionResult addExceptionToResult( MavenExecutionResult result, Throwable e )
+    {
+<span class="pc bpc" id="L417" title="1 of 2 branches missed.">        if ( !result.getExceptions().contains( e ) )</span>
+        {
+<span class="fc" id="L419">            result.addException( e );</span>
+        }
+
+<span class="fc" id="L422">        return result;</span>
+    }
+
+    private void validatePrerequisitesForNonMavenPluginProjects( List&lt;MavenProject&gt; projects )
+    {
+<span class="fc bfc" id="L427" title="All 2 branches covered.">        for ( MavenProject mavenProject : projects )</span>
+        {
+<span class="pc bpc" id="L429" title="1 of 2 branches missed.">            if ( !&quot;maven-plugin&quot;.equals( mavenProject.getPackaging() ) )</span>
+            {
+<span class="fc" id="L431">                Prerequisites prerequisites = mavenProject.getPrerequisites();</span>
+<span class="pc bpc" id="L432" title="3 of 4 branches missed.">                if ( prerequisites != null &amp;&amp; prerequisites.getMaven() != null )</span>
+                {
+<span class="nc" id="L434">                    logger.warn( &quot;The project &quot; + mavenProject.getId() + &quot; uses prerequisites&quot;</span>
+                        + &quot; which is only intended for maven-plugin projects &quot;
+                        + &quot;but not for non maven-plugin projects. &quot;
+                        + &quot;For such purposes you should use the maven-enforcer-plugin. &quot;
+                        + &quot;See https://maven.apache.org/enforcer/enforcer-rules/requireMavenVersion.html&quot; );
+                }
+            }
+<span class="fc" id="L441">        }</span>
+<span class="fc" id="L442">    }</span>
+
+    private void validateActivatedProfiles( List&lt;MavenProject&gt; projects, List&lt;String&gt; activeProfileIds )
+    {
+<span class="fc" id="L446">        Collection&lt;String&gt; notActivatedProfileIds = new LinkedHashSet&lt;&gt;( activeProfileIds );</span>
+
+<span class="fc bfc" id="L448" title="All 2 branches covered.">        for ( MavenProject project : projects )</span>
+        {
+<span class="fc bfc" id="L450" title="All 2 branches covered.">            for ( List&lt;String&gt; profileIds : project.getInjectedProfileIds().values() )</span>
+            {
+<span class="fc" id="L452">                notActivatedProfileIds.removeAll( profileIds );</span>
+<span class="fc" id="L453">            }</span>
+<span class="fc" id="L454">        }</span>
+
+<span class="pc bpc" id="L456" title="1 of 2 branches missed.">        for ( String notActivatedProfileId : notActivatedProfileIds )</span>
+        {
+<span class="nc" id="L458">            logger.warn( &quot;The requested profile \&quot;&quot; + notActivatedProfileId</span>
+                + &quot;\&quot; could not be activated because it does not exist.&quot; );
+<span class="nc" id="L460">        }</span>
+<span class="fc" id="L461">    }</span>
+
+    private Map&lt;String, MavenProject&gt; getProjectMap( Collection&lt;MavenProject&gt; projects )
+        throws DuplicateProjectException
+    {
+<span class="fc" id="L466">        Map&lt;String, MavenProject&gt; index = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L467">        Map&lt;String, List&lt;File&gt;&gt; collisions = new LinkedHashMap&lt;&gt;();</span>
+
+<span class="fc bfc" id="L469" title="All 2 branches covered.">        for ( MavenProject project : projects )</span>
+        {
+<span class="fc" id="L471">            String projectId = ArtifactUtils.key( project.getGroupId(), project.getArtifactId(), project.getVersion() );</span>
+
+<span class="fc" id="L473">            MavenProject collision = index.get( projectId );</span>
+
+<span class="pc bpc" id="L475" title="1 of 2 branches missed.">            if ( collision == null )</span>
+            {
+<span class="fc" id="L477">                index.put( projectId, project );</span>
+            }
+            else
+            {
+<span class="nc" id="L481">                List&lt;File&gt; pomFiles = collisions.get( projectId );</span>
+
+<span class="nc bnc" id="L483" title="All 2 branches missed.">                if ( pomFiles == null )</span>
+                {
+<span class="nc" id="L485">                    pomFiles = new ArrayList&lt;&gt;( Arrays.asList( collision.getFile(), project.getFile() ) );</span>
+<span class="nc" id="L486">                    collisions.put( projectId, pomFiles );</span>
+                }
+                else
+                {
+<span class="nc" id="L490">                    pomFiles.add( project.getFile() );</span>
+                }
+            }
+<span class="fc" id="L493">        }</span>
+
+<span class="pc bpc" id="L495" title="1 of 2 branches missed.">        if ( !collisions.isEmpty() )</span>
+        {
+<span class="nc" id="L497">            throw new DuplicateProjectException( &quot;Two or more projects in the reactor&quot;</span>
+                + &quot; have the same identifier, please make sure that &lt;groupId&gt;:&lt;artifactId&gt;:&lt;version&gt;&quot;
+                + &quot; is unique for each project: &quot; + collisions, collisions );
+        }
+
+<span class="fc" id="L502">        return index;</span>
+    }
+
+    private Result&lt;? extends ProjectDependencyGraph&gt; buildGraph( MavenSession session, MavenExecutionResult result )
+    {
+<span class="fc" id="L507">        Result&lt;? extends ProjectDependencyGraph&gt; graphResult = graphBuilder.build( session );</span>
+<span class="fc bfc" id="L508" title="All 2 branches covered.">        for ( ModelProblem problem : graphResult.getProblems() )</span>
+        {
+<span class="pc bpc" id="L510" title="1 of 2 branches missed.">            if ( problem.getSeverity() == ModelProblem.Severity.WARNING )</span>
+            {
+<span class="nc" id="L512">                logger.warn( problem.toString() );</span>
+            }
+            else
+            {
+<span class="fc" id="L516">                logger.error( problem.toString() );</span>
+            }
+<span class="fc" id="L518">        }</span>
+
+<span class="fc bfc" id="L520" title="All 2 branches covered.">        if ( !graphResult.hasErrors() )</span>
+        {
+<span class="fc" id="L522">            ProjectDependencyGraph projectDependencyGraph = graphResult.get();</span>
+<span class="fc" id="L523">            session.setProjects( projectDependencyGraph.getSortedProjects() );</span>
+<span class="fc" id="L524">            session.setAllProjects( projectDependencyGraph.getAllProjects() );</span>
+<span class="fc" id="L525">            session.setProjectDependencyGraph( projectDependencyGraph );</span>
+        }
+
+<span class="fc" id="L528">        return graphResult;</span>
+    }
+
+    @Deprecated
+    // 5 January 2014
+    protected Logger getLogger()
+    {
+<span class="nc" id="L535">        return logger;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultExceptionHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.exception</a> &gt; <span class="el_source">DefaultExceptionHandler.java</span></div><h1>DefaultExceptionHandler.java</h1><pre class="source lang-java linenums">package org.apache.maven.exception;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.io.IOException;
+import java.net.ConnectException;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.maven.lifecycle.LifecycleExecutionException;
+import org.apache.maven.model.building.ModelProblem;
+import org.apache.maven.model.building.ModelProblemUtils;
+import org.apache.maven.plugin.AbstractMojoExecutionException;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugin.PluginContainerException;
+import org.apache.maven.plugin.PluginExecutionException;
+import org.apache.maven.project.ProjectBuildingException;
+import org.apache.maven.project.ProjectBuildingResult;
+import org.codehaus.plexus.component.annotations.Component;
+import org.codehaus.plexus.util.StringUtils;
+
+/*
+
+- test projects for each of these
+- how to categorize the problems so that the id of the problem can be match to a page with descriptive help and the test
+  project
+- nice little sample projects that could be run in the core as well as integration tests
+
+All Possible Errors
+- invalid lifecycle phase (maybe same as bad CLI param, though you were talking about embedder too)
+- &lt;module&gt; specified is not found
+- malformed settings
+- malformed POM
+- local repository not writable
+- remote repositories not available
+- artifact metadata missing
+- extension metadata missing
+- extension artifact missing
+- artifact metadata retrieval problem
+- version range violation
+- circular dependency
+- artifact missing
+- artifact retrieval exception
+- md5 checksum doesn't match for local artifact, need to redownload this
+- POM doesn't exist for a goal that requires one
+- parent POM missing (in both the repository + relative path)
+- component not found
+
+Plugins:
+- plugin metadata missing
+- plugin metadata retrieval problem
+- plugin artifact missing
+- plugin artifact retrieval problem
+- plugin dependency metadata missing
+- plugin dependency metadata retrieval problem
+- plugin configuration problem
+- plugin execution failure due to something that is know to possibly go wrong (like compilation failure)
+- plugin execution error due to something that is not expected to go wrong (the compiler executable missing)
+- asking to use a plugin for which you do not have a version defined - tools to easily select versions
+- goal not found in a plugin (probably could list the ones that are)
+
+ */
+
+// PluginNotFoundException, PluginResolutionException, PluginDescriptorParsingException,
+// CycleDetectedInPluginGraphException;
+
+/**
+ * Transform an exception into useful end-user message.
+ */
+@Component( role = ExceptionHandler.class )
+<span class="fc" id="L90">public class DefaultExceptionHandler</span>
+    implements ExceptionHandler
+{
+
+    public ExceptionSummary handleException( Throwable exception )
+    {
+<span class="fc" id="L96">        return handle( &quot;&quot;, exception );</span>
+    }
+
+    private ExceptionSummary handle( String message, Throwable exception )
+    {
+<span class="fc" id="L101">        String reference = getReference( exception );</span>
+
+<span class="fc" id="L103">        List&lt;ExceptionSummary&gt; children = null;</span>
+
+<span class="pc bpc" id="L105" title="1 of 2 branches missed.">        if ( exception instanceof ProjectBuildingException )</span>
+        {
+<span class="nc" id="L107">            List&lt;ProjectBuildingResult&gt; results = ( (ProjectBuildingException) exception ).getResults();</span>
+
+<span class="nc" id="L109">            children = new ArrayList&lt;&gt;();</span>
+
+<span class="nc bnc" id="L111" title="All 2 branches missed.">            for ( ProjectBuildingResult result : results )</span>
+            {
+<span class="nc" id="L113">                ExceptionSummary child = handle( result );</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">                if ( child != null )</span>
+                {
+<span class="nc" id="L116">                    children.add( child );</span>
+                }
+<span class="nc" id="L118">            }</span>
+
+<span class="nc bnc" id="L120" title="All 2 branches missed.">            message = &quot;The build could not read &quot; + children.size() + &quot; project&quot; + ( children.size() == 1 ? &quot;&quot; : &quot;s&quot; );</span>
+<span class="nc" id="L121">        }</span>
+        else
+        {
+<span class="fc" id="L124">            message = getMessage( message, exception );</span>
+        }
+
+<span class="fc" id="L127">        return new ExceptionSummary( exception, message, reference, children );</span>
+    }
+
+    private ExceptionSummary handle( ProjectBuildingResult result )
+    {
+<span class="nc" id="L132">        List&lt;ExceptionSummary&gt; children = new ArrayList&lt;&gt;();</span>
+
+<span class="nc bnc" id="L134" title="All 2 branches missed.">        for ( ModelProblem problem : result.getProblems() )</span>
+        {
+<span class="nc" id="L136">            ExceptionSummary child = handle( problem, result.getProjectId() );</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">            if ( child != null )</span>
+            {
+<span class="nc" id="L139">                children.add( child );</span>
+            }
+<span class="nc" id="L141">        }</span>
+
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        if ( children.isEmpty() )</span>
+        {
+<span class="nc" id="L145">            return null;</span>
+        }
+
+<span class="nc" id="L148">        String message =</span>
+<span class="nc" id="L149">            &quot;\nThe project &quot; + result.getProjectId() + &quot; (&quot; + result.getPomFile() + &quot;) has &quot;</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">                + children.size() + &quot; error&quot; + ( children.size() == 1 ? &quot;&quot; : &quot;s&quot; );</span>
+
+<span class="nc" id="L152">        return new ExceptionSummary( null, message, null, children );</span>
+    }
+
+    private ExceptionSummary handle( ModelProblem problem, String projectId )
+    {
+<span class="nc bnc" id="L157" title="All 2 branches missed.">        if ( ModelProblem.Severity.ERROR.compareTo( problem.getSeverity() ) &gt;= 0 )</span>
+        {
+<span class="nc" id="L159">            String message = problem.getMessage();</span>
+
+<span class="nc" id="L161">            String location = ModelProblemUtils.formatLocation( problem, projectId );</span>
+
+<span class="nc bnc" id="L163" title="All 2 branches missed.">            if ( StringUtils.isNotEmpty( location ) )</span>
+            {
+<span class="nc" id="L165">                message += &quot; @ &quot; + location;</span>
+            }
+
+<span class="nc" id="L168">            return handle( message, problem.getException() );</span>
+        }
+        else
+        {
+<span class="nc" id="L172">            return null;</span>
+        }
+    }
+
+    private String getReference( Throwable exception )
+    {
+<span class="fc" id="L178">        String reference = &quot;&quot;;</span>
+
+<span class="pc bpc" id="L180" title="1 of 2 branches missed.">        if ( exception != null )</span>
+        {
+<span class="fc bfc" id="L182" title="All 2 branches covered.">            if ( exception instanceof MojoExecutionException )</span>
+            {
+<span class="fc" id="L184">                reference = MojoExecutionException.class.getSimpleName();</span>
+
+<span class="fc" id="L186">                Throwable cause = exception.getCause();</span>
+<span class="pc bpc" id="L187" title="1 of 2 branches missed.">                if ( cause instanceof IOException )</span>
+                {
+<span class="fc" id="L189">                    cause = cause.getCause();</span>
+<span class="pc bpc" id="L190" title="1 of 2 branches missed.">                    if ( cause instanceof ConnectException )</span>
+                    {
+<span class="fc" id="L192">                        reference = ConnectException.class.getSimpleName();</span>
+                    }
+                }
+<span class="fc" id="L195">            }</span>
+<span class="pc bpc" id="L196" title="1 of 2 branches missed.">            else if ( exception instanceof MojoFailureException )</span>
+            {
+<span class="nc" id="L198">                reference = MojoFailureException.class.getSimpleName();</span>
+            }
+<span class="pc bpc" id="L200" title="1 of 2 branches missed.">            else if ( exception instanceof LinkageError )</span>
+            {
+<span class="nc" id="L202">                reference = LinkageError.class.getSimpleName();</span>
+            }
+<span class="fc bfc" id="L204" title="All 2 branches covered.">            else if ( exception instanceof PluginExecutionException )</span>
+            {
+<span class="fc" id="L206">                Throwable cause = exception.getCause();</span>
+
+<span class="pc bpc" id="L208" title="1 of 2 branches missed.">                if ( cause instanceof PluginContainerException )</span>
+                {
+<span class="fc" id="L210">                    Throwable cause2 = cause.getCause();</span>
+
+<span class="pc bpc" id="L212" title="1 of 2 branches missed.">                    if ( cause2 instanceof NoClassDefFoundError )</span>
+                    {
+<span class="fc" id="L214">                        String message = cause2.getMessage();</span>
+<span class="pc bpc" id="L215" title="1 of 4 branches missed.">                        if ( message != null &amp;&amp; message.contains( &quot;org/sonatype/aether/&quot; ) )</span>
+                        {
+<span class="fc" id="L217">                            reference = &quot;AetherClassNotFound&quot;;</span>
+                        }
+                    }
+                }
+
+<span class="fc bfc" id="L222" title="All 2 branches covered.">                if ( StringUtils.isEmpty( reference ) )</span>
+                {
+<span class="fc" id="L224">                    reference = getReference( cause );</span>
+                }
+
+<span class="pc bpc" id="L227" title="1 of 2 branches missed.">                if ( StringUtils.isEmpty( reference ) )</span>
+                {
+<span class="nc" id="L229">                    reference = exception.getClass().getSimpleName();</span>
+                }
+<span class="fc" id="L231">            }</span>
+<span class="pc bpc" id="L232" title="1 of 2 branches missed.">            else if ( exception instanceof LifecycleExecutionException )</span>
+            {
+<span class="nc" id="L234">                reference = getReference( exception.getCause() );</span>
+            }
+<span class="pc bpc" id="L236" title="1 of 2 branches missed.">            else if ( isNoteworthyException( exception ) )</span>
+            {
+<span class="fc" id="L238">                reference = exception.getClass().getSimpleName();</span>
+            }
+        }
+
+<span class="pc bpc" id="L242" title="1 of 4 branches missed.">        if ( StringUtils.isNotEmpty( reference ) &amp;&amp; !reference.startsWith( &quot;http:&quot; ) )</span>
+        {
+<span class="fc" id="L244">            reference = &quot;http://cwiki.apache.org/confluence/display/MAVEN/&quot; + reference;</span>
+        }
+
+<span class="fc" id="L247">        return reference;</span>
+    }
+
+    private boolean isNoteworthyException( Throwable exception )
+    {
+<span class="pc bpc" id="L252" title="1 of 2 branches missed.">        if ( exception == null )</span>
+        {
+<span class="nc" id="L254">            return false;</span>
+        }
+<span class="pc bpc" id="L256" title="1 of 2 branches missed.">        else if ( exception instanceof Error )</span>
+        {
+<span class="nc" id="L258">            return true;</span>
+        }
+<span class="pc bpc" id="L260" title="1 of 2 branches missed.">        else if ( exception instanceof RuntimeException )</span>
+        {
+<span class="nc" id="L262">            return false;</span>
+        }
+<span class="pc bpc" id="L264" title="1 of 2 branches missed.">        else if ( exception.getClass().getName().startsWith( &quot;java&quot; ) )</span>
+        {
+<span class="nc" id="L266">            return false;</span>
+        }
+<span class="fc" id="L268">        return true;</span>
+    }
+
+    private String getMessage( String message, Throwable exception )
+    {
+<span class="pc bpc" id="L273" title="1 of 2 branches missed.">        String fullMessage = ( message != null ) ? message : &quot;&quot;;</span>
+
+<span class="fc bfc" id="L275" title="All 2 branches covered.">        for ( Throwable t = exception; t != null; t = t.getCause() )</span>
+        {
+<span class="fc" id="L277">            String exceptionMessage = t.getMessage();</span>
+
+<span class="fc bfc" id="L279" title="All 2 branches covered.">            if ( t instanceof AbstractMojoExecutionException )</span>
+            {
+<span class="fc" id="L281">                String longMessage = ( (AbstractMojoExecutionException) t ).getLongMessage();</span>
+<span class="pc bpc" id="L282" title="1 of 2 branches missed.">                if ( StringUtils.isNotEmpty( longMessage ) )</span>
+                {
+<span class="nc bnc" id="L284" title="All 4 branches missed.">                    if ( StringUtils.isEmpty( exceptionMessage ) || longMessage.contains( exceptionMessage ) )</span>
+                    {
+<span class="nc" id="L286">                        exceptionMessage = longMessage;</span>
+                    }
+<span class="nc bnc" id="L288" title="All 2 branches missed.">                    else if ( !exceptionMessage.contains( longMessage ) )</span>
+                    {
+<span class="nc" id="L290">                        exceptionMessage = join( exceptionMessage, '\n' + longMessage );</span>
+                    }
+                }
+            }
+
+<span class="fc bfc" id="L295" title="All 2 branches covered.">            if ( StringUtils.isEmpty( exceptionMessage ) )</span>
+            {
+<span class="fc" id="L297">                exceptionMessage = t.getClass().getSimpleName();</span>
+            }
+
+<span class="pc bpc" id="L300" title="3 of 4 branches missed.">            if ( t instanceof UnknownHostException &amp;&amp; !fullMessage.contains( &quot;host&quot; ) )</span>
+            {
+<span class="nc" id="L302">                fullMessage = join( fullMessage, &quot;Unknown host &quot; + exceptionMessage );</span>
+            }
+<span class="fc bfc" id="L304" title="All 2 branches covered.">            else if ( !fullMessage.contains( exceptionMessage ) )</span>
+            {
+<span class="fc" id="L306">                fullMessage = join( fullMessage, exceptionMessage );</span>
+            }
+        }
+
+<span class="fc" id="L310">        return fullMessage.trim();</span>
+    }
+
+    private String join( String message1, String message2 )
+    {
+<span class="fc" id="L315">        String message = &quot;&quot;;</span>
+
+<span class="fc bfc" id="L317" title="All 2 branches covered.">        if ( StringUtils.isNotEmpty( message1 ) )</span>
+        {
+<span class="fc" id="L319">            message = message1.trim();</span>
+        }
+
+<span class="pc bpc" id="L322" title="1 of 2 branches missed.">        if ( StringUtils.isNotEmpty( message2 ) )</span>
+        {
+<span class="fc bfc" id="L324" title="All 2 branches covered.">            if ( StringUtils.isNotEmpty( message ) )</span>
+            {
+<span class="pc bpc" id="L326" title="2 of 6 branches missed.">                if ( message.endsWith( &quot;.&quot; ) || message.endsWith( &quot;!&quot; ) || message.endsWith( &quot;:&quot; ) )</span>
+                {
+<span class="fc" id="L328">                    message += &quot; &quot;;</span>
+                }
+                else
+                {
+<span class="fc" id="L332">                    message += &quot;: &quot;;</span>
+                }
+            }
+
+<span class="fc" id="L336">            message += message2;</span>
+        }
+
+<span class="fc" id="L339">        return message;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

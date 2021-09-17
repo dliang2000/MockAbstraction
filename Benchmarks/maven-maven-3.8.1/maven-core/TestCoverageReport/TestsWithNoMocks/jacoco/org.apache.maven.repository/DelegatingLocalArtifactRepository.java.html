@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DelegatingLocalArtifactRepository.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.repository</a> &gt; <span class="el_source">DelegatingLocalArtifactRepository.java</span></div><h1>DelegatingLocalArtifactRepository.java</h1><pre class="source lang-java linenums">package org.apache.maven.repository;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.metadata.ArtifactMetadata;
+import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
+import org.apache.maven.artifact.repository.MavenArtifactRepository;
+import org.apache.maven.artifact.repository.layout.ArtifactRepositoryLayout;
+
+/**
+ * Delegating local artifact repository chains the reactor, IDE workspace
+ * and user local repository.
+ */
+@Deprecated
+public class DelegatingLocalArtifactRepository
+    extends MavenArtifactRepository
+{
+    private LocalArtifactRepository buildReactor;
+
+    private LocalArtifactRepository ideWorkspace;
+
+    private ArtifactRepository userLocalArtifactRepository;
+
+    public DelegatingLocalArtifactRepository( ArtifactRepository artifactRepository )
+<span class="fc" id="L50">    {</span>
+<span class="fc" id="L51">        this.userLocalArtifactRepository = artifactRepository;</span>
+<span class="fc" id="L52">    }</span>
+
+    public void setBuildReactor( LocalArtifactRepository localRepository )
+    {
+<span class="nc" id="L56">        this.buildReactor = localRepository;</span>
+<span class="nc" id="L57">    }</span>
+
+    public void setIdeWorkspace( LocalArtifactRepository localRepository )
+    {
+<span class="nc" id="L61">        this.ideWorkspace = localRepository;</span>
+<span class="nc" id="L62">    }</span>
+
+    /**
+     * @deprecated instead use {@link #getIdeWorkspace()}
+     */
+    @Deprecated
+    public LocalArtifactRepository getIdeWorspace()
+    {
+<span class="nc" id="L70">        return ideWorkspace;</span>
+    }
+
+    public LocalArtifactRepository getIdeWorkspace()
+    {
+<span class="nc" id="L75">        return getIdeWorspace();</span>
+    }
+
+    @Override
+    public Artifact find( Artifact artifact )
+    {
+<span class="nc bnc" id="L81" title="All 4 branches missed.">        if ( !artifact.isRelease() &amp;&amp; buildReactor != null )</span>
+        {
+<span class="nc" id="L83">            artifact = buildReactor.find( artifact );</span>
+        }
+
+<span class="nc bnc" id="L86" title="All 4 branches missed.">        if ( !artifact.isResolved() &amp;&amp; ideWorkspace != null )</span>
+        {
+<span class="nc" id="L88">            artifact = ideWorkspace.find( artifact );</span>
+        }
+
+<span class="nc bnc" id="L91" title="All 2 branches missed.">        if ( !artifact.isResolved() )</span>
+        {
+<span class="nc" id="L93">            artifact = userLocalArtifactRepository.find( artifact );</span>
+        }
+
+<span class="nc" id="L96">        return artifact;</span>
+    }
+
+    @Override
+    public List&lt;String&gt; findVersions( Artifact artifact )
+    {
+<span class="nc" id="L102">        Collection&lt;String&gt; versions = new LinkedHashSet&lt;&gt;();</span>
+
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        if ( buildReactor != null )</span>
+        {
+<span class="nc" id="L106">            versions.addAll( buildReactor.findVersions( artifact ) );</span>
+        }
+
+<span class="nc bnc" id="L109" title="All 2 branches missed.">        if ( ideWorkspace != null )</span>
+        {
+<span class="nc" id="L111">            versions.addAll( ideWorkspace.findVersions( artifact ) );</span>
+        }
+
+<span class="nc" id="L114">        versions.addAll( userLocalArtifactRepository.findVersions( artifact ) );</span>
+
+<span class="nc" id="L116">        return Collections.unmodifiableList( new ArrayList&lt;&gt;( versions ) );</span>
+    }
+
+    public String pathOfLocalRepositoryMetadata( ArtifactMetadata metadata, ArtifactRepository repository )
+    {
+<span class="nc" id="L121">        return userLocalArtifactRepository.pathOfLocalRepositoryMetadata( metadata, repository );</span>
+    }
+
+    public String getId()
+    {
+<span class="fc" id="L126">        return userLocalArtifactRepository.getId();</span>
+    }
+
+    @Override
+    public String pathOf( Artifact artifact )
+    {
+<span class="nc" id="L132">        return userLocalArtifactRepository.pathOf( artifact );</span>
+    }
+
+    @Override
+    public String getBasedir()
+    {
+<span class="nc bnc" id="L138" title="All 2 branches missed.">        return ( userLocalArtifactRepository != null ) ? userLocalArtifactRepository.getBasedir() : null;</span>
+    }
+
+    @Override
+    public ArtifactRepositoryLayout getLayout()
+    {
+<span class="nc" id="L144">        return userLocalArtifactRepository.getLayout();</span>
+    }
+
+    @Override
+    public ArtifactRepositoryPolicy getReleases()
+    {
+<span class="nc" id="L150">        return userLocalArtifactRepository.getReleases();</span>
+    }
+
+    @Override
+    public ArtifactRepositoryPolicy getSnapshots()
+    {
+<span class="nc" id="L156">        return userLocalArtifactRepository.getSnapshots();</span>
+    }
+
+    @Override
+    public String getKey()
+    {
+<span class="nc" id="L162">        return userLocalArtifactRepository.getKey();</span>
+    }
+
+    @Override
+    public String getUrl()
+    {
+<span class="nc" id="L168">        return userLocalArtifactRepository.getUrl();</span>
+    }
+
+    @Override
+    public int hashCode()
+    {
+<span class="nc" id="L174">        int hash = 17;</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">        hash = hash * 31 + ( buildReactor == null ? 0 : buildReactor.hashCode() );</span>
+<span class="nc bnc" id="L176" title="All 2 branches missed.">        hash = hash * 31 + ( ideWorkspace == null ? 0 : ideWorkspace.hashCode() );</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">        hash = hash * 31 + ( userLocalArtifactRepository == null ? 0 : userLocalArtifactRepository.hashCode() );</span>
+
+<span class="nc" id="L179">        return hash;</span>
+    }
+
+    @Override
+    public boolean equals( Object obj )
+    {
+<span class="nc bnc" id="L185" title="All 2 branches missed.">        if ( this == obj )</span>
+        {
+<span class="nc" id="L187">            return true;</span>
+        }
+<span class="nc bnc" id="L189" title="All 2 branches missed.">        if ( obj == null )</span>
+        {
+<span class="nc" id="L191">            return false;</span>
+        }
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        if ( getClass() != obj.getClass() )</span>
+        {
+<span class="nc" id="L195">            return false;</span>
+        }
+
+<span class="nc" id="L198">        DelegatingLocalArtifactRepository other = (DelegatingLocalArtifactRepository) obj;</span>
+
+<span class="nc bnc" id="L200" title="All 2 branches missed.">        return eq( buildReactor, other.buildReactor )</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">            &amp;&amp; eq( ideWorkspace, other.ideWorkspace )</span>
+<span class="nc bnc" id="L202" title="All 2 branches missed.">            &amp;&amp; eq( userLocalArtifactRepository, other.userLocalArtifactRepository );</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

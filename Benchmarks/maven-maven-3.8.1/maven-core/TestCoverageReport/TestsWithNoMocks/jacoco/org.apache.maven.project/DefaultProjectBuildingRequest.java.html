@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultProjectBuildingRequest.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.project</a> &gt; <span class="el_source">DefaultProjectBuildingRequest.java</span></div><h1>DefaultProjectBuildingRequest.java</h1><pre class="source lang-java linenums">package org.apache.maven.project;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Objects;
+import java.util.Properties;
+
+import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.apache.maven.model.Profile;
+import org.apache.maven.model.building.ModelBuildingRequest;
+import org.apache.maven.properties.internal.SystemProperties;
+import org.eclipse.aether.RepositorySystemSession;
+
+/**
+ * DefaultProjectBuildingRequest
+ */
+public class DefaultProjectBuildingRequest
+    implements ProjectBuildingRequest
+{
+
+    private RepositorySystemSession repositorySession;
+
+    private ArtifactRepository localRepository;
+
+    private List&lt;ArtifactRepository&gt; remoteRepositories;
+
+    private List&lt;ArtifactRepository&gt; pluginArtifactRepositories;
+
+    private MavenProject project;
+
+<span class="fc" id="L51">    private int validationLevel = ModelBuildingRequest.VALIDATION_LEVEL_STRICT;</span>
+
+    private boolean processPlugins;
+
+    private List&lt;Profile&gt; profiles;
+
+    private List&lt;String&gt; activeProfileIds;
+
+    private List&lt;String&gt; inactiveProfileIds;
+
+    private Properties systemProperties;
+
+    private Properties userProperties;
+
+    private Date buildStartTime;
+
+    private boolean resolveDependencies;
+
+    @Deprecated
+    private boolean resolveVersionRanges;
+
+<span class="fc" id="L72">    private RepositoryMerging repositoryMerging = RepositoryMerging.POM_DOMINANT;</span>
+
+    public DefaultProjectBuildingRequest()
+<span class="fc" id="L75">    {</span>
+<span class="fc" id="L76">        processPlugins = true;</span>
+<span class="fc" id="L77">        profiles = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L78">        activeProfileIds = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L79">        inactiveProfileIds = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L80">        systemProperties = new Properties();</span>
+<span class="fc" id="L81">        userProperties = new Properties();</span>
+<span class="fc" id="L82">        remoteRepositories = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L83">        pluginArtifactRepositories = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L84">    }</span>
+
+    public DefaultProjectBuildingRequest( ProjectBuildingRequest request )
+    {
+<span class="nc" id="L88">        this();</span>
+<span class="nc" id="L89">        setProcessPlugins( request.isProcessPlugins() );</span>
+<span class="nc" id="L90">        setProfiles( request.getProfiles() );</span>
+<span class="nc" id="L91">        setActiveProfileIds( request.getActiveProfileIds() );</span>
+<span class="nc" id="L92">        setInactiveProfileIds( request.getInactiveProfileIds() );</span>
+<span class="nc" id="L93">        setSystemProperties( request.getSystemProperties() );</span>
+<span class="nc" id="L94">        setUserProperties( request.getUserProperties() );</span>
+<span class="nc" id="L95">        setRemoteRepositories( request.getRemoteRepositories() );</span>
+<span class="nc" id="L96">        setPluginArtifactRepositories( request.getPluginArtifactRepositories() );</span>
+<span class="nc" id="L97">        setRepositorySession( request.getRepositorySession() );</span>
+<span class="nc" id="L98">        setLocalRepository( request.getLocalRepository() );</span>
+<span class="nc" id="L99">        setBuildStartTime( request.getBuildStartTime() );</span>
+<span class="nc" id="L100">        setProject( request.getProject() );</span>
+<span class="nc" id="L101">        setResolveDependencies( request.isResolveDependencies() );</span>
+<span class="nc" id="L102">        setValidationLevel( request.getValidationLevel() );</span>
+<span class="nc" id="L103">        setResolveVersionRanges( request.isResolveVersionRanges() );</span>
+<span class="nc" id="L104">        setRepositoryMerging( request.getRepositoryMerging() );</span>
+<span class="nc" id="L105">    }</span>
+
+    public MavenProject getProject()
+    {
+<span class="fc" id="L109">        return project;</span>
+    }
+
+    public void setProject( MavenProject mavenProject )
+    {
+<span class="nc" id="L114">        this.project = mavenProject;</span>
+<span class="nc" id="L115">    }</span>
+
+    public ProjectBuildingRequest setLocalRepository( ArtifactRepository localRepository )
+    {
+<span class="fc" id="L119">        this.localRepository = localRepository;</span>
+<span class="fc" id="L120">        return this;</span>
+    }
+
+    public ArtifactRepository getLocalRepository()
+    {
+<span class="fc" id="L125">        return localRepository;</span>
+    }
+
+    public List&lt;ArtifactRepository&gt; getRemoteRepositories()
+    {
+<span class="fc" id="L130">        return remoteRepositories;</span>
+    }
+
+    public ProjectBuildingRequest setRemoteRepositories( List&lt;ArtifactRepository&gt; remoteRepositories )
+    {
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">        if ( remoteRepositories != null )</span>
+        {
+<span class="fc" id="L137">            this.remoteRepositories = new ArrayList&lt;&gt;( remoteRepositories );</span>
+        }
+        else
+        {
+<span class="nc" id="L141">            this.remoteRepositories.clear();</span>
+        }
+
+<span class="fc" id="L144">        return this;</span>
+    }
+
+    public List&lt;ArtifactRepository&gt; getPluginArtifactRepositories()
+    {
+<span class="fc" id="L149">        return pluginArtifactRepositories;</span>
+    }
+
+    public ProjectBuildingRequest setPluginArtifactRepositories( List&lt;ArtifactRepository&gt; pluginArtifactRepositories )
+    {
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">        if ( pluginArtifactRepositories != null )</span>
+        {
+<span class="fc" id="L156">            this.pluginArtifactRepositories = new ArrayList&lt;&gt;( pluginArtifactRepositories );</span>
+        }
+        else
+        {
+<span class="nc" id="L160">            this.pluginArtifactRepositories.clear();</span>
+        }
+
+<span class="fc" id="L163">        return this;</span>
+    }
+
+    public Properties getSystemProperties()
+    {
+<span class="fc" id="L168">        return systemProperties;</span>
+    }
+
+    public ProjectBuildingRequest setSystemProperties( Properties systemProperties )
+    {
+<span class="fc bfc" id="L173" title="All 2 branches covered.">        if ( systemProperties != null )</span>
+        {
+<span class="fc" id="L175">            this.systemProperties = SystemProperties.copyProperties( systemProperties );</span>
+        }
+        else
+        {
+<span class="fc" id="L179">            this.systemProperties.clear();</span>
+        }
+
+<span class="fc" id="L182">        return this;</span>
+    }
+
+    public Properties getUserProperties()
+    {
+<span class="fc" id="L187">        return userProperties;</span>
+    }
+
+    public ProjectBuildingRequest setUserProperties( Properties userProperties )
+    {
+<span class="fc bfc" id="L192" title="All 2 branches covered.">        if ( userProperties != null )</span>
+        {
+<span class="fc" id="L194">            this.userProperties = new Properties();</span>
+<span class="fc" id="L195">            this.userProperties.putAll( userProperties );</span>
+        }
+        else
+        {
+<span class="fc" id="L199">            this.userProperties.clear();</span>
+        }
+
+<span class="fc" id="L202">        return this;</span>
+    }
+
+    public boolean isProcessPlugins()
+    {
+<span class="fc" id="L207">        return processPlugins;</span>
+    }
+
+    public ProjectBuildingRequest setProcessPlugins( boolean processPlugins )
+    {
+<span class="fc" id="L212">        this.processPlugins = processPlugins;</span>
+<span class="fc" id="L213">        return this;</span>
+    }
+
+    public ProjectBuildingRequest setResolveDependencies( boolean resolveDependencies )
+    {
+<span class="fc" id="L218">        this.resolveDependencies = resolveDependencies;</span>
+<span class="fc" id="L219">        return this;</span>
+    }
+
+    public boolean isResolveDependencies()
+    {
+<span class="fc" id="L224">        return resolveDependencies;</span>
+    }
+
+    /**
+     * @since 3.2.2
+     * @deprecated This got added when implementing MNG-2199 and is no longer used.
+     * Commit 6cf9320942c34bc68205425ab696b1712ace9ba4 updated the way 'MavenProject' objects are initialized.
+     */
+    @Deprecated
+    public ProjectBuildingRequest setResolveVersionRanges( boolean value )
+    {
+<span class="nc" id="L235">        this.resolveVersionRanges = value;</span>
+<span class="nc" id="L236">        return this;</span>
+    }
+
+    /**
+     * @since 3.2.2
+     * @deprecated This got added when implementing MNG-2199 and is no longer used.
+     * Commit 6cf9320942c34bc68205425ab696b1712ace9ba4 updated the way 'MavenProject' objects are initialized.
+     */
+    @Deprecated
+    public boolean isResolveVersionRanges()
+    {
+<span class="nc" id="L247">        return this.resolveVersionRanges;</span>
+    }
+
+    public ProjectBuildingRequest setValidationLevel( int validationLevel )
+    {
+<span class="fc" id="L252">        this.validationLevel = validationLevel;</span>
+<span class="fc" id="L253">        return this;</span>
+    }
+
+    public int getValidationLevel()
+    {
+<span class="fc" id="L258">        return validationLevel;</span>
+    }
+
+    public List&lt;String&gt; getActiveProfileIds()
+    {
+<span class="fc" id="L263">        return activeProfileIds;</span>
+    }
+
+    public void setActiveProfileIds( List&lt;String&gt; activeProfileIds )
+    {
+<span class="pc bpc" id="L268" title="1 of 2 branches missed.">        if ( activeProfileIds != null )</span>
+        {
+<span class="fc" id="L270">            this.activeProfileIds = new ArrayList&lt;&gt;( activeProfileIds );</span>
+        }
+        else
+        {
+<span class="nc" id="L274">            this.activeProfileIds.clear();</span>
+        }
+<span class="fc" id="L276">    }</span>
+
+    public List&lt;String&gt; getInactiveProfileIds()
+    {
+<span class="fc" id="L280">        return inactiveProfileIds;</span>
+    }
+
+    public void setInactiveProfileIds( List&lt;String&gt; inactiveProfileIds )
+    {
+<span class="pc bpc" id="L285" title="1 of 2 branches missed.">        if ( inactiveProfileIds != null )</span>
+        {
+<span class="fc" id="L287">            this.inactiveProfileIds = new ArrayList&lt;&gt;( inactiveProfileIds );</span>
+        }
+        else
+        {
+<span class="nc" id="L291">            this.inactiveProfileIds.clear();</span>
+        }
+<span class="fc" id="L293">    }</span>
+
+    public void setProfiles( List&lt;Profile&gt; profiles )
+    {
+<span class="pc bpc" id="L297" title="1 of 2 branches missed.">        if ( profiles != null )</span>
+        {
+<span class="fc" id="L299">            this.profiles = new ArrayList&lt;&gt;( profiles );</span>
+        }
+        else
+        {
+<span class="nc" id="L303">            this.profiles.clear();</span>
+        }
+<span class="fc" id="L305">    }</span>
+
+    public void addProfile( Profile profile )
+    {
+<span class="fc" id="L309">        profiles.add( profile );</span>
+<span class="fc" id="L310">    }</span>
+
+    public List&lt;Profile&gt; getProfiles()
+    {
+<span class="fc" id="L314">        return profiles;</span>
+    }
+
+    public Date getBuildStartTime()
+    {
+<span class="fc" id="L319">        return buildStartTime;</span>
+    }
+
+    public void setBuildStartTime( Date buildStartTime )
+    {
+<span class="fc" id="L324">        this.buildStartTime = buildStartTime;</span>
+<span class="fc" id="L325">    }</span>
+
+    public RepositorySystemSession getRepositorySession()
+    {
+<span class="fc" id="L329">        return repositorySession;</span>
+    }
+
+    public DefaultProjectBuildingRequest setRepositorySession( RepositorySystemSession repositorySession )
+    {
+<span class="fc" id="L334">        this.repositorySession = repositorySession;</span>
+<span class="fc" id="L335">        return this;</span>
+    }
+
+    public DefaultProjectBuildingRequest setRepositoryMerging( RepositoryMerging repositoryMerging )
+    {
+<span class="nc" id="L340">        this.repositoryMerging = Objects.requireNonNull( repositoryMerging, &quot;repositoryMerging cannot be null&quot; );</span>
+<span class="nc" id="L341">        return this;</span>
+    }
+
+    public RepositoryMerging getRepositoryMerging()
+    {
+<span class="fc" id="L346">        return repositoryMerging;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>
