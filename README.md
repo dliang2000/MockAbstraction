@@ -52,6 +52,25 @@ or if you want to run Mock Analysis for all benchmarks:
 ./runall_MutatedFieldAnalysis.sh
 ```
 
+### Test Coverages
+
+| Benchmark | Code Coverage - All Tests | Code Coverage - Test Cases without Intraproc Mocks | Branch Coverage - All Tests | Branch Coverage - Test Cases without Intraproc Mocks |
+| --- | --: | --: | --: | --: |
+| commons-collections4-4.4 | 86% | 72% | 81% | 66% |
+| flink-core-1.13.0-rc1 | 54% | 43% | 44% | 33% |
+| jsonschema2pojo-core-1.1.1 | 37% | 24% | 33% | 19% |
+| maven-core-3.8.1 | 48% | 48% | 39% | 38% |
+| microbenchmark | 78% | 51% | 100% | 100% |
+| mybatis-3.5.6 | 85% | 81% | 82% | 76% |
+| vraptor-core-3.5.5 | 87% | 59% | 81% | 56% |
+
+Benchmarks with more reliable test coverages data: jsonschema2pojo-core-1.1.1, maven-core-3.8.1, microbenchmark, mybatis-3.5.6, vraptor-core-3.5.5
+
+bootique's "mvn clean test" has a selective list of test cases running (trying to figure out the configuration)
+quartz's run with test cases excluding intracproc mock objects would result in no test case running (likely configuration issue as well)
+commons-collections4-4.4 has many abstract test classes, so the selection of test cases without intraproc mock objects is inaccurate.
+flink-core-1.13.0-rc1's test run of test cases without intraproc mock objects produces errors not existing in "mvn clean test".
+
 ### Doop Tables
 
 #### Number of source classes in the call graph from CallGraphEdge.csv
