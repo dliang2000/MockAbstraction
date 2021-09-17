@@ -1,0 +1,382 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StringKeyDirtyFlagMap.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.utils</a> &gt; <span class="el_source">StringKeyDirtyFlagMap.java</span></div><h1>StringKeyDirtyFlagMap.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ */
+package org.quartz.utils;
+
+import java.io.Serializable;
+
+/**
+ * &lt;p&gt;
+ * An implementation of &lt;code&gt;Map&lt;/code&gt; that wraps another &lt;code&gt;Map&lt;/code&gt;
+ * and flags itself 'dirty' when it is modified, enforces that all keys are
+ * Strings. 
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * All allowsTransientData flag related methods are deprecated as of version 1.6.
+ * &lt;/p&gt;
+ */
+public class StringKeyDirtyFlagMap extends DirtyFlagMap&lt;String, Object&gt; {
+    static final long serialVersionUID = -9076749120524952280L;
+    
+    /**
+     * @deprecated JDBCJobStores no longer prune out transient data.  If you
+     * include non-Serializable values in the Map, you will now get an 
+     * exception when attempting to store it in a database.
+     */
+<span class="pc" id="L39">    private boolean allowsTransientData = false;</span>
+
+    public StringKeyDirtyFlagMap() {
+<span class="nc" id="L42">        super();</span>
+<span class="nc" id="L43">    }</span>
+
+    public StringKeyDirtyFlagMap(int initialCapacity) {
+<span class="fc" id="L46">        super(initialCapacity);</span>
+<span class="fc" id="L47">    }</span>
+
+    public StringKeyDirtyFlagMap(int initialCapacity, float loadFactor) {
+<span class="nc" id="L50">        super(initialCapacity, loadFactor);</span>
+<span class="nc" id="L51">    }</span>
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="fc" id="L55">        return super.equals(obj);</span>
+    }
+
+    @Override
+    public int hashCode()
+    {
+<span class="nc" id="L61">        return getWrappedMap().hashCode();</span>
+    }
+    
+    /**
+     * Get a copy of the Map's String keys in an array of Strings.
+     */
+    public String[] getKeys() {
+<span class="nc" id="L68">        return keySet().toArray(new String[size()]);</span>
+    }
+
+    /**
+     * Tell the &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt; that it should
+     * allow non-&lt;code&gt;Serializable&lt;/code&gt; values.  Enforces that the Map 
+     * doesn't already include transient data.
+     * 
+     * @deprecated JDBCJobStores no longer prune out transient data.  If you
+     * include non-Serializable values in the Map, you will now get an 
+     * exception when attempting to store it in a database.
+     */
+    public void setAllowsTransientData(boolean allowsTransientData) {
+    
+<span class="nc bnc" id="L82" title="All 4 branches missed.">        if (containsTransientData() &amp;&amp; !allowsTransientData) {</span>
+<span class="nc" id="L83">            throw new IllegalStateException(</span>
+                &quot;Cannot set property 'allowsTransientData' to 'false' &quot;
+                    + &quot;when data map contains non-serializable objects.&quot;);
+        }
+    
+<span class="nc" id="L88">        this.allowsTransientData = allowsTransientData;</span>
+<span class="nc" id="L89">    }</span>
+
+    /**
+     * Whether the &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt; allows 
+     * non-&lt;code&gt;Serializable&lt;/code&gt; values.
+     * 
+     * @deprecated JDBCJobStores no longer prune out transient data.  If you
+     * include non-Serializable values in the Map, you will now get an 
+     * exception when attempting to store it in a database.
+     */
+    public boolean getAllowsTransientData() {
+<span class="fc" id="L100">        return allowsTransientData;</span>
+    }
+
+    /**
+     * Determine whether any values in this Map do not implement 
+     * &lt;code&gt;Serializable&lt;/code&gt;.  Always returns false if this Map
+     * is flagged to not allow transient data.
+     * 
+     * @deprecated JDBCJobStores no longer prune out transient data.  If you
+     * include non-Serializable values in the Map, you will now get an 
+     * exception when attempting to store it in a database.
+     */
+    public boolean containsTransientData() {
+<span class="nc bnc" id="L113" title="All 2 branches missed.">        if (!getAllowsTransientData()) { // short circuit...</span>
+<span class="nc" id="L114">            return false;</span>
+        }
+    
+<span class="nc" id="L117">        String[] keys = getKeys();</span>
+<span class="nc bnc" id="L118" title="All 2 branches missed.">        for (int i = 0; i &lt; keys.length; i++) {</span>
+<span class="nc" id="L119">            Object o = super.get(keys[i]);</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">            if (!(o instanceof Serializable)) {</span>
+<span class="nc" id="L121">                return true;</span>
+            }
+        }
+    
+<span class="nc" id="L125">        return false;</span>
+    }
+
+    /**
+     * Removes any data values in the map that are non-Serializable.  Does 
+     * nothing if this Map does not allow transient data.
+     * 
+     * @deprecated JDBCJobStores no longer prune out transient data.  If you
+     * include non-Serializable values in the Map, you will now get an 
+     * exception when attempting to store it in a database.
+     */
+    public void removeTransientData() {
+<span class="nc bnc" id="L137" title="All 2 branches missed.">        if (!getAllowsTransientData()) { // short circuit...</span>
+<span class="nc" id="L138">            return;</span>
+        }
+    
+<span class="nc" id="L141">        String[] keys = getKeys();</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">        for (int i = 0; i &lt; keys.length; i++) {</span>
+<span class="nc" id="L143">            Object o = super.get(keys[i]);</span>
+<span class="nc bnc" id="L144" title="All 2 branches missed.">            if (!(o instanceof Serializable)) {</span>
+<span class="nc" id="L145">                remove(keys[i]);</span>
+            }
+        }
+<span class="nc" id="L148">    }</span>
+
+    // Due to Generic enforcement, this override method is no longer needed.
+//    /**
+//     * &lt;p&gt;
+//     * Adds the name-value pairs in the given &lt;code&gt;Map&lt;/code&gt; to the 
+//     * &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt;.
+//     * &lt;/p&gt;
+//     * 
+//     * &lt;p&gt;
+//     * All keys must be &lt;code&gt;String&lt;/code&gt;s.
+//     * &lt;/p&gt;
+//     */
+//    @Override
+//    public void putAll(Map&lt;String, Object&gt; map) {
+//        for (Iterator&lt;?&gt; entryIter = map.entrySet().iterator(); entryIter.hasNext();) {
+//            Map.Entry&lt;?,?&gt; entry = (Map.Entry&lt;?,?&gt;) entryIter.next();
+//            
+//            // will throw IllegalArgumentException if key is not a String
+//            put(entry.getKey(), entry.getValue());
+//        }
+//    }
+
+    /**
+     * &lt;p&gt;
+     * Adds the given &lt;code&gt;int&lt;/code&gt; value to the &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void put(String key, int value) {
+<span class="fc" id="L177">        super.put(key, Integer.valueOf(value));</span>
+<span class="fc" id="L178">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Adds the given &lt;code&gt;long&lt;/code&gt; value to the &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void put(String key, long value) {
+<span class="nc" id="L186">        super.put(key, Long.valueOf(value));</span>
+<span class="nc" id="L187">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Adds the given &lt;code&gt;float&lt;/code&gt; value to the &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void put(String key, float value) {
+<span class="nc" id="L195">        super.put(key, Float.valueOf(value));</span>
+<span class="nc" id="L196">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Adds the given &lt;code&gt;double&lt;/code&gt; value to the &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void put(String key, double value) {
+<span class="nc" id="L204">        super.put(key, Double.valueOf(value));</span>
+<span class="nc" id="L205">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Adds the given &lt;code&gt;boolean&lt;/code&gt; value to the &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void put(String key, boolean value) {
+<span class="nc" id="L213">        super.put(key, Boolean.valueOf(value));</span>
+<span class="nc" id="L214">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Adds the given &lt;code&gt;char&lt;/code&gt; value to the &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void put(String key, char value) {
+<span class="fc" id="L222">        super.put(key, Character.valueOf(value));</span>
+<span class="fc" id="L223">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Adds the given &lt;code&gt;String&lt;/code&gt; value to the &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void put(String key, String value) {
+<span class="fc" id="L231">        super.put(key, value);</span>
+<span class="fc" id="L232">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Adds the given &lt;code&gt;Object&lt;/code&gt; value to the &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    @Override
+    public Object put(String key, Object value) {
+<span class="fc" id="L241">        return super.put((String)key, value);</span>
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Retrieve the identified &lt;code&gt;int&lt;/code&gt; value from the &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @throws ClassCastException
+     *           if the identified object is not an Integer.
+     */
+    public int getInt(String key) {
+<span class="fc" id="L253">        Object obj = get(key);</span>
+    
+        try {
+<span class="pc bpc" id="L256" title="1 of 2 branches missed.">            if(obj instanceof Integer)</span>
+<span class="fc" id="L257">                return ((Integer) obj).intValue();</span>
+<span class="nc" id="L258">            return Integer.parseInt((String)obj);</span>
+<span class="nc" id="L259">        } catch (Exception e) {</span>
+<span class="nc" id="L260">            throw new ClassCastException(&quot;Identified object is not an Integer.&quot;);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Retrieve the identified &lt;code&gt;long&lt;/code&gt; value from the &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @throws ClassCastException
+     *           if the identified object is not a Long.
+     */
+    public long getLong(String key) {
+<span class="nc" id="L273">        Object obj = get(key);</span>
+    
+        try {
+<span class="nc bnc" id="L276" title="All 2 branches missed.">            if(obj instanceof Long)</span>
+<span class="nc" id="L277">                return ((Long) obj).longValue();</span>
+<span class="nc" id="L278">            return Long.parseLong((String)obj);</span>
+<span class="nc" id="L279">        } catch (Exception e) {</span>
+<span class="nc" id="L280">            throw new ClassCastException(&quot;Identified object is not a Long.&quot;);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Retrieve the identified &lt;code&gt;float&lt;/code&gt; value from the &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @throws ClassCastException
+     *           if the identified object is not a Float.
+     */
+    public float getFloat(String key) {
+<span class="nc" id="L293">        Object obj = get(key);</span>
+    
+        try {
+<span class="nc bnc" id="L296" title="All 2 branches missed.">            if(obj instanceof Float)</span>
+<span class="nc" id="L297">                return ((Float) obj).floatValue();</span>
+<span class="nc" id="L298">            return Float.parseFloat((String)obj);</span>
+<span class="nc" id="L299">        } catch (Exception e) {</span>
+<span class="nc" id="L300">            throw new ClassCastException(&quot;Identified object is not a Float.&quot;);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Retrieve the identified &lt;code&gt;double&lt;/code&gt; value from the &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @throws ClassCastException
+     *           if the identified object is not a Double.
+     */
+    public double getDouble(String key) {
+<span class="nc" id="L313">        Object obj = get(key);</span>
+    
+        try {
+<span class="nc bnc" id="L316" title="All 2 branches missed.">            if(obj instanceof Double)</span>
+<span class="nc" id="L317">                return ((Double) obj).doubleValue();</span>
+<span class="nc" id="L318">            return Double.parseDouble((String)obj);</span>
+<span class="nc" id="L319">        } catch (Exception e) {</span>
+<span class="nc" id="L320">            throw new ClassCastException(&quot;Identified object is not a Double.&quot;);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Retrieve the identified &lt;code&gt;boolean&lt;/code&gt; value from the &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @throws ClassCastException
+     *           if the identified object is not a Boolean.
+     */
+    public boolean getBoolean(String key) {
+<span class="nc" id="L333">        Object obj = get(key);</span>
+    
+        try {
+<span class="nc bnc" id="L336" title="All 2 branches missed.">            if(obj instanceof Boolean)</span>
+<span class="nc" id="L337">                return ((Boolean) obj).booleanValue();</span>
+<span class="nc" id="L338">            return Boolean.parseBoolean((String)obj);</span>
+<span class="nc" id="L339">        } catch (Exception e) {</span>
+<span class="nc" id="L340">            throw new ClassCastException(&quot;Identified object is not a Boolean.&quot;);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Retrieve the identified &lt;code&gt;char&lt;/code&gt; value from the &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @throws ClassCastException
+     *           if the identified object is not a Character.
+     */
+    public char getChar(String key) {
+<span class="nc" id="L353">        Object obj = get(key);</span>
+    
+        try {
+<span class="nc bnc" id="L356" title="All 2 branches missed.">            if(obj instanceof Character)</span>
+<span class="nc" id="L357">                return ((Character) obj).charValue();</span>
+<span class="nc" id="L358">            return ((String)obj).charAt(0);</span>
+<span class="nc" id="L359">        } catch (Exception e) {</span>
+<span class="nc" id="L360">            throw new ClassCastException(&quot;Identified object is not a Character.&quot;);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Retrieve the identified &lt;code&gt;String&lt;/code&gt; value from the &lt;code&gt;StringKeyDirtyFlagMap&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @throws ClassCastException
+     *           if the identified object is not a String.
+     */
+    public String getString(String key) {
+<span class="fc" id="L373">        Object obj = get(key);</span>
+    
+        try {
+<span class="fc" id="L376">            return (String) obj;</span>
+<span class="nc" id="L377">        } catch (Exception e) {</span>
+<span class="nc" id="L378">            throw new ClassCastException(&quot;Identified object is not a String.&quot;);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

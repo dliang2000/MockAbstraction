@@ -1,0 +1,586 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>QuartzSchedulerResources.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.core</a> &gt; <span class="el_source">QuartzSchedulerResources.java</span></div><h1>QuartzSchedulerResources.java</h1><pre class="source lang-java linenums">
+/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.core;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.quartz.management.ManagementRESTServiceConfiguration;
+import org.quartz.spi.JobStore;
+import org.quartz.spi.SchedulerPlugin;
+import org.quartz.spi.ThreadExecutor;
+import org.quartz.spi.ThreadPool;
+
+/**
+ * &lt;p&gt;
+ * Contains all of the resources (&lt;code&gt;JobStore&lt;/code&gt;,&lt;code&gt;ThreadPool&lt;/code&gt;,
+ * etc.) necessary to create a &lt;code&gt;{@link QuartzScheduler}&lt;/code&gt; instance.
+ * &lt;/p&gt;
+ * 
+ * @see QuartzScheduler
+ * 
+ * @author James House
+ */
+public class QuartzSchedulerResources {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public static final String CREATE_REGISTRY_NEVER = &quot;never&quot;;
+
+    public static final String CREATE_REGISTRY_ALWAYS = &quot;always&quot;;
+
+    public static final String CREATE_REGISTRY_AS_NEEDED = &quot;as_needed&quot;;
+
+    private String name;
+
+    private String instanceId;
+
+    private String threadName;
+    
+<span class="fc" id="L62">    private String rmiRegistryHost = null;</span>
+
+<span class="fc" id="L64">    private int rmiRegistryPort = 1099;</span>
+
+<span class="fc" id="L66">    private int rmiServerPort = -1;</span>
+
+<span class="fc" id="L68">    private String rmiCreateRegistryStrategy = CREATE_REGISTRY_NEVER;</span>
+
+    private ThreadPool threadPool;
+
+    private JobStore jobStore;
+
+    private JobRunShellFactory jobRunShellFactory;
+
+<span class="fc" id="L76">    private List&lt;SchedulerPlugin&gt; schedulerPlugins = new ArrayList&lt;SchedulerPlugin&gt;(10);</span>
+    
+<span class="fc" id="L78">    private boolean makeSchedulerThreadDaemon = false;</span>
+
+<span class="fc" id="L80">    private boolean threadsInheritInitializersClassLoadContext = false;</span>
+
+    private String rmiBindName;
+    
+    private boolean jmxExport;
+    
+    private String jmxObjectName;
+
+    private ManagementRESTServiceConfiguration managementRESTServiceConfiguration;
+
+    private ThreadExecutor threadExecutor;
+
+<span class="fc" id="L92">    private long batchTimeWindow = 0;</span>
+
+<span class="fc" id="L94">    private int maxBatchSize = 1;</span>
+
+<span class="fc" id="L96">    private boolean interruptJobsOnShutdown = false;</span>
+<span class="fc" id="L97">    private boolean interruptJobsOnShutdownWithWait = false;</span>
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Create an instance with no properties initialized.
+     * &lt;/p&gt;
+     */
+<span class="fc" id="L112">    public QuartzSchedulerResources() {</span>
+        // do nothing...
+<span class="fc" id="L114">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Get the name for the &lt;code&gt;{@link QuartzScheduler}&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public String getName() {
+<span class="fc" id="L130">        return name;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the name for the &lt;code&gt;{@link QuartzScheduler}&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @exception IllegalArgumentException
+     *              if name is null or empty.
+     */
+    public void setName(String name) {
+<span class="pc bpc" id="L142" title="2 of 4 branches missed.">        if (name == null || name.trim().length() == 0) {</span>
+<span class="nc" id="L143">            throw new IllegalArgumentException(</span>
+                    &quot;Scheduler name cannot be empty.&quot;);
+        }
+
+<span class="fc" id="L147">        this.name = name;</span>
+        
+<span class="pc bpc" id="L149" title="1 of 2 branches missed.">        if (threadName == null) {</span>
+            // thread name not already set, use default thread name
+<span class="fc" id="L151">            setThreadName(name + &quot;_QuartzSchedulerThread&quot;);</span>
+        }        
+<span class="fc" id="L153">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the instance Id for the &lt;code&gt;{@link QuartzScheduler}&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public String getInstanceId() {
+<span class="fc" id="L161">        return instanceId;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the name for the &lt;code&gt;{@link QuartzScheduler}&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @exception IllegalArgumentException
+     *              if name is null or empty.
+     */
+    public void setInstanceId(String instanceId) {
+<span class="pc bpc" id="L173" title="2 of 4 branches missed.">        if (instanceId == null || instanceId.trim().length() == 0) {</span>
+<span class="nc" id="L174">            throw new IllegalArgumentException(</span>
+                    &quot;Scheduler instanceId cannot be empty.&quot;);
+        }
+
+<span class="fc" id="L178">        this.instanceId = instanceId;</span>
+<span class="fc" id="L179">    }</span>
+
+    public static String getUniqueIdentifier(String schedName,
+            String schedInstId) {
+<span class="fc" id="L183">        return schedName + &quot;_$_&quot; + schedInstId;</span>
+    }
+
+    public String getUniqueIdentifier() {
+<span class="fc" id="L187">        return getUniqueIdentifier(name, instanceId);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the host name of the RMI Registry that the scheduler should export
+     * itself to.
+     * &lt;/p&gt;
+     */
+    public String getRMIRegistryHost() {
+<span class="fc" id="L197">        return rmiRegistryHost;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the host name of the RMI Registry that the scheduler should export
+     * itself to.
+     * &lt;/p&gt;
+     */
+    public void setRMIRegistryHost(String hostName) {
+<span class="fc" id="L207">        this.rmiRegistryHost = hostName;</span>
+<span class="fc" id="L208">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the port number of the RMI Registry that the scheduler should export
+     * itself to.
+     * &lt;/p&gt;
+     */
+    public int getRMIRegistryPort() {
+<span class="nc" id="L217">        return rmiRegistryPort;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the port number of the RMI Registry that the scheduler should export
+     * itself to.
+     * &lt;/p&gt;
+     */
+    public void setRMIRegistryPort(int port) {
+<span class="fc" id="L227">        this.rmiRegistryPort = port;</span>
+<span class="fc" id="L228">    }</span>
+
+
+    /**
+     * &lt;p&gt;
+     * Get the port number the scheduler server will be bound to.
+     * &lt;/p&gt;
+     */
+    public int getRMIServerPort() {
+<span class="nc" id="L237">        return rmiServerPort;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the port number the scheduler server will be bound to.
+     * &lt;/p&gt;
+     */
+    public void setRMIServerPort(int port) {
+<span class="nc" id="L246">        this.rmiServerPort = port;</span>
+<span class="nc" id="L247">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Get the setting of whether or not Quartz should create an RMI Registry,
+     * and if so, how.
+     * &lt;/p&gt;
+     */
+    public String getRMICreateRegistryStrategy() {
+<span class="nc" id="L256">        return rmiCreateRegistryStrategy;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the name for the &lt;code&gt;{@link QuartzSchedulerThread}&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public String getThreadName() {
+<span class="fc" id="L265">        return threadName;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the name for the &lt;code&gt;{@link QuartzSchedulerThread}&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @exception IllegalArgumentException
+     *              if name is null or empty.
+     */
+    public void setThreadName(String threadName) {
+<span class="pc bpc" id="L277" title="2 of 4 branches missed.">        if (threadName == null || threadName.trim().length() == 0) {</span>
+<span class="nc" id="L278">            throw new IllegalArgumentException(</span>
+                    &quot;Scheduler thread name cannot be empty.&quot;);
+        }
+
+<span class="fc" id="L282">        this.threadName = threadName;</span>
+<span class="fc" id="L283">    }    </span>
+    
+    /**
+     * &lt;p&gt;
+     * Set whether or not Quartz should create an RMI Registry, and if so, how.
+     * &lt;/p&gt;
+     * 
+     * @see #CREATE_REGISTRY_ALWAYS
+     * @see #CREATE_REGISTRY_AS_NEEDED
+     * @see #CREATE_REGISTRY_NEVER
+     */
+    public void setRMICreateRegistryStrategy(String rmiCreateRegistryStrategy) {
+<span class="nc bnc" id="L295" title="All 2 branches missed.">        if (rmiCreateRegistryStrategy == null</span>
+<span class="nc bnc" id="L296" title="All 2 branches missed.">                || rmiCreateRegistryStrategy.trim().length() == 0) {</span>
+<span class="nc" id="L297">            rmiCreateRegistryStrategy = CREATE_REGISTRY_NEVER;</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">        } else if (rmiCreateRegistryStrategy.equalsIgnoreCase(&quot;true&quot;)) {</span>
+<span class="nc" id="L299">            rmiCreateRegistryStrategy = CREATE_REGISTRY_AS_NEEDED;</span>
+<span class="nc bnc" id="L300" title="All 2 branches missed.">        } else if (rmiCreateRegistryStrategy.equalsIgnoreCase(&quot;false&quot;)) {</span>
+<span class="nc" id="L301">            rmiCreateRegistryStrategy = CREATE_REGISTRY_NEVER;</span>
+<span class="nc bnc" id="L302" title="All 2 branches missed.">        } else if (rmiCreateRegistryStrategy.equalsIgnoreCase(CREATE_REGISTRY_ALWAYS)) {</span>
+<span class="nc" id="L303">            rmiCreateRegistryStrategy = CREATE_REGISTRY_ALWAYS;</span>
+<span class="nc bnc" id="L304" title="All 2 branches missed.">        } else if (rmiCreateRegistryStrategy.equalsIgnoreCase(CREATE_REGISTRY_AS_NEEDED)) {</span>
+<span class="nc" id="L305">            rmiCreateRegistryStrategy = CREATE_REGISTRY_AS_NEEDED;</span>
+<span class="nc bnc" id="L306" title="All 2 branches missed.">        } else if (rmiCreateRegistryStrategy.equalsIgnoreCase(CREATE_REGISTRY_NEVER)) {</span>
+<span class="nc" id="L307">            rmiCreateRegistryStrategy = CREATE_REGISTRY_NEVER;</span>
+        } else {
+<span class="nc" id="L309">            throw new IllegalArgumentException(</span>
+                    &quot;Faild to set RMICreateRegistryStrategy - strategy unknown: '&quot;
+                            + rmiCreateRegistryStrategy + &quot;'&quot;);
+        }
+
+<span class="nc" id="L314">        this.rmiCreateRegistryStrategy = rmiCreateRegistryStrategy;</span>
+<span class="nc" id="L315">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the &lt;code&gt;{@link ThreadPool}&lt;/code&gt; for the &lt;code&gt;{@link QuartzScheduler}&lt;/code&gt;
+     * to use.
+     * &lt;/p&gt;
+     */
+    public ThreadPool getThreadPool() {
+<span class="fc" id="L324">        return threadPool;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the &lt;code&gt;{@link ThreadPool}&lt;/code&gt; for the &lt;code&gt;{@link QuartzScheduler}&lt;/code&gt;
+     * to use.
+     * &lt;/p&gt;
+     * 
+     * @exception IllegalArgumentException
+     *              if threadPool is null.
+     */
+    public void setThreadPool(ThreadPool threadPool) {
+<span class="pc bpc" id="L337" title="1 of 2 branches missed.">        if (threadPool == null) {</span>
+<span class="nc" id="L338">            throw new IllegalArgumentException(&quot;ThreadPool cannot be null.&quot;);</span>
+        }
+
+<span class="fc" id="L341">        this.threadPool = threadPool;</span>
+<span class="fc" id="L342">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the &lt;code&gt;{@link JobStore}&lt;/code&gt; for the &lt;code&gt;{@link QuartzScheduler}&lt;/code&gt;
+     * to use.
+     * &lt;/p&gt;
+     */
+    public JobStore getJobStore() {
+<span class="fc" id="L351">        return jobStore;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the &lt;code&gt;{@link JobStore}&lt;/code&gt; for the &lt;code&gt;{@link QuartzScheduler}&lt;/code&gt;
+     * to use.
+     * &lt;/p&gt;
+     * 
+     * @exception IllegalArgumentException
+     *              if jobStore is null.
+     */
+    public void setJobStore(JobStore jobStore) {
+<span class="pc bpc" id="L364" title="1 of 2 branches missed.">        if (jobStore == null) {</span>
+<span class="nc" id="L365">            throw new IllegalArgumentException(&quot;JobStore cannot be null.&quot;);</span>
+        }
+
+<span class="fc" id="L368">        this.jobStore = jobStore;</span>
+<span class="fc" id="L369">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the &lt;code&gt;{@link JobRunShellFactory}&lt;/code&gt; for the &lt;code&gt;{@link QuartzScheduler}&lt;/code&gt;
+     * to use.
+     * &lt;/p&gt;
+     */
+    public JobRunShellFactory getJobRunShellFactory() {
+<span class="fc" id="L378">        return jobRunShellFactory;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the &lt;code&gt;{@link JobRunShellFactory}&lt;/code&gt; for the &lt;code&gt;{@link QuartzScheduler}&lt;/code&gt;
+     * to use.
+     * &lt;/p&gt;
+     * 
+     * @exception IllegalArgumentException
+     *              if jobRunShellFactory is null.
+     */
+    public void setJobRunShellFactory(JobRunShellFactory jobRunShellFactory) {
+<span class="pc bpc" id="L391" title="1 of 2 branches missed.">        if (jobRunShellFactory == null) {</span>
+<span class="nc" id="L392">            throw new IllegalArgumentException(</span>
+                    &quot;JobRunShellFactory cannot be null.&quot;);
+        }
+
+<span class="fc" id="L396">        this.jobRunShellFactory = jobRunShellFactory;</span>
+<span class="fc" id="L397">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Add the given &lt;code&gt;{@link org.quartz.spi.SchedulerPlugin}&lt;/code&gt; for the 
+     * &lt;code&gt;{@link QuartzScheduler}&lt;/code&gt; to use. This method expects the plugin's
+     * &quot;initialize&quot; method to be invoked externally (either before or after
+     * this method is called).
+     * &lt;/p&gt;
+     */
+    public void addSchedulerPlugin(SchedulerPlugin plugin) {
+<span class="fc" id="L408">        schedulerPlugins.add(plugin);</span>
+<span class="fc" id="L409">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Get the &lt;code&gt;List&lt;/code&gt; of all 
+     * &lt;code&gt;{@link org.quartz.spi.SchedulerPlugin}&lt;/code&gt;s for the 
+     * &lt;code&gt;{@link QuartzScheduler}&lt;/code&gt; to use.
+     * &lt;/p&gt;
+     */
+    public List&lt;SchedulerPlugin&gt; getSchedulerPlugins() {
+<span class="fc" id="L419">        return schedulerPlugins;</span>
+    }
+
+    /**
+     * Get whether to mark the Quartz scheduling thread as daemon.
+     * 
+     * @see Thread#setDaemon(boolean)
+     */
+    public boolean getMakeSchedulerThreadDaemon() {
+<span class="fc" id="L428">        return makeSchedulerThreadDaemon;</span>
+    }
+
+    /**
+     * Set whether to mark the Quartz scheduling thread as daemon.
+     * 
+     * @see Thread#setDaemon(boolean)
+     */
+    public void setMakeSchedulerThreadDaemon(boolean makeSchedulerThreadDaemon) {
+<span class="fc" id="L437">        this.makeSchedulerThreadDaemon = makeSchedulerThreadDaemon;</span>
+<span class="fc" id="L438">    }</span>
+
+    /**
+     * Get whether to set the class load context of spawned threads to that
+     * of the initializing thread.
+     */
+    public boolean isThreadsInheritInitializersClassLoadContext() {
+<span class="fc" id="L445">        return threadsInheritInitializersClassLoadContext;</span>
+    }
+
+    /**
+     * Set whether to set the class load context of spawned threads to that
+     * of the initializing thread.
+     */
+    public void setThreadsInheritInitializersClassLoadContext(
+            boolean threadsInheritInitializersClassLoadContext) {
+<span class="fc" id="L454">        this.threadsInheritInitializersClassLoadContext = threadsInheritInitializersClassLoadContext;</span>
+<span class="fc" id="L455">    }</span>
+
+    /**
+     * Get the name under which to bind the QuartzScheduler in RMI.  Will 
+     * return the value of the uniqueIdentifier property if explict RMI bind 
+     * name was never set.
+     * 
+     * @see #getUniqueIdentifier()
+     */
+    public String getRMIBindName() {
+<span class="nc bnc" id="L465" title="All 2 branches missed.">        return (rmiBindName == null) ? getUniqueIdentifier() : rmiBindName;</span>
+    }
+
+    /**
+     * Set the name under which to bind the QuartzScheduler in RMI.  If unset, 
+     * defaults to the value of the uniqueIdentifier property.
+     * 
+     * @see #getUniqueIdentifier()
+     */
+    public void setRMIBindName(String rmiBindName) {
+<span class="nc" id="L475">        this.rmiBindName = rmiBindName;</span>
+<span class="nc" id="L476">    }</span>
+
+    /**
+     * Get whether the QuartzScheduler should be registered with the local 
+     * MBeanServer.
+     */
+    public boolean getJMXExport() {
+<span class="fc" id="L483">        return jmxExport;</span>
+    }
+
+    /**
+     * Set whether the QuartzScheduler should be registered with the local 
+     * MBeanServer.
+     */
+    public void setJMXExport(boolean jmxExport) {
+<span class="fc" id="L491">        this.jmxExport = jmxExport;</span>
+<span class="fc" id="L492">    }</span>
+
+    /**
+     * Get the name under which the QuartzScheduler should be registered with 
+     * the local MBeanServer.  If unset, defaults to the value calculated by 
+     * &lt;code&gt;generateJMXObjectName&lt;code&gt;.
+     * 
+     * @see #generateJMXObjectName(String, String)
+     */
+    public String getJMXObjectName() {
+<span class="pc bpc" id="L502" title="1 of 2 branches missed.">        return (jmxObjectName == null) ? generateJMXObjectName(name, instanceId) : jmxObjectName;</span>
+    }
+
+    /**
+     * Set the name under which the QuartzScheduler should be registered with 
+     * the local MBeanServer.  If unset, defaults to the value calculated by 
+     * &lt;code&gt;generateJMXObjectName&lt;code&gt;.
+     * 
+     * @see #generateJMXObjectName(String, String)
+     */
+    public void setJMXObjectName(String jmxObjectName) {
+<span class="fc" id="L513">        this.jmxObjectName = jmxObjectName;</span>
+<span class="fc" id="L514">    }</span>
+
+    /**
+     * Get the ThreadExecutor which runs the QuartzSchedulerThread
+     */
+    public ThreadExecutor getThreadExecutor() {
+<span class="fc" id="L520">        return threadExecutor;</span>
+    }
+
+    /**
+     * Set the ThreadExecutor which runs the QuartzSchedulerThread
+     */
+    public void setThreadExecutor(ThreadExecutor threadExecutor) {
+<span class="fc" id="L527">        this.threadExecutor = threadExecutor;</span>
+<span class="fc" id="L528">    }</span>
+
+    /**
+     * Create the name under which this scheduler should be registered in JMX.
+     * &lt;p&gt;
+     * The name is composed as:
+     * quartz:type=QuartzScheduler,name=&lt;i&gt;[schedName]&lt;/i&gt;,instance=&lt;i&gt;[schedInstId]&lt;/i&gt;
+     * &lt;/p&gt;
+     */
+    public static String generateJMXObjectName(String schedName, String schedInstId) {
+<span class="fc" id="L538">        return &quot;quartz:type=QuartzScheduler&quot; + &quot;,name=&quot;</span>
+<span class="fc" id="L539">            + schedName.replaceAll(&quot;:|=|\n&quot;, &quot;.&quot;)</span>
+            + &quot;,instance=&quot; + schedInstId;
+    }
+
+    public long getBatchTimeWindow() {
+<span class="fc" id="L544">        return batchTimeWindow;</span>
+    }
+
+    public void setBatchTimeWindow(long batchTimeWindow) {
+<span class="fc" id="L548">        this.batchTimeWindow = batchTimeWindow;</span>
+<span class="fc" id="L549">    }</span>
+
+    public int getMaxBatchSize() {
+<span class="fc" id="L552">      return maxBatchSize;</span>
+    }
+
+    public void setMaxBatchSize(int maxBatchSize) {
+<span class="fc" id="L556">      this.maxBatchSize = maxBatchSize;</span>
+<span class="fc" id="L557">    }</span>
+    
+    public boolean isInterruptJobsOnShutdown() {
+<span class="fc" id="L560">        return interruptJobsOnShutdown;</span>
+    }
+
+    public void setInterruptJobsOnShutdown(boolean interruptJobsOnShutdown) {
+<span class="fc" id="L564">        this.interruptJobsOnShutdown = interruptJobsOnShutdown;</span>
+<span class="fc" id="L565">    }</span>
+    
+    public boolean isInterruptJobsOnShutdownWithWait() {
+<span class="fc" id="L568">        return interruptJobsOnShutdownWithWait;</span>
+    }
+
+    public void setInterruptJobsOnShutdownWithWait(
+            boolean interruptJobsOnShutdownWithWait) {
+<span class="fc" id="L573">        this.interruptJobsOnShutdownWithWait = interruptJobsOnShutdownWithWait;</span>
+<span class="fc" id="L574">    }</span>
+
+
+    public ManagementRESTServiceConfiguration getManagementRESTServiceConfiguration() {
+<span class="nc" id="L578">        return managementRESTServiceConfiguration;</span>
+    }
+
+    public void setManagementRESTServiceConfiguration(ManagementRESTServiceConfiguration managementRESTServiceConfiguration) {
+<span class="nc" id="L582">        this.managementRESTServiceConfiguration = managementRESTServiceConfiguration;</span>
+<span class="nc" id="L583">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

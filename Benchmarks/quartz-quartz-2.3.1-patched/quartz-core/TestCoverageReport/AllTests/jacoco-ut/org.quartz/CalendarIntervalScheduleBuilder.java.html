@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CalendarIntervalScheduleBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz</a> &gt; <span class="el_source">CalendarIntervalScheduleBuilder.java</span></div><h1>CalendarIntervalScheduleBuilder.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz;
+
+import java.util.TimeZone;
+
+import org.quartz.DateBuilder.IntervalUnit;
+import org.quartz.impl.triggers.CalendarIntervalTriggerImpl;
+import org.quartz.spi.MutableTrigger;
+
+/**
+ * &lt;code&gt;CalendarIntervalScheduleBuilder&lt;/code&gt; is a {@link ScheduleBuilder} 
+ * that defines calendar time (day, week, month, year) interval-based 
+ * schedules for &lt;code&gt;Trigger&lt;/code&gt;s.
+ *  
+ * &lt;p&gt;Quartz provides a builder-style API for constructing scheduling-related
+ * entities via a Domain-Specific Language (DSL).  The DSL can best be
+ * utilized through the usage of static imports of the methods on the classes
+ * &lt;code&gt;TriggerBuilder&lt;/code&gt;, &lt;code&gt;JobBuilder&lt;/code&gt;, 
+ * &lt;code&gt;DateBuilder&lt;/code&gt;, &lt;code&gt;JobKey&lt;/code&gt;, &lt;code&gt;TriggerKey&lt;/code&gt; 
+ * and the various &lt;code&gt;ScheduleBuilder&lt;/code&gt; implementations.&lt;/p&gt;
+ * 
+ * &lt;p&gt;Client code can then use the DSL to write code such as this:&lt;/p&gt;
+ * &lt;pre&gt;
+ *         JobDetail job = newJob(MyJob.class)
+ *             .withIdentity(&quot;myJob&quot;)
+ *             .build();
+ *             
+ *         Trigger trigger = newTrigger() 
+ *             .withIdentity(triggerKey(&quot;myTrigger&quot;, &quot;myTriggerGroup&quot;))
+ *             .withSchedule(withIntervalInDays(3))
+ *             .startAt(futureDate(10, MINUTES))
+ *             .build();
+ *         
+ *         scheduler.scheduleJob(job, trigger);
+ * &lt;pre&gt;
+ *
+ * @see DailyTimeIntervalScheduleBuilder
+ * @see CronScheduleBuilder
+ * @see ScheduleBuilder
+ * @see SimpleScheduleBuilder 
+ * @see TriggerBuilder
+ */
+public class CalendarIntervalScheduleBuilder extends ScheduleBuilder&lt;CalendarIntervalTrigger&gt; {
+
+<span class="nc" id="L61">    private int interval = 1;</span>
+<span class="nc" id="L62">    private IntervalUnit intervalUnit = IntervalUnit.DAY;</span>
+
+<span class="nc" id="L64">    private int misfireInstruction = CalendarIntervalTrigger.MISFIRE_INSTRUCTION_SMART_POLICY;</span>
+    private TimeZone timeZone;
+    private boolean preserveHourOfDayAcrossDaylightSavings;
+    private boolean skipDayIfHourDoesNotExist;
+    
+<span class="nc" id="L69">    protected CalendarIntervalScheduleBuilder() {</span>
+<span class="nc" id="L70">    }</span>
+    
+    /**
+     * Create a CalendarIntervalScheduleBuilder.
+     * 
+     * @return the new CalendarIntervalScheduleBuilder
+     */
+    public static CalendarIntervalScheduleBuilder calendarIntervalSchedule() {
+<span class="nc" id="L78">        return new CalendarIntervalScheduleBuilder();</span>
+    }
+    
+    /**
+     * Build the actual Trigger -- NOT intended to be invoked by end users,
+     * but will rather be invoked by a TriggerBuilder which this 
+     * ScheduleBuilder is given to.
+     * 
+     * @see TriggerBuilder#withSchedule(ScheduleBuilder)
+     */
+    @Override
+    public MutableTrigger build() {
+
+<span class="nc" id="L91">        CalendarIntervalTriggerImpl st = new CalendarIntervalTriggerImpl();</span>
+<span class="nc" id="L92">        st.setRepeatInterval(interval);</span>
+<span class="nc" id="L93">        st.setRepeatIntervalUnit(intervalUnit);</span>
+<span class="nc" id="L94">        st.setMisfireInstruction(misfireInstruction);</span>
+<span class="nc" id="L95">        st.setTimeZone(timeZone);</span>
+<span class="nc" id="L96">        st.setPreserveHourOfDayAcrossDaylightSavings(preserveHourOfDayAcrossDaylightSavings);</span>
+<span class="nc" id="L97">        st.setSkipDayIfHourDoesNotExist(skipDayIfHourDoesNotExist);</span>
+
+<span class="nc" id="L99">        return st;</span>
+    }
+
+    /**
+     * Specify the time unit and interval for the Trigger to be produced.
+     * 
+     * @param timeInterval the interval at which the trigger should repeat.
+     * @param unit  the time unit (IntervalUnit) of the interval.
+     * @return the updated CalendarIntervalScheduleBuilder
+     * @see CalendarIntervalTrigger#getRepeatInterval()
+     * @see CalendarIntervalTrigger#getRepeatIntervalUnit()
+     */
+    public CalendarIntervalScheduleBuilder withInterval(int timeInterval, IntervalUnit unit) {
+<span class="nc bnc" id="L112" title="All 2 branches missed.">        if(unit == null)</span>
+<span class="nc" id="L113">            throw new IllegalArgumentException(&quot;TimeUnit must be specified.&quot;);</span>
+<span class="nc" id="L114">        validateInterval(timeInterval);</span>
+<span class="nc" id="L115">        this.interval = timeInterval;</span>
+<span class="nc" id="L116">        this.intervalUnit = unit;</span>
+<span class="nc" id="L117">        return this;</span>
+    }
+
+    /**
+     * Specify an interval in the IntervalUnit.SECOND that the produced 
+     * Trigger will repeat at.
+     * 
+     * @param intervalInSeconds the number of seconds at which the trigger should repeat.
+     * @return the updated CalendarIntervalScheduleBuilder
+     * @see CalendarIntervalTrigger#getRepeatInterval()
+     * @see CalendarIntervalTrigger#getRepeatIntervalUnit()
+     */
+    public CalendarIntervalScheduleBuilder withIntervalInSeconds(int intervalInSeconds) {
+<span class="nc" id="L130">        validateInterval(intervalInSeconds);</span>
+<span class="nc" id="L131">        this.interval = intervalInSeconds;</span>
+<span class="nc" id="L132">        this.intervalUnit = IntervalUnit.SECOND;</span>
+<span class="nc" id="L133">        return this;</span>
+    }
+    
+    /**
+     * Specify an interval in the IntervalUnit.MINUTE that the produced 
+     * Trigger will repeat at.
+     * 
+     * @param intervalInMinutes the number of minutes at which the trigger should repeat.
+     * @return the updated CalendarIntervalScheduleBuilder
+     * @see CalendarIntervalTrigger#getRepeatInterval()
+     * @see CalendarIntervalTrigger#getRepeatIntervalUnit()
+     */
+    public CalendarIntervalScheduleBuilder withIntervalInMinutes(int intervalInMinutes) {
+<span class="nc" id="L146">        validateInterval(intervalInMinutes);</span>
+<span class="nc" id="L147">        this.interval = intervalInMinutes;</span>
+<span class="nc" id="L148">        this.intervalUnit = IntervalUnit.MINUTE;</span>
+<span class="nc" id="L149">        return this;</span>
+    }
+
+    /**
+     * Specify an interval in the IntervalUnit.HOUR that the produced 
+     * Trigger will repeat at.
+     * 
+     * @param intervalInHours the number of hours at which the trigger should repeat.
+     * @return the updated CalendarIntervalScheduleBuilder
+     * @see CalendarIntervalTrigger#getRepeatInterval()
+     * @see CalendarIntervalTrigger#getRepeatIntervalUnit()
+     */
+    public CalendarIntervalScheduleBuilder withIntervalInHours(int intervalInHours) {
+<span class="nc" id="L162">        validateInterval(intervalInHours);</span>
+<span class="nc" id="L163">        this.interval = intervalInHours;</span>
+<span class="nc" id="L164">        this.intervalUnit = IntervalUnit.HOUR;</span>
+<span class="nc" id="L165">        return this;</span>
+    }
+    
+    /**
+     * Specify an interval in the IntervalUnit.DAY that the produced 
+     * Trigger will repeat at.
+     * 
+     * @param intervalInDays the number of days at which the trigger should repeat.
+     * @return the updated CalendarIntervalScheduleBuilder
+     * @see CalendarIntervalTrigger#getRepeatInterval()
+     * @see CalendarIntervalTrigger#getRepeatIntervalUnit()
+     */
+    public CalendarIntervalScheduleBuilder withIntervalInDays(int intervalInDays) {
+<span class="nc" id="L178">        validateInterval(intervalInDays);</span>
+<span class="nc" id="L179">        this.interval = intervalInDays;</span>
+<span class="nc" id="L180">        this.intervalUnit = IntervalUnit.DAY;</span>
+<span class="nc" id="L181">        return this;</span>
+    }
+
+    /**
+     * Specify an interval in the IntervalUnit.WEEK that the produced 
+     * Trigger will repeat at.
+     * 
+     * @param intervalInWeeks the number of weeks at which the trigger should repeat.
+     * @return the updated CalendarIntervalScheduleBuilder
+     * @see CalendarIntervalTrigger#getRepeatInterval()
+     * @see CalendarIntervalTrigger#getRepeatIntervalUnit()
+     */
+    public CalendarIntervalScheduleBuilder withIntervalInWeeks(int intervalInWeeks) {
+<span class="nc" id="L194">        validateInterval(intervalInWeeks);</span>
+<span class="nc" id="L195">        this.interval = intervalInWeeks;</span>
+<span class="nc" id="L196">        this.intervalUnit = IntervalUnit.WEEK;</span>
+<span class="nc" id="L197">        return this;</span>
+    }
+
+    /**
+     * Specify an interval in the IntervalUnit.MONTH that the produced 
+     * Trigger will repeat at.
+     * 
+     * @param intervalInMonths the number of months at which the trigger should repeat.
+     * @return the updated CalendarIntervalScheduleBuilder
+     * @see CalendarIntervalTrigger#getRepeatInterval()
+     * @see CalendarIntervalTrigger#getRepeatIntervalUnit()
+     */
+    public CalendarIntervalScheduleBuilder withIntervalInMonths(int intervalInMonths) {
+<span class="nc" id="L210">        validateInterval(intervalInMonths);</span>
+<span class="nc" id="L211">        this.interval = intervalInMonths;</span>
+<span class="nc" id="L212">        this.intervalUnit = IntervalUnit.MONTH;</span>
+<span class="nc" id="L213">        return this;</span>
+    }
+
+    /**
+     * Specify an interval in the IntervalUnit.YEAR that the produced 
+     * Trigger will repeat at.
+     * 
+     * @param intervalInYears the number of years at which the trigger should repeat.
+     * @return the updated CalendarIntervalScheduleBuilder
+     * @see CalendarIntervalTrigger#getRepeatInterval()
+     * @see CalendarIntervalTrigger#getRepeatIntervalUnit()
+     */
+    public CalendarIntervalScheduleBuilder withIntervalInYears(int intervalInYears) {
+<span class="nc" id="L226">        validateInterval(intervalInYears);</span>
+<span class="nc" id="L227">        this.interval = intervalInYears;</span>
+<span class="nc" id="L228">        this.intervalUnit = IntervalUnit.YEAR;</span>
+<span class="nc" id="L229">        return this;</span>
+    }
+
+    /**
+     * If the Trigger misfires, use the 
+     * {@link Trigger#MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY} instruction.
+     * 
+     * @return the updated CronScheduleBuilder
+     * @see Trigger#MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY
+     */
+    public CalendarIntervalScheduleBuilder withMisfireHandlingInstructionIgnoreMisfires() {
+<span class="nc" id="L240">        misfireInstruction = Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY;</span>
+<span class="nc" id="L241">        return this;</span>
+    }
+    
+    /**
+     * If the Trigger misfires, use the 
+     * {@link CalendarIntervalTrigger#MISFIRE_INSTRUCTION_DO_NOTHING} instruction.
+     * 
+     * @return the updated CalendarIntervalScheduleBuilder
+     * @see CalendarIntervalTrigger#MISFIRE_INSTRUCTION_DO_NOTHING
+     */
+    public CalendarIntervalScheduleBuilder withMisfireHandlingInstructionDoNothing() {
+<span class="nc" id="L252">        misfireInstruction = CalendarIntervalTrigger.MISFIRE_INSTRUCTION_DO_NOTHING;</span>
+<span class="nc" id="L253">        return this;</span>
+    }
+    
+    /**
+     * If the Trigger misfires, use the 
+     * {@link CalendarIntervalTrigger#MISFIRE_INSTRUCTION_FIRE_ONCE_NOW} instruction.
+     * 
+     * @return the updated CalendarIntervalScheduleBuilder
+     * @see CalendarIntervalTrigger#MISFIRE_INSTRUCTION_FIRE_ONCE_NOW
+     */
+    public CalendarIntervalScheduleBuilder withMisfireHandlingInstructionFireAndProceed() {
+<span class="nc" id="L264">        misfireInstruction = CalendarIntervalTrigger.MISFIRE_INSTRUCTION_FIRE_ONCE_NOW;</span>
+<span class="nc" id="L265">        return this;</span>
+    }
+    /**
+     * The &lt;code&gt;TimeZone&lt;/code&gt; in which to base the schedule.
+     * 
+     * @param timezone the time-zone for the schedule.
+     * @return the updated CalendarIntervalScheduleBuilder
+     * @see CalendarIntervalTrigger#getTimeZone()
+     */
+    public CalendarIntervalScheduleBuilder inTimeZone(TimeZone timezone) {
+<span class="nc" id="L275">        this.timeZone = timezone;</span>
+<span class="nc" id="L276">        return this;</span>
+    }
+    
+    /**
+     * If intervals are a day or greater, this property (set to true) will 
+     * cause the firing of the trigger to always occur at the same time of day,
+     * (the time of day of the startTime) regardless of daylight saving time 
+     * transitions.  Default value is false.
+     * 
+     * &lt;p&gt;
+     * For example, without the property set, your trigger may have a start 
+     * time of 9:00 am on March 1st, and a repeat interval of 2 days.  But 
+     * after the daylight saving transition occurs, the trigger may start 
+     * firing at 8:00 am every other day.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * If however, the time of day does not exist on a given day to fire
+     * (e.g. 2:00 am in the United States on the days of daylight saving
+     * transition), the trigger will go ahead and fire one hour off on 
+     * that day, and then resume the normal hour on other days.  If
+     * you wish for the trigger to never fire at the &quot;wrong&quot; hour, then
+     * you should set the property skipDayIfHourDoesNotExist.
+     * &lt;/p&gt;
+     * 
+     * @see #skipDayIfHourDoesNotExist(boolean)
+     * @see #inTimeZone(TimeZone)
+     * @see TriggerBuilder#startAt(java.util.Date)
+     */
+    public CalendarIntervalScheduleBuilder preserveHourOfDayAcrossDaylightSavings(boolean preserveHourOfDay) {
+<span class="nc" id="L306">        this.preserveHourOfDayAcrossDaylightSavings = preserveHourOfDay;</span>
+<span class="nc" id="L307">        return this;</span>
+    }
+
+    /**
+     * If intervals are a day or greater, and 
+     * preserveHourOfDayAcrossDaylightSavings property is set to true, and the
+     * hour of the day does not exist on a given day for which the trigger 
+     * would fire, the day will be skipped and the trigger advanced a second
+     * interval if this property is set to true.  Defaults to false.
+     * 
+     * &lt;p&gt;
+     * &lt;b&gt;CAUTION!&lt;/b&gt;  If you enable this property, and your hour of day happens 
+     * to be that of daylight savings transition (e.g. 2:00 am in the United 
+     * States) and the trigger's interval would have had the trigger fire on
+     * that day, then you may actually completely miss a firing on the day of 
+     * transition if that hour of day does not exist on that day!  In such a 
+     * case the next fire time of the trigger will be computed as double (if 
+     * the interval is 2 days, then a span of 4 days between firings will 
+     * occur).
+     * &lt;/p&gt;
+     * 
+     * @see #preserveHourOfDayAcrossDaylightSavings(boolean)
+     */
+    public CalendarIntervalScheduleBuilder skipDayIfHourDoesNotExist(boolean skipDay) {
+<span class="nc" id="L331">        this.skipDayIfHourDoesNotExist = skipDay;</span>
+<span class="nc" id="L332">        return this;</span>
+    }
+    
+    private void validateInterval(int timeInterval) {
+<span class="nc bnc" id="L336" title="All 2 branches missed.">        if(timeInterval &lt;= 0)</span>
+<span class="nc" id="L337">            throw new IllegalArgumentException(&quot;Interval must be a positive value.&quot;);</span>
+<span class="nc" id="L338">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

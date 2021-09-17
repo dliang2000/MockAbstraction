@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ListenerManagerImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.core</a> &gt; <span class="el_source">ListenerManagerImpl.java</span></div><h1>ListenerManagerImpl.java</h1><pre class="source lang-java linenums">package org.quartz.core;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
+import org.quartz.JobKey;
+import org.quartz.JobListener;
+import org.quartz.ListenerManager;
+import org.quartz.Matcher;
+import org.quartz.SchedulerListener;
+import org.quartz.TriggerKey;
+import org.quartz.TriggerListener;
+import org.quartz.impl.matchers.EverythingMatcher;
+
+<span class="fc" id="L20">public class ListenerManagerImpl implements ListenerManager {</span>
+
+<span class="fc" id="L22">    private Map&lt;String, JobListener&gt; globalJobListeners = new LinkedHashMap&lt;String, JobListener&gt;(10);</span>
+
+<span class="fc" id="L24">    private Map&lt;String, TriggerListener&gt; globalTriggerListeners = new LinkedHashMap&lt;String, TriggerListener&gt;(10);</span>
+
+<span class="fc" id="L26">    private Map&lt;String, List&lt;Matcher&lt;JobKey&gt;&gt;&gt; globalJobListenersMatchers = new LinkedHashMap&lt;String, List&lt;Matcher&lt;JobKey&gt;&gt;&gt;(10);</span>
+
+<span class="fc" id="L28">    private Map&lt;String, List&lt;Matcher&lt;TriggerKey&gt;&gt;&gt; globalTriggerListenersMatchers = new LinkedHashMap&lt;String, List&lt;Matcher&lt;TriggerKey&gt;&gt;&gt;(10);</span>
+
+<span class="fc" id="L30">    private ArrayList&lt;SchedulerListener&gt; schedulerListeners = new ArrayList&lt;SchedulerListener&gt;(10);</span>
+
+    
+    public void addJobListener(JobListener jobListener, Matcher&lt;JobKey&gt; ... matchers) {
+<span class="nc" id="L34">        addJobListener(jobListener, Arrays.asList(matchers));</span>
+<span class="nc" id="L35">    }</span>
+
+    public void addJobListener(JobListener jobListener, List&lt;Matcher&lt;JobKey&gt;&gt; matchers) {
+<span class="nc bnc" id="L38" title="All 4 branches missed.">        if (jobListener.getName() == null || jobListener.getName().length() == 0) {</span>
+<span class="nc" id="L39">            throw new IllegalArgumentException(</span>
+                    &quot;JobListener name cannot be empty.&quot;);
+        }
+        
+<span class="nc" id="L43">        synchronized (globalJobListeners) {</span>
+<span class="nc" id="L44">            globalJobListeners.put(jobListener.getName(), jobListener);</span>
+<span class="nc" id="L45">            LinkedList&lt;Matcher&lt;JobKey&gt;&gt; matchersL = new  LinkedList&lt;Matcher&lt;JobKey&gt;&gt;();</span>
+<span class="nc bnc" id="L46" title="All 4 branches missed.">            if(matchers != null &amp;&amp; matchers.size() &gt; 0)</span>
+<span class="nc" id="L47">                matchersL.addAll(matchers);</span>
+            else
+<span class="nc" id="L49">                matchersL.add(EverythingMatcher.allJobs());</span>
+            
+<span class="nc" id="L51">            globalJobListenersMatchers.put(jobListener.getName(), matchersL);</span>
+<span class="nc" id="L52">        }</span>
+<span class="nc" id="L53">    }</span>
+
+
+    public void addJobListener(JobListener jobListener) {
+<span class="fc" id="L57">        addJobListener(jobListener, EverythingMatcher.allJobs());</span>
+<span class="fc" id="L58">    }</span>
+    
+    public void addJobListener(JobListener jobListener, Matcher&lt;JobKey&gt; matcher) {
+<span class="pc bpc" id="L61" title="2 of 4 branches missed.">        if (jobListener.getName() == null || jobListener.getName().length() == 0) {</span>
+<span class="nc" id="L62">            throw new IllegalArgumentException(</span>
+                    &quot;JobListener name cannot be empty.&quot;);
+        }
+        
+<span class="fc" id="L66">        synchronized (globalJobListeners) {</span>
+<span class="fc" id="L67">            globalJobListeners.put(jobListener.getName(), jobListener);</span>
+<span class="fc" id="L68">            LinkedList&lt;Matcher&lt;JobKey&gt;&gt; matchersL = new  LinkedList&lt;Matcher&lt;JobKey&gt;&gt;();</span>
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">            if(matcher != null)</span>
+<span class="fc" id="L70">                matchersL.add(matcher);</span>
+            else
+<span class="nc" id="L72">                matchersL.add(EverythingMatcher.allJobs());</span>
+            
+<span class="fc" id="L74">            globalJobListenersMatchers.put(jobListener.getName(), matchersL);</span>
+<span class="fc" id="L75">        }</span>
+<span class="fc" id="L76">    }</span>
+
+
+    public boolean addJobListenerMatcher(String listenerName, Matcher&lt;JobKey&gt; matcher) {
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">        if(matcher == null)</span>
+<span class="nc" id="L81">            throw new IllegalArgumentException(&quot;Null value not acceptable.&quot;);</span>
+        
+<span class="fc" id="L83">        synchronized (globalJobListeners) {</span>
+<span class="fc" id="L84">            List&lt;Matcher&lt;JobKey&gt;&gt; matchers = globalJobListenersMatchers.get(listenerName);</span>
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">            if(matchers == null)</span>
+<span class="nc" id="L86">                return false;</span>
+<span class="fc" id="L87">            matchers.add(matcher);</span>
+<span class="fc" id="L88">            return true;</span>
+        }
+    }
+
+    public boolean removeJobListenerMatcher(String listenerName, Matcher&lt;JobKey&gt; matcher) {
+<span class="nc bnc" id="L93" title="All 2 branches missed.">        if(matcher == null)</span>
+<span class="nc" id="L94">            throw new IllegalArgumentException(&quot;Non-null value not acceptable.&quot;);</span>
+        
+<span class="nc" id="L96">        synchronized (globalJobListeners) {</span>
+<span class="nc" id="L97">            List&lt;Matcher&lt;JobKey&gt;&gt; matchers = globalJobListenersMatchers.get(listenerName);</span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">            if(matchers == null)</span>
+<span class="nc" id="L99">                return false;</span>
+<span class="nc" id="L100">            return matchers.remove(matcher);</span>
+        }
+    }
+
+    public List&lt;Matcher&lt;JobKey&gt;&gt; getJobListenerMatchers(String listenerName) {
+<span class="fc" id="L105">        synchronized (globalJobListeners) {</span>
+<span class="fc" id="L106">            List&lt;Matcher&lt;JobKey&gt;&gt; matchers = globalJobListenersMatchers.get(listenerName);</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">            if(matchers == null)</span>
+<span class="fc" id="L108">                return null;</span>
+<span class="fc" id="L109">            return Collections.unmodifiableList(matchers);</span>
+        }
+    }
+
+    public boolean setJobListenerMatchers(String listenerName, List&lt;Matcher&lt;JobKey&gt;&gt; matchers)  {
+<span class="nc bnc" id="L114" title="All 2 branches missed.">        if(matchers == null)</span>
+<span class="nc" id="L115">            throw new IllegalArgumentException(&quot;Non-null value not acceptable.&quot;);</span>
+        
+<span class="nc" id="L117">        synchronized (globalJobListeners) {</span>
+<span class="nc" id="L118">            List&lt;Matcher&lt;JobKey&gt;&gt; oldMatchers = globalJobListenersMatchers.get(listenerName);</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">            if(oldMatchers == null)</span>
+<span class="nc" id="L120">                return false;</span>
+<span class="nc" id="L121">            globalJobListenersMatchers.put(listenerName, matchers);</span>
+<span class="nc" id="L122">            return true;</span>
+        }
+    }
+
+
+    public boolean removeJobListener(String name) {
+<span class="fc" id="L128">        synchronized (globalJobListeners) {</span>
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">            return (globalJobListeners.remove(name) != null);</span>
+        }
+    }
+    
+    public List&lt;JobListener&gt; getJobListeners() {
+<span class="fc" id="L134">        synchronized (globalJobListeners) {</span>
+<span class="fc" id="L135">            return java.util.Collections.unmodifiableList(new LinkedList&lt;JobListener&gt;(globalJobListeners.values()));</span>
+        }
+    }
+
+    public JobListener getJobListener(String name) {
+<span class="nc" id="L140">        synchronized (globalJobListeners) {</span>
+<span class="nc" id="L141">            return globalJobListeners.get(name);</span>
+        }
+    }
+
+    public void addTriggerListener(TriggerListener triggerListener, Matcher&lt;TriggerKey&gt; ... matchers) {
+<span class="nc" id="L146">        addTriggerListener(triggerListener, Arrays.asList(matchers));</span>
+<span class="nc" id="L147">    }</span>
+    
+    public void addTriggerListener(TriggerListener triggerListener, List&lt;Matcher&lt;TriggerKey&gt;&gt; matchers) {
+<span class="nc bnc" id="L150" title="All 2 branches missed.">        if (triggerListener.getName() == null</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">                || triggerListener.getName().length() == 0) {</span>
+<span class="nc" id="L152">            throw new IllegalArgumentException(</span>
+                    &quot;TriggerListener name cannot be empty.&quot;);
+        }
+
+<span class="nc" id="L156">        synchronized (globalTriggerListeners) {</span>
+<span class="nc" id="L157">            globalTriggerListeners.put(triggerListener.getName(), triggerListener);</span>
+
+<span class="nc" id="L159">            LinkedList&lt;Matcher&lt;TriggerKey&gt;&gt; matchersL = new  LinkedList&lt;Matcher&lt;TriggerKey&gt;&gt;();</span>
+<span class="nc bnc" id="L160" title="All 4 branches missed.">            if(matchers != null &amp;&amp; matchers.size() &gt; 0)</span>
+<span class="nc" id="L161">                matchersL.addAll(matchers);</span>
+            else
+<span class="nc" id="L163">                matchersL.add(EverythingMatcher.allTriggers());</span>
+
+<span class="nc" id="L165">            globalTriggerListenersMatchers.put(triggerListener.getName(), matchersL);</span>
+<span class="nc" id="L166">        }</span>
+<span class="nc" id="L167">    }</span>
+    
+    public void addTriggerListener(TriggerListener triggerListener) {
+<span class="fc" id="L170">        addTriggerListener(triggerListener, EverythingMatcher.allTriggers());</span>
+<span class="fc" id="L171">    }</span>
+
+    public void addTriggerListener(TriggerListener triggerListener, Matcher&lt;TriggerKey&gt; matcher) {
+<span class="pc bpc" id="L174" title="1 of 2 branches missed.">        if(matcher == null)</span>
+<span class="nc" id="L175">            throw new IllegalArgumentException(&quot;Null value not acceptable for matcher.&quot;);</span>
+        
+<span class="pc bpc" id="L177" title="1 of 2 branches missed.">        if (triggerListener.getName() == null</span>
+<span class="pc bpc" id="L178" title="1 of 2 branches missed.">                || triggerListener.getName().length() == 0) {</span>
+<span class="nc" id="L179">            throw new IllegalArgumentException(</span>
+                    &quot;TriggerListener name cannot be empty.&quot;);
+        }
+
+<span class="fc" id="L183">        synchronized (globalTriggerListeners) {</span>
+<span class="fc" id="L184">            globalTriggerListeners.put(triggerListener.getName(), triggerListener);</span>
+<span class="fc" id="L185">            List&lt;Matcher&lt;TriggerKey&gt;&gt; matchers = new LinkedList&lt;Matcher&lt;TriggerKey&gt;&gt;();</span>
+<span class="fc" id="L186">            matchers.add(matcher);</span>
+<span class="fc" id="L187">            globalTriggerListenersMatchers.put(triggerListener.getName(), matchers);</span>
+<span class="fc" id="L188">        }</span>
+<span class="fc" id="L189">    }</span>
+
+    public boolean addTriggerListenerMatcher(String listenerName, Matcher&lt;TriggerKey&gt; matcher) {
+<span class="pc bpc" id="L192" title="1 of 2 branches missed.">        if(matcher == null)</span>
+<span class="nc" id="L193">            throw new IllegalArgumentException(&quot;Non-null value not acceptable.&quot;);</span>
+        
+<span class="fc" id="L195">        synchronized (globalTriggerListeners) {</span>
+<span class="fc" id="L196">            List&lt;Matcher&lt;TriggerKey&gt;&gt; matchers = globalTriggerListenersMatchers.get(listenerName);</span>
+<span class="pc bpc" id="L197" title="1 of 2 branches missed.">            if(matchers == null)</span>
+<span class="nc" id="L198">                return false;</span>
+<span class="fc" id="L199">            matchers.add(matcher);</span>
+<span class="fc" id="L200">            return true;</span>
+        }
+    }
+
+    public boolean removeTriggerListenerMatcher(String listenerName, Matcher&lt;TriggerKey&gt; matcher) {
+<span class="nc bnc" id="L205" title="All 2 branches missed.">        if(matcher == null)</span>
+<span class="nc" id="L206">            throw new IllegalArgumentException(&quot;Non-null value not acceptable.&quot;);</span>
+        
+<span class="nc" id="L208">        synchronized (globalTriggerListeners) {</span>
+<span class="nc" id="L209">            List&lt;Matcher&lt;TriggerKey&gt;&gt; matchers = globalTriggerListenersMatchers.get(listenerName);</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">            if(matchers == null)</span>
+<span class="nc" id="L211">                return false;</span>
+<span class="nc" id="L212">            return matchers.remove(matcher);</span>
+        }
+    }
+
+    public List&lt;Matcher&lt;TriggerKey&gt;&gt; getTriggerListenerMatchers(String listenerName) {
+<span class="fc" id="L217">        synchronized (globalTriggerListeners) {</span>
+<span class="fc" id="L218">            List&lt;Matcher&lt;TriggerKey&gt;&gt; matchers = globalTriggerListenersMatchers.get(listenerName);</span>
+<span class="pc bpc" id="L219" title="1 of 2 branches missed.">            if(matchers == null)</span>
+<span class="nc" id="L220">                return null;</span>
+<span class="fc" id="L221">            return Collections.unmodifiableList(matchers);</span>
+        }
+    }
+
+    public boolean setTriggerListenerMatchers(String listenerName, List&lt;Matcher&lt;TriggerKey&gt;&gt; matchers)  {
+<span class="nc bnc" id="L226" title="All 2 branches missed.">        if(matchers == null)</span>
+<span class="nc" id="L227">            throw new IllegalArgumentException(&quot;Non-null value not acceptable.&quot;);</span>
+        
+<span class="nc" id="L229">        synchronized (globalTriggerListeners) {</span>
+<span class="nc" id="L230">            List&lt;Matcher&lt;TriggerKey&gt;&gt; oldMatchers = globalTriggerListenersMatchers.get(listenerName);</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">            if(oldMatchers == null)</span>
+<span class="nc" id="L232">                return false;</span>
+<span class="nc" id="L233">            globalTriggerListenersMatchers.put(listenerName, matchers);</span>
+<span class="nc" id="L234">            return true;</span>
+        }
+    }
+
+    public boolean removeTriggerListener(String name) {
+<span class="fc" id="L239">        synchronized (globalTriggerListeners) {</span>
+<span class="pc bpc" id="L240" title="1 of 2 branches missed.">            return (globalTriggerListeners.remove(name) != null);</span>
+        }
+    }
+    
+
+    public List&lt;TriggerListener&gt; getTriggerListeners() {
+<span class="fc" id="L246">        synchronized (globalTriggerListeners) {</span>
+<span class="fc" id="L247">            return java.util.Collections.unmodifiableList(new LinkedList&lt;TriggerListener&gt;(globalTriggerListeners.values()));</span>
+        }
+    }
+
+    public TriggerListener getTriggerListener(String name) {
+<span class="nc" id="L252">        synchronized (globalTriggerListeners) {</span>
+<span class="nc" id="L253">            return globalTriggerListeners.get(name);</span>
+        }
+    }
+    
+    
+    public void addSchedulerListener(SchedulerListener schedulerListener) {
+<span class="fc" id="L259">        synchronized (schedulerListeners) {</span>
+<span class="fc" id="L260">            schedulerListeners.add(schedulerListener);</span>
+<span class="fc" id="L261">        }</span>
+<span class="fc" id="L262">    }</span>
+
+    public boolean removeSchedulerListener(SchedulerListener schedulerListener) {
+<span class="fc" id="L265">        synchronized (schedulerListeners) {</span>
+<span class="fc" id="L266">            return schedulerListeners.remove(schedulerListener);</span>
+        }
+    }
+
+    public List&lt;SchedulerListener&gt; getSchedulerListeners() {
+<span class="fc" id="L271">        synchronized (schedulerListeners) {</span>
+<span class="fc" id="L272">            return java.util.Collections.unmodifiableList(new ArrayList&lt;SchedulerListener&gt;(schedulerListeners));</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

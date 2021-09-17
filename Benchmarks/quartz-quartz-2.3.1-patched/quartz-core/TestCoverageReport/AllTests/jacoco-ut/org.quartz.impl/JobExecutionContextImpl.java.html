@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobExecutionContextImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl</a> &gt; <span class="el_source">JobExecutionContextImpl.java</span></div><h1>JobExecutionContextImpl.java</h1><pre class="source lang-java linenums">
+/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.impl;
+
+import java.util.Date;
+import java.util.HashMap;
+
+import org.quartz.Calendar;
+import org.quartz.Job;
+import org.quartz.JobDataMap;
+import org.quartz.JobDetail;
+import org.quartz.JobExecutionContext;
+import org.quartz.Scheduler;
+import org.quartz.Trigger;
+import org.quartz.TriggerKey;
+import org.quartz.spi.OperableTrigger;
+import org.quartz.spi.TriggerFiredBundle;
+
+
+public class JobExecutionContextImpl implements java.io.Serializable, JobExecutionContext {
+
+    private static final long serialVersionUID = -8139417614523942021L;
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    private transient Scheduler scheduler;
+
+    private Trigger trigger;
+
+    private JobDetail jobDetail;
+    
+    private JobDataMap jobDataMap;
+
+    private transient Job job;
+    
+    private Calendar calendar;
+
+<span class="fc" id="L60">    private boolean recovering = false;</span>
+
+<span class="fc" id="L62">    private int numRefires = 0;</span>
+
+    private Date fireTime;
+
+    private Date scheduledFireTime;
+
+    private Date prevFireTime;
+
+    private Date nextFireTime;
+    
+<span class="fc" id="L72">    private long jobRunTime = -1;</span>
+    
+    private Object result;
+    
+<span class="fc" id="L76">    private HashMap&lt;Object, Object&gt; data = new HashMap&lt;Object, Object&gt;();</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Create a JobExcecutionContext with the given context data.
+     * &lt;/p&gt;
+     */
+    public JobExecutionContextImpl(Scheduler scheduler,
+<span class="fc" id="L92">            TriggerFiredBundle firedBundle, Job job) {</span>
+<span class="fc" id="L93">        this.scheduler = scheduler;</span>
+<span class="fc" id="L94">        this.trigger = firedBundle.getTrigger();</span>
+<span class="fc" id="L95">        this.calendar = firedBundle.getCalendar();</span>
+<span class="fc" id="L96">        this.jobDetail = firedBundle.getJobDetail();</span>
+<span class="fc" id="L97">        this.job = job;</span>
+<span class="fc" id="L98">        this.recovering = firedBundle.isRecovering();</span>
+<span class="fc" id="L99">        this.fireTime = firedBundle.getFireTime();</span>
+<span class="fc" id="L100">        this.scheduledFireTime = firedBundle.getScheduledFireTime();</span>
+<span class="fc" id="L101">        this.prevFireTime = firedBundle.getPrevFireTime();</span>
+<span class="fc" id="L102">        this.nextFireTime = firedBundle.getNextFireTime();</span>
+        
+<span class="fc" id="L104">        this.jobDataMap = new JobDataMap();</span>
+<span class="fc" id="L105">        this.jobDataMap.putAll(jobDetail.getJobDataMap());</span>
+<span class="fc" id="L106">        this.jobDataMap.putAll(trigger.getJobDataMap());</span>
+<span class="fc" id="L107">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * {@inheritDoc}
+     */
+    public Scheduler getScheduler() {
+<span class="fc" id="L121">        return scheduler;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public Trigger getTrigger() {
+<span class="fc" id="L128">        return trigger;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public Calendar getCalendar() {
+<span class="nc" id="L135">        return calendar;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public boolean isRecovering() {
+<span class="nc" id="L142">        return recovering;</span>
+    }
+
+    public TriggerKey getRecoveringTriggerKey() {
+<span class="nc bnc" id="L146" title="All 2 branches missed.">        if (isRecovering()) {</span>
+<span class="nc" id="L147">            return new TriggerKey(jobDataMap.getString(Scheduler.FAILED_JOB_ORIGINAL_TRIGGER_NAME),</span>
+<span class="nc" id="L148">                                  jobDataMap.getString(Scheduler.FAILED_JOB_ORIGINAL_TRIGGER_GROUP));</span>
+        } else {
+<span class="nc" id="L150">            throw new IllegalStateException(&quot;Not a recovering job&quot;);</span>
+        }
+    }
+    
+    public void incrementRefireCount() {
+<span class="nc" id="L155">        numRefires++;</span>
+<span class="nc" id="L156">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    public int getRefireCount() {
+<span class="nc" id="L162">        return numRefires;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public JobDataMap getMergedJobDataMap() {
+<span class="nc" id="L169">        return jobDataMap;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public JobDetail getJobDetail() {
+<span class="fc" id="L176">        return jobDetail;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public Job getJobInstance() {
+<span class="fc" id="L183">        return job;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public Date getFireTime() {
+<span class="nc" id="L190">        return fireTime;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public Date getScheduledFireTime() {
+<span class="fc" id="L197">        return scheduledFireTime;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public Date getPreviousFireTime() {
+<span class="nc" id="L204">        return prevFireTime;</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public Date getNextFireTime() {
+<span class="nc" id="L211">        return nextFireTime;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L216">        return &quot;JobExecutionContext:&quot; + &quot; trigger: '&quot;</span>
+<span class="nc" id="L217">                + getTrigger().getKey() + &quot; job: &quot;</span>
+<span class="nc" id="L218">                + getJobDetail().getKey() + &quot; fireTime: '&quot; + getFireTime()</span>
+<span class="nc" id="L219">                + &quot; scheduledFireTime: &quot; + getScheduledFireTime()</span>
+<span class="nc" id="L220">                + &quot; previousFireTime: '&quot; + getPreviousFireTime()</span>
+<span class="nc" id="L221">                + &quot; nextFireTime: &quot; + getNextFireTime() + &quot; isRecovering: &quot;</span>
+<span class="nc" id="L222">                + isRecovering() + &quot; refireCount: &quot; + getRefireCount();</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public Object getResult() {
+<span class="nc" id="L229">        return result;</span>
+    }
+    
+    /**
+     * {@inheritDoc}
+     */
+    public void setResult(Object result) {
+<span class="nc" id="L236">        this.result = result;</span>
+<span class="nc" id="L237">    }</span>
+    
+    /**
+     * {@inheritDoc}
+     */
+    public long getJobRunTime() {
+<span class="nc" id="L243">        return jobRunTime;</span>
+    }
+    
+    /**
+     * @param jobRunTime The jobRunTime to set.
+     */
+    public void setJobRunTime(long jobRunTime) {
+<span class="fc" id="L250">        this.jobRunTime = jobRunTime;</span>
+<span class="fc" id="L251">    }</span>
+
+    /**
+     * {@inheritDoc}
+     */
+    public void put(Object key, Object value) {
+<span class="nc" id="L257">        data.put(key, value);</span>
+<span class="nc" id="L258">    }</span>
+    
+    /**
+     * {@inheritDoc}
+     */
+    public Object get(Object key) {
+<span class="nc" id="L264">        return data.get(key);</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public String getFireInstanceId() {
+<span class="fc" id="L271">        return ((OperableTrigger)trigger).getFireInstanceId();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

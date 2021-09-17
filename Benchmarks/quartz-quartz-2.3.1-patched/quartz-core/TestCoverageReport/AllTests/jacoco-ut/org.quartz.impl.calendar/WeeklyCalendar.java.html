@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WeeklyCalendar.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.calendar</a> &gt; <span class="el_source">WeeklyCalendar.java</span></div><h1>WeeklyCalendar.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy
+ * of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ *
+ */
+
+package org.quartz.impl.calendar;
+
+import java.io.Serializable;
+import java.util.TimeZone;
+
+import org.quartz.Calendar;
+
+/**
+ * &lt;p&gt;
+ * This implementation of the Calendar excludes a set of days of the week. You
+ * may use it to exclude weekends for example. But you may define any day of
+ * the week.  By default it excludes SATURDAY and SUNDAY.
+ * &lt;/p&gt;
+ *
+ * @see org.quartz.Calendar
+ * @see org.quartz.impl.calendar.BaseCalendar
+ *
+ * @author Juergen Donnerstag
+ */
+public class WeeklyCalendar extends BaseCalendar implements Calendar,
+        Serializable {
+    static final long serialVersionUID = -6809298821229007586L;
+
+    // An array to store the week days which are to be excluded.
+    // java.util.Calendar.MONDAY etc. are used as index.
+<span class="nc" id="L43">    private boolean[] excludeDays = new boolean[8];</span>
+
+    // Will be set to true, if all week days are excluded
+<span class="nc" id="L46">    private boolean excludeAll = false;</span>
+
+    public WeeklyCalendar() {
+<span class="nc" id="L49">        this(null, null);</span>
+<span class="nc" id="L50">    }</span>
+
+    public WeeklyCalendar(Calendar baseCalendar) {
+<span class="nc" id="L53">        this(baseCalendar, null);</span>
+<span class="nc" id="L54">    }</span>
+
+    public WeeklyCalendar(TimeZone timeZone) {
+<span class="nc" id="L57">        super(null, timeZone);</span>
+<span class="nc" id="L58">    }</span>
+
+    public WeeklyCalendar(Calendar baseCalendar, TimeZone timeZone) {
+<span class="nc" id="L61">        super(baseCalendar, timeZone);</span>
+
+<span class="nc" id="L63">        excludeDays[java.util.Calendar.SUNDAY] = true;</span>
+<span class="nc" id="L64">        excludeDays[java.util.Calendar.SATURDAY] = true;</span>
+<span class="nc" id="L65">        excludeAll = areAllDaysExcluded();</span>
+<span class="nc" id="L66">    }</span>
+
+    @Override
+    public Object clone() {
+<span class="nc" id="L70">        WeeklyCalendar clone = (WeeklyCalendar) super.clone();</span>
+<span class="nc" id="L71">        clone.excludeDays = excludeDays.clone();</span>
+<span class="nc" id="L72">        return clone;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the array with the week days
+     * &lt;/p&gt;
+     */
+    public boolean[] getDaysExcluded() {
+<span class="nc" id="L81">        return excludeDays;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Return true, if wday (see Calendar.get()) is defined to be exluded. E. g.
+     * saturday and sunday.
+     * &lt;/p&gt;
+     */
+    public boolean isDayExcluded(int wday) {
+<span class="nc" id="L91">        return excludeDays[wday];</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Redefine the array of days excluded. The array must of size greater or
+     * equal 8. java.util.Calendar's constants like MONDAY should be used as
+     * index. A value of true is regarded as: exclude it.
+     * &lt;/p&gt;
+     */
+    public void setDaysExcluded(boolean[] weekDays) {
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        if (weekDays == null) {</span>
+<span class="nc" id="L103">            return;</span>
+        }
+
+<span class="nc" id="L106">        excludeDays = weekDays;</span>
+<span class="nc" id="L107">        excludeAll = areAllDaysExcluded();</span>
+<span class="nc" id="L108">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Redefine a certain day of the week to be excluded (true) or included
+     * (false). Use java.util.Calendar's constants like MONDAY to determine the
+     * wday.
+     * &lt;/p&gt;
+     */
+    public void setDayExcluded(int wday, boolean exclude) {
+<span class="nc" id="L118">        excludeDays[wday] = exclude;</span>
+<span class="nc" id="L119">        excludeAll = areAllDaysExcluded();</span>
+<span class="nc" id="L120">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Check if all week days are excluded. That is no day is included.
+     * &lt;/p&gt;
+     *
+     * @return boolean
+     */
+    public boolean areAllDaysExcluded() {
+<span class="nc" id="L130">        return</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">            isDayExcluded(java.util.Calendar.SUNDAY) &amp;&amp;</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">            isDayExcluded(java.util.Calendar.MONDAY) &amp;&amp;</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">            isDayExcluded(java.util.Calendar.TUESDAY) &amp;&amp;</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">            isDayExcluded(java.util.Calendar.WEDNESDAY) &amp;&amp;</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">            isDayExcluded(java.util.Calendar.THURSDAY) &amp;&amp;</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">            isDayExcluded(java.util.Calendar.FRIDAY) &amp;&amp;</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">            isDayExcluded(java.util.Calendar.SATURDAY);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Determine whether the given time (in milliseconds) is 'included' by the
+     * Calendar.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * Note that this Calendar is only has full-day precision.
+     * &lt;/p&gt;
+     */
+    @Override
+    public boolean isTimeIncluded(long timeStamp) {
+<span class="nc bnc" id="L152" title="All 2 branches missed.">        if (excludeAll == true) {</span>
+<span class="nc" id="L153">            return false;</span>
+        }
+
+        // Test the base calendar first. Only if the base calendar not already
+        // excludes the time/date, continue evaluating this calendar instance.
+<span class="nc bnc" id="L158" title="All 2 branches missed.">        if (super.isTimeIncluded(timeStamp) == false) { return false; }</span>
+
+<span class="nc" id="L160">        java.util.Calendar cl = createJavaCalendar(timeStamp);</span>
+<span class="nc" id="L161">        int wday = cl.get(java.util.Calendar.DAY_OF_WEEK);</span>
+
+<span class="nc bnc" id="L163" title="All 2 branches missed.">        return !(isDayExcluded(wday));</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Determine the next time (in milliseconds) that is 'included' by the
+     * Calendar after the given time. Return the original value if timeStamp is
+     * included. Return 0 if all days are excluded.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * Note that this Calendar is only has full-day precision.
+     * &lt;/p&gt;
+     */
+    @Override
+    public long getNextIncludedTime(long timeStamp) {
+<span class="nc bnc" id="L179" title="All 2 branches missed.">        if (excludeAll == true) {</span>
+<span class="nc" id="L180">            return 0;</span>
+        }
+
+        // Call base calendar implementation first
+<span class="nc" id="L184">        long baseTime = super.getNextIncludedTime(timeStamp);</span>
+<span class="nc bnc" id="L185" title="All 4 branches missed.">        if ((baseTime &gt; 0) &amp;&amp; (baseTime &gt; timeStamp)) {</span>
+<span class="nc" id="L186">            timeStamp = baseTime;</span>
+        }
+
+        // Get timestamp for 00:00:00
+<span class="nc" id="L190">        java.util.Calendar cl = getStartOfDayJavaCalendar(timeStamp);</span>
+<span class="nc" id="L191">        int wday = cl.get(java.util.Calendar.DAY_OF_WEEK);</span>
+
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        if (!isDayExcluded(wday)) {</span>
+<span class="nc" id="L194">            return timeStamp; // return the original value</span>
+        }
+
+<span class="nc bnc" id="L197" title="All 2 branches missed.">        while (isDayExcluded(wday) == true) {</span>
+<span class="nc" id="L198">            cl.add(java.util.Calendar.DATE, 1);</span>
+<span class="nc" id="L199">            wday = cl.get(java.util.Calendar.DAY_OF_WEEK);</span>
+        }
+
+<span class="nc" id="L202">        return cl.getTime().getTime();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

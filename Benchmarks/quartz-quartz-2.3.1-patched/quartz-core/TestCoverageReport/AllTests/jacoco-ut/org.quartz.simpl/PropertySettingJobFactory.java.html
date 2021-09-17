@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PropertySettingJobFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.simpl</a> &gt; <span class="el_source">PropertySettingJobFactory.java</span></div><h1>PropertySettingJobFactory.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+package org.quartz.simpl;
+
+import java.beans.BeanInfo;
+import java.beans.IntrospectionException;
+import java.beans.Introspector;
+import java.beans.PropertyDescriptor;
+import java.lang.reflect.InvocationTargetException;
+import java.util.Iterator;
+import java.util.Locale;
+import java.util.Map;
+
+import org.quartz.Job;
+import org.quartz.JobDataMap;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerContext;
+import org.quartz.SchedulerException;
+import org.quartz.spi.TriggerFiredBundle;
+
+
+
+/**
+ * A JobFactory that instantiates the Job instance (using the default no-arg
+ * constructor, or more specifically: &lt;code&gt;class.newInstance()&lt;/code&gt;), and
+ * then attempts to set all values from the &lt;code&gt;SchedulerContext&lt;/code&gt; and
+ * the &lt;code&gt;JobExecutionContext&lt;/code&gt;'s merged &lt;code&gt;JobDataMap&lt;/code&gt; onto 
+ * bean properties of the &lt;code&gt;Job&lt;/code&gt;.
+ * 
+ * &lt;p&gt;Set the warnIfPropertyNotFound property to true if you'd like noisy logging in
+ * the case of values in the JobDataMap not mapping to properties on your Job
+ * class.  This may be useful for troubleshooting typos of property names, etc.
+ * but very noisy if you regularly (and purposely) have extra things in your
+ * JobDataMap.&lt;/p&gt;
+ * 
+ * &lt;p&gt;Also of possible interest is the throwIfPropertyNotFound property which
+ * will throw exceptions on unmatched JobDataMap keys.&lt;/p&gt;
+ * 
+ * @see org.quartz.spi.JobFactory
+ * @see SimpleJobFactory
+ * @see SchedulerContext
+ * @see org.quartz.JobExecutionContext#getMergedJobDataMap()
+ * @see #setWarnIfPropertyNotFound(boolean)
+ * @see #setThrowIfPropertyNotFound(boolean)
+ * 
+ * @author jhouse
+ */
+<span class="fc" id="L62">public class PropertySettingJobFactory extends SimpleJobFactory {</span>
+<span class="fc" id="L63">    private boolean warnIfNotFound = false;</span>
+<span class="fc" id="L64">    private boolean throwIfNotFound = false;</span>
+    
+    @Override
+    public Job newJob(TriggerFiredBundle bundle, Scheduler scheduler) throws SchedulerException {
+
+<span class="fc" id="L69">        Job job = super.newJob(bundle, scheduler);</span>
+        
+<span class="fc" id="L71">        JobDataMap jobDataMap = new JobDataMap();</span>
+<span class="fc" id="L72">        jobDataMap.putAll(scheduler.getContext());</span>
+<span class="fc" id="L73">        jobDataMap.putAll(bundle.getJobDetail().getJobDataMap());</span>
+<span class="fc" id="L74">        jobDataMap.putAll(bundle.getTrigger().getJobDataMap());</span>
+
+<span class="fc" id="L76">        setBeanProps(job, jobDataMap);</span>
+        
+<span class="fc" id="L78">        return job;</span>
+    }
+    
+    protected void setBeanProps(Object obj, JobDataMap data) throws SchedulerException {
+
+<span class="fc" id="L83">        BeanInfo bi = null;</span>
+        try {
+<span class="fc" id="L85">            bi = Introspector.getBeanInfo(obj.getClass());</span>
+<span class="nc" id="L86">        } catch (IntrospectionException e) {</span>
+<span class="nc" id="L87">            handleError(&quot;Unable to introspect Job class.&quot;, e);</span>
+<span class="fc" id="L88">        }</span>
+        
+<span class="fc" id="L90">        PropertyDescriptor[] propDescs = bi.getPropertyDescriptors();</span>
+        
+        // Get the wrapped entry set so don't have to incur overhead of wrapping for
+        // dirty flag checking since this is read only access
+<span class="fc bfc" id="L94" title="All 2 branches covered.">        for (Iterator&lt;?&gt; entryIter = data.getWrappedMap().entrySet().iterator(); entryIter.hasNext();) {</span>
+<span class="fc" id="L95">            Map.Entry&lt;?,?&gt; entry = (Map.Entry&lt;?,?&gt;)entryIter.next();</span>
+            
+<span class="fc" id="L97">            String name = (String)entry.getKey();</span>
+<span class="fc" id="L98">            String c = name.substring(0, 1).toUpperCase(Locale.US);</span>
+<span class="fc" id="L99">            String methName = &quot;set&quot; + c + name.substring(1);</span>
+        
+<span class="fc" id="L101">            java.lang.reflect.Method setMeth = getSetMethod(methName, propDescs);</span>
+        
+<span class="fc" id="L103">            Class&lt;?&gt; paramType = null;</span>
+<span class="fc" id="L104">            Object o = null;</span>
+            
+            try {
+<span class="fc bfc" id="L107" title="All 2 branches covered.">                if (setMeth == null) {</span>
+<span class="fc" id="L108">                    handleError(</span>
+<span class="fc" id="L109">                        &quot;No setter on Job class &quot; + obj.getClass().getName() + </span>
+                        &quot; for property '&quot; + name + &quot;'&quot;);
+<span class="fc" id="L111">                    continue;</span>
+                }
+                
+<span class="fc" id="L114">                paramType = setMeth.getParameterTypes()[0];</span>
+<span class="fc" id="L115">                o = entry.getValue();</span>
+                
+<span class="fc" id="L117">                Object parm = null;</span>
+<span class="fc bfc" id="L118" title="All 2 branches covered.">                if (paramType.isPrimitive()) {</span>
+<span class="fc bfc" id="L119" title="All 2 branches covered.">                    if (o == null) {</span>
+<span class="pc" id="L120">                        handleError(</span>
+                            &quot;Cannot set primitive property '&quot; + name + 
+<span class="fc" id="L122">                            &quot;' on Job class &quot; + obj.getClass().getName() + </span>
+                            &quot; to null.&quot;);
+<span class="nc" id="L124">                        continue;</span>
+                    }
+
+<span class="fc bfc" id="L127" title="All 2 branches covered.">                    if (paramType.equals(int.class)) {</span>
+<span class="fc bfc" id="L128" title="All 2 branches covered.">                        if (o instanceof String) {                            </span>
+<span class="fc" id="L129">                            parm = Integer.valueOf((String)o);</span>
+<span class="fc bfc" id="L130" title="All 2 branches covered.">                        } else if (o instanceof Integer) {</span>
+<span class="fc" id="L131">                            parm = o;</span>
+                        }
+<span class="fc bfc" id="L133" title="All 2 branches covered.">                    } else if (paramType.equals(long.class)) {</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">                        if (o instanceof String) {</span>
+<span class="fc" id="L135">                            parm = Long.valueOf((String)o);</span>
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">                        } else if (o instanceof Long) {</span>
+<span class="fc" id="L137">                            parm = o;</span>
+                        }
+<span class="fc bfc" id="L139" title="All 2 branches covered.">                    } else if (paramType.equals(float.class)) {</span>
+<span class="fc bfc" id="L140" title="All 2 branches covered.">                        if (o instanceof String) {</span>
+<span class="fc" id="L141">                            parm = Float.valueOf((String)o);</span>
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">                        } else if (o instanceof Float) {</span>
+<span class="fc" id="L143">                            parm = o;</span>
+                        }
+<span class="fc bfc" id="L145" title="All 2 branches covered.">                    } else if (paramType.equals(double.class)) {</span>
+<span class="fc bfc" id="L146" title="All 2 branches covered.">                        if (o instanceof String) {</span>
+<span class="fc" id="L147">                            parm = Double.valueOf((String)o);</span>
+<span class="pc bpc" id="L148" title="1 of 2 branches missed.">                        } else if (o instanceof Double) {</span>
+<span class="fc" id="L149">                            parm = o;</span>
+                        }
+<span class="fc bfc" id="L151" title="All 2 branches covered.">                    } else if (paramType.equals(boolean.class)) {</span>
+<span class="fc bfc" id="L152" title="All 2 branches covered.">                        if (o instanceof String) {</span>
+<span class="fc" id="L153">                            parm = Boolean.valueOf((String)o);</span>
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">                        } else if (o instanceof Boolean) {</span>
+<span class="fc" id="L155">                            parm = o;</span>
+                        }
+<span class="fc bfc" id="L157" title="All 2 branches covered.">                    } else if (paramType.equals(byte.class)) {</span>
+<span class="fc bfc" id="L158" title="All 2 branches covered.">                        if (o instanceof String) {</span>
+<span class="fc" id="L159">                            parm = Byte.valueOf((String)o);</span>
+<span class="pc bpc" id="L160" title="1 of 2 branches missed.">                        } else if (o instanceof Byte) {</span>
+<span class="fc" id="L161">                            parm = o;</span>
+                        }
+<span class="fc bfc" id="L163" title="All 2 branches covered.">                    } else if (paramType.equals(short.class)) {</span>
+<span class="fc bfc" id="L164" title="All 2 branches covered.">                        if (o instanceof String) {</span>
+<span class="fc" id="L165">                            parm = Short.valueOf((String)o);</span>
+<span class="pc bpc" id="L166" title="1 of 2 branches missed.">                        } else if (o instanceof Short) {</span>
+<span class="fc" id="L167">                            parm = o;</span>
+                        }
+<span class="pc bpc" id="L169" title="1 of 2 branches missed.">                    } else if (paramType.equals(char.class)) {</span>
+<span class="fc bfc" id="L170" title="All 2 branches covered.">                        if (o instanceof String) {</span>
+<span class="fc" id="L171">                            String str = (String)o;</span>
+<span class="fc bfc" id="L172" title="All 2 branches covered.">                            if (str.length() == 1) {</span>
+<span class="fc" id="L173">                                parm = Character.valueOf(str.charAt(0));</span>
+                            }
+<span class="pc bpc" id="L175" title="1 of 2 branches missed.">                        } else if (o instanceof Character) {</span>
+<span class="fc" id="L176">                            parm = o;</span>
+                        }
+                    }
+<span class="fc bfc" id="L179" title="All 4 branches covered.">                } else if ((o != null) &amp;&amp; (paramType.isAssignableFrom(o.getClass()))) {</span>
+<span class="fc" id="L180">                    parm = o;</span>
+                }
+                
+                // If the parameter wasn't originally null, but we didn't find a 
+                // matching parameter, then we are stuck.
+<span class="fc bfc" id="L185" title="All 4 branches covered.">                if ((o != null) &amp;&amp; (parm == null)) {</span>
+<span class="pc" id="L186">                    handleError(</span>
+<span class="fc" id="L187">                        &quot;The setter on Job class &quot; + obj.getClass().getName() + </span>
+                        &quot; for property '&quot; + name + 
+                        &quot;' expects a &quot; + paramType + 
+<span class="fc" id="L190">                        &quot; but was given &quot; + o.getClass().getName());</span>
+<span class="nc" id="L191">                    continue;</span>
+                }
+                                
+<span class="fc" id="L194">                setMeth.invoke(obj, new Object[]{ parm });</span>
+<span class="nc" id="L195">            } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L196">                handleError(</span>
+<span class="nc" id="L197">                    &quot;The setter on Job class &quot; + obj.getClass().getName() + </span>
+                    &quot; for property '&quot; + name + 
+                    &quot;' expects a &quot; + paramType + 
+<span class="nc" id="L200">                    &quot; but was given &quot; + o.getClass().getName(), nfe);</span>
+<span class="nc" id="L201">            } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L202">                handleError(</span>
+<span class="nc" id="L203">                    &quot;The setter on Job class &quot; + obj.getClass().getName() + </span>
+                    &quot; for property '&quot; + name + 
+                    &quot;' expects a &quot; + paramType + 
+<span class="nc" id="L206">                    &quot; but was given &quot; + o.getClass().getName(), e);</span>
+<span class="nc" id="L207">            } catch (IllegalAccessException e) {</span>
+<span class="nc" id="L208">                handleError(</span>
+<span class="nc" id="L209">                    &quot;The setter on Job class &quot; + obj.getClass().getName() + </span>
+                    &quot; for property '&quot; + name + 
+                    &quot;' could not be accessed.&quot;, e);
+<span class="nc" id="L212">            } catch (InvocationTargetException e) {</span>
+<span class="nc" id="L213">                handleError(</span>
+<span class="nc" id="L214">                    &quot;The setter on Job class &quot; + obj.getClass().getName() + </span>
+                    &quot; for property '&quot; + name + 
+                    &quot;' could not be invoked.&quot;, e);
+<span class="pc" id="L217">            }</span>
+<span class="fc" id="L218">        }</span>
+<span class="fc" id="L219">    }</span>
+     
+    private void handleError(String message) throws SchedulerException {
+<span class="fc" id="L222">        handleError(message, null);</span>
+<span class="fc" id="L223">    }</span>
+    
+    private void handleError(String message, Exception e) throws SchedulerException {
+<span class="fc bfc" id="L226" title="All 2 branches covered.">        if (isThrowIfPropertyNotFound()) {</span>
+<span class="fc" id="L227">            throw new SchedulerException(message, e);</span>
+        }
+        
+<span class="pc bpc" id="L230" title="1 of 2 branches missed.">        if (isWarnIfPropertyNotFound()) {</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">            if (e == null) {</span>
+<span class="nc" id="L232">                getLog().warn(message);</span>
+            } else {
+<span class="nc" id="L234">                getLog().warn(message, e);</span>
+            }
+        }
+<span class="fc" id="L237">    }</span>
+    
+    private java.lang.reflect.Method getSetMethod(String name,
+            PropertyDescriptor[] props) {
+<span class="fc bfc" id="L241" title="All 2 branches covered.">        for (int i = 0; i &lt; props.length; i++) {</span>
+<span class="fc" id="L242">            java.lang.reflect.Method wMeth = props[i].getWriteMethod();</span>
+        
+<span class="fc bfc" id="L244" title="All 2 branches covered.">            if(wMeth == null) {</span>
+<span class="fc" id="L245">                continue;</span>
+            }
+            
+<span class="pc bpc" id="L248" title="1 of 2 branches missed.">            if(wMeth.getParameterTypes().length != 1) {</span>
+<span class="nc" id="L249">                continue;</span>
+            }
+            
+<span class="fc bfc" id="L252" title="All 2 branches covered.">            if (wMeth.getName().equals(name)) {</span>
+<span class="fc" id="L253">                return wMeth;</span>
+            }
+        }
+        
+<span class="fc" id="L257">        return null;</span>
+    }
+
+    /**
+     * Whether the JobInstantiation should fail and throw and exception if
+     * a key (name) and value (type) found in the JobDataMap does not 
+     * correspond to a proptery setter on the Job class.
+     *  
+     * @return Returns the throwIfNotFound.
+     */
+    public boolean isThrowIfPropertyNotFound() {
+<span class="fc" id="L268">        return throwIfNotFound;</span>
+    }
+
+    /**
+     * Whether the JobInstantiation should fail and throw and exception if
+     * a key (name) and value (type) found in the JobDataMap does not 
+     * correspond to a proptery setter on the Job class.
+     *  
+     * @param throwIfNotFound defaults to &lt;code&gt;false&lt;/code&gt;.
+     */
+    public void setThrowIfPropertyNotFound(boolean throwIfNotFound) {
+<span class="fc" id="L279">        this.throwIfNotFound = throwIfNotFound;</span>
+<span class="fc" id="L280">    }</span>
+
+    /**
+     * Whether a warning should be logged if
+     * a key (name) and value (type) found in the JobDataMap does not 
+     * correspond to a proptery setter on the Job class.
+     *  
+     * @return Returns the warnIfNotFound.
+     */
+    public boolean isWarnIfPropertyNotFound() {
+<span class="fc" id="L290">        return warnIfNotFound;</span>
+    }
+
+    /**
+     * Whether a warning should be logged if
+     * a key (name) and value (type) found in the JobDataMap does not 
+     * correspond to a proptery setter on the Job class.
+     *  
+     * @param warnIfNotFound defaults to &lt;code&gt;true&lt;/code&gt;.
+     */
+    public void setWarnIfPropertyNotFound(boolean warnIfNotFound) {
+<span class="nc" id="L301">        this.warnIfNotFound = warnIfNotFound;</span>
+<span class="nc" id="L302">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

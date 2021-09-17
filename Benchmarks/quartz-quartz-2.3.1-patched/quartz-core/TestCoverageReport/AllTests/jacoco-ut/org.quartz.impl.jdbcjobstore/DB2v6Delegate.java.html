@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DB2v6Delegate.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.jdbcjobstore</a> &gt; <span class="el_source">DB2v6Delegate.java</span></div><h1>DB2v6Delegate.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.impl.jdbcjobstore;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.quartz.JobKey;
+import org.quartz.spi.ClassLoadHelper;
+import org.slf4j.Logger;
+
+/**
+ * Quartz JDBC delegate for DB2 v6 databases. &lt;code&gt;select count(name)&lt;/code&gt;
+ * had to be replaced with &lt;code&gt;select count(*)&lt;/code&gt;.
+ * 
+ * @author Martin Renner
+ * @author James House
+ */
+<span class="nc" id="L36">public class DB2v6Delegate extends StdJDBCDelegate {</span>
+    @SuppressWarnings(&quot;hiding&quot;)
+    public static final String SELECT_NUM_JOBS = &quot;SELECT COUNT(*) FROM &quot;
+            + TABLE_PREFIX_SUBST + TABLE_JOB_DETAILS
+            + &quot; WHERE &quot; + COL_SCHEDULER_NAME + &quot; = &quot; + SCHED_NAME_SUBST;
+
+    @SuppressWarnings(&quot;hiding&quot;)
+    public static final String SELECT_NUM_TRIGGERS_FOR_JOB = &quot;SELECT COUNT(*) FROM &quot;
+            + TABLE_PREFIX_SUBST
+            + TABLE_TRIGGERS
+            + &quot; WHERE &quot;
+            + COL_SCHEDULER_NAME + &quot; = &quot; + SCHED_NAME_SUBST
+            + &quot; AND &quot; 
+            + COL_JOB_NAME
+            + &quot; = ? AND &quot; + COL_JOB_GROUP + &quot; = ?&quot;;
+
+    @SuppressWarnings(&quot;hiding&quot;)
+    public static final String SELECT_NUM_TRIGGERS = &quot;SELECT COUNT(*) FROM &quot;
+            + TABLE_PREFIX_SUBST + TABLE_TRIGGERS
+            + &quot; WHERE &quot; + COL_SCHEDULER_NAME + &quot; = &quot; + SCHED_NAME_SUBST;
+
+    @SuppressWarnings(&quot;hiding&quot;)
+    public static final String SELECT_NUM_CALENDARS = &quot;SELECT COUNT(*) FROM &quot;
+            + TABLE_PREFIX_SUBST + TABLE_CALENDARS
+            + &quot; WHERE &quot; + COL_SCHEDULER_NAME + &quot; = &quot; + SCHED_NAME_SUBST;
+
+    @Override
+    public int selectNumJobs(Connection conn) throws SQLException {
+<span class="nc" id="L64">        PreparedStatement ps = null;</span>
+<span class="nc" id="L65">        ResultSet rs = null;</span>
+
+        try {
+<span class="nc" id="L68">            int count = 0;</span>
+<span class="nc" id="L69">            ps = conn.prepareStatement(rtp(SELECT_NUM_JOBS));</span>
+<span class="nc" id="L70">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L72" title="All 2 branches missed.">            if (rs.next()) {</span>
+<span class="nc" id="L73">                count = rs.getInt(1);</span>
+            }
+
+<span class="nc" id="L76">            return count;</span>
+        } finally {
+<span class="nc" id="L78">            closeResultSet(rs);</span>
+<span class="nc" id="L79">            closeStatement(ps);</span>
+        }
+    }
+
+    @Override           
+    public int selectNumTriggersForJob(Connection conn, JobKey jobKey) throws SQLException {
+<span class="nc" id="L85">        PreparedStatement ps = null;</span>
+<span class="nc" id="L86">        ResultSet rs = null;</span>
+
+        try {
+<span class="nc" id="L89">            ps = conn.prepareStatement(rtp(SELECT_NUM_TRIGGERS_FOR_JOB));</span>
+<span class="nc" id="L90">            ps.setString(1, jobKey.getName());</span>
+<span class="nc" id="L91">            ps.setString(2, jobKey.getGroup());</span>
+<span class="nc" id="L92">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L94" title="All 2 branches missed.">            if (rs.next()) {</span>
+<span class="nc" id="L95">                return rs.getInt(1);</span>
+            } else {
+<span class="nc" id="L97">                return 0;</span>
+            }
+        } finally {
+<span class="nc" id="L100">            closeResultSet(rs);</span>
+<span class="nc" id="L101">            closeStatement(ps);</span>
+        }
+    }
+
+    @Override
+    public int selectNumTriggers(Connection conn) throws SQLException {
+<span class="nc" id="L107">        PreparedStatement ps = null;</span>
+<span class="nc" id="L108">        ResultSet rs = null;</span>
+
+        try {
+<span class="nc" id="L111">            int count = 0;</span>
+<span class="nc" id="L112">            ps = conn.prepareStatement(rtp(SELECT_NUM_TRIGGERS));</span>
+<span class="nc" id="L113">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L115" title="All 2 branches missed.">            if (rs.next()) {</span>
+<span class="nc" id="L116">                count = rs.getInt(1);</span>
+            }
+
+<span class="nc" id="L119">            return count;</span>
+        } finally {
+<span class="nc" id="L121">            closeResultSet(rs);</span>
+<span class="nc" id="L122">            closeStatement(ps);</span>
+        }
+    }
+
+    @Override           
+    public int selectNumCalendars(Connection conn) throws SQLException {
+<span class="nc" id="L128">        PreparedStatement ps = null;</span>
+<span class="nc" id="L129">        ResultSet rs = null;</span>
+
+        try {
+<span class="nc" id="L132">            int count = 0;</span>
+<span class="nc" id="L133">            ps = conn.prepareStatement(rtp(SELECT_NUM_CALENDARS));</span>
+<span class="nc" id="L134">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L136" title="All 2 branches missed.">            if (rs.next()) {</span>
+<span class="nc" id="L137">                count = rs.getInt(1);</span>
+            }
+
+<span class="nc" id="L140">            return count;</span>
+        } finally {
+<span class="nc" id="L142">            closeResultSet(rs);</span>
+<span class="nc" id="L143">            closeStatement(ps);</span>
+        }
+    }
+}
+
+// EOF
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

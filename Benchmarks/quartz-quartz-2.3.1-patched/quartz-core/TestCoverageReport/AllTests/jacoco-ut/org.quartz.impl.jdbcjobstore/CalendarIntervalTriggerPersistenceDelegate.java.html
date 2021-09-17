@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CalendarIntervalTriggerPersistenceDelegate.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.jdbcjobstore</a> &gt; <span class="el_source">CalendarIntervalTriggerPersistenceDelegate.java</span></div><h1>CalendarIntervalTriggerPersistenceDelegate.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.quartz.impl.jdbcjobstore;
+
+import java.util.TimeZone;
+
+import org.quartz.CalendarIntervalScheduleBuilder;
+import org.quartz.ScheduleBuilder;
+import org.quartz.DateBuilder.IntervalUnit;
+import org.quartz.impl.triggers.CalendarIntervalTriggerImpl;
+import org.quartz.spi.OperableTrigger;
+
+<span class="fc" id="L26">public class CalendarIntervalTriggerPersistenceDelegate extends SimplePropertiesTriggerPersistenceDelegateSupport {</span>
+
+    public boolean canHandleTriggerType(OperableTrigger trigger) {
+<span class="nc bnc" id="L29" title="All 4 branches missed.">        return ((trigger instanceof CalendarIntervalTriggerImpl) &amp;&amp; !((CalendarIntervalTriggerImpl)trigger).hasAdditionalProperties());</span>
+    }
+
+    public String getHandledTriggerTypeDiscriminator() {
+<span class="nc" id="L33">        return TTYPE_CAL_INT;</span>
+    }
+
+    @Override
+    protected SimplePropertiesTriggerProperties getTriggerProperties(OperableTrigger trigger) {
+
+<span class="nc" id="L39">        CalendarIntervalTriggerImpl calTrig = (CalendarIntervalTriggerImpl)trigger;</span>
+        
+<span class="nc" id="L41">        SimplePropertiesTriggerProperties props = new SimplePropertiesTriggerProperties();</span>
+        
+<span class="nc" id="L43">        props.setInt1(calTrig.getRepeatInterval());</span>
+<span class="nc" id="L44">        props.setString1(calTrig.getRepeatIntervalUnit().name());</span>
+<span class="nc" id="L45">        props.setInt2(calTrig.getTimesTriggered());</span>
+<span class="nc" id="L46">        props.setString2(calTrig.getTimeZone().getID());</span>
+<span class="nc" id="L47">        props.setBoolean1(calTrig.isPreserveHourOfDayAcrossDaylightSavings());</span>
+<span class="nc" id="L48">        props.setBoolean2(calTrig.isSkipDayIfHourDoesNotExist());</span>
+        
+<span class="nc" id="L50">        return props;</span>
+    }
+
+    @Override
+    protected TriggerPropertyBundle getTriggerPropertyBundle(SimplePropertiesTriggerProperties props) {
+
+<span class="nc" id="L56">        TimeZone tz = null; // if we use null, that's ok as system default tz will be used</span>
+<span class="nc" id="L57">        String tzId = props.getString2();</span>
+<span class="nc bnc" id="L58" title="All 4 branches missed.">        if(tzId != null &amp;&amp; tzId.trim().length() != 0) // there could be null entries from previously released versions</span>
+<span class="nc" id="L59">            tz = TimeZone.getTimeZone(tzId);</span>
+        
+<span class="nc" id="L61">        ScheduleBuilder&lt;?&gt; sb = CalendarIntervalScheduleBuilder.calendarIntervalSchedule()</span>
+<span class="nc" id="L62">            .withInterval(props.getInt1(), IntervalUnit.valueOf(props.getString1()))</span>
+<span class="nc" id="L63">            .inTimeZone(tz)</span>
+<span class="nc" id="L64">            .preserveHourOfDayAcrossDaylightSavings(props.isBoolean1())</span>
+<span class="nc" id="L65">            .skipDayIfHourDoesNotExist(props.isBoolean2());</span>
+        
+<span class="nc" id="L67">        int timesTriggered = props.getInt2();</span>
+        
+<span class="nc" id="L69">        String[] statePropertyNames = { &quot;timesTriggered&quot; };</span>
+<span class="nc" id="L70">        Object[] statePropertyValues = { timesTriggered };</span>
+
+<span class="nc" id="L72">        return new TriggerPropertyBundle(sb, statePropertyNames, statePropertyValues);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

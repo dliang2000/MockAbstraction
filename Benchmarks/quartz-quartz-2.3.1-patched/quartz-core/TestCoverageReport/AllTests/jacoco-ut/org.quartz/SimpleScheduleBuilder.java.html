@@ -1,0 +1,430 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SimpleScheduleBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz</a> &gt; <span class="el_source">SimpleScheduleBuilder.java</span></div><h1>SimpleScheduleBuilder.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz;
+
+import org.quartz.impl.triggers.SimpleTriggerImpl;
+import org.quartz.spi.MutableTrigger;
+
+/**
+ * &lt;code&gt;SimpleScheduleBuilder&lt;/code&gt; is a {@link ScheduleBuilder} 
+ * that defines strict/literal interval-based schedules for 
+ * &lt;code&gt;Trigger&lt;/code&gt;s.
+ *  
+ * &lt;p&gt;Quartz provides a builder-style API for constructing scheduling-related
+ * entities via a Domain-Specific Language (DSL).  The DSL can best be
+ * utilized through the usage of static imports of the methods on the classes
+ * &lt;code&gt;TriggerBuilder&lt;/code&gt;, &lt;code&gt;JobBuilder&lt;/code&gt;, 
+ * &lt;code&gt;DateBuilder&lt;/code&gt;, &lt;code&gt;JobKey&lt;/code&gt;, &lt;code&gt;TriggerKey&lt;/code&gt; 
+ * and the various &lt;code&gt;ScheduleBuilder&lt;/code&gt; implementations.&lt;/p&gt;
+ * 
+ * &lt;p&gt;Client code can then use the DSL to write code such as this:&lt;/p&gt;
+ * &lt;pre&gt;
+ *         JobDetail job = newJob(MyJob.class)
+ *             .withIdentity(&quot;myJob&quot;)
+ *             .build();
+ *             
+ *         Trigger trigger = newTrigger() 
+ *             .withIdentity(triggerKey(&quot;myTrigger&quot;, &quot;myTriggerGroup&quot;))
+ *             .withSchedule(simpleSchedule()
+ *                 .withIntervalInHours(1)
+ *                 .repeatForever())
+ *             .startAt(futureDate(10, MINUTES))
+ *             .build();
+ *         
+ *         scheduler.scheduleJob(job, trigger);
+ * &lt;pre&gt;
+ *
+ * @see SimpleTrigger
+ * @see CalendarIntervalScheduleBuilder
+ * @see CronScheduleBuilder
+ * @see ScheduleBuilder
+ * @see TriggerBuilder
+ */
+public class SimpleScheduleBuilder extends ScheduleBuilder&lt;SimpleTrigger&gt; {
+
+<span class="fc" id="L60">    private long interval = 0;</span>
+<span class="fc" id="L61">    private int repeatCount = 0;</span>
+<span class="fc" id="L62">    private int misfireInstruction = SimpleTrigger.MISFIRE_INSTRUCTION_SMART_POLICY;</span>
+    
+<span class="fc" id="L64">    protected SimpleScheduleBuilder() {</span>
+<span class="fc" id="L65">    }</span>
+    
+    /**
+     * Create a SimpleScheduleBuilder.
+     * 
+     * @return the new SimpleScheduleBuilder
+     */
+    public static SimpleScheduleBuilder simpleSchedule() {
+<span class="fc" id="L73">        return new SimpleScheduleBuilder();</span>
+    }
+    
+    /**
+     * Create a SimpleScheduleBuilder set to repeat forever with a 1 minute interval.
+     * 
+     * @return the new SimpleScheduleBuilder
+     */
+    public static SimpleScheduleBuilder repeatMinutelyForever() {
+
+<span class="nc" id="L83">        return simpleSchedule()</span>
+<span class="nc" id="L84">            .withIntervalInMinutes(1)</span>
+<span class="nc" id="L85">            .repeatForever();</span>
+    }
+
+    /**
+     * Create a SimpleScheduleBuilder set to repeat forever with an interval
+     * of the given number of minutes.
+     * 
+     * @return the new SimpleScheduleBuilder
+     */
+    public static SimpleScheduleBuilder repeatMinutelyForever(int minutes) {
+
+<span class="fc" id="L96">        return simpleSchedule()</span>
+<span class="fc" id="L97">            .withIntervalInMinutes(minutes)</span>
+<span class="fc" id="L98">            .repeatForever();</span>
+    }
+
+    /**
+     * Create a SimpleScheduleBuilder set to repeat forever with a 1 second interval.
+     * 
+     * @return the new SimpleScheduleBuilder
+     */
+    public static SimpleScheduleBuilder repeatSecondlyForever() {
+
+<span class="nc" id="L108">        return simpleSchedule()</span>
+<span class="nc" id="L109">            .withIntervalInSeconds(1)</span>
+<span class="nc" id="L110">            .repeatForever();</span>
+    }
+
+    /**
+     * Create a SimpleScheduleBuilder set to repeat forever with an interval
+     * of the given number of seconds.
+     * 
+     * @return the new SimpleScheduleBuilder
+     */
+    public static SimpleScheduleBuilder repeatSecondlyForever(int seconds) {
+
+<span class="nc" id="L121">        return simpleSchedule()</span>
+<span class="nc" id="L122">            .withIntervalInSeconds(seconds)</span>
+<span class="nc" id="L123">            .repeatForever();</span>
+    }
+    
+    /**
+     * Create a SimpleScheduleBuilder set to repeat forever with a 1 hour interval.
+     * 
+     * @return the new SimpleScheduleBuilder
+     */
+    public static SimpleScheduleBuilder repeatHourlyForever() {
+
+<span class="fc" id="L133">        return simpleSchedule()</span>
+<span class="fc" id="L134">            .withIntervalInHours(1)</span>
+<span class="fc" id="L135">            .repeatForever();</span>
+    }
+
+    /**
+     * Create a SimpleScheduleBuilder set to repeat forever with an interval
+     * of the given number of hours.
+     * 
+     * @return the new SimpleScheduleBuilder
+     */
+    public static SimpleScheduleBuilder repeatHourlyForever(int hours) {
+
+<span class="nc" id="L146">        return simpleSchedule()</span>
+<span class="nc" id="L147">            .withIntervalInHours(hours)</span>
+<span class="nc" id="L148">            .repeatForever();</span>
+    }
+
+    /**
+     * Create a SimpleScheduleBuilder set to repeat the given number
+     * of times - 1  with a 1 minute interval.
+     * 
+     * &lt;p&gt;Note: Total count = 1 (at start time) + repeat count&lt;/p&gt;
+     * 
+     * @return the new SimpleScheduleBuilder
+     */
+    public static SimpleScheduleBuilder repeatMinutelyForTotalCount(int count) {
+<span class="nc bnc" id="L160" title="All 2 branches missed.">        if(count &lt; 1)</span>
+<span class="nc" id="L161">            throw new IllegalArgumentException(&quot;Total count of firings must be at least one! Given count: &quot; + count);</span>
+
+<span class="nc" id="L163">        return simpleSchedule()</span>
+<span class="nc" id="L164">            .withIntervalInMinutes(1)</span>
+<span class="nc" id="L165">            .withRepeatCount(count - 1);</span>
+    }
+
+    /**
+     * Create a SimpleScheduleBuilder set to repeat the given number
+     * of times - 1  with an interval of the given number of minutes.
+     * 
+     * &lt;p&gt;Note: Total count = 1 (at start time) + repeat count&lt;/p&gt;
+     * 
+     * @return the new SimpleScheduleBuilder
+     */
+    public static SimpleScheduleBuilder repeatMinutelyForTotalCount(int count, int minutes) {
+<span class="nc bnc" id="L177" title="All 2 branches missed.">        if(count &lt; 1)</span>
+<span class="nc" id="L178">            throw new IllegalArgumentException(&quot;Total count of firings must be at least one! Given count: &quot; + count);</span>
+
+<span class="nc" id="L180">        return simpleSchedule()</span>
+<span class="nc" id="L181">            .withIntervalInMinutes(minutes)</span>
+<span class="nc" id="L182">            .withRepeatCount(count - 1);</span>
+    }
+    
+    /**
+     * Create a SimpleScheduleBuilder set to repeat the given number
+     * of times - 1  with a 1 second interval.
+     * 
+     * &lt;p&gt;Note: Total count = 1 (at start time) + repeat count&lt;/p&gt;
+     * 
+     * @return the new SimpleScheduleBuilder
+     */
+    public static SimpleScheduleBuilder repeatSecondlyForTotalCount(int count) {
+<span class="nc bnc" id="L194" title="All 2 branches missed.">        if(count &lt; 1)</span>
+<span class="nc" id="L195">            throw new IllegalArgumentException(&quot;Total count of firings must be at least one! Given count: &quot; + count);</span>
+
+<span class="nc" id="L197">        return simpleSchedule()</span>
+<span class="nc" id="L198">            .withIntervalInSeconds(1)</span>
+<span class="nc" id="L199">            .withRepeatCount(count - 1);</span>
+    }
+
+    /**
+     * Create a SimpleScheduleBuilder set to repeat the given number
+     * of times - 1  with an interval of the given number of seconds.
+     * 
+     * &lt;p&gt;Note: Total count = 1 (at start time) + repeat count&lt;/p&gt;
+     * 
+     * @return the new SimpleScheduleBuilder
+     */
+    public static SimpleScheduleBuilder repeatSecondlyForTotalCount(int count, int seconds) {
+<span class="nc bnc" id="L211" title="All 2 branches missed.">        if(count &lt; 1)</span>
+<span class="nc" id="L212">            throw new IllegalArgumentException(&quot;Total count of firings must be at least one! Given count: &quot; + count);</span>
+
+<span class="nc" id="L214">        return simpleSchedule()</span>
+<span class="nc" id="L215">            .withIntervalInSeconds(seconds)</span>
+<span class="nc" id="L216">            .withRepeatCount(count - 1);</span>
+    }
+    
+    /**
+     * Create a SimpleScheduleBuilder set to repeat the given number
+     * of times - 1  with a 1 hour interval.
+     * 
+     * &lt;p&gt;Note: Total count = 1 (at start time) + repeat count&lt;/p&gt;
+     * 
+     * @return the new SimpleScheduleBuilder
+     */
+    public static SimpleScheduleBuilder repeatHourlyForTotalCount(int count) {
+<span class="nc bnc" id="L228" title="All 2 branches missed.">        if(count &lt; 1)</span>
+<span class="nc" id="L229">            throw new IllegalArgumentException(&quot;Total count of firings must be at least one! Given count: &quot; + count);</span>
+
+<span class="nc" id="L231">        return simpleSchedule()</span>
+<span class="nc" id="L232">            .withIntervalInHours(1)</span>
+<span class="nc" id="L233">            .withRepeatCount(count - 1);</span>
+    }
+
+    /**
+     * Create a SimpleScheduleBuilder set to repeat the given number
+     * of times - 1  with an interval of the given number of hours.
+     * 
+     * &lt;p&gt;Note: Total count = 1 (at start time) + repeat count&lt;/p&gt;
+     * 
+     * @return the new SimpleScheduleBuilder
+     */
+    public static SimpleScheduleBuilder repeatHourlyForTotalCount(int count, int hours) {
+<span class="nc bnc" id="L245" title="All 2 branches missed.">        if(count &lt; 1)</span>
+<span class="nc" id="L246">            throw new IllegalArgumentException(&quot;Total count of firings must be at least one! Given count: &quot; + count);</span>
+
+<span class="nc" id="L248">        return simpleSchedule()</span>
+<span class="nc" id="L249">            .withIntervalInHours(hours)</span>
+<span class="nc" id="L250">            .withRepeatCount(count - 1);</span>
+    }
+    
+    /**
+     * Build the actual Trigger -- NOT intended to be invoked by end users,
+     * but will rather be invoked by a TriggerBuilder which this 
+     * ScheduleBuilder is given to.
+     * 
+     * @see TriggerBuilder#withSchedule(ScheduleBuilder)
+     */
+    @Override
+    public MutableTrigger build() {
+
+<span class="fc" id="L263">        SimpleTriggerImpl st = new SimpleTriggerImpl();</span>
+<span class="fc" id="L264">        st.setRepeatInterval(interval);</span>
+<span class="fc" id="L265">        st.setRepeatCount(repeatCount);</span>
+<span class="fc" id="L266">        st.setMisfireInstruction(misfireInstruction);</span>
+        
+<span class="fc" id="L268">        return st;</span>
+    }
+
+    /**
+     * Specify a repeat interval in milliseconds. 
+     * 
+     * @param intervalInMillis the number of seconds at which the trigger should repeat.
+     * @return the updated SimpleScheduleBuilder
+     * @see SimpleTrigger#getRepeatInterval()
+     * @see #withRepeatCount(int)
+     */
+    public SimpleScheduleBuilder withIntervalInMilliseconds(long intervalInMillis) {
+<span class="fc" id="L280">        this.interval = intervalInMillis;</span>
+<span class="fc" id="L281">        return this;</span>
+    }
+    
+    /**
+     * Specify a repeat interval in seconds - which will then be multiplied
+     * by 1000 to produce milliseconds. 
+     * 
+     * @param intervalInSeconds the number of seconds at which the trigger should repeat.
+     * @return the updated SimpleScheduleBuilder
+     * @see SimpleTrigger#getRepeatInterval()
+     * @see #withRepeatCount(int)
+     */
+    public SimpleScheduleBuilder withIntervalInSeconds(int intervalInSeconds) {
+<span class="fc" id="L294">        this.interval = intervalInSeconds * 1000L;</span>
+<span class="fc" id="L295">        return this;</span>
+    }
+    
+    /**
+     * Specify a repeat interval in minutes - which will then be multiplied
+     * by 60 * 1000 to produce milliseconds. 
+     * 
+     * @param intervalInMinutes the number of seconds at which the trigger should repeat.
+     * @return the updated SimpleScheduleBuilder
+     * @see SimpleTrigger#getRepeatInterval()
+     * @see #withRepeatCount(int)
+     */
+    public SimpleScheduleBuilder withIntervalInMinutes(int intervalInMinutes) {
+<span class="fc" id="L308">        this.interval = intervalInMinutes * DateBuilder.MILLISECONDS_IN_MINUTE;</span>
+<span class="fc" id="L309">        return this;</span>
+    }
+
+    /**
+     * Specify a repeat interval in minutes - which will then be multiplied
+     * by 60 * 60 * 1000 to produce milliseconds. 
+     * 
+     * @param intervalInHours the number of seconds at which the trigger should repeat.
+     * @return the updated SimpleScheduleBuilder
+     * @see SimpleTrigger#getRepeatInterval()
+     * @see #withRepeatCount(int)
+     */
+    public SimpleScheduleBuilder withIntervalInHours(int intervalInHours) {
+<span class="fc" id="L322">        this.interval = intervalInHours * DateBuilder.MILLISECONDS_IN_HOUR;</span>
+<span class="fc" id="L323">        return this;</span>
+    }
+    
+    /**
+     * Specify a the number of time the trigger will repeat - total number of 
+     * firings will be this number + 1. 
+     * 
+     * @param triggerRepeatCount the number of seconds at which the trigger should repeat.
+     * @return the updated SimpleScheduleBuilder
+     * @see SimpleTrigger#getRepeatCount()
+     * @see #repeatForever()
+     */
+    public SimpleScheduleBuilder withRepeatCount(int triggerRepeatCount) {
+<span class="fc" id="L336">        this.repeatCount = triggerRepeatCount;</span>
+<span class="fc" id="L337">        return this;</span>
+    }
+    
+    /**
+     * Specify that the trigger will repeat indefinitely. 
+     * 
+     * @return the updated SimpleScheduleBuilder
+     * @see SimpleTrigger#getRepeatCount()
+     * @see SimpleTrigger#REPEAT_INDEFINITELY
+     * @see #withIntervalInMilliseconds(long)
+     * @see #withIntervalInSeconds(int)
+     * @see #withIntervalInMinutes(int)
+     * @see #withIntervalInHours(int)
+     */
+    public SimpleScheduleBuilder repeatForever() {
+<span class="fc" id="L352">        this.repeatCount = SimpleTrigger.REPEAT_INDEFINITELY;</span>
+<span class="fc" id="L353">        return this;</span>
+    }
+
+    /**
+     * If the Trigger misfires, use the 
+     * {@link Trigger#MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY} instruction.
+     * 
+     * @return the updated CronScheduleBuilder
+     * @see Trigger#MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY
+     */
+    public SimpleScheduleBuilder withMisfireHandlingInstructionIgnoreMisfires() {
+<span class="fc" id="L364">        misfireInstruction = Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY;</span>
+<span class="fc" id="L365">        return this;</span>
+    }
+
+    /**
+     * If the Trigger misfires, use the 
+     * {@link SimpleTrigger#MISFIRE_INSTRUCTION_FIRE_NOW} instruction.
+     * 
+     * @return the updated SimpleScheduleBuilder
+     * @see SimpleTrigger#MISFIRE_INSTRUCTION_FIRE_NOW
+     */
+    
+    public SimpleScheduleBuilder withMisfireHandlingInstructionFireNow() {
+<span class="nc" id="L377">        misfireInstruction = SimpleTrigger.MISFIRE_INSTRUCTION_FIRE_NOW;</span>
+<span class="nc" id="L378">        return this;</span>
+    }
+
+    /**
+     * If the Trigger misfires, use the 
+     * {@link SimpleTrigger#MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_EXISTING_COUNT} instruction.
+     * 
+     * @return the updated SimpleScheduleBuilder
+     * @see SimpleTrigger#MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_EXISTING_COUNT
+     */
+    public SimpleScheduleBuilder withMisfireHandlingInstructionNextWithExistingCount() {
+<span class="nc" id="L389">        misfireInstruction = SimpleTrigger.MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_EXISTING_COUNT;</span>
+<span class="nc" id="L390">        return this;</span>
+    }
+    
+    /**
+     * If the Trigger misfires, use the 
+     * {@link SimpleTrigger#MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_REMAINING_COUNT} instruction.
+     * 
+     * @return the updated SimpleScheduleBuilder
+     * @see SimpleTrigger#MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_REMAINING_COUNT
+     */
+    public SimpleScheduleBuilder withMisfireHandlingInstructionNextWithRemainingCount() {
+<span class="nc" id="L401">        misfireInstruction = SimpleTrigger.MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_REMAINING_COUNT;</span>
+<span class="nc" id="L402">        return this;</span>
+    }
+
+    /**
+     * If the Trigger misfires, use the 
+     * {@link SimpleTrigger#MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_EXISTING_REPEAT_COUNT} instruction.
+     * 
+     * @return the updated SimpleScheduleBuilder
+     * @see SimpleTrigger#MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_EXISTING_REPEAT_COUNT
+     */
+    public SimpleScheduleBuilder withMisfireHandlingInstructionNowWithExistingCount() {
+<span class="nc" id="L413">        misfireInstruction = SimpleTrigger.MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_EXISTING_REPEAT_COUNT;</span>
+<span class="nc" id="L414">        return this;</span>
+    }
+    
+    /**
+     * If the Trigger misfires, use the 
+     * {@link SimpleTrigger#MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_REMAINING_REPEAT_COUNT} instruction.
+     * 
+     * @return the updated SimpleScheduleBuilder
+     * @see SimpleTrigger#MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_REMAINING_REPEAT_COUNT
+     */
+    public SimpleScheduleBuilder withMisfireHandlingInstructionNowWithRemainingCount() {
+<span class="nc" id="L425">        misfireInstruction = SimpleTrigger.MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_REMAINING_REPEAT_COUNT;</span>
+<span class="nc" id="L426">        return this;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

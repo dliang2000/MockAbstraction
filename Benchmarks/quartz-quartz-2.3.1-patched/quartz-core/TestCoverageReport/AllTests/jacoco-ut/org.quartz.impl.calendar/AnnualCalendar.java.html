@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AnnualCalendar.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.calendar</a> &gt; <span class="el_source">AnnualCalendar.java</span></div><h1>AnnualCalendar.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.impl.calendar;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.TimeZone;
+
+import org.quartz.Calendar;
+
+/**
+ * &lt;p&gt;
+ * This implementation of the Calendar excludes a set of days of the year. You
+ * may use it to exclude bank holidays which are on the same date every year.
+ * &lt;/p&gt;
+ * 
+ * @see org.quartz.Calendar
+ * @see org.quartz.impl.calendar.BaseCalendar
+ * 
+ * @author Juergen Donnerstag
+ */
+public class AnnualCalendar extends BaseCalendar implements Calendar,
+        Serializable {
+
+    static final long serialVersionUID = 7346867105876610961L;
+
+<span class="pc" id="L45">    private ArrayList&lt;java.util.Calendar&gt; excludeDays = new ArrayList&lt;java.util.Calendar&gt;();</span>
+
+    // true, if excludeDays is sorted
+<span class="pc" id="L48">    private boolean dataSorted = false;</span>
+
+<span class="fc" id="L50">    public AnnualCalendar() {</span>
+<span class="fc" id="L51">    }</span>
+
+    public AnnualCalendar(Calendar baseCalendar) {
+<span class="nc" id="L54">        super(baseCalendar);</span>
+<span class="nc" id="L55">    }</span>
+
+    public AnnualCalendar(TimeZone timeZone) {
+<span class="nc" id="L58">        super(timeZone);</span>
+<span class="nc" id="L59">    }</span>
+
+    public AnnualCalendar(Calendar baseCalendar, TimeZone timeZone) {
+<span class="nc" id="L62">        super(baseCalendar, timeZone);</span>
+<span class="nc" id="L63">    }</span>
+
+    @Override
+    public Object clone() {
+<span class="nc" id="L67">        AnnualCalendar clone = (AnnualCalendar) super.clone();</span>
+<span class="nc" id="L68">        clone.excludeDays = new ArrayList&lt;java.util.Calendar&gt;(excludeDays);</span>
+<span class="nc" id="L69">        return clone;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the array which defines the exclude-value of each day of month
+     * &lt;/p&gt;
+     */
+    public ArrayList&lt;java.util.Calendar&gt; getDaysExcluded() {
+<span class="fc" id="L78">        return excludeDays;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Return true, if day is defined to be exluded.
+     * &lt;/p&gt;
+     */
+    public boolean isDayExcluded(java.util.Calendar day) {
+
+<span class="pc bpc" id="L88" title="1 of 2 branches missed.">        if (day == null) {</span>
+<span class="nc" id="L89">            throw new IllegalArgumentException(</span>
+                    &quot;Parameter day must not be null&quot;);
+        }
+
+         // Check baseCalendar first
+<span class="pc bpc" id="L94" title="1 of 2 branches missed.">        if (! super.isTimeIncluded(day.getTime().getTime())) {</span>
+<span class="nc" id="L95">         return true;</span>
+        } 
+        
+<span class="fc" id="L98">        int dmonth = day.get(java.util.Calendar.MONTH);</span>
+<span class="fc" id="L99">        int dday = day.get(java.util.Calendar.DAY_OF_MONTH);</span>
+
+<span class="fc bfc" id="L101" title="All 2 branches covered.">        if (dataSorted == false) {</span>
+<span class="fc" id="L102">            Collections.sort(excludeDays, new CalendarComparator());</span>
+<span class="fc" id="L103">            dataSorted = true;</span>
+        }
+
+<span class="fc" id="L106">        Iterator&lt;java.util.Calendar&gt; iter = excludeDays.iterator();</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">        while (iter.hasNext()) {</span>
+<span class="fc" id="L108">            java.util.Calendar cl = (java.util.Calendar) iter.next();</span>
+
+            // remember, the list is sorted
+<span class="fc bfc" id="L111" title="All 2 branches covered.">            if (dmonth &lt; cl.get(java.util.Calendar.MONTH)) {</span>
+<span class="fc" id="L112">                return false;</span>
+            }
+
+<span class="fc bfc" id="L115" title="All 2 branches covered.">            if (dday != cl.get(java.util.Calendar.DAY_OF_MONTH)) {</span>
+<span class="fc" id="L116">                continue;</span>
+            }
+
+<span class="pc bpc" id="L119" title="1 of 2 branches missed.">            if (dmonth != cl.get(java.util.Calendar.MONTH)) {</span>
+<span class="nc" id="L120">                continue;</span>
+            }
+
+<span class="fc" id="L123">            return true;</span>
+        }
+
+<span class="fc" id="L126">        return false;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Redefine the list of days excluded. The ArrayList 
+     * should contain &lt;code&gt;java.util.Calendar&lt;/code&gt; objects. 
+     * &lt;/p&gt;
+     */
+    public void setDaysExcluded(ArrayList&lt;java.util.Calendar&gt; days) {
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">        if (days == null) {</span>
+<span class="fc" id="L137">            excludeDays = new ArrayList&lt;java.util.Calendar&gt;();</span>
+        } else {
+<span class="nc" id="L139">            excludeDays = days;</span>
+        }
+
+<span class="fc" id="L142">        dataSorted = false;</span>
+<span class="fc" id="L143">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Redefine a certain day to be excluded (true) or included (false).
+     * &lt;/p&gt;
+     */
+    public void setDayExcluded(java.util.Calendar day, boolean exclude) {
+<span class="fc bfc" id="L151" title="All 2 branches covered.">        if (exclude) {</span>
+<span class="pc bpc" id="L152" title="1 of 2 branches missed.">            if (isDayExcluded(day)) {</span>
+<span class="nc" id="L153">                return;</span>
+            }
+
+<span class="fc" id="L156">            excludeDays.add(day);</span>
+<span class="fc" id="L157">            dataSorted = false;</span>
+        } else {
+<span class="fc bfc" id="L159" title="All 2 branches covered.">            if (!isDayExcluded(day)) {</span>
+<span class="fc" id="L160">                return;</span>
+            }
+
+<span class="fc" id="L163">            removeExcludedDay(day, true);</span>
+        }
+<span class="fc" id="L165">    }</span>
+
+    /**
+     * Remove the given day from the list of excluded days
+     *  
+     * @param day the day to exclude
+     */
+    public void removeExcludedDay(java.util.Calendar day) {
+<span class="nc" id="L173">        removeExcludedDay(day, false);</span>
+<span class="nc" id="L174">    }</span>
+    
+    private void removeExcludedDay(java.util.Calendar day, boolean isChecked) {
+<span class="pc bpc" id="L177" title="1 of 2 branches missed.">        if (! isChecked &amp;&amp;</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">            ! isDayExcluded(day)) {</span>
+<span class="nc" id="L179">            return;</span>
+        }
+        
+        // Fast way, see if exact day object was already in list
+<span class="fc bfc" id="L183" title="All 2 branches covered.">        if (this.excludeDays.remove(day)) {</span>
+<span class="fc" id="L184">            return;</span>
+        }
+        
+<span class="fc" id="L187">        int dmonth = day.get(java.util.Calendar.MONTH);</span>
+<span class="fc" id="L188">        int dday = day.get(java.util.Calendar.DAY_OF_MONTH);</span>
+        
+        // Since there is no guarantee that the given day is in the arraylist with the exact same year
+        // search for the object based on month and day of month in the list and remove it
+<span class="fc" id="L192">        Iterator&lt;java.util.Calendar&gt; iter = excludeDays.iterator();</span>
+<span class="pc bpc" id="L193" title="1 of 2 branches missed.">        while (iter.hasNext()) {</span>
+<span class="fc" id="L194">            java.util.Calendar cl = (java.util.Calendar) iter.next();</span>
+
+<span class="pc bpc" id="L196" title="1 of 2 branches missed.">            if (dmonth != cl.get(java.util.Calendar.MONTH)) {</span>
+<span class="nc" id="L197">                continue;</span>
+            }
+
+<span class="pc bpc" id="L200" title="1 of 2 branches missed.">            if (dday != cl.get(java.util.Calendar.DAY_OF_MONTH)) {</span>
+<span class="nc" id="L201">                continue;</span>
+            }
+
+<span class="fc" id="L204">            day = cl;</span>
+<span class="fc" id="L205">            break;</span>
+        }
+        
+<span class="fc" id="L208">        this.excludeDays.remove(day);</span>
+<span class="fc" id="L209">    }</span>
+
+    
+    /**
+     * &lt;p&gt;
+     * Determine whether the given time (in milliseconds) is 'included' by the
+     * Calendar.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Note that this Calendar is only has full-day precision.
+     * &lt;/p&gt;
+     */
+    @Override
+    public boolean isTimeIncluded(long timeStamp) {
+        // Test the base calendar first. Only if the base calendar not already
+        // excludes the time/date, continue evaluating this calendar instance.
+<span class="nc bnc" id="L226" title="All 2 branches missed.">        if (super.isTimeIncluded(timeStamp) == false) { return false; }</span>
+
+<span class="nc" id="L228">        java.util.Calendar day = createJavaCalendar(timeStamp);</span>
+
+<span class="nc bnc" id="L230" title="All 2 branches missed.">        return !(isDayExcluded(day));</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Determine the next time (in milliseconds) that is 'included' by the
+     * Calendar after the given time. Return the original value if timeStamp is
+     * included. Return 0 if all days are excluded.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Note that this Calendar is only has full-day precision.
+     * &lt;/p&gt;
+     */
+    @Override
+    public long getNextIncludedTime(long timeStamp) {
+        // Call base calendar implementation first
+<span class="nc" id="L247">        long baseTime = super.getNextIncludedTime(timeStamp);</span>
+<span class="nc bnc" id="L248" title="All 4 branches missed.">        if ((baseTime &gt; 0) &amp;&amp; (baseTime &gt; timeStamp)) {</span>
+<span class="nc" id="L249">            timeStamp = baseTime;</span>
+        }
+
+        // Get timestamp for 00:00:00
+<span class="nc" id="L253">        java.util.Calendar day = getStartOfDayJavaCalendar(timeStamp);</span>
+<span class="nc bnc" id="L254" title="All 2 branches missed.">        if (isDayExcluded(day) == false) { </span>
+<span class="nc" id="L255">            return timeStamp; // return the original value</span>
+        }
+
+<span class="nc bnc" id="L258" title="All 2 branches missed.">        while (isDayExcluded(day) == true) {</span>
+<span class="nc" id="L259">            day.add(java.util.Calendar.DATE, 1);</span>
+        }
+
+<span class="nc" id="L262">        return day.getTime().getTime();</span>
+    }
+}
+
+class CalendarComparator implements Comparator&lt;java.util.Calendar&gt;, Serializable {
+  
+    private static final long serialVersionUID = 7346867105876610961L;
+    
+<span class="fc" id="L270">    public CalendarComparator() {</span>
+<span class="fc" id="L271">    }</span>
+
+
+    public int compare(java.util.Calendar c1, java.util.Calendar c2) {
+        
+<span class="fc" id="L276">        int month1 = c1.get(java.util.Calendar.MONTH);</span>
+<span class="fc" id="L277">        int month2 = c2.get(java.util.Calendar.MONTH);</span>
+        
+<span class="fc" id="L279">        int day1 = c1.get(java.util.Calendar.DAY_OF_MONTH);</span>
+<span class="fc" id="L280">        int day2 = c2.get(java.util.Calendar.DAY_OF_MONTH);</span>
+        
+<span class="fc bfc" id="L282" title="All 2 branches covered.">        if (month1 &lt; month2) {</span>
+<span class="fc" id="L283">            return -1;</span>
+        }
+<span class="pc bpc" id="L285" title="1 of 2 branches missed.">        if (month1 &gt; month2) {</span>
+<span class="fc" id="L286">            return 1; </span>
+        }
+<span class="nc bnc" id="L288" title="All 2 branches missed.">        if (day1 &lt; day2) {</span>
+<span class="nc" id="L289">            return -1;</span>
+        }
+<span class="nc bnc" id="L291" title="All 2 branches missed.">        if (day1 &gt; day2) {</span>
+<span class="nc" id="L292">            return 1;</span>
+        }
+<span class="nc" id="L294">        return 0;</span>
+      }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

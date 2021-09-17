@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CronScheduleBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz</a> &gt; <span class="el_source">CronScheduleBuilder.java</span></div><h1>CronScheduleBuilder.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz;
+
+import java.text.ParseException;
+import java.util.TimeZone;
+
+import org.quartz.impl.triggers.CronTriggerImpl;
+import org.quartz.spi.MutableTrigger;
+
+/**
+ * &lt;code&gt;CronScheduleBuilder&lt;/code&gt; is a {@link ScheduleBuilder} that defines
+ * {@link CronExpression}-based schedules for &lt;code&gt;Trigger&lt;/code&gt;s.
+ * 
+ * &lt;p&gt;
+ * Quartz provides a builder-style API for constructing scheduling-related
+ * entities via a Domain-Specific Language (DSL). The DSL can best be utilized
+ * through the usage of static imports of the methods on the classes
+ * &lt;code&gt;TriggerBuilder&lt;/code&gt;, &lt;code&gt;JobBuilder&lt;/code&gt;,
+ * &lt;code&gt;DateBuilder&lt;/code&gt;, &lt;code&gt;JobKey&lt;/code&gt;, &lt;code&gt;TriggerKey&lt;/code&gt; and
+ * the various &lt;code&gt;ScheduleBuilder&lt;/code&gt; implementations.
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * Client code can then use the DSL to write code such as this:
+ * &lt;/p&gt;
+ * 
+ * &lt;pre&gt;
+ * JobDetail job = newJob(MyJob.class).withIdentity(&amp;quot;myJob&amp;quot;).build();
+ * 
+ * Trigger trigger = newTrigger()
+ *         .withIdentity(triggerKey(&amp;quot;myTrigger&amp;quot;, &amp;quot;myTriggerGroup&amp;quot;))
+ *         .withSchedule(dailyAtHourAndMinute(10, 0))
+ *         .startAt(futureDate(10, MINUTES)).build();
+ * 
+ * scheduler.scheduleJob(job, trigger);
+ * 
+ * &lt;pre&gt;
+ * 
+ * @see CronExpression
+ * @see CronTrigger
+ * @see ScheduleBuilder
+ * @see SimpleScheduleBuilder 
+ * @see CalendarIntervalScheduleBuilder
+ * @see TriggerBuilder
+ */
+public class CronScheduleBuilder extends ScheduleBuilder&lt;CronTrigger&gt; {
+
+    private CronExpression cronExpression;
+<span class="fc" id="L65">    private int misfireInstruction = CronTrigger.MISFIRE_INSTRUCTION_SMART_POLICY;</span>
+
+<span class="fc" id="L67">    protected CronScheduleBuilder(CronExpression cronExpression) {</span>
+<span class="pc bpc" id="L68" title="1 of 2 branches missed.">        if (cronExpression == null) {</span>
+<span class="nc" id="L69">            throw new NullPointerException(&quot;cronExpression cannot be null&quot;);</span>
+        }
+<span class="fc" id="L71">        this.cronExpression = cronExpression;</span>
+<span class="fc" id="L72">    }</span>
+
+    /**
+     * Build the actual Trigger -- NOT intended to be invoked by end users, but
+     * will rather be invoked by a TriggerBuilder which this ScheduleBuilder is
+     * given to.
+     * 
+     * @see TriggerBuilder#withSchedule(ScheduleBuilder)
+     */
+    @Override
+    public MutableTrigger build() {
+
+<span class="fc" id="L84">        CronTriggerImpl ct = new CronTriggerImpl();</span>
+
+<span class="fc" id="L86">        ct.setCronExpression(cronExpression);</span>
+<span class="fc" id="L87">        ct.setTimeZone(cronExpression.getTimeZone());</span>
+<span class="fc" id="L88">        ct.setMisfireInstruction(misfireInstruction);</span>
+
+<span class="fc" id="L90">        return ct;</span>
+    }
+
+    /**
+     * Create a CronScheduleBuilder with the given cron-expression string -
+     * which is presumed to be a valid cron expression (and hence only a
+     * RuntimeException will be thrown if it is not).
+     * 
+     * @param cronExpression
+     *            the cron expression string to base the schedule on.
+     * @return the new CronScheduleBuilder
+     * @throws RuntimeException
+     *             wrapping a ParseException if the expression is invalid
+     * @see CronExpression
+     */
+    public static CronScheduleBuilder cronSchedule(String cronExpression) {
+        try {
+<span class="fc" id="L107">            return cronSchedule(new CronExpression(cronExpression));</span>
+<span class="nc" id="L108">        } catch (ParseException e) {</span>
+            // all methods of construction ensure the expression is valid by
+            // this point...
+<span class="nc" id="L111">            throw new RuntimeException(&quot;CronExpression '&quot; + cronExpression</span>
+                    + &quot;' is invalid.&quot;, e);
+        }
+    }
+
+    /**
+     * Create a CronScheduleBuilder with the given cron-expression string -
+     * which may not be a valid cron expression (and hence a ParseException will
+     * be thrown if it is not).
+     * 
+     * @param cronExpression
+     *            the cron expression string to base the schedule on.
+     * @return the new CronScheduleBuilder
+     * @throws ParseException
+     *             if the expression is invalid
+     * @see CronExpression
+     */
+    public static CronScheduleBuilder cronScheduleNonvalidatedExpression(
+            String cronExpression) throws ParseException {
+<span class="nc" id="L130">        return cronSchedule(new CronExpression(cronExpression));</span>
+    }
+
+    private static CronScheduleBuilder cronScheduleNoParseException(
+            String presumedValidCronExpression) {
+        try {
+<span class="fc" id="L136">            return cronSchedule(new CronExpression(presumedValidCronExpression));</span>
+<span class="nc" id="L137">        } catch (ParseException e) {</span>
+            // all methods of construction ensure the expression is valid by
+            // this point...
+<span class="nc" id="L140">            throw new RuntimeException(</span>
+                    &quot;CronExpression '&quot;
+                            + presumedValidCronExpression
+                            + &quot;' is invalid, which should not be possible, please report bug to Quartz developers.&quot;,
+                    e);
+        }
+    }
+
+    /**
+     * Create a CronScheduleBuilder with the given cron-expression.
+     * 
+     * @param cronExpression
+     *            the cron expression to base the schedule on.
+     * @return the new CronScheduleBuilder
+     * @see CronExpression
+     */
+    public static CronScheduleBuilder cronSchedule(CronExpression cronExpression) {
+<span class="fc" id="L157">        return new CronScheduleBuilder(cronExpression);</span>
+    }
+
+    /**
+     * Create a CronScheduleBuilder with a cron-expression that sets the
+     * schedule to fire every day at the given time (hour and minute).
+     * 
+     * @param hour
+     *            the hour of day to fire
+     * @param minute
+     *            the minute of the given hour to fire
+     * @return the new CronScheduleBuilder
+     * @see CronExpression
+     */
+    public static CronScheduleBuilder dailyAtHourAndMinute(int hour, int minute) {
+<span class="nc" id="L172">        DateBuilder.validateHour(hour);</span>
+<span class="nc" id="L173">        DateBuilder.validateMinute(minute);</span>
+
+<span class="nc" id="L175">        String cronExpression = String.format(&quot;0 %d %d ? * *&quot;, minute, hour);</span>
+
+<span class="nc" id="L177">        return cronScheduleNoParseException(cronExpression);</span>
+    }
+
+    /**
+     * Create a CronScheduleBuilder with a cron-expression that sets the
+     * schedule to fire at the given day at the given time (hour and minute) on
+     * the given days of the week.
+     * 
+     * @param daysOfWeek
+     *            the dasy of the week to fire
+     * @param hour
+     *            the hour of day to fire
+     * @param minute
+     *            the minute of the given hour to fire
+     * @return the new CronScheduleBuilder
+     * @see CronExpression
+     * @see DateBuilder#MONDAY
+     * @see DateBuilder#TUESDAY
+     * @see DateBuilder#WEDNESDAY
+     * @see DateBuilder#THURSDAY
+     * @see DateBuilder#FRIDAY
+     * @see DateBuilder#SATURDAY
+     * @see DateBuilder#SUNDAY
+     */
+
+    public static CronScheduleBuilder atHourAndMinuteOnGivenDaysOfWeek(
+            int hour, int minute, Integer... daysOfWeek) {
+<span class="pc bpc" id="L204" title="2 of 4 branches missed.">        if (daysOfWeek == null || daysOfWeek.length == 0)</span>
+<span class="nc" id="L205">            throw new IllegalArgumentException(</span>
+                    &quot;You must specify at least one day of week.&quot;);
+<span class="fc bfc" id="L207" title="All 2 branches covered.">        for (int dayOfWeek : daysOfWeek)</span>
+<span class="fc" id="L208">            DateBuilder.validateDayOfWeek(dayOfWeek);</span>
+<span class="fc" id="L209">        DateBuilder.validateHour(hour);</span>
+<span class="fc" id="L210">        DateBuilder.validateMinute(minute);</span>
+
+<span class="fc" id="L212">        String cronExpression = String.format(&quot;0 %d %d ? * %d&quot;, minute, hour,</span>
+                daysOfWeek[0]);
+
+<span class="fc bfc" id="L215" title="All 2 branches covered.">        for (int i = 1; i &lt; daysOfWeek.length; i++)</span>
+<span class="fc" id="L216">            cronExpression = cronExpression + &quot;,&quot; + daysOfWeek[i];</span>
+
+<span class="fc" id="L218">        return cronScheduleNoParseException(cronExpression);</span>
+    }
+
+    /**
+     * Create a CronScheduleBuilder with a cron-expression that sets the
+     * schedule to fire one per week on the given day at the given time (hour
+     * and minute).
+     * 
+     * @param dayOfWeek
+     *            the day of the week to fire
+     * @param hour
+     *            the hour of day to fire
+     * @param minute
+     *            the minute of the given hour to fire
+     * @return the new CronScheduleBuilder
+     * @see CronExpression
+     * @see DateBuilder#MONDAY
+     * @see DateBuilder#TUESDAY
+     * @see DateBuilder#WEDNESDAY
+     * @see DateBuilder#THURSDAY
+     * @see DateBuilder#FRIDAY
+     * @see DateBuilder#SATURDAY
+     * @see DateBuilder#SUNDAY
+     */
+    public static CronScheduleBuilder weeklyOnDayAndHourAndMinute(
+            int dayOfWeek, int hour, int minute) {
+<span class="nc" id="L244">        DateBuilder.validateDayOfWeek(dayOfWeek);</span>
+<span class="nc" id="L245">        DateBuilder.validateHour(hour);</span>
+<span class="nc" id="L246">        DateBuilder.validateMinute(minute);</span>
+
+<span class="nc" id="L248">        String cronExpression = String.format(&quot;0 %d %d ? * %d&quot;, minute, hour,</span>
+<span class="nc" id="L249">                dayOfWeek);</span>
+
+<span class="nc" id="L251">        return cronScheduleNoParseException(cronExpression);</span>
+    }
+
+    /**
+     * Create a CronScheduleBuilder with a cron-expression that sets the
+     * schedule to fire one per month on the given day of month at the given
+     * time (hour and minute).
+     * 
+     * @param dayOfMonth
+     *            the day of the month to fire
+     * @param hour
+     *            the hour of day to fire
+     * @param minute
+     *            the minute of the given hour to fire
+     * @return the new CronScheduleBuilder
+     * @see CronExpression
+     */
+    public static CronScheduleBuilder monthlyOnDayAndHourAndMinute(
+            int dayOfMonth, int hour, int minute) {
+<span class="nc" id="L270">        DateBuilder.validateDayOfMonth(dayOfMonth);</span>
+<span class="nc" id="L271">        DateBuilder.validateHour(hour);</span>
+<span class="nc" id="L272">        DateBuilder.validateMinute(minute);</span>
+
+<span class="nc" id="L274">        String cronExpression = String.format(&quot;0 %d %d %d * ?&quot;, minute, hour,</span>
+<span class="nc" id="L275">                dayOfMonth);</span>
+
+<span class="nc" id="L277">        return cronScheduleNoParseException(cronExpression);</span>
+    }
+
+    /**
+     * The &lt;code&gt;TimeZone&lt;/code&gt; in which to base the schedule.
+     * 
+     * @param timezone
+     *            the time-zone for the schedule.
+     * @return the updated CronScheduleBuilder
+     * @see CronExpression#getTimeZone()
+     */
+    public CronScheduleBuilder inTimeZone(TimeZone timezone) {
+<span class="fc" id="L289">        cronExpression.setTimeZone(timezone);</span>
+<span class="fc" id="L290">        return this;</span>
+    }
+
+    /**
+     * If the Trigger misfires, use the
+     * {@link Trigger#MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY} instruction.
+     * 
+     * @return the updated CronScheduleBuilder
+     * @see Trigger#MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY
+     */
+    public CronScheduleBuilder withMisfireHandlingInstructionIgnoreMisfires() {
+<span class="nc" id="L301">        misfireInstruction = Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY;</span>
+<span class="nc" id="L302">        return this;</span>
+    }
+
+    /**
+     * If the Trigger misfires, use the
+     * {@link CronTrigger#MISFIRE_INSTRUCTION_DO_NOTHING} instruction.
+     * 
+     * @return the updated CronScheduleBuilder
+     * @see CronTrigger#MISFIRE_INSTRUCTION_DO_NOTHING
+     */
+    public CronScheduleBuilder withMisfireHandlingInstructionDoNothing() {
+<span class="nc" id="L313">        misfireInstruction = CronTrigger.MISFIRE_INSTRUCTION_DO_NOTHING;</span>
+<span class="nc" id="L314">        return this;</span>
+    }
+
+    /**
+     * If the Trigger misfires, use the
+     * {@link CronTrigger#MISFIRE_INSTRUCTION_FIRE_ONCE_NOW} instruction.
+     * 
+     * @return the updated CronScheduleBuilder
+     * @see CronTrigger#MISFIRE_INSTRUCTION_FIRE_ONCE_NOW
+     */
+    public CronScheduleBuilder withMisfireHandlingInstructionFireAndProceed() {
+<span class="nc" id="L325">        misfireInstruction = CronTrigger.MISFIRE_INSTRUCTION_FIRE_ONCE_NOW;</span>
+<span class="nc" id="L326">        return this;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

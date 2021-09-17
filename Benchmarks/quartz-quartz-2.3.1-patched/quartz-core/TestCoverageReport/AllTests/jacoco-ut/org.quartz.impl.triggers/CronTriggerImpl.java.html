@@ -1,0 +1,848 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CronTriggerImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.triggers</a> &gt; <span class="el_source">CronTriggerImpl.java</span></div><h1>CronTriggerImpl.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.impl.triggers;
+
+import java.text.ParseException;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.TimeZone;
+
+import org.quartz.CronExpression;
+import org.quartz.CronScheduleBuilder;
+import org.quartz.CronTrigger;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.quartz.ScheduleBuilder;
+import org.quartz.Scheduler;
+import org.quartz.Trigger;
+import org.quartz.TriggerUtils;
+
+
+/**
+ * &lt;p&gt;
+ * A concrete &lt;code&gt;{@link Trigger}&lt;/code&gt; that is used to fire a &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt;
+ * at given moments in time, defined with Unix 'cron-like' definitions.
+ * &lt;/p&gt;
+ * 
+ * 
+ * @author Sharada Jambula, James House
+ * @author Contributions from Mads Henderson
+ */
+public class CronTriggerImpl extends AbstractTrigger&lt;CronTrigger&gt; implements CronTrigger, CoreTrigger {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constants.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * Required for serialization support. Introduced in Quartz 1.6.1 to 
+     * maintain compatibility after the introduction of hasAdditionalProperties
+     * method. 
+     * 
+     * @see java.io.Serializable
+     */
+    private static final long serialVersionUID = -8644953146451592766L;
+
+<span class="fc" id="L65">    protected static final int YEAR_TO_GIVEUP_SCHEDULING_AT = CronExpression.MAX_YEAR;</span>
+    
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+<span class="pc" id="L76">    private CronExpression cronEx = null;</span>
+<span class="pc" id="L77">    private Date startTime = null;</span>
+<span class="pc" id="L78">    private Date endTime = null;</span>
+<span class="pc" id="L79">    private Date nextFireTime = null;</span>
+<span class="pc" id="L80">    private Date previousFireTime = null;</span>
+<span class="pc" id="L81">    private transient TimeZone timeZone = null;</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;CronTrigger&lt;/code&gt; with no settings.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * The start-time will also be set to the current time, and the time zone
+     * will be set the the system's default time zone.
+     * &lt;/p&gt;
+     */
+    public CronTriggerImpl() {
+<span class="fc" id="L102">        super();</span>
+<span class="fc" id="L103">        setStartTime(new Date());</span>
+<span class="fc" id="L104">        setTimeZone(TimeZone.getDefault());</span>
+<span class="fc" id="L105">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;CronTrigger&lt;/code&gt; with the given name and default group.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * The start-time will also be set to the current time, and the time zone
+     * will be set the the system's default time zone.
+     * &lt;/p&gt;
+     * 
+     * @deprecated use a TriggerBuilder instead
+     */
+    @Deprecated
+    public CronTriggerImpl(String name) {
+<span class="nc" id="L121">        this(name, null);</span>
+<span class="nc" id="L122">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;CronTrigger&lt;/code&gt; with the given name and group.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * The start-time will also be set to the current time, and the time zone
+     * will be set the the system's default time zone.
+     * &lt;/p&gt;
+     * 
+     * @deprecated use a TriggerBuilder instead
+     */
+    @Deprecated
+    public CronTriggerImpl(String name, String group) {
+<span class="nc" id="L138">        super(name, group);</span>
+<span class="nc" id="L139">        setStartTime(new Date());</span>
+<span class="nc" id="L140">        setTimeZone(TimeZone.getDefault());</span>
+<span class="nc" id="L141">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;CronTrigger&lt;/code&gt; with the given name, group and
+     * expression.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * The start-time will also be set to the current time, and the time zone
+     * will be set the the system's default time zone.
+     * &lt;/p&gt;
+     * 
+     * @deprecated use a TriggerBuilder instead
+     */
+    @Deprecated
+    public CronTriggerImpl(String name, String group, String cronExpression)
+        throws ParseException {
+        
+<span class="nc" id="L160">        super(name, group);</span>
+
+<span class="nc" id="L162">        setCronExpression(cronExpression);</span>
+
+<span class="nc" id="L164">        setStartTime(new Date());</span>
+<span class="nc" id="L165">        setTimeZone(TimeZone.getDefault());</span>
+<span class="nc" id="L166">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;CronTrigger&lt;/code&gt; with the given name and group, and
+     * associated with the identified &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * The start-time will also be set to the current time, and the time zone
+     * will be set the the system's default time zone.
+     * &lt;/p&gt;
+     * 
+     * @deprecated use a TriggerBuilder instead
+     */
+    @Deprecated
+    public CronTriggerImpl(String name, String group, String jobName,
+            String jobGroup) {
+<span class="nc" id="L184">        super(name, group, jobName, jobGroup);</span>
+<span class="nc" id="L185">        setStartTime(new Date());</span>
+<span class="nc" id="L186">        setTimeZone(TimeZone.getDefault());</span>
+<span class="nc" id="L187">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;CronTrigger&lt;/code&gt; with the given name and group,
+     * associated with the identified &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt;,
+     * and with the given &quot;cron&quot; expression.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * The start-time will also be set to the current time, and the time zone
+     * will be set the the system's default time zone.
+     * &lt;/p&gt;
+     * 
+     * @deprecated use a TriggerBuilder instead
+     */
+    @Deprecated
+    public CronTriggerImpl(String name, String group, String jobName,
+            String jobGroup, String cronExpression) throws ParseException {
+<span class="nc" id="L206">        this(name, group, jobName, jobGroup, null, null, cronExpression,</span>
+<span class="nc" id="L207">                TimeZone.getDefault());</span>
+<span class="nc" id="L208">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;CronTrigger&lt;/code&gt; with the given name and group,
+     * associated with the identified &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt;,
+     * and with the given &quot;cron&quot; expression resolved with respect to the &lt;code&gt;TimeZone&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @deprecated use a TriggerBuilder instead
+     */
+    @Deprecated
+    public CronTriggerImpl(String name, String group, String jobName,
+            String jobGroup, String cronExpression, TimeZone timeZone)
+        throws ParseException {
+<span class="nc" id="L223">        this(name, group, jobName, jobGroup, null, null, cronExpression,</span>
+                timeZone);
+<span class="nc" id="L225">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;CronTrigger&lt;/code&gt; that will occur at the given time,
+     * until the given end time.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * If null, the start-time will also be set to the current time, the time
+     * zone will be set the the system's default.
+     * &lt;/p&gt;
+     * 
+     * @param startTime
+     *          A &lt;code&gt;Date&lt;/code&gt; set to the time for the &lt;code&gt;Trigger&lt;/code&gt;
+     *          to fire.
+     * @param endTime
+     *          A &lt;code&gt;Date&lt;/code&gt; set to the time for the &lt;code&gt;Trigger&lt;/code&gt;
+     *          to quit repeat firing.
+     * 
+     * @deprecated use a TriggerBuilder instead
+     */
+    @Deprecated
+    public CronTriggerImpl(String name, String group, String jobName,
+            String jobGroup, Date startTime, Date endTime, String cronExpression)
+        throws ParseException {
+<span class="nc" id="L251">        super(name, group, jobName, jobGroup);</span>
+
+<span class="nc" id="L253">        setCronExpression(cronExpression);</span>
+
+<span class="nc bnc" id="L255" title="All 2 branches missed.">        if (startTime == null) {</span>
+<span class="nc" id="L256">            startTime = new Date();</span>
+        }
+<span class="nc" id="L258">        setStartTime(startTime);</span>
+<span class="nc bnc" id="L259" title="All 2 branches missed.">        if (endTime != null) {</span>
+<span class="nc" id="L260">            setEndTime(endTime);</span>
+        }
+<span class="nc" id="L262">        setTimeZone(TimeZone.getDefault());</span>
+
+<span class="nc" id="L264">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;CronTrigger&lt;/code&gt; with fire time dictated by the
+     * &lt;code&gt;cronExpression&lt;/code&gt; resolved with respect to the specified
+     * &lt;code&gt;timeZone&lt;/code&gt; occurring from the &lt;code&gt;startTime&lt;/code&gt; until
+     * the given &lt;code&gt;endTime&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * If null, the start-time will also be set to the current time. If null,
+     * the time zone will be set to the system's default.
+     * &lt;/p&gt;
+     * 
+     * @param name
+     *          of the &lt;code&gt;Trigger&lt;/code&gt;
+     * @param group
+     *          of the &lt;code&gt;Trigger&lt;/code&gt;
+     * @param jobName
+     *          name of the &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt;
+     *          executed on firetime
+     * @param jobGroup
+     *          group of the &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt;
+     *          executed on firetime
+     * @param startTime
+     *          A &lt;code&gt;Date&lt;/code&gt; set to the earliest time for the &lt;code&gt;Trigger&lt;/code&gt;
+     *          to start firing.
+     * @param endTime
+     *          A &lt;code&gt;Date&lt;/code&gt; set to the time for the &lt;code&gt;Trigger&lt;/code&gt;
+     *          to quit repeat firing.
+     * @param cronExpression
+     *          A cron expression dictating the firing sequence of the &lt;code&gt;Trigger&lt;/code&gt;
+     * @param timeZone
+     *          Specifies for which time zone the &lt;code&gt;cronExpression&lt;/code&gt;
+     *          should be interpreted, i.e. the expression 0 0 10 * * ?, is
+     *          resolved to 10:00 am in this time zone.
+     * @throws ParseException
+     *           if the &lt;code&gt;cronExpression&lt;/code&gt; is invalid.
+     * 
+     * @deprecated use a TriggerBuilder instead
+     */
+    @Deprecated
+    public CronTriggerImpl(String name, String group, String jobName,
+            String jobGroup, Date startTime, Date endTime,
+            String cronExpression, TimeZone timeZone) throws ParseException {
+<span class="nc" id="L310">        super(name, group, jobName, jobGroup);</span>
+
+<span class="nc" id="L312">        setCronExpression(cronExpression);</span>
+
+<span class="nc bnc" id="L314" title="All 2 branches missed.">        if (startTime == null) {</span>
+<span class="nc" id="L315">            startTime = new Date();</span>
+        }
+<span class="nc" id="L317">        setStartTime(startTime);</span>
+<span class="nc bnc" id="L318" title="All 2 branches missed.">        if (endTime != null) {</span>
+<span class="nc" id="L319">            setEndTime(endTime);</span>
+        }
+<span class="nc bnc" id="L321" title="All 2 branches missed.">        if (timeZone == null) {</span>
+<span class="nc" id="L322">            setTimeZone(TimeZone.getDefault());</span>
+        } else {
+<span class="nc" id="L324">            setTimeZone(timeZone);</span>
+        }
+<span class="nc" id="L326">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+    
+    @Override
+    public Object clone() {
+<span class="fc" id="L338">        CronTriggerImpl copy = (CronTriggerImpl) super.clone();</span>
+<span class="fc bfc" id="L339" title="All 2 branches covered.">        if (cronEx != null) {</span>
+<span class="fc" id="L340">            copy.setCronExpression(new CronExpression(cronEx));</span>
+        }
+<span class="fc" id="L342">        return copy;</span>
+    }
+
+    public void setCronExpression(String cronExpression) throws ParseException {
+<span class="fc" id="L346">        TimeZone origTz = getTimeZone();</span>
+<span class="fc" id="L347">        this.cronEx = new CronExpression(cronExpression);</span>
+<span class="fc" id="L348">        this.cronEx.setTimeZone(origTz);</span>
+<span class="fc" id="L349">    }</span>
+
+    /* (non-Javadoc)
+     * @see org.quartz.CronTriggerI#getCronExpression()
+     */
+    public String getCronExpression() {
+<span class="pc bpc" id="L355" title="1 of 2 branches missed.">        return cronEx == null ? null : cronEx.getCronExpression();</span>
+    }
+
+    /**
+     * Set the CronExpression to the given one.  The TimeZone on the passed-in
+     * CronExpression over-rides any that was already set on the Trigger.
+     */
+    public void setCronExpression(CronExpression cronExpression) {
+<span class="fc" id="L363">        this.cronEx = cronExpression;</span>
+<span class="fc" id="L364">        this.timeZone = cronExpression.getTimeZone();</span>
+<span class="fc" id="L365">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Get the time at which the &lt;code&gt;CronTrigger&lt;/code&gt; should occur.
+     * &lt;/p&gt;
+     */
+    @Override
+    public Date getStartTime() {
+<span class="fc" id="L374">        return this.startTime;</span>
+    }
+
+    @Override
+    public void setStartTime(Date startTime) {
+<span class="pc bpc" id="L379" title="1 of 2 branches missed.">        if (startTime == null) {</span>
+<span class="nc" id="L380">            throw new IllegalArgumentException(&quot;Start time cannot be null&quot;);</span>
+        }
+
+<span class="fc" id="L383">        Date eTime = getEndTime();</span>
+<span class="pc bpc" id="L384" title="3 of 4 branches missed.">        if (eTime != null &amp;&amp; eTime.before(startTime)) {</span>
+<span class="nc" id="L385">            throw new IllegalArgumentException(</span>
+                &quot;End time cannot be before start time&quot;);
+        }
+        
+        // round off millisecond...
+        // Note timeZone is not needed here as parameter for
+        // Calendar.getInstance(),
+        // since time zone is implicit when using a Date in the setTime method.
+<span class="fc" id="L393">        Calendar cl = Calendar.getInstance();</span>
+<span class="fc" id="L394">        cl.setTime(startTime);</span>
+<span class="fc" id="L395">        cl.set(Calendar.MILLISECOND, 0);</span>
+
+<span class="fc" id="L397">        this.startTime = cl.getTime();</span>
+<span class="fc" id="L398">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the time at which the &lt;code&gt;CronTrigger&lt;/code&gt; should quit
+     * repeating - even if repeastCount isn't yet satisfied.
+     * &lt;/p&gt;
+     * 
+     * @see #getFinalFireTime()
+     */
+    @Override
+    public Date getEndTime() {
+<span class="fc" id="L410">        return this.endTime;</span>
+    }
+
+    @Override
+    public void setEndTime(Date endTime) {
+<span class="fc" id="L415">        Date sTime = getStartTime();</span>
+<span class="pc bpc" id="L416" title="2 of 6 branches missed.">        if (sTime != null &amp;&amp; endTime != null &amp;&amp; sTime.after(endTime)) {</span>
+<span class="nc" id="L417">            throw new IllegalArgumentException(</span>
+                    &quot;End time cannot be before start time&quot;);
+        }
+
+<span class="fc" id="L421">        this.endTime = endTime;</span>
+<span class="fc" id="L422">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Returns the next time at which the &lt;code&gt;Trigger&lt;/code&gt; is scheduled to fire. If
+     * the trigger will not fire again, &lt;code&gt;null&lt;/code&gt; will be returned.  Note that
+     * the time returned can possibly be in the past, if the time that was computed
+     * for the trigger to next fire has already arrived, but the scheduler has not yet
+     * been able to fire the trigger (which would likely be due to lack of resources
+     * e.g. threads).
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;The value returned is not guaranteed to be valid until after the &lt;code&gt;Trigger&lt;/code&gt;
+     * has been added to the scheduler.
+     * &lt;/p&gt;
+     *
+     * @see TriggerUtils#computeFireTimesBetween(org.quartz.spi.OperableTrigger, org.quartz.Calendar, java.util.Date, java.util.Date)
+     */
+    @Override
+    public Date getNextFireTime() {
+<span class="fc" id="L442">        return this.nextFireTime;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns the previous time at which the &lt;code&gt;CronTrigger&lt;/code&gt; 
+     * fired. If the trigger has not yet fired, &lt;code&gt;null&lt;/code&gt; will be
+     * returned.
+     */
+    @Override
+    public Date getPreviousFireTime() {
+<span class="fc" id="L453">        return this.previousFireTime;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Sets the next time at which the &lt;code&gt;CronTrigger&lt;/code&gt; will fire.
+     * &lt;b&gt;This method should not be invoked by client code.&lt;/b&gt;
+     * &lt;/p&gt;
+     */
+    public void setNextFireTime(Date nextFireTime) {
+<span class="fc" id="L463">        this.nextFireTime = nextFireTime;</span>
+<span class="fc" id="L464">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Set the previous time at which the &lt;code&gt;CronTrigger&lt;/code&gt; fired.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * &lt;b&gt;This method should not be invoked by client code.&lt;/b&gt;
+     * &lt;/p&gt;
+     */
+    public void setPreviousFireTime(Date previousFireTime) {
+<span class="fc" id="L476">        this.previousFireTime = previousFireTime;</span>
+<span class="fc" id="L477">    }</span>
+
+    /* (non-Javadoc)
+     * @see org.quartz.CronTriggerI#getTimeZone()
+     */
+    public TimeZone getTimeZone() {
+        
+<span class="fc bfc" id="L484" title="All 2 branches covered.">        if(cronEx != null) {</span>
+<span class="fc" id="L485">            return cronEx.getTimeZone();</span>
+        }
+        
+<span class="pc bpc" id="L488" title="1 of 2 branches missed.">        if (timeZone == null) {</span>
+<span class="nc" id="L489">            timeZone = TimeZone.getDefault();</span>
+        }
+<span class="fc" id="L491">        return timeZone;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Sets the time zone for which the &lt;code&gt;cronExpression&lt;/code&gt; of this
+     * &lt;code&gt;CronTrigger&lt;/code&gt; will be resolved.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;If {@link #setCronExpression(CronExpression)} is called after this
+     * method, the TimeZon setting on the CronExpression will &quot;win&quot;.  However
+     * if {@link #setCronExpression(String)} is called after this method, the
+     * time zone applied by this method will remain in effect, since the 
+     * String cron expression does not carry a time zone!
+     */
+    public void setTimeZone(TimeZone timeZone) {
+<span class="fc bfc" id="L507" title="All 2 branches covered.">        if(cronEx != null) {</span>
+<span class="fc" id="L508">            cronEx.setTimeZone(timeZone);</span>
+        }
+<span class="fc" id="L510">        this.timeZone = timeZone;</span>
+<span class="fc" id="L511">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Returns the next time at which the &lt;code&gt;CronTrigger&lt;/code&gt; will fire,
+     * after the given time. If the trigger will not fire after the given time,
+     * &lt;code&gt;null&lt;/code&gt; will be returned.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Note that the date returned is NOT validated against the related
+     * org.quartz.Calendar (if any)
+     * &lt;/p&gt;
+     */
+    @Override
+    public Date getFireTimeAfter(Date afterTime) {
+<span class="pc bpc" id="L527" title="1 of 2 branches missed.">        if (afterTime == null) {</span>
+<span class="nc" id="L528">            afterTime = new Date();</span>
+        }
+
+<span class="fc bfc" id="L531" title="All 2 branches covered.">        if (getStartTime().after(afterTime)) {</span>
+<span class="fc" id="L532">            afterTime = new Date(getStartTime().getTime() - 1000l);</span>
+        }
+
+<span class="pc bpc" id="L535" title="3 of 4 branches missed.">        if (getEndTime() != null &amp;&amp; (afterTime.compareTo(getEndTime()) &gt;= 0)) {</span>
+<span class="nc" id="L536">            return null;</span>
+        }
+        
+<span class="fc" id="L539">        Date pot = getTimeAfter(afterTime);</span>
+<span class="pc bpc" id="L540" title="5 of 6 branches missed.">        if (getEndTime() != null &amp;&amp; pot != null &amp;&amp; pot.after(getEndTime())) {</span>
+<span class="nc" id="L541">            return null;</span>
+        }
+
+<span class="fc" id="L544">        return pot;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * NOT YET IMPLEMENTED: Returns the final time at which the 
+     * &lt;code&gt;CronTrigger&lt;/code&gt; will fire.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Note that the return time *may* be in the past. and the date returned is
+     * not validated against org.quartz.calendar
+     * &lt;/p&gt;
+     */
+    @Override
+    public Date getFinalFireTime() {
+        Date resultTime;
+<span class="nc bnc" id="L561" title="All 2 branches missed.">        if (getEndTime() != null) {</span>
+<span class="nc" id="L562">            resultTime = getTimeBefore(new Date(getEndTime().getTime() + 1000l));</span>
+        } else {
+<span class="nc bnc" id="L564" title="All 2 branches missed.">            resultTime = (cronEx == null) ? null : cronEx.getFinalFireTime();</span>
+        }
+        
+<span class="nc bnc" id="L567" title="All 6 branches missed.">        if ((resultTime != null) &amp;&amp; (getStartTime() != null) &amp;&amp; (resultTime.before(getStartTime()))) {</span>
+<span class="nc" id="L568">            return null;</span>
+        } 
+        
+<span class="nc" id="L571">        return resultTime;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Determines whether or not the &lt;code&gt;CronTrigger&lt;/code&gt; will occur
+     * again.
+     * &lt;/p&gt;
+     */
+    @Override
+    public boolean mayFireAgain() {
+<span class="pc bpc" id="L582" title="1 of 2 branches missed.">        return (getNextFireTime() != null);</span>
+    }
+
+    @Override
+    protected boolean validateMisfireInstruction(int misfireInstruction) {
+<span class="pc bpc" id="L587" title="1 of 4 branches missed.">        return misfireInstruction &gt;= MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY &amp;&amp; misfireInstruction &lt;= MISFIRE_INSTRUCTION_DO_NOTHING;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Updates the &lt;code&gt;CronTrigger&lt;/code&gt;'s state based on the
+     * MISFIRE_INSTRUCTION_XXX that was selected when the &lt;code&gt;CronTrigger&lt;/code&gt;
+     * was created.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * If the misfire instruction is set to MISFIRE_INSTRUCTION_SMART_POLICY,
+     * then the following scheme will be used: &lt;br&gt;
+     * &lt;ul&gt;
+     * &lt;li&gt;The instruction will be interpreted as &lt;code&gt;MISFIRE_INSTRUCTION_FIRE_ONCE_NOW&lt;/code&gt;
+     * &lt;/ul&gt;
+     * &lt;/p&gt;
+     */
+    @Override
+    public void updateAfterMisfire(org.quartz.Calendar cal) {
+<span class="nc" id="L607">        int instr = getMisfireInstruction();</span>
+
+<span class="nc bnc" id="L609" title="All 2 branches missed.">        if(instr == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY)</span>
+<span class="nc" id="L610">            return;</span>
+
+<span class="nc bnc" id="L612" title="All 2 branches missed.">        if (instr == MISFIRE_INSTRUCTION_SMART_POLICY) {</span>
+<span class="nc" id="L613">            instr = MISFIRE_INSTRUCTION_FIRE_ONCE_NOW;</span>
+        }
+
+<span class="nc bnc" id="L616" title="All 2 branches missed.">        if (instr == MISFIRE_INSTRUCTION_DO_NOTHING) {</span>
+<span class="nc" id="L617">            Date newFireTime = getFireTimeAfter(new Date());</span>
+<span class="nc bnc" id="L618" title="All 4 branches missed.">            while (newFireTime != null &amp;&amp; cal != null</span>
+<span class="nc bnc" id="L619" title="All 2 branches missed.">                    &amp;&amp; !cal.isTimeIncluded(newFireTime.getTime())) {</span>
+<span class="nc" id="L620">                newFireTime = getFireTimeAfter(newFireTime);</span>
+            }
+<span class="nc" id="L622">            setNextFireTime(newFireTime);</span>
+<span class="nc bnc" id="L623" title="All 2 branches missed.">        } else if (instr == MISFIRE_INSTRUCTION_FIRE_ONCE_NOW) {</span>
+<span class="nc" id="L624">            setNextFireTime(new Date());</span>
+        }
+<span class="nc" id="L626">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Determines whether the date and (optionally) time of the given Calendar 
+     * instance falls on a scheduled fire-time of this trigger.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Equivalent to calling &lt;code&gt;willFireOn(cal, false)&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @param test the date to compare
+     * 
+     * @see #willFireOn(Calendar, boolean)
+     */
+    public boolean willFireOn(Calendar test) {
+<span class="nc" id="L643">        return willFireOn(test, false);</span>
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Determines whether the date and (optionally) time of the given Calendar 
+     * instance falls on a scheduled fire-time of this trigger.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Note that the value returned is NOT validated against the related
+     * org.quartz.Calendar (if any)
+     * &lt;/p&gt;
+     * 
+     * @param test the date to compare
+     * @param dayOnly if set to true, the method will only determine if the
+     * trigger will fire during the day represented by the given Calendar
+     * (hours, minutes and seconds will be ignored).
+     * @see #willFireOn(Calendar)
+     */
+    public boolean willFireOn(Calendar test, boolean dayOnly) {
+
+<span class="nc" id="L665">        test = (Calendar) test.clone();</span>
+        
+<span class="nc" id="L667">        test.set(Calendar.MILLISECOND, 0); // don't compare millis.</span>
+        
+<span class="nc bnc" id="L669" title="All 2 branches missed.">        if(dayOnly) {</span>
+<span class="nc" id="L670">            test.set(Calendar.HOUR_OF_DAY, 0); </span>
+<span class="nc" id="L671">            test.set(Calendar.MINUTE, 0); </span>
+<span class="nc" id="L672">            test.set(Calendar.SECOND, 0); </span>
+        }
+        
+<span class="nc" id="L675">        Date testTime = test.getTime();</span>
+        
+<span class="nc" id="L677">        Date fta = getFireTimeAfter(new Date(test.getTime().getTime() - 1000));</span>
+        
+<span class="nc bnc" id="L679" title="All 2 branches missed.">        if(fta == null)</span>
+<span class="nc" id="L680">            return false;</span>
+
+<span class="nc" id="L682">        Calendar p = Calendar.getInstance(test.getTimeZone());</span>
+<span class="nc" id="L683">        p.setTime(fta);</span>
+        
+<span class="nc" id="L685">        int year = p.get(Calendar.YEAR);</span>
+<span class="nc" id="L686">        int month = p.get(Calendar.MONTH);</span>
+<span class="nc" id="L687">        int day = p.get(Calendar.DATE);</span>
+        
+<span class="nc bnc" id="L689" title="All 2 branches missed.">        if(dayOnly) {</span>
+<span class="nc bnc" id="L690" title="All 2 branches missed.">            return (year == test.get(Calendar.YEAR) </span>
+<span class="nc bnc" id="L691" title="All 2 branches missed.">                    &amp;&amp; month == test.get(Calendar.MONTH) </span>
+<span class="nc bnc" id="L692" title="All 2 branches missed.">                    &amp;&amp; day == test.get(Calendar.DATE));</span>
+        }
+        
+<span class="nc bnc" id="L695" title="All 2 branches missed.">        while(fta.before(testTime)) {</span>
+<span class="nc" id="L696">            fta = getFireTimeAfter(fta);</span>
+        }
+
+<span class="nc" id="L699">        return fta.equals(testTime);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Called when the &lt;code&gt;{@link Scheduler}&lt;/code&gt; has decided to 'fire'
+     * the trigger (execute the associated &lt;code&gt;Job&lt;/code&gt;), in order to
+     * give the &lt;code&gt;Trigger&lt;/code&gt; a chance to update itself for its next
+     * triggering (if any).
+     * &lt;/p&gt;
+     * 
+     * @see #executionComplete(JobExecutionContext, JobExecutionException)
+     */
+    @Override
+    public void triggered(org.quartz.Calendar calendar) {
+<span class="fc" id="L714">        previousFireTime = nextFireTime;</span>
+<span class="fc" id="L715">        nextFireTime = getFireTimeAfter(nextFireTime);</span>
+
+<span class="pc bpc" id="L717" title="2 of 4 branches missed.">        while (nextFireTime != null &amp;&amp; calendar != null</span>
+<span class="nc bnc" id="L718" title="All 2 branches missed.">                &amp;&amp; !calendar.isTimeIncluded(nextFireTime.getTime())) {</span>
+<span class="nc" id="L719">            nextFireTime = getFireTimeAfter(nextFireTime);</span>
+        }
+<span class="fc" id="L721">    }</span>
+
+    /**
+     *  
+     * @see AbstractTrigger#updateWithNewCalendar(org.quartz.Calendar, long)
+     */
+    @Override
+    public void updateWithNewCalendar(org.quartz.Calendar calendar, long misfireThreshold)
+    {
+<span class="nc" id="L730">        nextFireTime = getFireTimeAfter(previousFireTime);</span>
+        
+<span class="nc bnc" id="L732" title="All 4 branches missed.">        if (nextFireTime == null || calendar == null) {</span>
+<span class="nc" id="L733">            return;</span>
+        }
+        
+<span class="nc" id="L736">        Date now = new Date();</span>
+<span class="nc bnc" id="L737" title="All 4 branches missed.">        while (nextFireTime != null &amp;&amp; !calendar.isTimeIncluded(nextFireTime.getTime())) {</span>
+
+<span class="nc" id="L739">            nextFireTime = getFireTimeAfter(nextFireTime);</span>
+
+<span class="nc bnc" id="L741" title="All 2 branches missed.">            if(nextFireTime == null)</span>
+<span class="nc" id="L742">                break;</span>
+            
+            //avoid infinite loop
+            // Use gregorian only because the constant is based on Gregorian
+<span class="nc" id="L746">            java.util.Calendar c = new java.util.GregorianCalendar(); </span>
+<span class="nc" id="L747">            c.setTime(nextFireTime);</span>
+<span class="nc bnc" id="L748" title="All 2 branches missed.">            if (c.get(java.util.Calendar.YEAR) &gt; YEAR_TO_GIVEUP_SCHEDULING_AT) {</span>
+<span class="nc" id="L749">                nextFireTime = null;</span>
+            }
+            
+<span class="nc bnc" id="L752" title="All 4 branches missed.">            if(nextFireTime != null &amp;&amp; nextFireTime.before(now)) {</span>
+<span class="nc" id="L753">                long diff = now.getTime() - nextFireTime.getTime();</span>
+<span class="nc bnc" id="L754" title="All 2 branches missed.">                if(diff &gt;= misfireThreshold) {</span>
+<span class="nc" id="L755">                    nextFireTime = getFireTimeAfter(nextFireTime);</span>
+                }
+            }
+<span class="nc" id="L758">        }</span>
+<span class="nc" id="L759">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Called by the scheduler at the time a &lt;code&gt;Trigger&lt;/code&gt; is first
+     * added to the scheduler, in order to have the &lt;code&gt;Trigger&lt;/code&gt;
+     * compute its first fire time, based on any associated calendar.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * After this method has been called, &lt;code&gt;getNextFireTime()&lt;/code&gt;
+     * should return a valid answer.
+     * &lt;/p&gt;
+     * 
+     * @return the first time at which the &lt;code&gt;Trigger&lt;/code&gt; will be fired
+     *         by the scheduler, which is also the same value &lt;code&gt;getNextFireTime()&lt;/code&gt;
+     *         will return (until after the first firing of the &lt;code&gt;Trigger&lt;/code&gt;).
+     *         &lt;/p&gt;
+     */
+    @Override
+    public Date computeFirstFireTime(org.quartz.Calendar calendar) {
+<span class="fc" id="L780">        nextFireTime = getFireTimeAfter(new Date(getStartTime().getTime() - 1000l));</span>
+
+<span class="pc bpc" id="L782" title="2 of 4 branches missed.">        while (nextFireTime != null &amp;&amp; calendar != null</span>
+<span class="nc bnc" id="L783" title="All 2 branches missed.">                &amp;&amp; !calendar.isTimeIncluded(nextFireTime.getTime())) {</span>
+<span class="nc" id="L784">            nextFireTime = getFireTimeAfter(nextFireTime);</span>
+        }
+
+<span class="fc" id="L787">        return nextFireTime;</span>
+    }
+
+    /* (non-Javadoc)
+     * @see org.quartz.CronTriggerI#getExpressionSummary()
+     */
+    public String getExpressionSummary() {
+<span class="nc bnc" id="L794" title="All 2 branches missed.">        return cronEx == null ? null : cronEx.getExpressionSummary();</span>
+    }
+
+    /**
+     * Used by extensions of CronTrigger to imply that there are additional 
+     * properties, specifically so that extensions can choose whether to be 
+     * stored as a serialized blob, or as a flattened CronTrigger table. 
+     */
+    public boolean hasAdditionalProperties() { 
+<span class="fc" id="L803">        return false;</span>
+    }
+    /**
+     * Get a {@link ScheduleBuilder} that is configured to produce a 
+     * schedule identical to this trigger's schedule.
+     * 
+     * @see #getTriggerBuilder()
+     */
+    @Override
+    public ScheduleBuilder&lt;CronTrigger&gt; getScheduleBuilder() {
+        
+<span class="nc" id="L814">        CronScheduleBuilder cb = CronScheduleBuilder.cronSchedule(getCronExpression())</span>
+<span class="nc" id="L815">                .inTimeZone(getTimeZone());</span>
+            
+<span class="nc bnc" id="L817" title="All 3 branches missed.">        switch(getMisfireInstruction()) {</span>
+<span class="nc" id="L818">            case MISFIRE_INSTRUCTION_DO_NOTHING : cb.withMisfireHandlingInstructionDoNothing();</span>
+<span class="nc" id="L819">            break;</span>
+<span class="nc" id="L820">            case MISFIRE_INSTRUCTION_FIRE_ONCE_NOW : cb.withMisfireHandlingInstructionFireAndProceed();</span>
+            break;
+        }
+        
+<span class="nc" id="L824">        return cb;</span>
+    }
+    
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    // Computation Functions
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    protected Date getTimeAfter(Date afterTime) {
+<span class="pc bpc" id="L834" title="1 of 2 branches missed.">        return (cronEx == null) ? null : cronEx.getTimeAfter(afterTime);</span>
+    }
+
+    /**
+     * NOT YET IMPLEMENTED: Returns the time before the given time
+     * that this &lt;code&gt;CronTrigger&lt;/code&gt; will fire.
+     */ 
+    protected Date getTimeBefore(Date eTime) {
+<span class="nc bnc" id="L842" title="All 2 branches missed.">        return (cronEx == null) ? null : cronEx.getTimeBefore(eTime);</span>
+    }
+
+    
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

@@ -1,0 +1,1872 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RAMJobStore.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.simpl</a> &gt; <span class="el_source">RAMJobStore.java</span></div><h1>RAMJobStore.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.simpl;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicLong;
+
+import org.quartz.Calendar;
+import org.quartz.Job;
+import org.quartz.JobDataMap;
+import org.quartz.JobDetail;
+import org.quartz.JobKey;
+import org.quartz.JobPersistenceException;
+import org.quartz.ObjectAlreadyExistsException;
+import org.quartz.Trigger;
+import org.quartz.TriggerKey;
+import org.quartz.Trigger.CompletedExecutionInstruction;
+import org.quartz.Trigger.TriggerState;
+import org.quartz.Trigger.TriggerTimeComparator;
+import org.quartz.impl.JobDetailImpl;
+import org.quartz.impl.matchers.GroupMatcher;
+import org.quartz.impl.matchers.StringMatcher;
+import org.quartz.spi.ClassLoadHelper;
+import org.quartz.spi.JobStore;
+import org.quartz.spi.OperableTrigger;
+import org.quartz.spi.SchedulerSignaler;
+import org.quartz.spi.TriggerFiredBundle;
+import org.quartz.spi.TriggerFiredResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import static org.quartz.impl.matchers.EverythingMatcher.allTriggers;
+
+/**
+ * &lt;p&gt;
+ * This class implements a &lt;code&gt;{@link org.quartz.spi.JobStore}&lt;/code&gt; that
+ * utilizes RAM as its storage device.
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * As you should know, the ramification of this is that access is extrememly
+ * fast, but the data is completely volatile - therefore this &lt;code&gt;JobStore&lt;/code&gt;
+ * should not be used if true persistence between program shutdowns is
+ * required.
+ * &lt;/p&gt;
+ * 
+ * @author James House
+ * @author Sharada Jambula
+ * @author Eric Mueller
+ */
+public class RAMJobStore implements JobStore {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+<span class="fc" id="L89">    protected HashMap&lt;JobKey, JobWrapper&gt; jobsByKey = new HashMap&lt;JobKey, JobWrapper&gt;(1000);</span>
+
+<span class="fc" id="L91">    protected HashMap&lt;TriggerKey, TriggerWrapper&gt; triggersByKey = new HashMap&lt;TriggerKey, TriggerWrapper&gt;(1000);</span>
+
+<span class="fc" id="L93">    protected HashMap&lt;String, HashMap&lt;JobKey, JobWrapper&gt;&gt; jobsByGroup = new HashMap&lt;String, HashMap&lt;JobKey, JobWrapper&gt;&gt;(25);</span>
+
+<span class="fc" id="L95">    protected HashMap&lt;String, HashMap&lt;TriggerKey, TriggerWrapper&gt;&gt; triggersByGroup = new HashMap&lt;String, HashMap&lt;TriggerKey, TriggerWrapper&gt;&gt;(25);</span>
+
+<span class="fc" id="L97">    protected TreeSet&lt;TriggerWrapper&gt; timeTriggers = new TreeSet&lt;TriggerWrapper&gt;(new TriggerWrapperComparator());</span>
+
+<span class="fc" id="L99">    protected HashMap&lt;String, Calendar&gt; calendarsByName = new HashMap&lt;String, Calendar&gt;(25);</span>
+
+<span class="fc" id="L101">    protected Map&lt;JobKey, List&lt;TriggerWrapper&gt;&gt; triggersByJob = new HashMap&lt;JobKey, List&lt;TriggerWrapper&gt;&gt;(1000);</span>
+
+<span class="fc" id="L103">    protected final Object lock = new Object();</span>
+
+<span class="fc" id="L105">    protected HashSet&lt;String&gt; pausedTriggerGroups = new HashSet&lt;String&gt;();</span>
+
+<span class="fc" id="L107">    protected HashSet&lt;String&gt; pausedJobGroups = new HashSet&lt;String&gt;();</span>
+
+<span class="fc" id="L109">    protected HashSet&lt;JobKey&gt; blockedJobs = new HashSet&lt;JobKey&gt;();</span>
+    
+<span class="fc" id="L111">    protected long misfireThreshold = 5000l;</span>
+
+    protected SchedulerSignaler signaler;
+
+<span class="fc" id="L115">    private final Logger log = LoggerFactory.getLogger(getClass());</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Create a new &lt;code&gt;RAMJobStore&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+<span class="fc" id="L130">    public RAMJobStore() {</span>
+<span class="fc" id="L131">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    protected Logger getLog() {
+<span class="fc" id="L142">        return log;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Called by the QuartzScheduler before the &lt;code&gt;JobStore&lt;/code&gt; is
+     * used, in order to give the it a chance to initialize.
+     * &lt;/p&gt;
+     */
+    public void initialize(ClassLoadHelper loadHelper, SchedulerSignaler schedSignaler) {
+
+<span class="fc" id="L153">        this.signaler = schedSignaler;</span>
+
+<span class="fc" id="L155">        getLog().info(&quot;RAMJobStore initialized.&quot;);</span>
+<span class="fc" id="L156">    }</span>
+
+    public void schedulerStarted() {
+        // nothing to do
+<span class="fc" id="L160">    }</span>
+
+    public void schedulerPaused() {
+        // nothing to do
+<span class="fc" id="L164">    }</span>
+    
+    public void schedulerResumed() {
+        // nothing to do
+<span class="fc" id="L168">    }</span>
+    
+    public long getMisfireThreshold() {
+<span class="fc" id="L171">        return misfireThreshold;</span>
+    }
+
+    /**
+     * The number of milliseconds by which a trigger must have missed its
+     * next-fire-time, in order for it to be considered &quot;misfired&quot; and thus
+     * have its misfire instruction applied.
+     * 
+     * @param misfireThreshold the new misfire threshold
+     */
+    @SuppressWarnings(&quot;UnusedDeclaration&quot;)
+    public void setMisfireThreshold(long misfireThreshold) {
+<span class="pc bpc" id="L183" title="1 of 2 branches missed.">        if (misfireThreshold &lt; 1) {</span>
+<span class="nc" id="L184">            throw new IllegalArgumentException(&quot;Misfire threshold must be larger than 0&quot;);</span>
+        }
+<span class="fc" id="L186">        this.misfireThreshold = misfireThreshold;</span>
+<span class="fc" id="L187">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Called by the QuartzScheduler to inform the &lt;code&gt;JobStore&lt;/code&gt; that
+     * it should free up all of it's resources because the scheduler is
+     * shutting down.
+     * &lt;/p&gt;
+     */
+    public void shutdown() {
+<span class="fc" id="L197">    }</span>
+
+    public boolean supportsPersistence() {
+<span class="fc" id="L200">        return false;</span>
+    }
+
+    /**
+     * Clear (delete!) all scheduling data - all {@link Job}s, {@link Trigger}s
+     * {@link Calendar}s.
+     * 
+     * @throws JobPersistenceException
+     */
+    public void clearAllSchedulingData() throws JobPersistenceException {
+
+<span class="fc" id="L211">        synchronized (lock) {</span>
+            // unschedule jobs (delete triggers)
+<span class="fc" id="L213">            List&lt;String&gt; lst = getTriggerGroupNames();</span>
+<span class="fc bfc" id="L214" title="All 2 branches covered.">            for (String group: lst) {</span>
+<span class="fc" id="L215">                Set&lt;TriggerKey&gt; keys = getTriggerKeys(GroupMatcher.triggerGroupEquals(group));</span>
+<span class="fc bfc" id="L216" title="All 2 branches covered.">                for (TriggerKey key: keys) {</span>
+<span class="fc" id="L217">                    removeTrigger(key);</span>
+<span class="fc" id="L218">                }</span>
+<span class="fc" id="L219">            }</span>
+            // delete jobs
+<span class="fc" id="L221">            lst = getJobGroupNames();</span>
+<span class="pc bpc" id="L222" title="1 of 2 branches missed.">            for (String group: lst) {</span>
+<span class="nc" id="L223">                Set&lt;JobKey&gt; keys = getJobKeys(GroupMatcher.jobGroupEquals(group));</span>
+<span class="nc bnc" id="L224" title="All 2 branches missed.">                for (JobKey key: keys) {</span>
+<span class="nc" id="L225">                    removeJob(key);</span>
+<span class="nc" id="L226">                }</span>
+<span class="nc" id="L227">            }</span>
+            // delete calendars
+<span class="fc" id="L229">            lst = getCalendarNames();</span>
+<span class="fc bfc" id="L230" title="All 2 branches covered.">            for(String name: lst) {</span>
+<span class="fc" id="L231">                removeCalendar(name);</span>
+<span class="fc" id="L232">            }</span>
+<span class="fc" id="L233">        }</span>
+<span class="fc" id="L234">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Store the given &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt; and &lt;code&gt;{@link org.quartz.Trigger}&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @param newJob
+     *          The &lt;code&gt;JobDetail&lt;/code&gt; to be stored.
+     * @param newTrigger
+     *          The &lt;code&gt;Trigger&lt;/code&gt; to be stored.
+     * @throws ObjectAlreadyExistsException
+     *           if a &lt;code&gt;Job&lt;/code&gt; with the same name/group already
+     *           exists.
+     */
+    public void storeJobAndTrigger(JobDetail newJob,
+            OperableTrigger newTrigger) throws JobPersistenceException {
+<span class="fc" id="L251">        storeJob(newJob, false);</span>
+<span class="fc" id="L252">        storeTrigger(newTrigger, false);</span>
+<span class="fc" id="L253">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Store the given &lt;code&gt;{@link org.quartz.Job}&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @param newJob
+     *          The &lt;code&gt;Job&lt;/code&gt; to be stored.
+     * @param replaceExisting
+     *          If &lt;code&gt;true&lt;/code&gt;, any &lt;code&gt;Job&lt;/code&gt; existing in the
+     *          &lt;code&gt;JobStore&lt;/code&gt; with the same name &amp; group should be
+     *          over-written.
+     * @throws ObjectAlreadyExistsException
+     *           if a &lt;code&gt;Job&lt;/code&gt; with the same name/group already
+     *           exists, and replaceExisting is set to false.
+     */
+    public void storeJob(JobDetail newJob,
+            boolean replaceExisting) throws ObjectAlreadyExistsException {
+<span class="fc" id="L272">        JobWrapper jw = new JobWrapper((JobDetail)newJob.clone());</span>
+
+<span class="fc" id="L274">        boolean repl = false;</span>
+
+<span class="fc" id="L276">        synchronized (lock) {</span>
+<span class="fc bfc" id="L277" title="All 2 branches covered.">            if (jobsByKey.get(jw.key) != null) {</span>
+<span class="pc bpc" id="L278" title="1 of 2 branches missed.">                if (!replaceExisting) {</span>
+<span class="nc" id="L279">                    throw new ObjectAlreadyExistsException(newJob);</span>
+                }
+<span class="fc" id="L281">                repl = true;</span>
+            }
+
+<span class="fc bfc" id="L284" title="All 2 branches covered.">            if (!repl) {</span>
+                // get job group
+<span class="fc" id="L286">                HashMap&lt;JobKey, JobWrapper&gt; grpMap = jobsByGroup.get(newJob.getKey().getGroup());</span>
+<span class="fc bfc" id="L287" title="All 2 branches covered.">                if (grpMap == null) {</span>
+<span class="fc" id="L288">                    grpMap = new HashMap&lt;JobKey, JobWrapper&gt;(100);</span>
+<span class="fc" id="L289">                    jobsByGroup.put(newJob.getKey().getGroup(), grpMap);</span>
+                }
+                // add to jobs by group
+<span class="fc" id="L292">                grpMap.put(newJob.getKey(), jw);</span>
+                // add to jobs by FQN map
+<span class="fc" id="L294">                jobsByKey.put(jw.key, jw);</span>
+<span class="fc" id="L295">            } else {</span>
+                // update job detail
+<span class="fc" id="L297">                JobWrapper orig = jobsByKey.get(jw.key);</span>
+<span class="fc" id="L298">                orig.jobDetail = jw.jobDetail; // already cloned</span>
+            }
+<span class="fc" id="L300">        }</span>
+<span class="fc" id="L301">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Remove (delete) the &lt;code&gt;{@link org.quartz.Job}&lt;/code&gt; with the given
+     * name, and any &lt;code&gt;{@link org.quartz.Trigger}&lt;/code&gt; s that reference
+     * it.
+     * &lt;/p&gt;
+     *
+     * @return &lt;code&gt;true&lt;/code&gt; if a &lt;code&gt;Job&lt;/code&gt; with the given name &amp;
+     *         group was found and removed from the store.
+     */
+    public boolean removeJob(JobKey jobKey) {
+
+<span class="fc" id="L315">        boolean found = false;</span>
+
+<span class="fc" id="L317">        synchronized (lock) {</span>
+<span class="fc" id="L318">            List&lt;OperableTrigger&gt; triggersOfJob = getTriggersForJob(jobKey);</span>
+<span class="fc bfc" id="L319" title="All 2 branches covered.">            for (OperableTrigger trig: triggersOfJob) {</span>
+<span class="fc" id="L320">                this.removeTrigger(trig.getKey());</span>
+<span class="fc" id="L321">                found = true;</span>
+<span class="fc" id="L322">            }</span>
+            
+<span class="fc bfc" id="L324" title="All 2 branches covered.">            found = (jobsByKey.remove(jobKey) != null) | found;</span>
+<span class="pc bpc" id="L325" title="1 of 2 branches missed.">            if (found) {</span>
+
+<span class="fc" id="L327">                HashMap&lt;JobKey, JobWrapper&gt; grpMap = jobsByGroup.get(jobKey.getGroup());</span>
+<span class="fc bfc" id="L328" title="All 2 branches covered.">                if (grpMap != null) {</span>
+<span class="fc" id="L329">                    grpMap.remove(jobKey);</span>
+<span class="fc bfc" id="L330" title="All 2 branches covered.">                    if (grpMap.size() == 0) {</span>
+<span class="fc" id="L331">                        jobsByGroup.remove(jobKey.getGroup());</span>
+                    }
+                }
+            }
+<span class="fc" id="L335">        }</span>
+
+<span class="fc" id="L337">        return found;</span>
+    }
+
+    public boolean removeJobs(List&lt;JobKey&gt; jobKeys)
+            throws JobPersistenceException {
+<span class="nc" id="L342">        boolean allFound = true;</span>
+
+<span class="nc" id="L344">        synchronized (lock) {</span>
+<span class="nc bnc" id="L345" title="All 2 branches missed.">            for(JobKey key: jobKeys)</span>
+<span class="nc bnc" id="L346" title="All 4 branches missed.">                allFound = removeJob(key) &amp;&amp; allFound;</span>
+<span class="nc" id="L347">        }</span>
+
+<span class="nc" id="L349">        return allFound;</span>
+    }
+
+    public boolean removeTriggers(List&lt;TriggerKey&gt; triggerKeys)
+            throws JobPersistenceException {
+<span class="nc" id="L354">        boolean allFound = true;</span>
+
+<span class="nc" id="L356">        synchronized (lock) {</span>
+<span class="nc bnc" id="L357" title="All 2 branches missed.">            for(TriggerKey key: triggerKeys)</span>
+<span class="nc bnc" id="L358" title="All 4 branches missed.">                allFound = removeTrigger(key) &amp;&amp; allFound;</span>
+<span class="nc" id="L359">        }</span>
+
+<span class="nc" id="L361">        return allFound;</span>
+    }
+
+    public void storeJobsAndTriggers(
+            Map&lt;JobDetail, Set&lt;? extends Trigger&gt;&gt; triggersAndJobs, boolean replace)
+            throws JobPersistenceException {
+
+<span class="fc" id="L368">        synchronized (lock) {</span>
+            // make sure there are no collisions...
+<span class="pc bpc" id="L370" title="1 of 2 branches missed.">            if(!replace) {</span>
+<span class="nc bnc" id="L371" title="All 2 branches missed.">                for(Entry&lt;JobDetail, Set&lt;? extends Trigger&gt;&gt; e: triggersAndJobs.entrySet()) {</span>
+<span class="nc bnc" id="L372" title="All 2 branches missed.">                    if(checkExists(e.getKey().getKey()))</span>
+<span class="nc" id="L373">                        throw new ObjectAlreadyExistsException(e.getKey());</span>
+<span class="nc bnc" id="L374" title="All 2 branches missed.">                    for(Trigger trigger: e.getValue()) {</span>
+<span class="nc bnc" id="L375" title="All 2 branches missed.">                        if(checkExists(trigger.getKey()))</span>
+<span class="nc" id="L376">                            throw new ObjectAlreadyExistsException(trigger);</span>
+<span class="nc" id="L377">                    }</span>
+<span class="nc" id="L378">                }</span>
+            }
+            // do bulk add...
+<span class="fc bfc" id="L381" title="All 2 branches covered.">            for(Entry&lt;JobDetail, Set&lt;? extends Trigger&gt;&gt; e: triggersAndJobs.entrySet()) {</span>
+<span class="fc" id="L382">                storeJob(e.getKey(), true);</span>
+<span class="fc bfc" id="L383" title="All 2 branches covered.">                for(Trigger trigger: e.getValue()) {</span>
+<span class="fc" id="L384">                    storeTrigger((OperableTrigger) trigger, true);</span>
+<span class="fc" id="L385">                }</span>
+<span class="fc" id="L386">            }</span>
+<span class="fc" id="L387">        }</span>
+        
+<span class="fc" id="L389">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Store the given &lt;code&gt;{@link org.quartz.Trigger}&lt;/code&gt;.
+     * &lt;/p&gt;
+     *
+     * @param newTrigger
+     *          The &lt;code&gt;Trigger&lt;/code&gt; to be stored.
+     * @param replaceExisting
+     *          If &lt;code&gt;true&lt;/code&gt;, any &lt;code&gt;Trigger&lt;/code&gt; existing in
+     *          the &lt;code&gt;JobStore&lt;/code&gt; with the same name &amp; group should
+     *          be over-written.
+     * @throws ObjectAlreadyExistsException
+     *           if a &lt;code&gt;Trigger&lt;/code&gt; with the same name/group already
+     *           exists, and replaceExisting is set to false.
+     *
+     * @see #pauseTriggers(org.quartz.impl.matchers.GroupMatcher)
+     */
+    public void storeTrigger(OperableTrigger newTrigger,
+            boolean replaceExisting) throws JobPersistenceException {
+<span class="fc" id="L410">        TriggerWrapper tw = new TriggerWrapper((OperableTrigger)newTrigger.clone());</span>
+
+<span class="fc" id="L412">        synchronized (lock) {</span>
+<span class="fc bfc" id="L413" title="All 2 branches covered.">            if (triggersByKey.get(tw.key) != null) {</span>
+<span class="fc bfc" id="L414" title="All 2 branches covered.">                if (!replaceExisting) {</span>
+<span class="fc" id="L415">                    throw new ObjectAlreadyExistsException(newTrigger);</span>
+                }
+    
+<span class="fc" id="L418">                removeTrigger(newTrigger.getKey(), false);</span>
+            }
+    
+<span class="pc bpc" id="L421" title="1 of 2 branches missed.">            if (retrieveJob(newTrigger.getJobKey()) == null) {</span>
+<span class="nc" id="L422">                throw new JobPersistenceException(&quot;The job (&quot;</span>
+<span class="nc" id="L423">                        + newTrigger.getJobKey()</span>
+                        + &quot;) referenced by the trigger does not exist.&quot;);
+            }
+
+            // add to triggers by job
+<span class="fc" id="L428">            List&lt;TriggerWrapper&gt; jobList = triggersByJob.get(tw.jobKey);</span>
+<span class="fc bfc" id="L429" title="All 2 branches covered.">            if(jobList == null) {</span>
+<span class="fc" id="L430">                jobList = new ArrayList&lt;TriggerWrapper&gt;(1);</span>
+<span class="fc" id="L431">                triggersByJob.put(tw.jobKey, jobList);</span>
+            }
+<span class="fc" id="L433">            jobList.add(tw);</span>
+            
+            // add to triggers by group
+<span class="fc" id="L436">            HashMap&lt;TriggerKey, TriggerWrapper&gt; grpMap = triggersByGroup.get(newTrigger.getKey().getGroup());</span>
+<span class="fc bfc" id="L437" title="All 2 branches covered.">            if (grpMap == null) {</span>
+<span class="fc" id="L438">                grpMap = new HashMap&lt;TriggerKey, TriggerWrapper&gt;(100);</span>
+<span class="fc" id="L439">                triggersByGroup.put(newTrigger.getKey().getGroup(), grpMap);</span>
+            }
+<span class="fc" id="L441">            grpMap.put(newTrigger.getKey(), tw);</span>
+            // add to triggers by FQN map
+<span class="fc" id="L443">            triggersByKey.put(tw.key, tw);</span>
+
+<span class="fc bfc" id="L445" title="All 2 branches covered.">            if (pausedTriggerGroups.contains(newTrigger.getKey().getGroup())</span>
+<span class="fc bfc" id="L446" title="All 2 branches covered.">                    || pausedJobGroups.contains(newTrigger.getJobKey().getGroup())) {</span>
+<span class="fc" id="L447">                tw.state = TriggerWrapper.STATE_PAUSED;</span>
+<span class="pc bpc" id="L448" title="1 of 2 branches missed.">                if (blockedJobs.contains(tw.jobKey)) {</span>
+<span class="nc" id="L449">                    tw.state = TriggerWrapper.STATE_PAUSED_BLOCKED;</span>
+                }
+<span class="pc bpc" id="L451" title="1 of 2 branches missed.">            } else if (blockedJobs.contains(tw.jobKey)) {</span>
+<span class="nc" id="L452">                tw.state = TriggerWrapper.STATE_BLOCKED;</span>
+            } else {
+<span class="fc" id="L454">                timeTriggers.add(tw);</span>
+            }
+<span class="fc" id="L456">        }</span>
+<span class="fc" id="L457">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Remove (delete) the &lt;code&gt;{@link org.quartz.Trigger}&lt;/code&gt; with the
+     * given name.
+     * &lt;/p&gt;
+     *
+     * @return &lt;code&gt;true&lt;/code&gt; if a &lt;code&gt;Trigger&lt;/code&gt; with the given
+     *         name &amp; group was found and removed from the store.
+     */
+    public boolean removeTrigger(TriggerKey triggerKey) {
+<span class="fc" id="L469">        return removeTrigger(triggerKey, true);</span>
+    }
+    
+    private boolean removeTrigger(TriggerKey key, boolean removeOrphanedJob) {
+
+        boolean found;
+
+<span class="fc" id="L476">        synchronized (lock) {</span>
+            // remove from triggers by FQN map
+<span class="fc" id="L478">            TriggerWrapper tw = triggersByKey.remove(key);</span>
+<span class="fc bfc" id="L479" title="All 2 branches covered.">            found = tw != null;</span>
+<span class="fc bfc" id="L480" title="All 2 branches covered.">            if (found) {</span>
+                // remove from triggers by group
+<span class="fc" id="L482">                HashMap&lt;TriggerKey, TriggerWrapper&gt; grpMap = triggersByGroup.get(key.getGroup());</span>
+<span class="pc bpc" id="L483" title="1 of 2 branches missed.">                if (grpMap != null) {</span>
+<span class="fc" id="L484">                    grpMap.remove(key);</span>
+<span class="fc bfc" id="L485" title="All 2 branches covered.">                    if (grpMap.size() == 0) {</span>
+<span class="fc" id="L486">                        triggersByGroup.remove(key.getGroup());</span>
+                    }
+                }
+                //remove from triggers by job
+<span class="fc" id="L490">                List&lt;TriggerWrapper&gt; jobList = triggersByJob.get(tw.jobKey);</span>
+<span class="pc bpc" id="L491" title="1 of 2 branches missed.">                if(jobList != null) {</span>
+<span class="fc" id="L492">                    jobList.remove(tw);</span>
+<span class="fc bfc" id="L493" title="All 2 branches covered.">                    if(jobList.isEmpty()) {</span>
+<span class="fc" id="L494">                        triggersByJob.remove(tw.jobKey);</span>
+                    }
+                }
+               
+<span class="fc" id="L498">                timeTriggers.remove(tw);</span>
+
+<span class="fc bfc" id="L500" title="All 2 branches covered.">                if (removeOrphanedJob) {</span>
+<span class="fc" id="L501">                    JobWrapper jw = jobsByKey.get(tw.jobKey);</span>
+<span class="fc" id="L502">                    List&lt;OperableTrigger&gt; trigs = getTriggersForJob(tw.jobKey);</span>
+<span class="pc bpc" id="L503" title="1 of 6 branches missed.">                    if ((trigs == null || trigs.size() == 0) &amp;&amp; !jw.jobDetail.isDurable()) {</span>
+<span class="pc bpc" id="L504" title="1 of 2 branches missed.">                        if (removeJob(jw.key)) {</span>
+<span class="fc" id="L505">                            signaler.notifySchedulerListenersJobDeleted(jw.key);</span>
+                        }
+                    }
+                }
+            }
+<span class="fc" id="L510">        }</span>
+
+<span class="fc" id="L512">        return found;</span>
+    }
+
+
+    /**
+     * @see org.quartz.spi.JobStore#replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger)
+     */
+    public boolean replaceTrigger(TriggerKey triggerKey, OperableTrigger newTrigger) throws JobPersistenceException {
+
+        boolean found;
+
+<span class="fc" id="L523">        synchronized (lock) {</span>
+            // remove from triggers by FQN map
+<span class="fc" id="L525">            TriggerWrapper tw = triggersByKey.remove(triggerKey);</span>
+<span class="pc bpc" id="L526" title="1 of 2 branches missed.">            found = (tw != null);</span>
+
+<span class="pc bpc" id="L528" title="1 of 2 branches missed.">            if (found) {</span>
+
+<span class="pc bpc" id="L530" title="1 of 2 branches missed.">                if (!tw.getTrigger().getJobKey().equals(newTrigger.getJobKey())) {</span>
+<span class="nc" id="L531">                    throw new JobPersistenceException(&quot;New trigger is not related to the same job as the old trigger.&quot;);</span>
+                }
+
+                // remove from triggers by group
+<span class="fc" id="L535">                HashMap&lt;TriggerKey, TriggerWrapper&gt; grpMap = triggersByGroup.get(triggerKey.getGroup());</span>
+<span class="pc bpc" id="L536" title="1 of 2 branches missed.">                if (grpMap != null) {</span>
+<span class="fc" id="L537">                    grpMap.remove(triggerKey);</span>
+<span class="pc bpc" id="L538" title="1 of 2 branches missed.">                    if (grpMap.size() == 0) {</span>
+<span class="nc" id="L539">                        triggersByGroup.remove(triggerKey.getGroup());</span>
+                    }
+                }
+                
+                //remove from triggers by job
+<span class="fc" id="L544">                List&lt;TriggerWrapper&gt; jobList = triggersByJob.get(tw.jobKey);</span>
+<span class="pc bpc" id="L545" title="1 of 2 branches missed.">                if(jobList != null) {</span>
+<span class="fc" id="L546">                    jobList.remove(tw);</span>
+<span class="pc bpc" id="L547" title="1 of 2 branches missed.">                    if(jobList.isEmpty()) {</span>
+<span class="fc" id="L548">                        triggersByJob.remove(tw.jobKey);</span>
+                    }
+                }
+                
+<span class="fc" id="L552">                timeTriggers.remove(tw);</span>
+
+                try {
+<span class="fc" id="L555">                    storeTrigger(newTrigger, false);</span>
+<span class="nc" id="L556">                } catch(JobPersistenceException jpe) {</span>
+<span class="nc" id="L557">                    storeTrigger(tw.getTrigger(), false); // put previous trigger back...</span>
+<span class="nc" id="L558">                    throw jpe;</span>
+<span class="fc" id="L559">                }</span>
+            }
+<span class="fc" id="L561">        }</span>
+
+<span class="fc" id="L563">        return found;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Retrieve the &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt; for the given
+     * &lt;code&gt;{@link org.quartz.Job}&lt;/code&gt;.
+     * &lt;/p&gt;
+     *
+     * @return The desired &lt;code&gt;Job&lt;/code&gt;, or null if there is no match.
+     */
+    public JobDetail retrieveJob(JobKey jobKey) {
+<span class="fc" id="L575">        synchronized(lock) {</span>
+<span class="fc" id="L576">            JobWrapper jw = jobsByKey.get(jobKey);</span>
+<span class="fc bfc" id="L577" title="All 2 branches covered.">            return (jw != null) ? (JobDetail)jw.jobDetail.clone() : null;</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Retrieve the given &lt;code&gt;{@link org.quartz.Trigger}&lt;/code&gt;.
+     * &lt;/p&gt;
+     *
+     * @return The desired &lt;code&gt;Trigger&lt;/code&gt;, or null if there is no
+     *         match.
+     */
+    public OperableTrigger retrieveTrigger(TriggerKey triggerKey) {
+<span class="fc" id="L590">        synchronized(lock) {</span>
+<span class="fc" id="L591">            TriggerWrapper tw = triggersByKey.get(triggerKey);</span>
+    
+<span class="fc bfc" id="L593" title="All 2 branches covered.">            return (tw != null) ? (OperableTrigger)tw.getTrigger().clone() : null;</span>
+        }
+    }
+    
+    /**
+     * Determine whether a {@link Job} with the given identifier already 
+     * exists within the scheduler.
+     * 
+     * @param jobKey the identifier to check for
+     * @return true if a Job exists with the given identifier
+     * @throws JobPersistenceException
+     */
+    public boolean checkExists(JobKey jobKey) throws JobPersistenceException {
+<span class="fc" id="L606">        synchronized(lock) {</span>
+<span class="fc" id="L607">            JobWrapper jw = jobsByKey.get(jobKey);</span>
+<span class="fc bfc" id="L608" title="All 2 branches covered.">            return (jw != null);</span>
+        }
+    }
+    
+    /**
+     * Determine whether a {@link Trigger} with the given identifier already 
+     * exists within the scheduler.
+     * 
+     * @param triggerKey the identifier to check for
+     * @return true if a Trigger exists with the given identifier
+     * @throws JobPersistenceException
+     */
+    public boolean checkExists(TriggerKey triggerKey) throws JobPersistenceException {
+<span class="fc" id="L621">        synchronized(lock) {</span>
+<span class="fc" id="L622">            TriggerWrapper tw = triggersByKey.get(triggerKey);</span>
+    
+<span class="fc bfc" id="L624" title="All 2 branches covered.">            return (tw != null);</span>
+        }
+    }
+ 
+    /**
+     * &lt;p&gt;
+     * Get the current state of the identified &lt;code&gt;{@link Trigger}&lt;/code&gt;.
+     * &lt;/p&gt;
+     *
+     * @see TriggerState#NORMAL
+     * @see TriggerState#PAUSED
+     * @see TriggerState#COMPLETE
+     * @see TriggerState#ERROR
+     * @see TriggerState#BLOCKED
+     * @see TriggerState#NONE
+     */
+    public TriggerState getTriggerState(TriggerKey triggerKey) throws JobPersistenceException {
+<span class="fc" id="L641">        synchronized(lock) {</span>
+<span class="fc" id="L642">            TriggerWrapper tw = triggersByKey.get(triggerKey);</span>
+            
+<span class="fc bfc" id="L644" title="All 2 branches covered.">            if (tw == null) {</span>
+<span class="fc" id="L645">                return TriggerState.NONE;</span>
+            }
+    
+<span class="pc bpc" id="L648" title="1 of 2 branches missed.">            if (tw.state == TriggerWrapper.STATE_COMPLETE) {</span>
+<span class="nc" id="L649">                return TriggerState.COMPLETE;</span>
+            }
+    
+<span class="fc bfc" id="L652" title="All 2 branches covered.">            if (tw.state == TriggerWrapper.STATE_PAUSED) {</span>
+<span class="fc" id="L653">                return TriggerState.PAUSED;</span>
+            }
+    
+<span class="pc bpc" id="L656" title="1 of 2 branches missed.">            if (tw.state == TriggerWrapper.STATE_PAUSED_BLOCKED) {</span>
+<span class="nc" id="L657">                return TriggerState.PAUSED;</span>
+            }
+    
+<span class="pc bpc" id="L660" title="1 of 2 branches missed.">            if (tw.state == TriggerWrapper.STATE_BLOCKED) {</span>
+<span class="nc" id="L661">                return TriggerState.BLOCKED;</span>
+            }
+    
+<span class="fc bfc" id="L664" title="All 2 branches covered.">            if (tw.state == TriggerWrapper.STATE_ERROR) {</span>
+<span class="fc" id="L665">                return TriggerState.ERROR;</span>
+            }
+    
+<span class="fc" id="L668">            return TriggerState.NORMAL;</span>
+        }
+    }
+
+    /**
+     * Reset the current state of the identified &lt;code&gt;{@link Trigger}&lt;/code&gt;
+     * from {@link TriggerState#ERROR} to {@link TriggerState#NORMAL} or
+     * {@link TriggerState#PAUSED} as appropriate.
+     *
+     * &lt;p&gt;Only affects triggers that are in ERROR state - if identified trigger is not
+     * in that state then the result is a no-op.&lt;/p&gt;
+     *
+     * &lt;p&gt;The result will be the trigger returning to the normal, waiting to
+     * be fired state, unless the trigger's group has been paused, in which
+     * case it will go into the PAUSED state.&lt;/p&gt;
+     */
+    public void resetTriggerFromErrorState(final TriggerKey triggerKey) throws JobPersistenceException {
+
+<span class="fc" id="L686">        synchronized (lock) {</span>
+
+<span class="fc" id="L688">            TriggerWrapper tw = triggersByKey.get(triggerKey);</span>
+            // does the trigger exist?
+<span class="pc bpc" id="L690" title="2 of 4 branches missed.">            if (tw == null || tw.trigger == null) {</span>
+<span class="nc" id="L691">                return;</span>
+            }
+            // is the trigger in error state?
+<span class="pc bpc" id="L694" title="1 of 2 branches missed.">            if (tw.state != TriggerWrapper.STATE_ERROR) {</span>
+<span class="nc" id="L695">                return;</span>
+            }
+
+<span class="pc bpc" id="L698" title="1 of 2 branches missed.">            if(pausedTriggerGroups.contains(triggerKey.getGroup())) {</span>
+<span class="nc" id="L699">                tw.state = TriggerWrapper.STATE_PAUSED;</span>
+            }
+            else {
+<span class="fc" id="L702">                tw.state = TriggerWrapper.STATE_WAITING;</span>
+<span class="fc" id="L703">                timeTriggers.add(tw);</span>
+            }
+<span class="fc" id="L705">        }</span>
+<span class="fc" id="L706">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Store the given &lt;code&gt;{@link org.quartz.Calendar}&lt;/code&gt;.
+     * &lt;/p&gt;
+     *
+     * @param calendar
+     *          The &lt;code&gt;Calendar&lt;/code&gt; to be stored.
+     * @param replaceExisting
+     *          If &lt;code&gt;true&lt;/code&gt;, any &lt;code&gt;Calendar&lt;/code&gt; existing
+     *          in the &lt;code&gt;JobStore&lt;/code&gt; with the same name &amp; group
+     *          should be over-written.
+     * @param updateTriggers
+     *          If &lt;code&gt;true&lt;/code&gt;, any &lt;code&gt;Trigger&lt;/code&gt;s existing
+     *          in the &lt;code&gt;JobStore&lt;/code&gt; that reference an existing
+     *          Calendar with the same name with have their next fire time
+     *          re-computed with the new &lt;code&gt;Calendar&lt;/code&gt;.
+     * @throws ObjectAlreadyExistsException
+     *           if a &lt;code&gt;Calendar&lt;/code&gt; with the same name already
+     *           exists, and replaceExisting is set to false.
+     */
+    public void storeCalendar(String name,
+            Calendar calendar, boolean replaceExisting, boolean updateTriggers)
+        throws ObjectAlreadyExistsException {
+
+<span class="fc" id="L732">        calendar = (Calendar) calendar.clone();</span>
+        
+<span class="fc" id="L734">        synchronized (lock) {</span>
+    
+<span class="fc" id="L736">            Object obj = calendarsByName.get(name);</span>
+    
+<span class="pc bpc" id="L738" title="3 of 4 branches missed.">            if (obj != null &amp;&amp; !replaceExisting) {</span>
+<span class="nc" id="L739">                throw new ObjectAlreadyExistsException(</span>
+                    &quot;Calendar with name '&quot; + name + &quot;' already exists.&quot;);
+<span class="pc bpc" id="L741" title="1 of 2 branches missed.">            } else if (obj != null) {</span>
+<span class="nc" id="L742">                calendarsByName.remove(name);</span>
+            }
+    
+<span class="fc" id="L745">            calendarsByName.put(name, calendar);</span>
+    
+<span class="pc bpc" id="L747" title="3 of 4 branches missed.">            if(obj != null &amp;&amp; updateTriggers) {</span>
+<span class="nc bnc" id="L748" title="All 2 branches missed.">                for (TriggerWrapper tw : getTriggerWrappersForCalendar(name)) {</span>
+<span class="nc" id="L749">                    OperableTrigger trig = tw.getTrigger();</span>
+<span class="nc" id="L750">                    boolean removed = timeTriggers.remove(tw);</span>
+
+<span class="nc" id="L752">                    trig.updateWithNewCalendar(calendar, getMisfireThreshold());</span>
+
+<span class="nc bnc" id="L754" title="All 2 branches missed.">                    if (removed) {</span>
+<span class="nc" id="L755">                        timeTriggers.add(tw);</span>
+                    }
+<span class="nc" id="L757">                }</span>
+            }
+<span class="fc" id="L759">        }</span>
+<span class="fc" id="L760">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Remove (delete) the &lt;code&gt;{@link org.quartz.Calendar}&lt;/code&gt; with the
+     * given name.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * If removal of the &lt;code&gt;Calendar&lt;/code&gt; would result in
+     * &lt;code&gt;Trigger&lt;/code&gt;s pointing to non-existent calendars, then a
+     * &lt;code&gt;JobPersistenceException&lt;/code&gt; will be thrown.&lt;/p&gt;
+     *       *
+     * @param calName The name of the &lt;code&gt;Calendar&lt;/code&gt; to be removed.
+     * @return &lt;code&gt;true&lt;/code&gt; if a &lt;code&gt;Calendar&lt;/code&gt; with the given name
+     * was found and removed from the store.
+     */
+    public boolean removeCalendar(String calName)
+        throws JobPersistenceException {
+<span class="fc" id="L779">        int numRefs = 0;</span>
+
+<span class="fc" id="L781">        synchronized (lock) {</span>
+<span class="fc bfc" id="L782" title="All 2 branches covered.">            for (TriggerWrapper trigger : triggersByKey.values()) {</span>
+<span class="fc" id="L783">                OperableTrigger trigg = trigger.trigger;</span>
+<span class="pc bpc" id="L784" title="1 of 2 branches missed.">                if (trigg.getCalendarName() != null</span>
+<span class="nc bnc" id="L785" title="All 2 branches missed.">                        &amp;&amp; trigg.getCalendarName().equals(calName)) {</span>
+<span class="nc" id="L786">                    numRefs++;</span>
+                }
+<span class="fc" id="L788">            }</span>
+<span class="fc" id="L789">        }</span>
+
+<span class="pc bpc" id="L791" title="1 of 2 branches missed.">        if (numRefs &gt; 0) {</span>
+<span class="nc" id="L792">            throw new JobPersistenceException(</span>
+                    &quot;Calender cannot be removed if it referenced by a Trigger!&quot;);
+        }
+
+<span class="pc bpc" id="L796" title="1 of 2 branches missed.">        return (calendarsByName.remove(calName) != null);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Retrieve the given &lt;code&gt;{@link org.quartz.Trigger}&lt;/code&gt;.
+     * &lt;/p&gt;
+     *
+     * @param calName
+     *          The name of the &lt;code&gt;Calendar&lt;/code&gt; to be retrieved.
+     * @return The desired &lt;code&gt;Calendar&lt;/code&gt;, or null if there is no
+     *         match.
+     */
+    public Calendar retrieveCalendar(String calName) {
+<span class="fc" id="L810">        synchronized (lock) {</span>
+<span class="fc" id="L811">            Calendar cal = calendarsByName.get(calName);</span>
+<span class="pc bpc" id="L812" title="1 of 2 branches missed.">            if(cal != null)</span>
+<span class="nc" id="L813">                return (Calendar) cal.clone();</span>
+<span class="fc" id="L814">            return null;</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the number of &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt; s that are
+     * stored in the &lt;code&gt;JobsStore&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public int getNumberOfJobs() {
+<span class="nc" id="L825">        synchronized (lock) {</span>
+<span class="nc" id="L826">            return jobsByKey.size();</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the number of &lt;code&gt;{@link org.quartz.Trigger}&lt;/code&gt; s that are
+     * stored in the &lt;code&gt;JobsStore&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public int getNumberOfTriggers() {
+<span class="nc" id="L837">        synchronized (lock) {</span>
+<span class="nc" id="L838">            return triggersByKey.size();</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the number of &lt;code&gt;{@link org.quartz.Calendar}&lt;/code&gt; s that are
+     * stored in the &lt;code&gt;JobsStore&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public int getNumberOfCalendars() {
+<span class="nc" id="L849">        synchronized (lock) {</span>
+<span class="nc" id="L850">            return calendarsByName.size();</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the names of all of the &lt;code&gt;{@link org.quartz.Job}&lt;/code&gt; s that
+     * match the given groupMatcher.
+     * &lt;/p&gt;
+     */
+    public Set&lt;JobKey&gt; getJobKeys(GroupMatcher&lt;JobKey&gt; matcher) {
+<span class="fc" id="L861">        Set&lt;JobKey&gt; outList = null;</span>
+<span class="fc" id="L862">        synchronized (lock) {</span>
+
+<span class="fc" id="L864">            StringMatcher.StringOperatorName operator = matcher.getCompareWithOperator();</span>
+<span class="fc" id="L865">            String compareToValue = matcher.getCompareToValue();</span>
+
+<span class="fc bfc" id="L867" title="All 2 branches covered.">            switch(operator) {</span>
+                case EQUALS:
+<span class="fc" id="L869">                    HashMap&lt;JobKey, JobWrapper&gt; grpMap = jobsByGroup.get(compareToValue);</span>
+<span class="fc bfc" id="L870" title="All 2 branches covered.">                    if (grpMap != null) {</span>
+<span class="fc" id="L871">                        outList = new HashSet&lt;JobKey&gt;();</span>
+
+<span class="fc bfc" id="L873" title="All 2 branches covered.">                        for (JobWrapper jw : grpMap.values()) {</span>
+
+<span class="pc bpc" id="L875" title="1 of 2 branches missed.">                            if (jw != null) {</span>
+<span class="fc" id="L876">                                outList.add(jw.jobDetail.getKey());</span>
+                            }
+<span class="fc" id="L878">                        }</span>
+                    }
+                    break;
+
+                default:
+<span class="fc bfc" id="L883" title="All 2 branches covered.">                    for (Map.Entry&lt;String, HashMap&lt;JobKey, JobWrapper&gt;&gt; entry : jobsByGroup.entrySet()) {</span>
+<span class="pc bpc" id="L884" title="1 of 4 branches missed.">                        if(operator.evaluate(entry.getKey(), compareToValue) &amp;&amp; entry.getValue() != null) {</span>
+<span class="fc bfc" id="L885" title="All 2 branches covered.">                            if(outList == null) {</span>
+<span class="fc" id="L886">                                outList = new HashSet&lt;JobKey&gt;();</span>
+                            }
+<span class="fc bfc" id="L888" title="All 2 branches covered.">                            for (JobWrapper jobWrapper : entry.getValue().values()) {</span>
+<span class="pc bpc" id="L889" title="1 of 2 branches missed.">                                if(jobWrapper != null) {</span>
+<span class="fc" id="L890">                                    outList.add(jobWrapper.jobDetail.getKey());</span>
+                                }
+<span class="fc" id="L892">                            }</span>
+                        }
+<span class="fc" id="L894">                    }</span>
+            }
+<span class="fc" id="L896">        }</span>
+
+<span class="fc bfc" id="L898" title="All 2 branches covered.">        return outList == null ? java.util.Collections.&lt;JobKey&gt;emptySet() : outList;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the names of all of the &lt;code&gt;{@link org.quartz.Calendar}&lt;/code&gt; s
+     * in the &lt;code&gt;JobStore&lt;/code&gt;.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * If there are no Calendars in the given group name, the result should be
+     * a zero-length array (not &lt;code&gt;null&lt;/code&gt;).
+     * &lt;/p&gt;
+     */
+    public List&lt;String&gt; getCalendarNames() {
+<span class="fc" id="L913">        synchronized(lock) {</span>
+<span class="fc" id="L914">            return new LinkedList&lt;String&gt;(calendarsByName.keySet());</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the names of all of the &lt;code&gt;{@link org.quartz.Trigger}&lt;/code&gt; s
+     * that match the given groupMatcher.
+     * &lt;/p&gt;
+     */
+    public Set&lt;TriggerKey&gt; getTriggerKeys(GroupMatcher&lt;TriggerKey&gt; matcher) {
+<span class="fc" id="L925">        Set&lt;TriggerKey&gt; outList = null;</span>
+<span class="fc" id="L926">        synchronized (lock) {</span>
+
+<span class="fc" id="L928">            StringMatcher.StringOperatorName operator = matcher.getCompareWithOperator();</span>
+<span class="fc" id="L929">            String compareToValue = matcher.getCompareToValue();</span>
+
+<span class="fc bfc" id="L931" title="All 2 branches covered.">            switch(operator) {</span>
+                case EQUALS:
+<span class="fc" id="L933">                    HashMap&lt;TriggerKey, TriggerWrapper&gt; grpMap = triggersByGroup.get(compareToValue);</span>
+<span class="fc bfc" id="L934" title="All 2 branches covered.">                    if (grpMap != null) {</span>
+<span class="fc" id="L935">                        outList = new HashSet&lt;TriggerKey&gt;();</span>
+
+<span class="fc bfc" id="L937" title="All 2 branches covered.">                        for (TriggerWrapper tw : grpMap.values()) {</span>
+
+<span class="pc bpc" id="L939" title="1 of 2 branches missed.">                            if (tw != null) {</span>
+<span class="fc" id="L940">                                outList.add(tw.trigger.getKey());</span>
+                            }
+<span class="fc" id="L942">                        }</span>
+                    }
+                    break;
+
+                default:
+<span class="fc bfc" id="L947" title="All 2 branches covered.">                    for (Map.Entry&lt;String, HashMap&lt;TriggerKey, TriggerWrapper&gt;&gt; entry : triggersByGroup.entrySet()) {</span>
+<span class="pc bpc" id="L948" title="1 of 4 branches missed.">                        if(operator.evaluate(entry.getKey(), compareToValue) &amp;&amp; entry.getValue() != null) {</span>
+<span class="fc bfc" id="L949" title="All 2 branches covered.">                            if(outList == null) {</span>
+<span class="fc" id="L950">                                outList = new HashSet&lt;TriggerKey&gt;();</span>
+                            }
+<span class="fc bfc" id="L952" title="All 2 branches covered.">                            for (TriggerWrapper triggerWrapper : entry.getValue().values()) {</span>
+<span class="pc bpc" id="L953" title="1 of 2 branches missed.">                                if(triggerWrapper != null) {</span>
+<span class="fc" id="L954">                                    outList.add(triggerWrapper.trigger.getKey());</span>
+                                }
+<span class="fc" id="L956">                            }</span>
+                        }
+<span class="fc" id="L958">                    }</span>
+            }
+<span class="fc" id="L960">        }</span>
+
+<span class="fc bfc" id="L962" title="All 2 branches covered.">        return outList == null ? Collections.&lt;TriggerKey&gt;emptySet() : outList;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the names of all of the &lt;code&gt;{@link org.quartz.Job}&lt;/code&gt;
+     * groups.
+     * &lt;/p&gt;
+     */
+    public List&lt;String&gt; getJobGroupNames() {
+        List&lt;String&gt; outList;
+
+<span class="fc" id="L974">        synchronized (lock) {</span>
+<span class="fc" id="L975">            outList = new LinkedList&lt;String&gt;(jobsByGroup.keySet());</span>
+<span class="fc" id="L976">        }</span>
+
+<span class="fc" id="L978">        return outList;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the names of all of the &lt;code&gt;{@link org.quartz.Trigger}&lt;/code&gt;
+     * groups.
+     * &lt;/p&gt;
+     */
+    public List&lt;String&gt; getTriggerGroupNames() {
+        LinkedList&lt;String&gt; outList;
+
+<span class="fc" id="L990">        synchronized (lock) {</span>
+<span class="fc" id="L991">            outList = new LinkedList&lt;String&gt;(triggersByGroup.keySet());</span>
+<span class="fc" id="L992">        }</span>
+
+<span class="fc" id="L994">        return outList;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get all of the Triggers that are associated to the given Job.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * If there are no matches, a zero-length array should be returned.
+     * &lt;/p&gt;
+     */
+    public List&lt;OperableTrigger&gt; getTriggersForJob(JobKey jobKey) {
+<span class="fc" id="L1007">        ArrayList&lt;OperableTrigger&gt; trigList = new ArrayList&lt;OperableTrigger&gt;();</span>
+
+<span class="fc" id="L1009">        synchronized (lock) {</span>
+<span class="fc" id="L1010">            List&lt;TriggerWrapper&gt; jobList = triggersByJob.get(jobKey);</span>
+<span class="fc bfc" id="L1011" title="All 2 branches covered.">            if(jobList != null) {</span>
+<span class="fc bfc" id="L1012" title="All 2 branches covered.">                for(TriggerWrapper tw : jobList) {</span>
+<span class="fc" id="L1013">                    trigList.add((OperableTrigger) tw.trigger.clone());</span>
+<span class="fc" id="L1014">                }</span>
+            }
+<span class="fc" id="L1016">        }</span>
+
+<span class="fc" id="L1018">        return trigList;</span>
+    }
+
+    protected ArrayList&lt;TriggerWrapper&gt; getTriggerWrappersForJob(JobKey jobKey) {
+<span class="fc" id="L1022">        ArrayList&lt;TriggerWrapper&gt; trigList = new ArrayList&lt;TriggerWrapper&gt;();</span>
+
+<span class="fc" id="L1024">        synchronized (lock) {</span>
+<span class="fc" id="L1025">            List&lt;TriggerWrapper&gt; jobList = triggersByJob.get(jobKey);</span>
+<span class="pc bpc" id="L1026" title="1 of 2 branches missed.">            if(jobList != null) {</span>
+<span class="fc bfc" id="L1027" title="All 2 branches covered.">                for(TriggerWrapper trigger : jobList) {</span>
+<span class="fc" id="L1028">                    trigList.add(trigger);</span>
+<span class="fc" id="L1029">                }</span>
+            }
+<span class="fc" id="L1031">        }</span>
+
+<span class="fc" id="L1033">        return trigList;</span>
+    }
+
+    protected ArrayList&lt;TriggerWrapper&gt; getTriggerWrappersForCalendar(String calName) {
+<span class="nc" id="L1037">        ArrayList&lt;TriggerWrapper&gt; trigList = new ArrayList&lt;TriggerWrapper&gt;();</span>
+
+<span class="nc" id="L1039">        synchronized (lock) {</span>
+<span class="nc bnc" id="L1040" title="All 2 branches missed.">            for (TriggerWrapper tw : triggersByKey.values()) {</span>
+<span class="nc" id="L1041">                String tcalName = tw.getTrigger().getCalendarName();</span>
+<span class="nc bnc" id="L1042" title="All 4 branches missed.">                if (tcalName != null &amp;&amp; tcalName.equals(calName)) {</span>
+<span class="nc" id="L1043">                    trigList.add(tw);</span>
+                }
+<span class="nc" id="L1045">            }</span>
+<span class="nc" id="L1046">        }</span>
+
+<span class="nc" id="L1048">        return trigList;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Pause the &lt;code&gt;{@link Trigger}&lt;/code&gt; with the given name.
+     * &lt;/p&gt;
+     *
+     */
+    public void pauseTrigger(TriggerKey triggerKey) {
+
+<span class="fc" id="L1059">        synchronized (lock) {</span>
+<span class="fc" id="L1060">            TriggerWrapper tw = triggersByKey.get(triggerKey);</span>
+    
+            // does the trigger exist?
+<span class="pc bpc" id="L1063" title="2 of 4 branches missed.">            if (tw == null || tw.trigger == null) {</span>
+<span class="nc" id="L1064">                return;</span>
+            }
+    
+            // if the trigger is &quot;complete&quot; pausing it does not make sense...
+<span class="pc bpc" id="L1068" title="1 of 2 branches missed.">            if (tw.state == TriggerWrapper.STATE_COMPLETE) {</span>
+<span class="nc" id="L1069">                return;</span>
+            }
+
+<span class="pc bpc" id="L1072" title="1 of 2 branches missed.">            if(tw.state == TriggerWrapper.STATE_BLOCKED) {</span>
+<span class="nc" id="L1073">                tw.state = TriggerWrapper.STATE_PAUSED_BLOCKED;</span>
+            } else {
+<span class="fc" id="L1075">                tw.state = TriggerWrapper.STATE_PAUSED;</span>
+            }
+
+<span class="fc" id="L1078">            timeTriggers.remove(tw);</span>
+<span class="fc" id="L1079">        }</span>
+<span class="fc" id="L1080">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Pause all of the known &lt;code&gt;{@link Trigger}s&lt;/code&gt; matching.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * The JobStore should &quot;remember&quot; the groups paused, and impose the
+     * pause on any new triggers that are added to one of these groups while the group is
+     * paused.
+     * &lt;/p&gt;
+     *
+     */
+    public List&lt;String&gt; pauseTriggers(GroupMatcher&lt;TriggerKey&gt; matcher) {
+
+        List&lt;String&gt; pausedGroups;
+<span class="fc" id="L1097">        synchronized (lock) {</span>
+<span class="fc" id="L1098">            pausedGroups = new LinkedList&lt;String&gt;();</span>
+
+<span class="fc" id="L1100">            StringMatcher.StringOperatorName operator = matcher.getCompareWithOperator();</span>
+<span class="pc bpc" id="L1101" title="1 of 2 branches missed.">            switch (operator) {</span>
+                case EQUALS:
+<span class="pc bpc" id="L1103" title="1 of 2 branches missed.">                    if(pausedTriggerGroups.add(matcher.getCompareToValue())) {</span>
+<span class="fc" id="L1104">                        pausedGroups.add(matcher.getCompareToValue());</span>
+                    }
+                    break;
+                default :
+<span class="nc bnc" id="L1108" title="All 2 branches missed.">                    for (String group : triggersByGroup.keySet()) {</span>
+<span class="nc bnc" id="L1109" title="All 2 branches missed.">                        if(operator.evaluate(group, matcher.getCompareToValue())) {</span>
+<span class="nc bnc" id="L1110" title="All 2 branches missed.">                            if(pausedTriggerGroups.add(matcher.getCompareToValue())) {</span>
+<span class="nc" id="L1111">                                pausedGroups.add(group);</span>
+                            }
+                        }
+<span class="nc" id="L1114">                    }</span>
+            }
+
+<span class="fc bfc" id="L1117" title="All 2 branches covered.">            for (String pausedGroup : pausedGroups) {</span>
+<span class="fc" id="L1118">                Set&lt;TriggerKey&gt; keys = getTriggerKeys(GroupMatcher.triggerGroupEquals(pausedGroup));</span>
+
+<span class="fc bfc" id="L1120" title="All 2 branches covered.">                for (TriggerKey key: keys) {</span>
+<span class="fc" id="L1121">                    pauseTrigger(key);</span>
+<span class="fc" id="L1122">                }</span>
+<span class="fc" id="L1123">            }</span>
+<span class="fc" id="L1124">        }</span>
+
+<span class="fc" id="L1126">        return pausedGroups;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Pause the &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt; with the given
+     * name - by pausing all of its current &lt;code&gt;Trigger&lt;/code&gt;s.
+     * &lt;/p&gt;
+     *
+     */
+    public void pauseJob(JobKey jobKey) {
+<span class="fc" id="L1137">        synchronized (lock) {</span>
+<span class="fc" id="L1138">            List&lt;OperableTrigger&gt; triggersOfJob = getTriggersForJob(jobKey);</span>
+<span class="pc bpc" id="L1139" title="1 of 2 branches missed.">            for (OperableTrigger trigger: triggersOfJob) {</span>
+<span class="nc" id="L1140">                pauseTrigger(trigger.getKey());</span>
+<span class="nc" id="L1141">            }</span>
+<span class="fc" id="L1142">        }</span>
+<span class="fc" id="L1143">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Pause all of the &lt;code&gt;{@link org.quartz.JobDetail}s&lt;/code&gt; in the
+     * given group - by pausing all of their &lt;code&gt;Trigger&lt;/code&gt;s.
+     * &lt;/p&gt;
+     *
+     *
+     * &lt;p&gt;
+     * The JobStore should &quot;remember&quot; that the group is paused, and impose the
+     * pause on any new jobs that are added to the group while the group is
+     * paused.
+     * &lt;/p&gt;
+     */
+    public List&lt;String&gt; pauseJobs(GroupMatcher&lt;JobKey&gt; matcher) {
+<span class="fc" id="L1159">        List&lt;String&gt; pausedGroups = new LinkedList&lt;String&gt;();</span>
+<span class="fc" id="L1160">        synchronized (lock) {</span>
+
+<span class="fc" id="L1162">            StringMatcher.StringOperatorName operator = matcher.getCompareWithOperator();</span>
+<span class="pc bpc" id="L1163" title="1 of 2 branches missed.">            switch (operator) {</span>
+                case EQUALS:
+<span class="pc bpc" id="L1165" title="1 of 2 branches missed.">                    if (pausedJobGroups.add(matcher.getCompareToValue())) {</span>
+<span class="fc" id="L1166">                        pausedGroups.add(matcher.getCompareToValue());</span>
+                    }
+                    break;
+                default :
+<span class="nc bnc" id="L1170" title="All 2 branches missed.">                    for (String group : jobsByGroup.keySet()) {</span>
+<span class="nc bnc" id="L1171" title="All 2 branches missed.">                        if(operator.evaluate(group, matcher.getCompareToValue())) {</span>
+<span class="nc bnc" id="L1172" title="All 2 branches missed.">                            if (pausedJobGroups.add(group)) {</span>
+<span class="nc" id="L1173">                                pausedGroups.add(group);</span>
+                            }
+                        }
+<span class="nc" id="L1176">                    }</span>
+            }
+
+<span class="fc bfc" id="L1179" title="All 2 branches covered.">            for (String groupName : pausedGroups) {</span>
+<span class="fc bfc" id="L1180" title="All 2 branches covered.">                for (JobKey jobKey: getJobKeys(GroupMatcher.jobGroupEquals(groupName))) {</span>
+<span class="fc" id="L1181">                    List&lt;OperableTrigger&gt; triggersOfJob = getTriggersForJob(jobKey);</span>
+<span class="fc bfc" id="L1182" title="All 2 branches covered.">                    for (OperableTrigger trigger: triggersOfJob) {</span>
+<span class="fc" id="L1183">                        pauseTrigger(trigger.getKey());</span>
+<span class="fc" id="L1184">                    }</span>
+<span class="fc" id="L1185">                }</span>
+<span class="fc" id="L1186">            }</span>
+<span class="fc" id="L1187">        }</span>
+
+<span class="fc" id="L1189">        return pausedGroups;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Resume (un-pause) the &lt;code&gt;{@link Trigger}&lt;/code&gt; with the given
+     * key.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * If the &lt;code&gt;Trigger&lt;/code&gt; missed one or more fire-times, then the
+     * &lt;code&gt;Trigger&lt;/code&gt;'s misfire instruction will be applied.
+     * &lt;/p&gt;
+     *
+     */
+    public void resumeTrigger(TriggerKey triggerKey) {
+
+<span class="fc" id="L1206">        synchronized (lock) {</span>
+<span class="fc" id="L1207">            TriggerWrapper tw = triggersByKey.get(triggerKey);</span>
+    
+            // does the trigger exist?
+<span class="pc bpc" id="L1210" title="2 of 4 branches missed.">            if (tw == null || tw.trigger == null) {</span>
+<span class="nc" id="L1211">                return;</span>
+            }
+    
+<span class="fc" id="L1214">            OperableTrigger trig = tw.getTrigger();</span>
+    
+            // if the trigger is not paused resuming it does not make sense...
+<span class="pc bpc" id="L1217" title="3 of 4 branches missed.">            if (tw.state != TriggerWrapper.STATE_PAUSED &amp;&amp;</span>
+                    tw.state != TriggerWrapper.STATE_PAUSED_BLOCKED) {
+<span class="nc" id="L1219">                return;</span>
+            }
+
+<span class="pc bpc" id="L1222" title="1 of 2 branches missed.">            if(blockedJobs.contains( trig.getJobKey() )) {</span>
+<span class="nc" id="L1223">                tw.state = TriggerWrapper.STATE_BLOCKED;</span>
+            } else {
+<span class="fc" id="L1225">                tw.state = TriggerWrapper.STATE_WAITING;</span>
+            }
+
+<span class="fc" id="L1228">            applyMisfire(tw);</span>
+
+<span class="pc bpc" id="L1230" title="1 of 2 branches missed.">            if (tw.state == TriggerWrapper.STATE_WAITING) {</span>
+<span class="fc" id="L1231">                timeTriggers.add(tw);</span>
+            }
+<span class="fc" id="L1233">        }</span>
+<span class="fc" id="L1234">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Resume (un-pause) all of the &lt;code&gt;{@link Trigger}s&lt;/code&gt; in the
+     * given group.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * If any &lt;code&gt;Trigger&lt;/code&gt; missed one or more fire-times, then the
+     * &lt;code&gt;Trigger&lt;/code&gt;'s misfire instruction will be applied.
+     * &lt;/p&gt;
+     *
+     */
+    public List&lt;String&gt; resumeTriggers(GroupMatcher&lt;TriggerKey&gt; matcher) {
+<span class="fc" id="L1249">        Set&lt;String&gt; groups = new HashSet&lt;String&gt;();</span>
+
+<span class="fc" id="L1251">        synchronized (lock) {</span>
+<span class="fc" id="L1252">            Set&lt;TriggerKey&gt; keys = getTriggerKeys(matcher);</span>
+
+<span class="fc bfc" id="L1254" title="All 2 branches covered.">            for (TriggerKey triggerKey: keys) {</span>
+<span class="fc" id="L1255">                groups.add(triggerKey.getGroup());</span>
+<span class="pc bpc" id="L1256" title="1 of 2 branches missed.">                if(triggersByKey.get(triggerKey) != null) {</span>
+<span class="fc" id="L1257">                    String jobGroup = triggersByKey.get(triggerKey).jobKey.getGroup();</span>
+<span class="pc bpc" id="L1258" title="1 of 2 branches missed.">                    if(pausedJobGroups.contains(jobGroup)) {</span>
+<span class="nc" id="L1259">                        continue;</span>
+                    }
+                }
+<span class="fc" id="L1262">                resumeTrigger(triggerKey);</span>
+<span class="fc" id="L1263">            }</span>
+
+            // Find all matching paused trigger groups, and then remove them.
+<span class="fc" id="L1266">            StringMatcher.StringOperatorName operator = matcher.getCompareWithOperator();</span>
+<span class="fc" id="L1267">            LinkedList&lt;String&gt; pausedGroups = new LinkedList&lt;String&gt;();</span>
+<span class="fc" id="L1268">            String matcherGroup = matcher.getCompareToValue();</span>
+<span class="fc bfc" id="L1269" title="All 2 branches covered.">            switch (operator) {</span>
+                case EQUALS:
+<span class="pc bpc" id="L1271" title="1 of 2 branches missed.">                    if(pausedTriggerGroups.contains(matcherGroup)) {</span>
+<span class="fc" id="L1272">                        pausedGroups.add(matcher.getCompareToValue());</span>
+                    }
+                    break;
+                default :
+<span class="fc bfc" id="L1276" title="All 2 branches covered.">                    for (String group : pausedTriggerGroups) {</span>
+<span class="pc bpc" id="L1277" title="1 of 2 branches missed.">                        if(operator.evaluate(group, matcherGroup)) {</span>
+<span class="fc" id="L1278">                            pausedGroups.add(group);</span>
+                        }
+<span class="fc" id="L1280">                    }</span>
+            }
+<span class="fc bfc" id="L1282" title="All 2 branches covered.">            for (String pausedGroup : pausedGroups) {</span>
+<span class="fc" id="L1283">                pausedTriggerGroups.remove(pausedGroup);</span>
+<span class="fc" id="L1284">            }</span>
+<span class="fc" id="L1285">        }</span>
+
+<span class="fc" id="L1287">        return new ArrayList&lt;String&gt;(groups);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Resume (un-pause) the &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt; with
+     * the given name.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * If any of the &lt;code&gt;Job&lt;/code&gt;'s&lt;code&gt;Trigger&lt;/code&gt; s missed one
+     * or more fire-times, then the &lt;code&gt;Trigger&lt;/code&gt;'s misfire
+     * instruction will be applied.
+     * &lt;/p&gt;
+     *
+     */
+    public void resumeJob(JobKey jobKey) {
+
+<span class="fc" id="L1305">        synchronized (lock) {</span>
+<span class="fc" id="L1306">            List&lt;OperableTrigger&gt; triggersOfJob = getTriggersForJob(jobKey);</span>
+<span class="pc bpc" id="L1307" title="1 of 2 branches missed.">            for (OperableTrigger trigger: triggersOfJob) {</span>
+<span class="nc" id="L1308">                resumeTrigger(trigger.getKey());</span>
+<span class="nc" id="L1309">            }</span>
+<span class="fc" id="L1310">        }</span>
+<span class="fc" id="L1311">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Resume (un-pause) all of the &lt;code&gt;{@link org.quartz.JobDetail}s&lt;/code&gt;
+     * in the given group.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * If any of the &lt;code&gt;Job&lt;/code&gt; s had &lt;code&gt;Trigger&lt;/code&gt; s that
+     * missed one or more fire-times, then the &lt;code&gt;Trigger&lt;/code&gt;'s
+     * misfire instruction will be applied.
+     * &lt;/p&gt;
+     *
+     */
+    public Collection&lt;String&gt; resumeJobs(GroupMatcher&lt;JobKey&gt; matcher) {
+<span class="fc" id="L1327">        Set&lt;String&gt; resumedGroups = new HashSet&lt;String&gt;();</span>
+<span class="fc" id="L1328">        synchronized (lock) {</span>
+<span class="fc" id="L1329">            Set&lt;JobKey&gt; keys = getJobKeys(matcher);</span>
+
+<span class="fc bfc" id="L1331" title="All 2 branches covered.">            for (String pausedJobGroup : pausedJobGroups) {</span>
+<span class="pc bpc" id="L1332" title="1 of 2 branches missed.">                if(matcher.getCompareWithOperator().evaluate(pausedJobGroup, matcher.getCompareToValue())) {</span>
+<span class="fc" id="L1333">                    resumedGroups.add(pausedJobGroup);</span>
+                }
+<span class="fc" id="L1335">            }</span>
+
+<span class="fc bfc" id="L1337" title="All 2 branches covered.">            for (String resumedGroup : resumedGroups) {</span>
+<span class="fc" id="L1338">                pausedJobGroups.remove(resumedGroup);</span>
+<span class="fc" id="L1339">            }</span>
+
+<span class="fc bfc" id="L1341" title="All 2 branches covered.">            for (JobKey key: keys) {</span>
+<span class="fc" id="L1342">                List&lt;OperableTrigger&gt; triggersOfJob = getTriggersForJob(key);</span>
+<span class="fc bfc" id="L1343" title="All 2 branches covered.">                for (OperableTrigger trigger: triggersOfJob) {</span>
+<span class="fc" id="L1344">                    resumeTrigger(trigger.getKey());</span>
+<span class="fc" id="L1345">                }</span>
+<span class="fc" id="L1346">            }</span>
+<span class="fc" id="L1347">        }</span>
+<span class="fc" id="L1348">        return resumedGroups;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Pause all triggers - equivalent of calling &lt;code&gt;pauseTriggerGroup(group)&lt;/code&gt;
+     * on every group.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * When &lt;code&gt;resumeAll()&lt;/code&gt; is called (to un-pause), trigger misfire
+     * instructions WILL be applied.
+     * &lt;/p&gt;
+     *
+     * @see #resumeAll()
+     * @see #pauseTrigger(org.quartz.TriggerKey)
+     * @see #pauseTriggers(org.quartz.impl.matchers.GroupMatcher)
+     */
+    public void pauseAll() {
+
+<span class="fc" id="L1368">        synchronized (lock) {</span>
+<span class="fc" id="L1369">            List&lt;String&gt; names = getTriggerGroupNames();</span>
+
+<span class="fc bfc" id="L1371" title="All 2 branches covered.">            for (String name: names) {</span>
+<span class="fc" id="L1372">                pauseTriggers(GroupMatcher.triggerGroupEquals(name));</span>
+<span class="fc" id="L1373">            }</span>
+<span class="fc" id="L1374">        }</span>
+<span class="fc" id="L1375">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Resume (un-pause) all triggers - equivalent of calling &lt;code&gt;resumeTriggerGroup(group)&lt;/code&gt;
+     * on every group.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * If any &lt;code&gt;Trigger&lt;/code&gt; missed one or more fire-times, then the
+     * &lt;code&gt;Trigger&lt;/code&gt;'s misfire instruction will be applied.
+     * &lt;/p&gt;
+     *
+     * @see #pauseAll()
+     */
+    public void resumeAll() {
+
+<span class="fc" id="L1392">        synchronized (lock) {</span>
+<span class="fc" id="L1393">            pausedJobGroups.clear();</span>
+<span class="fc" id="L1394">            resumeTriggers(GroupMatcher.anyTriggerGroup());</span>
+<span class="fc" id="L1395">        }</span>
+<span class="fc" id="L1396">    }</span>
+
+    protected boolean applyMisfire(TriggerWrapper tw) {
+
+<span class="fc" id="L1400">        long misfireTime = System.currentTimeMillis();</span>
+<span class="pc bpc" id="L1401" title="1 of 2 branches missed.">        if (getMisfireThreshold() &gt; 0) {</span>
+<span class="fc" id="L1402">            misfireTime -= getMisfireThreshold();</span>
+        }
+
+<span class="fc" id="L1405">        Date tnft = tw.trigger.getNextFireTime();</span>
+<span class="pc bpc" id="L1406" title="2 of 4 branches missed.">        if (tnft == null || tnft.getTime() &gt; misfireTime </span>
+<span class="nc bnc" id="L1407" title="All 2 branches missed.">                || tw.trigger.getMisfireInstruction() == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY) { </span>
+<span class="fc" id="L1408">            return false; </span>
+        }
+
+<span class="nc" id="L1411">        Calendar cal = null;</span>
+<span class="nc bnc" id="L1412" title="All 2 branches missed.">        if (tw.trigger.getCalendarName() != null) {</span>
+<span class="nc" id="L1413">            cal = retrieveCalendar(tw.trigger.getCalendarName());</span>
+        }
+
+<span class="nc" id="L1416">        signaler.notifyTriggerListenersMisfired((OperableTrigger)tw.trigger.clone());</span>
+
+<span class="nc" id="L1418">        tw.trigger.updateAfterMisfire(cal);</span>
+
+<span class="nc bnc" id="L1420" title="All 2 branches missed.">        if (tw.trigger.getNextFireTime() == null) {</span>
+<span class="nc" id="L1421">            tw.state = TriggerWrapper.STATE_COMPLETE;</span>
+<span class="nc" id="L1422">            signaler.notifySchedulerListenersFinalized(tw.trigger);</span>
+<span class="nc" id="L1423">            synchronized (lock) {</span>
+<span class="nc" id="L1424">                timeTriggers.remove(tw);</span>
+<span class="nc" id="L1425">            }</span>
+<span class="nc bnc" id="L1426" title="All 2 branches missed.">        } else if (tnft.equals(tw.trigger.getNextFireTime())) {</span>
+<span class="nc" id="L1427">            return false;</span>
+        }
+
+<span class="nc" id="L1430">        return true;</span>
+    }
+
+<span class="fc" id="L1433">    private static final AtomicLong ftrCtr = new AtomicLong(System.currentTimeMillis());</span>
+
+    protected String getFiredTriggerRecordId() {
+<span class="fc" id="L1436">        return String.valueOf(ftrCtr.incrementAndGet());</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get a handle to the next trigger to be fired, and mark it as 'reserved'
+     * by the calling scheduler.
+     * &lt;/p&gt;
+     *
+     * @see #releaseAcquiredTrigger(OperableTrigger)
+     */
+    public List&lt;OperableTrigger&gt; acquireNextTriggers(long noLaterThan, int maxCount, long timeWindow) {
+<span class="fc" id="L1448">        synchronized (lock) {</span>
+<span class="fc" id="L1449">            List&lt;OperableTrigger&gt; result = new ArrayList&lt;OperableTrigger&gt;();</span>
+<span class="fc" id="L1450">            Set&lt;JobKey&gt; acquiredJobKeysForNoConcurrentExec = new HashSet&lt;JobKey&gt;();</span>
+<span class="fc" id="L1451">            Set&lt;TriggerWrapper&gt; excludedTriggers = new HashSet&lt;TriggerWrapper&gt;();</span>
+<span class="fc" id="L1452">            long batchEnd = noLaterThan;</span>
+            
+            // return empty list if store has no triggers.
+<span class="fc bfc" id="L1455" title="All 2 branches covered.">            if (timeTriggers.size() == 0)</span>
+<span class="fc" id="L1456">                return result;</span>
+            
+            while (true) {
+                TriggerWrapper tw;
+
+                try {
+<span class="fc" id="L1462">                    tw = timeTriggers.first();</span>
+<span class="pc bpc" id="L1463" title="1 of 2 branches missed.">                    if (tw == null)</span>
+<span class="nc" id="L1464">                        break;</span>
+<span class="fc" id="L1465">                    timeTriggers.remove(tw);</span>
+<span class="fc" id="L1466">                } catch (java.util.NoSuchElementException nsee) {</span>
+<span class="fc" id="L1467">                    break;</span>
+<span class="fc" id="L1468">                }</span>
+
+<span class="pc bpc" id="L1470" title="1 of 2 branches missed.">                if (tw.trigger.getNextFireTime() == null) {</span>
+<span class="nc" id="L1471">                    continue;</span>
+                }
+
+<span class="pc bpc" id="L1474" title="1 of 2 branches missed.">                if (applyMisfire(tw)) {</span>
+<span class="nc bnc" id="L1475" title="All 2 branches missed.">                    if (tw.trigger.getNextFireTime() != null) {</span>
+<span class="nc" id="L1476">                        timeTriggers.add(tw);</span>
+                    }
+                    continue;
+                }
+
+<span class="fc bfc" id="L1481" title="All 2 branches covered.">                if (tw.getTrigger().getNextFireTime().getTime() &gt; batchEnd) {</span>
+<span class="fc" id="L1482">                    timeTriggers.add(tw);</span>
+<span class="fc" id="L1483">                    break;</span>
+                }
+                
+                // If trigger's job is set as @DisallowConcurrentExecution, and it has already been added to result, then
+                // put it back into the timeTriggers set and continue to search for next trigger.
+<span class="fc" id="L1488">                JobKey jobKey = tw.trigger.getJobKey();</span>
+<span class="fc" id="L1489">                JobDetail job = jobsByKey.get(tw.trigger.getJobKey()).jobDetail;</span>
+<span class="fc bfc" id="L1490" title="All 2 branches covered.">                if (job.isConcurrentExectionDisallowed()) {</span>
+<span class="fc bfc" id="L1491" title="All 2 branches covered.">                    if (acquiredJobKeysForNoConcurrentExec.contains(jobKey)) {</span>
+<span class="fc" id="L1492">                        excludedTriggers.add(tw);</span>
+<span class="fc" id="L1493">                        continue; // go to next trigger in store.</span>
+                    } else {
+<span class="fc" id="L1495">                        acquiredJobKeysForNoConcurrentExec.add(jobKey);</span>
+                    }
+                }
+
+<span class="fc" id="L1499">                tw.state = TriggerWrapper.STATE_ACQUIRED;</span>
+<span class="fc" id="L1500">                tw.trigger.setFireInstanceId(getFiredTriggerRecordId());</span>
+<span class="fc" id="L1501">                OperableTrigger trig = (OperableTrigger) tw.trigger.clone();</span>
+<span class="fc bfc" id="L1502" title="All 2 branches covered.">                if (result.isEmpty()) {</span>
+<span class="fc" id="L1503">                    batchEnd = Math.max(tw.trigger.getNextFireTime().getTime(), System.currentTimeMillis()) + timeWindow;</span>
+                }
+<span class="fc" id="L1505">                result.add(trig);</span>
+<span class="fc bfc" id="L1506" title="All 2 branches covered.">                if (result.size() == maxCount)</span>
+<span class="fc" id="L1507">                    break;</span>
+<span class="fc" id="L1508">            }</span>
+
+            // If we did excluded triggers to prevent ACQUIRE state due to DisallowConcurrentExecution, we need to add them back to store.
+<span class="fc bfc" id="L1511" title="All 2 branches covered.">            if (excludedTriggers.size() &gt; 0)</span>
+<span class="fc" id="L1512">                timeTriggers.addAll(excludedTriggers);</span>
+<span class="fc" id="L1513">            return result;</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Inform the &lt;code&gt;JobStore&lt;/code&gt; that the scheduler no longer plans to
+     * fire the given &lt;code&gt;Trigger&lt;/code&gt;, that it had previously acquired
+     * (reserved).
+     * &lt;/p&gt;
+     */
+    public void releaseAcquiredTrigger(OperableTrigger trigger) {
+<span class="fc" id="L1525">        synchronized (lock) {</span>
+<span class="fc" id="L1526">            TriggerWrapper tw = triggersByKey.get(trigger.getKey());</span>
+<span class="pc bpc" id="L1527" title="1 of 4 branches missed.">            if (tw != null &amp;&amp; tw.state == TriggerWrapper.STATE_ACQUIRED) {</span>
+<span class="fc" id="L1528">                tw.state = TriggerWrapper.STATE_WAITING;</span>
+<span class="fc" id="L1529">                timeTriggers.add(tw);</span>
+            }
+<span class="fc" id="L1531">        }</span>
+<span class="fc" id="L1532">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Inform the &lt;code&gt;JobStore&lt;/code&gt; that the scheduler is now firing the
+     * given &lt;code&gt;Trigger&lt;/code&gt; (executing its associated &lt;code&gt;Job&lt;/code&gt;),
+     * that it had previously acquired (reserved).
+     * &lt;/p&gt;
+     */
+    public List&lt;TriggerFiredResult&gt; triggersFired(List&lt;OperableTrigger&gt; firedTriggers) {
+
+<span class="fc" id="L1543">        synchronized (lock) {</span>
+<span class="fc" id="L1544">            List&lt;TriggerFiredResult&gt; results = new ArrayList&lt;TriggerFiredResult&gt;();</span>
+
+<span class="fc bfc" id="L1546" title="All 2 branches covered.">            for (OperableTrigger trigger : firedTriggers) {</span>
+<span class="fc" id="L1547">                TriggerWrapper tw = triggersByKey.get(trigger.getKey());</span>
+                // was the trigger deleted since being acquired?
+<span class="pc bpc" id="L1549" title="2 of 4 branches missed.">                if (tw == null || tw.trigger == null) {</span>
+<span class="nc" id="L1550">                    continue;</span>
+                }
+                // was the trigger completed, paused, blocked, etc. since being acquired?
+<span class="pc bpc" id="L1553" title="1 of 2 branches missed.">                if (tw.state != TriggerWrapper.STATE_ACQUIRED) {</span>
+<span class="nc" id="L1554">                    continue;</span>
+                }
+
+<span class="fc" id="L1557">                Calendar cal = null;</span>
+<span class="pc bpc" id="L1558" title="1 of 2 branches missed.">                if (tw.trigger.getCalendarName() != null) {</span>
+<span class="nc" id="L1559">                    cal = retrieveCalendar(tw.trigger.getCalendarName());</span>
+<span class="nc bnc" id="L1560" title="All 2 branches missed.">                    if(cal == null)</span>
+<span class="nc" id="L1561">                        continue;</span>
+                }
+<span class="fc" id="L1563">                Date prevFireTime = trigger.getPreviousFireTime();</span>
+                // in case trigger was replaced between acquiring and firing
+<span class="fc" id="L1565">                timeTriggers.remove(tw);</span>
+                // call triggered on our copy, and the scheduler's copy
+<span class="fc" id="L1567">                tw.trigger.triggered(cal);</span>
+<span class="fc" id="L1568">                trigger.triggered(cal);</span>
+                //tw.state = TriggerWrapper.STATE_EXECUTING;
+<span class="fc" id="L1570">                tw.state = TriggerWrapper.STATE_WAITING;</span>
+
+<span class="fc" id="L1572">                TriggerFiredBundle bndle = new TriggerFiredBundle(retrieveJob(</span>
+                        tw.jobKey), trigger, cal,
+<span class="fc" id="L1574">                        false, new Date(), trigger.getPreviousFireTime(), prevFireTime,</span>
+<span class="fc" id="L1575">                        trigger.getNextFireTime());</span>
+
+<span class="fc" id="L1577">                JobDetail job = bndle.getJobDetail();</span>
+
+<span class="fc bfc" id="L1579" title="All 2 branches covered.">                if (job.isConcurrentExectionDisallowed()) {</span>
+<span class="fc" id="L1580">                    ArrayList&lt;TriggerWrapper&gt; trigs = getTriggerWrappersForJob(job.getKey());</span>
+<span class="fc bfc" id="L1581" title="All 2 branches covered.">                    for (TriggerWrapper ttw : trigs) {</span>
+<span class="pc bpc" id="L1582" title="1 of 2 branches missed.">                        if (ttw.state == TriggerWrapper.STATE_WAITING) {</span>
+<span class="fc" id="L1583">                            ttw.state = TriggerWrapper.STATE_BLOCKED;</span>
+                        }
+<span class="pc bpc" id="L1585" title="1 of 2 branches missed.">                        if (ttw.state == TriggerWrapper.STATE_PAUSED) {</span>
+<span class="nc" id="L1586">                            ttw.state = TriggerWrapper.STATE_PAUSED_BLOCKED;</span>
+                        }
+<span class="fc" id="L1588">                        timeTriggers.remove(ttw);</span>
+<span class="fc" id="L1589">                    }</span>
+<span class="fc" id="L1590">                    blockedJobs.add(job.getKey());</span>
+<span class="fc bfc" id="L1591" title="All 2 branches covered.">                } else if (tw.trigger.getNextFireTime() != null) {</span>
+<span class="fc" id="L1592">                    synchronized (lock) {</span>
+<span class="fc" id="L1593">                        timeTriggers.add(tw);</span>
+<span class="fc" id="L1594">                    }</span>
+                }
+
+<span class="fc" id="L1597">                results.add(new TriggerFiredResult(bndle));</span>
+<span class="fc" id="L1598">            }</span>
+<span class="fc" id="L1599">            return results;</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Inform the &lt;code&gt;JobStore&lt;/code&gt; that the scheduler has completed the
+     * firing of the given &lt;code&gt;Trigger&lt;/code&gt; (and the execution its
+     * associated &lt;code&gt;Job&lt;/code&gt;), and that the &lt;code&gt;{@link org.quartz.JobDataMap}&lt;/code&gt;
+     * in the given &lt;code&gt;JobDetail&lt;/code&gt; should be updated if the &lt;code&gt;Job&lt;/code&gt;
+     * is stateful.
+     * &lt;/p&gt;
+     */
+    public void triggeredJobComplete(OperableTrigger trigger,
+            JobDetail jobDetail, CompletedExecutionInstruction triggerInstCode) {
+
+<span class="fc" id="L1615">        synchronized (lock) {</span>
+
+<span class="fc" id="L1617">            JobWrapper jw = jobsByKey.get(jobDetail.getKey());</span>
+<span class="fc" id="L1618">            TriggerWrapper tw = triggersByKey.get(trigger.getKey());</span>
+
+            // It's possible that the job is null if:
+            //   1- it was deleted during execution
+            //   2- RAMJobStore is being used only for volatile jobs / triggers
+            //      from the JDBC job store
+<span class="fc bfc" id="L1624" title="All 2 branches covered.">            if (jw != null) {</span>
+<span class="fc" id="L1625">                JobDetail jd = jw.jobDetail;</span>
+
+<span class="fc bfc" id="L1627" title="All 2 branches covered.">                if (jd.isPersistJobDataAfterExecution()) {</span>
+<span class="fc" id="L1628">                    JobDataMap newData = jobDetail.getJobDataMap();</span>
+<span class="pc bpc" id="L1629" title="1 of 2 branches missed.">                    if (newData != null) {</span>
+<span class="fc" id="L1630">                        newData = (JobDataMap)newData.clone();</span>
+<span class="fc" id="L1631">                        newData.clearDirtyFlag();</span>
+                    }
+<span class="fc" id="L1633">                    jd = jd.getJobBuilder().setJobData(newData).build();</span>
+<span class="fc" id="L1634">                    jw.jobDetail = jd;</span>
+                }
+<span class="fc bfc" id="L1636" title="All 2 branches covered.">                if (jd.isConcurrentExectionDisallowed()) {</span>
+<span class="fc" id="L1637">                    blockedJobs.remove(jd.getKey());</span>
+<span class="fc" id="L1638">                    ArrayList&lt;TriggerWrapper&gt; trigs = getTriggerWrappersForJob(jd.getKey());</span>
+<span class="fc bfc" id="L1639" title="All 2 branches covered.">                    for(TriggerWrapper ttw : trigs) {</span>
+<span class="pc bpc" id="L1640" title="1 of 2 branches missed.">                        if (ttw.state == TriggerWrapper.STATE_BLOCKED) {</span>
+<span class="fc" id="L1641">                            ttw.state = TriggerWrapper.STATE_WAITING;</span>
+<span class="fc" id="L1642">                            timeTriggers.add(ttw);</span>
+                        }
+<span class="pc bpc" id="L1644" title="1 of 2 branches missed.">                        if (ttw.state == TriggerWrapper.STATE_PAUSED_BLOCKED) {</span>
+<span class="nc" id="L1645">                            ttw.state = TriggerWrapper.STATE_PAUSED;</span>
+                        }
+<span class="fc" id="L1647">                    }</span>
+<span class="fc" id="L1648">                    signaler.signalSchedulingChange(0L);</span>
+                }
+<span class="fc" id="L1650">            } else { // even if it was deleted, there may be cleanup to do</span>
+<span class="fc" id="L1651">                blockedJobs.remove(jobDetail.getKey());</span>
+            }
+    
+            // check for trigger deleted during execution...
+<span class="fc bfc" id="L1655" title="All 2 branches covered.">            if (tw != null) {</span>
+<span class="fc bfc" id="L1656" title="All 2 branches covered.">                if (triggerInstCode == CompletedExecutionInstruction.DELETE_TRIGGER) {</span>
+                    
+<span class="pc bpc" id="L1658" title="1 of 2 branches missed.">                    if(trigger.getNextFireTime() == null) {</span>
+                        // double check for possible reschedule within job 
+                        // execution, which would cancel the need to delete...
+<span class="pc bpc" id="L1661" title="1 of 2 branches missed.">                        if(tw.getTrigger().getNextFireTime() == null) {</span>
+<span class="fc" id="L1662">                            removeTrigger(trigger.getKey());</span>
+                        }
+                    } else {
+<span class="nc" id="L1665">                        removeTrigger(trigger.getKey());</span>
+<span class="nc" id="L1666">                        signaler.signalSchedulingChange(0L);</span>
+                    }
+<span class="pc bpc" id="L1668" title="1 of 2 branches missed.">                } else if (triggerInstCode == CompletedExecutionInstruction.SET_TRIGGER_COMPLETE) {</span>
+<span class="nc" id="L1669">                    tw.state = TriggerWrapper.STATE_COMPLETE;</span>
+<span class="nc" id="L1670">                    timeTriggers.remove(tw);</span>
+<span class="nc" id="L1671">                    signaler.signalSchedulingChange(0L);</span>
+<span class="fc bfc" id="L1672" title="All 2 branches covered.">                } else if(triggerInstCode == CompletedExecutionInstruction.SET_TRIGGER_ERROR) {</span>
+<span class="fc" id="L1673">                    getLog().info(&quot;Trigger &quot; + trigger.getKey() + &quot; set to ERROR state.&quot;);</span>
+<span class="fc" id="L1674">                    tw.state = TriggerWrapper.STATE_ERROR;</span>
+<span class="fc" id="L1675">                    signaler.signalSchedulingChange(0L);</span>
+<span class="pc bpc" id="L1676" title="1 of 2 branches missed.">                } else if (triggerInstCode == CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_ERROR) {</span>
+<span class="nc" id="L1677">                    getLog().info(&quot;All triggers of Job &quot; </span>
+<span class="nc" id="L1678">                            + trigger.getJobKey() + &quot; set to ERROR state.&quot;);</span>
+<span class="nc" id="L1679">                    setAllTriggersOfJobToState(trigger.getJobKey(), TriggerWrapper.STATE_ERROR);</span>
+<span class="nc" id="L1680">                    signaler.signalSchedulingChange(0L);</span>
+<span class="pc bpc" id="L1681" title="1 of 2 branches missed.">                } else if (triggerInstCode == CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_COMPLETE) {</span>
+<span class="nc" id="L1682">                    setAllTriggersOfJobToState(trigger.getJobKey(), TriggerWrapper.STATE_COMPLETE);</span>
+<span class="nc" id="L1683">                    signaler.signalSchedulingChange(0L);</span>
+                }
+            }
+<span class="fc" id="L1686">        }</span>
+<span class="fc" id="L1687">    }</span>
+
+    @Override
+    public long getAcquireRetryDelay(int failureCount) {
+<span class="nc" id="L1691">        return 20;</span>
+    }
+
+    protected void setAllTriggersOfJobToState(JobKey jobKey, int state) {
+<span class="nc" id="L1695">        ArrayList&lt;TriggerWrapper&gt; tws = getTriggerWrappersForJob(jobKey);</span>
+<span class="nc bnc" id="L1696" title="All 2 branches missed.">        for (TriggerWrapper tw : tws) {</span>
+<span class="nc" id="L1697">            tw.state = state;</span>
+<span class="nc bnc" id="L1698" title="All 2 branches missed.">            if (state != TriggerWrapper.STATE_WAITING) {</span>
+<span class="nc" id="L1699">                timeTriggers.remove(tw);</span>
+            }
+<span class="nc" id="L1701">        }</span>
+<span class="nc" id="L1702">    }</span>
+    
+    @SuppressWarnings(&quot;UnusedDeclaration&quot;)
+    protected String peekTriggers() {
+
+<span class="nc" id="L1707">        StringBuilder str = new StringBuilder();</span>
+<span class="nc" id="L1708">        synchronized (lock) {</span>
+<span class="nc bnc" id="L1709" title="All 2 branches missed.">            for (TriggerWrapper triggerWrapper : triggersByKey.values()) {</span>
+<span class="nc" id="L1710">                str.append(triggerWrapper.trigger.getKey().getName());</span>
+<span class="nc" id="L1711">                str.append(&quot;/&quot;);</span>
+<span class="nc" id="L1712">            }</span>
+<span class="nc" id="L1713">        }</span>
+<span class="nc" id="L1714">        str.append(&quot; | &quot;);</span>
+
+<span class="nc" id="L1716">        synchronized (lock) {</span>
+<span class="nc bnc" id="L1717" title="All 2 branches missed.">            for (TriggerWrapper timeTrigger : timeTriggers) {</span>
+<span class="nc" id="L1718">                str.append(timeTrigger.trigger.getKey().getName());</span>
+<span class="nc" id="L1719">                str.append(&quot;-&gt;&quot;);</span>
+<span class="nc" id="L1720">            }</span>
+<span class="nc" id="L1721">        }</span>
+
+<span class="nc" id="L1723">        return str.toString();</span>
+    }
+
+    /** 
+     * @see org.quartz.spi.JobStore#getPausedTriggerGroups()
+     */
+    public Set&lt;String&gt; getPausedTriggerGroups() throws JobPersistenceException {
+<span class="fc" id="L1730">        HashSet&lt;String&gt; set = new HashSet&lt;String&gt;();</span>
+        
+<span class="fc" id="L1732">        set.addAll(pausedTriggerGroups);</span>
+        
+<span class="fc" id="L1734">        return set;</span>
+    }
+
+    public void setInstanceId(String schedInstId) {
+        //
+<span class="fc" id="L1739">    }</span>
+
+    public void setInstanceName(String schedName) {
+        //
+<span class="fc" id="L1743">    }</span>
+
+    public void setThreadPoolSize(final int poolSize) {
+        //
+<span class="fc" id="L1747">    }</span>
+
+    public long getEstimatedTimeToReleaseAndAcquireTrigger() {
+<span class="nc" id="L1750">        return 5;</span>
+    }
+
+    public boolean isClustered() {
+<span class="fc" id="L1754">        return false;</span>
+    }
+
+}
+
+/*******************************************************************************
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * 
+ * Helper Classes. * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ */
+
+<span class="fc" id="L1765">class TriggerWrapperComparator implements Comparator&lt;TriggerWrapper&gt;, java.io.Serializable {</span>
+  
+    private static final long serialVersionUID = 8809557142191514261L;
+
+<span class="fc" id="L1769">    TriggerTimeComparator ttc = new TriggerTimeComparator();</span>
+    
+    public int compare(TriggerWrapper trig1, TriggerWrapper trig2) {
+<span class="fc" id="L1772">        return ttc.compare(trig1.trigger, trig2.trigger);</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="nc" id="L1777">        return (obj instanceof TriggerWrapperComparator);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L1782">        return super.hashCode();</span>
+    }
+}
+
+class JobWrapper {
+
+    public JobKey key;
+
+    public JobDetail jobDetail;
+
+<span class="fc" id="L1792">    JobWrapper(JobDetail jobDetail) {</span>
+<span class="fc" id="L1793">        this.jobDetail = jobDetail;</span>
+<span class="fc" id="L1794">        key = jobDetail.getKey();</span>
+<span class="fc" id="L1795">    }</span>
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="nc bnc" id="L1799" title="All 2 branches missed.">        if (obj instanceof JobWrapper) {</span>
+<span class="nc" id="L1800">            JobWrapper jw = (JobWrapper) obj;</span>
+<span class="nc bnc" id="L1801" title="All 2 branches missed.">            if (jw.key.equals(this.key)) {</span>
+<span class="nc" id="L1802">                return true;</span>
+            }
+        }
+
+<span class="nc" id="L1806">        return false;</span>
+    }
+    
+    @Override
+    public int hashCode() {
+<span class="nc" id="L1811">        return key.hashCode(); </span>
+    }
+}
+
+class TriggerWrapper {
+
+    public final TriggerKey key;
+
+    public final JobKey jobKey;
+
+    public final OperableTrigger trigger;
+
+<span class="fc" id="L1823">    public int state = STATE_WAITING;</span>
+
+    public static final int STATE_WAITING = 0;
+
+    public static final int STATE_ACQUIRED = 1;
+
+    @SuppressWarnings(&quot;UnusedDeclaration&quot;)
+    public static final int STATE_EXECUTING = 2;
+
+    public static final int STATE_COMPLETE = 3;
+
+    public static final int STATE_PAUSED = 4;
+
+    public static final int STATE_BLOCKED = 5;
+
+    public static final int STATE_PAUSED_BLOCKED = 6;
+
+    public static final int STATE_ERROR = 7;
+    
+<span class="fc" id="L1842">    TriggerWrapper(OperableTrigger trigger) {</span>
+<span class="pc bpc" id="L1843" title="1 of 2 branches missed.">        if(trigger == null)</span>
+<span class="nc" id="L1844">            throw new IllegalArgumentException(&quot;Trigger cannot be null!&quot;);</span>
+<span class="fc" id="L1845">        this.trigger = trigger;</span>
+<span class="fc" id="L1846">        key = trigger.getKey();</span>
+<span class="fc" id="L1847">        this.jobKey = trigger.getJobKey();</span>
+<span class="fc" id="L1848">    }</span>
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="pc bpc" id="L1852" title="1 of 2 branches missed.">        if (obj instanceof TriggerWrapper) {</span>
+<span class="fc" id="L1853">            TriggerWrapper tw = (TriggerWrapper) obj;</span>
+<span class="fc bfc" id="L1854" title="All 2 branches covered.">            if (tw.key.equals(this.key)) {</span>
+<span class="fc" id="L1855">                return true;</span>
+            }
+        }
+
+<span class="fc" id="L1859">        return false;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L1864">        return key.hashCode(); </span>
+    }
+
+    
+    public OperableTrigger getTrigger() {
+<span class="fc" id="L1869">        return this.trigger;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

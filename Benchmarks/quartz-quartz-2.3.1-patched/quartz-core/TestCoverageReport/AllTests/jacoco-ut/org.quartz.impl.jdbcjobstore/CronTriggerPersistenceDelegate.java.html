@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CronTriggerPersistenceDelegate.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.jdbcjobstore</a> &gt; <span class="el_source">CronTriggerPersistenceDelegate.java</span></div><h1>CronTriggerPersistenceDelegate.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.quartz.impl.jdbcjobstore;
+
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.TimeZone;
+
+import org.quartz.CronScheduleBuilder;
+import org.quartz.CronTrigger;
+import org.quartz.JobDetail;
+import org.quartz.TriggerKey;
+import org.quartz.impl.triggers.CronTriggerImpl;
+import org.quartz.spi.OperableTrigger;
+
+<span class="fc" id="L32">public class CronTriggerPersistenceDelegate implements TriggerPersistenceDelegate, StdJDBCConstants {</span>
+
+    protected String tablePrefix;
+    protected String schedNameLiteral;
+
+    public void initialize(String theTablePrefix, String schedName) {
+<span class="fc" id="L38">        this.tablePrefix = theTablePrefix;</span>
+<span class="fc" id="L39">        this.schedNameLiteral = &quot;'&quot; + schedName + &quot;'&quot;;</span>
+<span class="fc" id="L40">    }</span>
+
+    public String getHandledTriggerTypeDiscriminator() {
+<span class="fc" id="L43">        return TTYPE_CRON;</span>
+    }
+
+    public boolean canHandleTriggerType(OperableTrigger trigger) {
+<span class="pc bpc" id="L47" title="2 of 4 branches missed.">        return ((trigger instanceof CronTriggerImpl) &amp;&amp; !((CronTriggerImpl)trigger).hasAdditionalProperties());</span>
+    }
+
+    public int deleteExtendedTriggerProperties(Connection conn, TriggerKey triggerKey) throws SQLException {
+
+<span class="fc" id="L52">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="fc" id="L55">            ps = conn.prepareStatement(Util.rtp(DELETE_CRON_TRIGGER, tablePrefix, schedNameLiteral));</span>
+<span class="fc" id="L56">            ps.setString(1, triggerKey.getName());</span>
+<span class="fc" id="L57">            ps.setString(2, triggerKey.getGroup());</span>
+
+<span class="fc" id="L59">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L61">            Util.closeStatement(ps);</span>
+        }
+    }
+
+    public int insertExtendedTriggerProperties(Connection conn, OperableTrigger trigger, String state, JobDetail jobDetail) throws SQLException, IOException {
+
+<span class="fc" id="L67">        CronTrigger cronTrigger = (CronTrigger)trigger;</span>
+        
+<span class="fc" id="L69">        PreparedStatement ps = null;</span>
+        
+        try {
+<span class="fc" id="L72">            ps = conn.prepareStatement(Util.rtp(INSERT_CRON_TRIGGER, tablePrefix, schedNameLiteral));</span>
+<span class="fc" id="L73">            ps.setString(1, trigger.getKey().getName());</span>
+<span class="fc" id="L74">            ps.setString(2, trigger.getKey().getGroup());</span>
+<span class="fc" id="L75">            ps.setString(3, cronTrigger.getCronExpression());</span>
+<span class="fc" id="L76">            ps.setString(4, cronTrigger.getTimeZone().getID());</span>
+
+<span class="fc" id="L78">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L80">            Util.closeStatement(ps);</span>
+        }
+    }
+
+    public TriggerPropertyBundle loadExtendedTriggerProperties(Connection conn, TriggerKey triggerKey) throws SQLException {
+
+<span class="fc" id="L86">        PreparedStatement ps = null;</span>
+<span class="fc" id="L87">        ResultSet rs = null;</span>
+        
+        try {
+<span class="fc" id="L90">            ps = conn.prepareStatement(Util.rtp(SELECT_CRON_TRIGGER, tablePrefix, schedNameLiteral));</span>
+<span class="fc" id="L91">            ps.setString(1, triggerKey.getName());</span>
+<span class="fc" id="L92">            ps.setString(2, triggerKey.getGroup());</span>
+<span class="fc" id="L93">            rs = ps.executeQuery();</span>
+
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">            if (rs.next()) {</span>
+<span class="fc" id="L96">                String cronExpr = rs.getString(COL_CRON_EXPRESSION);</span>
+<span class="fc" id="L97">                String timeZoneId = rs.getString(COL_TIME_ZONE_ID);</span>
+
+<span class="fc" id="L99">                CronScheduleBuilder cb = CronScheduleBuilder.cronSchedule(cronExpr);</span>
+              
+<span class="pc bpc" id="L101" title="1 of 2 branches missed.">                if (timeZoneId != null) </span>
+<span class="fc" id="L102">                    cb.inTimeZone(TimeZone.getTimeZone(timeZoneId));</span>
+                
+<span class="fc" id="L104">                return new TriggerPropertyBundle(cb, null, null);</span>
+            }
+            
+<span class="nc" id="L107">            throw new IllegalStateException(&quot;No record found for selection of Trigger with key: '&quot; + triggerKey + &quot;' and statement: &quot; + Util.rtp(SELECT_CRON_TRIGGER, tablePrefix, schedNameLiteral));</span>
+        } finally {
+<span class="fc" id="L109">            Util.closeResultSet(rs);</span>
+<span class="fc" id="L110">            Util.closeStatement(ps);</span>
+        }
+    }
+
+    public int updateExtendedTriggerProperties(Connection conn, OperableTrigger trigger, String state, JobDetail jobDetail) throws SQLException, IOException {
+
+<span class="fc" id="L116">        CronTrigger cronTrigger = (CronTrigger)trigger;</span>
+        
+<span class="fc" id="L118">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="fc" id="L121">            ps = conn.prepareStatement(Util.rtp(UPDATE_CRON_TRIGGER, tablePrefix, schedNameLiteral));</span>
+<span class="fc" id="L122">            ps.setString(1, cronTrigger.getCronExpression());</span>
+<span class="fc" id="L123">            ps.setString(2, cronTrigger.getTimeZone().getID());</span>
+<span class="fc" id="L124">            ps.setString(3, trigger.getKey().getName());</span>
+<span class="fc" id="L125">            ps.setString(4, trigger.getKey().getGroup());</span>
+            
+<span class="fc" id="L127">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L129">            Util.closeStatement(ps);</span>
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

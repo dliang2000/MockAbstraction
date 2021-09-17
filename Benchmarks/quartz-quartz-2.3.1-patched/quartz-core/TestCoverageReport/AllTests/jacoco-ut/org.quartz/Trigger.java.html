@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Trigger.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz</a> &gt; <span class="el_source">Trigger.java</span></div><h1>Trigger.java</h1><pre class="source lang-java linenums">
+/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz;
+
+import java.io.Serializable;
+import java.util.Comparator;
+import java.util.Date;
+
+
+
+/**
+ * The base interface with properties common to all &lt;code&gt;Trigger&lt;/code&gt;s -
+ * use {@link TriggerBuilder} to instantiate an actual Trigger.
+ * 
+ * &lt;p&gt;
+ * &lt;code&gt;Triggers&lt;/code&gt;s have a {@link TriggerKey} associated with them, which
+ * should uniquely identify them within a single &lt;code&gt;{@link Scheduler}&lt;/code&gt;.
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * &lt;code&gt;Trigger&lt;/code&gt;s are the 'mechanism' by which &lt;code&gt;Job&lt;/code&gt;s
+ * are scheduled. Many &lt;code&gt;Trigger&lt;/code&gt;s can point to the same &lt;code&gt;Job&lt;/code&gt;,
+ * but a single &lt;code&gt;Trigger&lt;/code&gt; can only point to one &lt;code&gt;Job&lt;/code&gt;.
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * Triggers can 'send' parameters/data to &lt;code&gt;Job&lt;/code&gt;s by placing contents
+ * into the &lt;code&gt;JobDataMap&lt;/code&gt; on the &lt;code&gt;Trigger&lt;/code&gt;.
+ * &lt;/p&gt;
+ *
+ * @see TriggerBuilder
+ * @see JobDataMap
+ * @see JobExecutionContext
+ * @see TriggerUtils
+ * @see SimpleTrigger
+ * @see CronTrigger
+ * @see CalendarIntervalTrigger
+ * 
+ * @author James House
+ */
+public interface Trigger extends Serializable, Cloneable, Comparable&lt;Trigger&gt; {
+
+    public static final long serialVersionUID = -3904243490805975570L;
+    
+<span class="fc" id="L61">    public enum TriggerState { NONE, NORMAL, PAUSED, COMPLETE, ERROR, BLOCKED }</span>
+    
+    /**
+     * &lt;p&gt;&lt;code&gt;NOOP&lt;/code&gt; Instructs the &lt;code&gt;{@link Scheduler}&lt;/code&gt; that the 
+     * &lt;code&gt;{@link Trigger}&lt;/code&gt; has no further instructions.&lt;/p&gt;
+     * 
+     * &lt;p&gt;&lt;code&gt;RE_EXECUTE_JOB&lt;/code&gt; Instructs the &lt;code&gt;{@link Scheduler}&lt;/code&gt; that the 
+     * &lt;code&gt;{@link Trigger}&lt;/code&gt; wants the &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt; to 
+     * re-execute immediately. If not in a 'RECOVERING' or 'FAILED_OVER' situation, the
+     * execution context will be re-used (giving the &lt;code&gt;Job&lt;/code&gt; the
+     * ability to 'see' anything placed in the context by its last execution).&lt;/p&gt;
+     * 
+     * &lt;p&gt;&lt;code&gt;SET_TRIGGER_COMPLETE&lt;/code&gt; Instructs the &lt;code&gt;{@link Scheduler}&lt;/code&gt; that the 
+     * &lt;code&gt;{@link Trigger}&lt;/code&gt; should be put in the &lt;code&gt;COMPLETE&lt;/code&gt; state.&lt;/p&gt;
+     * 
+     * &lt;p&gt;&lt;code&gt;DELETE_TRIGGER&lt;/code&gt; Instructs the &lt;code&gt;{@link Scheduler}&lt;/code&gt; that the 
+     * &lt;code&gt;{@link Trigger}&lt;/code&gt; wants itself deleted.&lt;/p&gt;
+     * 
+     * &lt;p&gt;&lt;code&gt;SET_ALL_JOB_TRIGGERS_COMPLETE&lt;/code&gt; Instructs the &lt;code&gt;{@link Scheduler}&lt;/code&gt; 
+     * that all &lt;code&gt;Trigger&lt;/code&gt;s referencing the same &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt; 
+     * as this one should be put in the &lt;code&gt;COMPLETE&lt;/code&gt; state.&lt;/p&gt;
+     * 
+     * &lt;p&gt;&lt;code&gt;SET_TRIGGER_ERROR&lt;/code&gt; Instructs the &lt;code&gt;{@link Scheduler}&lt;/code&gt; that all 
+     * &lt;code&gt;Trigger&lt;/code&gt;s referencing the same &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt; as
+     * this one should be put in the &lt;code&gt;ERROR&lt;/code&gt; state.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;code&gt;SET_ALL_JOB_TRIGGERS_ERROR&lt;/code&gt; Instructs the &lt;code&gt;{@link Scheduler}&lt;/code&gt; that 
+     * the &lt;code&gt;Trigger&lt;/code&gt; should be put in the &lt;code&gt;ERROR&lt;/code&gt; state.&lt;/p&gt;
+     */
+<span class="fc" id="L90">    public enum CompletedExecutionInstruction { NOOP, RE_EXECUTE_JOB, SET_TRIGGER_COMPLETE, DELETE_TRIGGER, </span>
+<span class="fc" id="L91">        SET_ALL_JOB_TRIGGERS_COMPLETE, SET_TRIGGER_ERROR, SET_ALL_JOB_TRIGGERS_ERROR }</span>
+
+    /**
+     * Instructs the &lt;code&gt;{@link Scheduler}&lt;/code&gt; that upon a mis-fire
+     * situation, the &lt;code&gt;updateAfterMisfire()&lt;/code&gt; method will be called
+     * on the &lt;code&gt;Trigger&lt;/code&gt; to determine the mis-fire instruction,
+     * which logic will be trigger-implementation-dependent.
+     * 
+     * &lt;p&gt;
+     * In order to see if this instruction fits your needs, you should look at
+     * the documentation for the &lt;code&gt;getSmartMisfirePolicy()&lt;/code&gt; method
+     * on the particular &lt;code&gt;Trigger&lt;/code&gt; implementation you are using.
+     * &lt;/p&gt;
+     */
+    public static final int MISFIRE_INSTRUCTION_SMART_POLICY = 0;
+    
+    /**
+     * Instructs the &lt;code&gt;{@link Scheduler}&lt;/code&gt; that the 
+     * &lt;code&gt;Trigger&lt;/code&gt; will never be evaluated for a misfire situation, 
+     * and that the scheduler will simply try to fire it as soon as it can, 
+     * and then update the Trigger as if it had fired at the proper time. 
+     * 
+     * &lt;p&gt;NOTE: if a trigger uses this instruction, and it has missed 
+     * several of its scheduled firings, then several rapid firings may occur 
+     * as the trigger attempt to catch back up to where it would have been. 
+     * For example, a SimpleTrigger that fires every 15 seconds which has 
+     * misfired for 5 minutes will fire 20 times once it gets the chance to 
+     * fire.&lt;/p&gt;
+     */
+    public static final int MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY = -1;
+    
+    /**
+     * The default value for priority.
+     */
+    public static final int DEFAULT_PRIORITY = 5;
+
+    public TriggerKey getKey();
+
+    public JobKey getJobKey();
+    
+    /**
+     * Return the description given to the &lt;code&gt;Trigger&lt;/code&gt; instance by
+     * its creator (if any).
+     * 
+     * @return null if no description was set.
+     */
+    public String getDescription();
+
+    /**
+     * Get the name of the &lt;code&gt;{@link Calendar}&lt;/code&gt; associated with this
+     * Trigger.
+     * 
+     * @return &lt;code&gt;null&lt;/code&gt; if there is no associated Calendar.
+     */
+    public String getCalendarName();
+
+    /**
+     * Get the &lt;code&gt;JobDataMap&lt;/code&gt; that is associated with the 
+     * &lt;code&gt;Trigger&lt;/code&gt;.
+     * 
+     * &lt;p&gt;
+     * Changes made to this map during job execution are not re-persisted, and
+     * in fact typically result in an &lt;code&gt;IllegalStateException&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public JobDataMap getJobDataMap();
+
+    /**
+     * The priority of a &lt;code&gt;Trigger&lt;/code&gt; acts as a tiebreaker such that if 
+     * two &lt;code&gt;Trigger&lt;/code&gt;s have the same scheduled fire time, then the
+     * one with the higher priority will get first access to a worker
+     * thread.
+     * 
+     * &lt;p&gt;
+     * If not explicitly set, the default value is &lt;code&gt;5&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @see #DEFAULT_PRIORITY
+     */
+    public int getPriority();
+
+    /**
+     * Used by the &lt;code&gt;{@link Scheduler}&lt;/code&gt; to determine whether or not
+     * it is possible for this &lt;code&gt;Trigger&lt;/code&gt; to fire again.
+     * 
+     * &lt;p&gt;
+     * If the returned value is &lt;code&gt;false&lt;/code&gt; then the &lt;code&gt;Scheduler&lt;/code&gt;
+     * may remove the &lt;code&gt;Trigger&lt;/code&gt; from the &lt;code&gt;{@link org.quartz.spi.JobStore}&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public boolean mayFireAgain();
+
+    /**
+     * Get the time at which the &lt;code&gt;Trigger&lt;/code&gt; should occur.
+     */
+    public Date getStartTime();
+
+    /**
+     * Get the time at which the &lt;code&gt;Trigger&lt;/code&gt; should quit repeating -
+     * regardless of any remaining repeats (based on the trigger's particular 
+     * repeat settings). 
+     * 
+     * @see #getFinalFireTime()
+     */
+    public Date getEndTime();
+
+    /**
+     * Returns the next time at which the &lt;code&gt;Trigger&lt;/code&gt; is scheduled to fire. If
+     * the trigger will not fire again, &lt;code&gt;null&lt;/code&gt; will be returned.  Note that
+     * the time returned can possibly be in the past, if the time that was computed
+     * for the trigger to next fire has already arrived, but the scheduler has not yet
+     * been able to fire the trigger (which would likely be due to lack of resources
+     * e.g. threads).
+     *
+     * &lt;p&gt;The value returned is not guaranteed to be valid until after the &lt;code&gt;Trigger&lt;/code&gt;
+     * has been added to the scheduler.
+     * &lt;/p&gt;
+     *
+     * @see TriggerUtils#computeFireTimesBetween(org.quartz.spi.OperableTrigger, Calendar, java.util.Date, java.util.Date)
+     */
+    public Date getNextFireTime();
+
+    /**
+     * Returns the previous time at which the &lt;code&gt;Trigger&lt;/code&gt; fired.
+     * If the trigger has not yet fired, &lt;code&gt;null&lt;/code&gt; will be returned.
+     */
+    public Date getPreviousFireTime();
+
+    /**
+     * Returns the next time at which the &lt;code&gt;Trigger&lt;/code&gt; will fire,
+     * after the given time. If the trigger will not fire after the given time,
+     * &lt;code&gt;null&lt;/code&gt; will be returned.
+     */
+    public Date getFireTimeAfter(Date afterTime);
+
+    /**
+     * Returns the last time at which the &lt;code&gt;Trigger&lt;/code&gt; will fire, if
+     * the Trigger will repeat indefinitely, null will be returned.
+     * 
+     * &lt;p&gt;
+     * Note that the return time *may* be in the past.
+     * &lt;/p&gt;
+     */
+    public Date getFinalFireTime();
+
+    /**
+     * Get the instruction the &lt;code&gt;Scheduler&lt;/code&gt; should be given for
+     * handling misfire situations for this &lt;code&gt;Trigger&lt;/code&gt;- the
+     * concrete &lt;code&gt;Trigger&lt;/code&gt; type that you are using will have
+     * defined a set of additional &lt;code&gt;MISFIRE_INSTRUCTION_XXX&lt;/code&gt;
+     * constants that may be set as this property's value.
+     * 
+     * &lt;p&gt;
+     * If not explicitly set, the default value is &lt;code&gt;MISFIRE_INSTRUCTION_SMART_POLICY&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @see #MISFIRE_INSTRUCTION_SMART_POLICY
+     * @see SimpleTrigger
+     * @see CronTrigger
+     */
+    public int getMisfireInstruction();
+
+    /**
+     * Get a {@link TriggerBuilder} that is configured to produce a 
+     * &lt;code&gt;Trigger&lt;/code&gt; identical to this one.
+     * 
+     * @see #getScheduleBuilder()
+     */
+    public TriggerBuilder&lt;? extends Trigger&gt; getTriggerBuilder();
+    
+    /**
+     * Get a {@link ScheduleBuilder} that is configured to produce a 
+     * schedule identical to this trigger's schedule.
+     * 
+     * @see #getTriggerBuilder()
+     */
+    public ScheduleBuilder&lt;? extends Trigger&gt; getScheduleBuilder();
+
+    /**
+     * Trigger equality is based upon the equality of the TriggerKey.
+     * 
+     * @return true if the key of this Trigger equals that of the given Trigger.
+     */
+    public boolean equals(Object other);
+    
+    /**
+     * &lt;p&gt;
+     * Compare the next fire time of this &lt;code&gt;Trigger&lt;/code&gt; to that of
+     * another by comparing their keys, or in other words, sorts them
+     * according to the natural (i.e. alphabetical) order of their keys.
+     * &lt;/p&gt;
+     */
+    public int compareTo(Trigger other);
+
+    /**
+     * A Comparator that compares trigger's next fire times, or in other words,
+     * sorts them according to earliest next fire time.  If the fire times are
+     * the same, then the triggers are sorted according to priority (highest
+     * value first), if the priorities are the same, then they are sorted
+     * by key.
+     */
+<span class="fc" id="L292">    class TriggerTimeComparator implements Comparator&lt;Trigger&gt;, Serializable {</span>
+      
+        private static final long serialVersionUID = -3904243490805975570L;
+        
+        // This static method exists for comparator in TC clustered quartz
+        public static int compare(Date nextFireTime1, int priority1, TriggerKey key1, Date nextFireTime2, int priority2, TriggerKey key2) {
+<span class="fc bfc" id="L298" title="All 4 branches covered.">            if (nextFireTime1 != null || nextFireTime2 != null) {</span>
+<span class="fc bfc" id="L299" title="All 2 branches covered.">                if (nextFireTime1 == null) {</span>
+<span class="fc" id="L300">                    return 1;</span>
+                }
+
+<span class="fc bfc" id="L303" title="All 2 branches covered.">                if (nextFireTime2 == null) {</span>
+<span class="fc" id="L304">                    return -1;</span>
+                }
+
+<span class="fc bfc" id="L307" title="All 2 branches covered.">                if(nextFireTime1.before(nextFireTime2)) {</span>
+<span class="fc" id="L308">                    return -1;</span>
+                }
+
+<span class="fc bfc" id="L311" title="All 2 branches covered.">                if(nextFireTime1.after(nextFireTime2)) {</span>
+<span class="fc" id="L312">                    return 1;</span>
+                }
+            }
+
+<span class="fc" id="L316">            int comp = priority2 - priority1;</span>
+<span class="fc bfc" id="L317" title="All 2 branches covered.">            if (comp != 0) {</span>
+<span class="fc" id="L318">                return comp;</span>
+            }
+
+<span class="fc" id="L321">            return key1.compareTo(key2);</span>
+        }
+
+
+        public int compare(Trigger t1, Trigger t2) {
+<span class="fc" id="L326">            return compare(t1.getNextFireTime(), t1.getPriority(), t1.getKey(), t2.getNextFireTime(), t2.getPriority(), t2.getKey());</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

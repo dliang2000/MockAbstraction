@@ -1,0 +1,417 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TriggerBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz</a> &gt; <span class="el_source">TriggerBuilder.java</span></div><h1>TriggerBuilder.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz;
+
+import java.util.Date;
+
+import org.quartz.spi.MutableTrigger;
+import org.quartz.utils.Key;
+
+/**
+ * &lt;code&gt;TriggerBuilder&lt;/code&gt; is used to instantiate {@link Trigger}s.
+ * 
+ * &lt;p&gt;The builder will always try to keep itself in a valid state, with 
+ * reasonable defaults set for calling build() at any point.  For instance
+ * if you do not invoke &lt;i&gt;withSchedule(..)&lt;/i&gt; method, a default schedule
+ * of firing once immediately will be used.  As another example, if you
+ * do not invoked &lt;i&gt;withIdentity(..)&lt;/i&gt; a trigger name will be generated
+ * for you.&lt;/p&gt;
+ *  
+ * &lt;p&gt;Quartz provides a builder-style API for constructing scheduling-related
+ * entities via a Domain-Specific Language (DSL).  The DSL can best be
+ * utilized through the usage of static imports of the methods on the classes
+ * &lt;code&gt;TriggerBuilder&lt;/code&gt;, &lt;code&gt;JobBuilder&lt;/code&gt;, 
+ * &lt;code&gt;DateBuilder&lt;/code&gt;, &lt;code&gt;JobKey&lt;/code&gt;, &lt;code&gt;TriggerKey&lt;/code&gt; 
+ * and the various &lt;code&gt;ScheduleBuilder&lt;/code&gt; implementations.&lt;/p&gt;
+ * 
+ * &lt;p&gt;Client code can then use the DSL to write code such as this:&lt;/p&gt;
+ * &lt;pre&gt;
+ *         JobDetail job = newJob(MyJob.class)
+ *             .withIdentity(&quot;myJob&quot;)
+ *             .build();
+ *             
+ *         Trigger trigger = newTrigger() 
+ *             .withIdentity(triggerKey(&quot;myTrigger&quot;, &quot;myTriggerGroup&quot;))
+ *             .withSchedule(simpleSchedule()
+ *                 .withIntervalInHours(1)
+ *                 .repeatForever())
+ *             .startAt(futureDate(10, MINUTES))
+ *             .build();
+ *         
+ *         scheduler.scheduleJob(job, trigger);
+ * &lt;pre&gt;
+ *  
+ * @see JobBuilder
+ * @see ScheduleBuilder
+ * @see DateBuilder 
+ * @see Trigger
+ */
+public class TriggerBuilder&lt;T extends Trigger&gt; {
+
+    private TriggerKey key;
+    private String description;
+<span class="fc" id="L68">    private Date startTime = new Date();</span>
+    private Date endTime;
+<span class="fc" id="L70">    private int priority = Trigger.DEFAULT_PRIORITY;</span>
+    private String calendarName;
+    private JobKey jobKey;
+<span class="fc" id="L73">    private JobDataMap jobDataMap = new JobDataMap();</span>
+    
+<span class="fc" id="L75">    private ScheduleBuilder&lt;?&gt; scheduleBuilder = null;</span>
+    
+<span class="fc" id="L77">    private TriggerBuilder() {</span>
+        
+<span class="fc" id="L79">    }</span>
+    
+    /**
+     * Create a new TriggerBuilder with which to define a 
+     * specification for a Trigger.
+     * 
+     * @return the new TriggerBuilder
+     */
+    public static TriggerBuilder&lt;Trigger&gt; newTrigger() {
+<span class="fc" id="L88">        return new TriggerBuilder&lt;Trigger&gt;();</span>
+    }
+    
+    /**
+     * Produce the &lt;code&gt;Trigger&lt;/code&gt;.
+     * 
+     * @return a Trigger that meets the specifications of the builder.
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public T build() {
+
+<span class="fc bfc" id="L99" title="All 2 branches covered.">        if(scheduleBuilder == null)</span>
+<span class="fc" id="L100">            scheduleBuilder = SimpleScheduleBuilder.simpleSchedule();</span>
+<span class="fc" id="L101">        MutableTrigger trig = scheduleBuilder.build();</span>
+        
+<span class="fc" id="L103">        trig.setCalendarName(calendarName);</span>
+<span class="fc" id="L104">        trig.setDescription(description);</span>
+<span class="fc" id="L105">        trig.setStartTime(startTime);</span>
+<span class="fc" id="L106">        trig.setEndTime(endTime);</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">        if(key == null)</span>
+<span class="fc" id="L108">            key = new TriggerKey(Key.createUniqueName(null), null);</span>
+<span class="fc" id="L109">        trig.setKey(key); </span>
+<span class="fc bfc" id="L110" title="All 2 branches covered.">        if(jobKey != null)</span>
+<span class="fc" id="L111">            trig.setJobKey(jobKey);</span>
+<span class="fc" id="L112">        trig.setPriority(priority);</span>
+        
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        if(!jobDataMap.isEmpty())</span>
+<span class="fc" id="L115">            trig.setJobDataMap(jobDataMap);</span>
+        
+<span class="fc" id="L117">        return (T) trig;</span>
+    }
+
+    /**
+     * Use a &lt;code&gt;TriggerKey&lt;/code&gt; with the given name and default group to
+     * identify the Trigger.
+     * 
+     * &lt;p&gt;If none of the 'withIdentity' methods are set on the TriggerBuilder,
+     * then a random, unique TriggerKey will be generated.&lt;/p&gt;
+     * 
+     * @param name the name element for the Trigger's TriggerKey
+     * @return the updated TriggerBuilder
+     * @see TriggerKey
+     * @see Trigger#getKey()
+     */
+    public TriggerBuilder&lt;T&gt; withIdentity(String name) {
+<span class="fc" id="L133">        key = new TriggerKey(name, null);</span>
+<span class="fc" id="L134">        return this;</span>
+    }  
+    
+    /**
+     * Use a TriggerKey with the given name and group to
+     * identify the Trigger.
+     * 
+     * &lt;p&gt;If none of the 'withIdentity' methods are set on the TriggerBuilder,
+     * then a random, unique TriggerKey will be generated.&lt;/p&gt;
+     * 
+     * @param name the name element for the Trigger's TriggerKey
+     * @param group the group element for the Trigger's TriggerKey
+     * @return the updated TriggerBuilder
+     * @see TriggerKey
+     * @see Trigger#getKey()
+     */
+    public TriggerBuilder&lt;T&gt; withIdentity(String name, String group) {
+<span class="fc" id="L151">        key = new TriggerKey(name, group);</span>
+<span class="fc" id="L152">        return this;</span>
+    }
+    
+    /**
+     * Use the given TriggerKey to identify the Trigger.  
+     * 
+     * &lt;p&gt;If none of the 'withIdentity' methods are set on the TriggerBuilder,
+     * then a random, unique TriggerKey will be generated.&lt;/p&gt;
+     * 
+     * @param triggerKey the TriggerKey for the Trigger to be built
+     * @return the updated TriggerBuilder
+     * @see TriggerKey
+     * @see Trigger#getKey()
+     */
+    public TriggerBuilder&lt;T&gt; withIdentity(TriggerKey triggerKey) {
+<span class="fc" id="L167">        this.key = triggerKey;</span>
+<span class="fc" id="L168">        return this;</span>
+    }
+
+    /**
+     * Set the given (human-meaningful) description of the Trigger.
+     * 
+     * @param triggerDescription the description for the Trigger
+     * @return the updated TriggerBuilder
+     * @see Trigger#getDescription()
+     */
+    public TriggerBuilder&lt;T&gt; withDescription(String triggerDescription) {
+<span class="fc" id="L179">        this.description = triggerDescription;</span>
+<span class="fc" id="L180">        return this;</span>
+    }
+    
+    /**
+     * Set the Trigger's priority.  When more than one Trigger have the same
+     * fire time, the scheduler will fire the one with the highest priority
+     * first.
+     * 
+     * @param triggerPriority the priority for the Trigger
+     * @return the updated TriggerBuilder
+     * @see Trigger#DEFAULT_PRIORITY
+     * @see Trigger#getPriority()
+     */
+    public TriggerBuilder&lt;T&gt; withPriority(int triggerPriority) {
+<span class="fc" id="L194">        this.priority = triggerPriority;</span>
+<span class="fc" id="L195">        return this;</span>
+    }
+
+    /**
+     * Set the name of the {@link Calendar} that should be applied to this
+     * Trigger's schedule.
+     * 
+     * @param calName the name of the Calendar to reference.
+     * @return the updated TriggerBuilder
+     * @see Calendar
+     * @see Trigger#getCalendarName()
+     */
+    public TriggerBuilder&lt;T&gt; modifiedByCalendar(String calName) {
+<span class="fc" id="L208">        this.calendarName = calName;</span>
+<span class="fc" id="L209">        return this;</span>
+    }
+    
+    /**
+     * Set the time the Trigger should start at - the trigger may or may
+     * not fire at this time - depending upon the schedule configured for
+     * the Trigger.  However the Trigger will NOT fire before this time,
+     * regardless of the Trigger's schedule.
+     *  
+     * @param triggerStartTime the start time for the Trigger.
+     * @return the updated TriggerBuilder
+     * @see Trigger#getStartTime()
+     * @see DateBuilder
+     */
+    public TriggerBuilder&lt;T&gt; startAt(Date triggerStartTime) {
+<span class="fc" id="L224">        this.startTime = triggerStartTime;</span>
+<span class="fc" id="L225">        return this;</span>
+    }
+    
+    /**
+     * Set the time the Trigger should start at to the current moment - 
+     * the trigger may or may not fire at this time - depending upon the 
+     * schedule configured for the Trigger.  
+     * 
+     * @return the updated TriggerBuilder
+     * @see Trigger#getStartTime()
+     */
+    public TriggerBuilder&lt;T&gt; startNow() {
+<span class="fc" id="L237">        this.startTime = new Date();</span>
+<span class="fc" id="L238">        return this;</span>
+    }
+
+    /**
+     * Set the time at which the Trigger will no longer fire - even if it's
+     * schedule has remaining repeats.    
+     *  
+     * @param triggerEndTime the end time for the Trigger.  If null, the end time is indefinite.
+     * @return the updated TriggerBuilder
+     * @see Trigger#getEndTime()
+     * @see DateBuilder
+     */
+    public TriggerBuilder&lt;T&gt; endAt(Date triggerEndTime) {
+<span class="fc" id="L251">        this.endTime = triggerEndTime;</span>
+<span class="fc" id="L252">        return this;</span>
+    }
+
+    /**
+     * Set the {@link ScheduleBuilder} that will be used to define the 
+     * Trigger's schedule.
+     * 
+     * &lt;p&gt;The particular &lt;code&gt;SchedulerBuilder&lt;/code&gt; used will dictate
+     * the concrete type of Trigger that is produced by the TriggerBuilder.&lt;/p&gt;
+     * 
+     * @param schedBuilder the SchedulerBuilder to use.
+     * @return the updated TriggerBuilder
+     * @see ScheduleBuilder
+     * @see SimpleScheduleBuilder
+     * @see CronScheduleBuilder
+     * @see CalendarIntervalScheduleBuilder
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public &lt;SBT extends T&gt; TriggerBuilder&lt;SBT&gt; withSchedule(ScheduleBuilder&lt;SBT&gt; schedBuilder) {
+<span class="fc" id="L271">        this.scheduleBuilder = schedBuilder;</span>
+<span class="fc" id="L272">        return (TriggerBuilder&lt;SBT&gt;) this;</span>
+    }
+
+    /**
+     * Set the identity of the Job which should be fired by the produced 
+     * Trigger.
+     * 
+     * @param keyOfJobToFire the identity of the Job to fire.
+     * @return the updated TriggerBuilder
+     * @see Trigger#getJobKey()
+     */
+    public TriggerBuilder&lt;T&gt; forJob(JobKey keyOfJobToFire) {
+<span class="fc" id="L284">        this.jobKey = keyOfJobToFire;</span>
+<span class="fc" id="L285">        return this;</span>
+    }
+    
+    /**
+     * Set the identity of the Job which should be fired by the produced 
+     * Trigger - a &lt;code&gt;JobKey&lt;/code&gt; will be produced with the given
+     * name and default group.
+     * 
+     * @param jobName the name of the job (in default group) to fire. 
+     * @return the updated TriggerBuilder
+     * @see Trigger#getJobKey()
+     */
+    public TriggerBuilder&lt;T&gt; forJob(String jobName) {
+<span class="fc" id="L298">        this.jobKey = new JobKey(jobName, null);</span>
+<span class="fc" id="L299">        return this;</span>
+    }
+    
+    /**
+     * Set the identity of the Job which should be fired by the produced 
+     * Trigger - a &lt;code&gt;JobKey&lt;/code&gt; will be produced with the given
+     * name and group.
+     * 
+     * @param jobName the name of the job to fire. 
+     * @param jobGroup the group of the job to fire. 
+     * @return the updated TriggerBuilder
+     * @see Trigger#getJobKey()
+     */
+    public TriggerBuilder&lt;T&gt; forJob(String jobName, String jobGroup) {
+<span class="fc" id="L313">        this.jobKey = new JobKey(jobName, jobGroup);</span>
+<span class="fc" id="L314">        return this;</span>
+    }
+    
+    /**
+     * Set the identity of the Job which should be fired by the produced 
+     * Trigger, by extracting the JobKey from the given job.
+     * 
+     * @param jobDetail the Job to fire.
+     * @return the updated TriggerBuilder
+     * @see Trigger#getJobKey()
+     */
+    public TriggerBuilder&lt;T&gt; forJob(JobDetail jobDetail) {
+<span class="fc" id="L326">        JobKey k = jobDetail.getKey();</span>
+<span class="pc bpc" id="L327" title="1 of 2 branches missed.">        if(k.getName() == null)</span>
+<span class="nc" id="L328">            throw new IllegalArgumentException(&quot;The given job has not yet had a name assigned to it.&quot;);</span>
+<span class="fc" id="L329">        this.jobKey = k;</span>
+<span class="fc" id="L330">        return this;</span>
+    }
+
+    /**
+     * Add the given key-value pair to the Trigger's {@link JobDataMap}.
+     * 
+     * @return the updated TriggerBuilder
+     * @see Trigger#getJobDataMap()
+     */
+    public TriggerBuilder&lt;T&gt; usingJobData(String dataKey, String value) {
+<span class="fc" id="L340">        jobDataMap.put(dataKey, value);</span>
+<span class="fc" id="L341">        return this;</span>
+    }
+    
+    /**
+     * Add the given key-value pair to the Trigger's {@link JobDataMap}.
+     * 
+     * @return the updated TriggerBuilder
+     * @see Trigger#getJobDataMap()
+     */
+    public TriggerBuilder&lt;T&gt; usingJobData(String dataKey, Integer value) {
+<span class="nc" id="L351">        jobDataMap.put(dataKey, value);</span>
+<span class="nc" id="L352">        return this;</span>
+    }
+    
+    /**
+     * Add the given key-value pair to the Trigger's {@link JobDataMap}.
+     * 
+     * @return the updated TriggerBuilder
+     * @see Trigger#getJobDataMap()
+     */
+    public TriggerBuilder&lt;T&gt; usingJobData(String dataKey, Long value) {
+<span class="nc" id="L362">        jobDataMap.put(dataKey, value);</span>
+<span class="nc" id="L363">        return this;</span>
+    }
+    
+    /**
+     * Add the given key-value pair to the Trigger's {@link JobDataMap}.
+     * 
+     * @return the updated TriggerBuilder
+     * @see Trigger#getJobDataMap()
+     */
+    public TriggerBuilder&lt;T&gt; usingJobData(String dataKey, Float value) {
+<span class="nc" id="L373">        jobDataMap.put(dataKey, value);</span>
+<span class="nc" id="L374">        return this;</span>
+    }
+    
+    /**
+     * Add the given key-value pair to the Trigger's {@link JobDataMap}.
+     * 
+     * @return the updated TriggerBuilder
+     * @see Trigger#getJobDataMap()
+     */
+    public TriggerBuilder&lt;T&gt; usingJobData(String dataKey, Double value) {
+<span class="nc" id="L384">        jobDataMap.put(dataKey, value);</span>
+<span class="nc" id="L385">        return this;</span>
+    }
+    
+    /**
+     * Add the given key-value pair to the Trigger's {@link JobDataMap}.
+     * 
+     * @return the updated TriggerBuilder
+     * @see Trigger#getJobDataMap()
+     */
+    public TriggerBuilder&lt;T&gt; usingJobData(String dataKey, Boolean value) {
+<span class="nc" id="L395">        jobDataMap.put(dataKey, value);</span>
+<span class="nc" id="L396">        return this;</span>
+    }
+    
+    /**
+     * Set the Trigger's {@link JobDataMap}, adding any values to it
+     * that were already set on this TriggerBuilder using any of the
+     * other 'usingJobData' methods. 
+     * 
+     * @return the updated TriggerBuilder
+     * @see Trigger#getJobDataMap()
+     */
+    public TriggerBuilder&lt;T&gt; usingJobData(JobDataMap newJobDataMap) {
+        // add any existing data to this new map
+<span class="pc bpc" id="L409" title="1 of 2 branches missed.">        for(String dataKey: jobDataMap.keySet()) {</span>
+<span class="nc" id="L410">            newJobDataMap.put(dataKey, jobDataMap.get(dataKey));</span>
+<span class="nc" id="L411">        }</span>
+<span class="fc" id="L412">        jobDataMap = newJobDataMap; // set new map as the map to use</span>
+<span class="fc" id="L413">        return this;</span>
+    }
+    
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

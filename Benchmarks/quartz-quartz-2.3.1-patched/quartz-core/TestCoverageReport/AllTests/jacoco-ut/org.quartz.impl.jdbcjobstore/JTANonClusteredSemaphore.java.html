@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JTANonClusteredSemaphore.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.jdbcjobstore</a> &gt; <span class="el_source">JTANonClusteredSemaphore.java</span></div><h1>JTANonClusteredSemaphore.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+package org.quartz.impl.jdbcjobstore;
+
+import java.sql.Connection;
+import java.util.HashSet;
+
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
+import javax.transaction.Synchronization;
+import javax.transaction.SystemException;
+import javax.transaction.Transaction;
+import javax.transaction.TransactionManager;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Provides in memory thread/resource locking that is JTA 
+ * &lt;code&gt;{@link javax.transaction.Transaction}&lt;/code&gt; aware.  
+ * It is most appropriate for use when using 
+ * &lt;code&gt;{@link org.quartz.impl.jdbcjobstore.JobStoreCMT}&lt;/code&gt; without clustering.
+ * 
+ * &lt;p&gt;
+ * This &lt;code&gt;Semaphore&lt;/code&gt; implementation is &lt;b&gt;not&lt;/b&gt; Quartz cluster safe.  
+ * &lt;/p&gt;
+ *  
+ * &lt;p&gt;
+ * When a lock is obtained/released but there is no active JTA 
+ * &lt;code&gt;{@link javax.transaction.Transaction}&lt;/code&gt;, then this &lt;code&gt;Semaphore&lt;/code&gt; operates
+ * just like &lt;code&gt;{@link org.quartz.impl.jdbcjobstore.SimpleSemaphore}&lt;/code&gt;. 
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * By default, this class looks for the &lt;code&gt;{@link javax.transaction.TransactionManager}&lt;/code&gt;
+ * in JNDI under name &quot;java:TransactionManager&quot;.  If this is not where your Application Server 
+ * registers it, you can modify the JNDI lookup location using the 
+ * &quot;transactionManagerJNDIName&quot; property.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * &lt;b&gt;IMPORTANT:&lt;/b&gt;  This Semaphore implementation is currently experimental.  
+ * It has been tested a limited amount on JBoss 4.0.3SP1.  If you do choose to 
+ * use it, any feedback would be most appreciated! 
+ * &lt;/p&gt;
+ * 
+ * @see org.quartz.impl.jdbcjobstore.SimpleSemaphore
+ */
+<span class="nc" id="L63">public class JTANonClusteredSemaphore implements Semaphore {</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public static final String DEFAULT_TRANSACTION_MANANGER_LOCATION = &quot;java:TransactionManager&quot;;
+
+<span class="nc" id="L75">    ThreadLocal&lt;HashSet&lt;String&gt;&gt; lockOwners = new ThreadLocal&lt;HashSet&lt;String&gt;&gt;();</span>
+
+<span class="nc" id="L77">    HashSet&lt;String&gt; locks = new HashSet&lt;String&gt;();</span>
+
+<span class="nc" id="L79">    private final Logger log = LoggerFactory.getLogger(getClass());</span>
+
+<span class="nc" id="L81">    private String transactionManagerJNDIName = DEFAULT_TRANSACTION_MANANGER_LOCATION;</span>
+    
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    protected Logger getLog() {
+<span class="nc" id="L93">        return log;</span>
+    }
+
+    public void setTransactionManagerJNDIName(String transactionManagerJNDIName) {
+<span class="nc" id="L97">        this.transactionManagerJNDIName = transactionManagerJNDIName;</span>
+<span class="nc" id="L98">    }</span>
+    
+    private HashSet&lt;String&gt; getThreadLocks() {
+<span class="nc" id="L101">        HashSet&lt;String&gt; threadLocks = lockOwners.get();</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        if (threadLocks == null) {</span>
+<span class="nc" id="L103">            threadLocks = new HashSet&lt;String&gt;();</span>
+<span class="nc" id="L104">            lockOwners.set(threadLocks);</span>
+        }
+<span class="nc" id="L106">        return threadLocks;</span>
+    }
+
+    /**
+     * Grants a lock on the identified resource to the calling thread (blocking
+     * until it is available).
+     * 
+     * @return true if the lock was obtained.
+     */
+    public synchronized boolean obtainLock(Connection conn, String lockName) throws LockException {
+
+<span class="nc" id="L117">        lockName = lockName.intern();</span>
+
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        if(log.isDebugEnabled()) {</span>
+<span class="nc" id="L120">            log.debug(</span>
+                &quot;Lock '&quot; + lockName + &quot;' is desired by: &quot;
+<span class="nc" id="L122">                        + Thread.currentThread().getName());</span>
+        }
+
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        if (!isLockOwner(conn, lockName)) {</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">            if(log.isDebugEnabled()) {</span>
+<span class="nc" id="L127">                log.debug(</span>
+                    &quot;Lock '&quot; + lockName + &quot;' is being obtained: &quot;
+<span class="nc" id="L129">                            + Thread.currentThread().getName());</span>
+            }
+            
+<span class="nc bnc" id="L132" title="All 2 branches missed.">            while (locks.contains(lockName)) {</span>
+                try {
+<span class="nc" id="L134">                    this.wait();</span>
+<span class="nc" id="L135">                } catch (InterruptedException ie) {</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">                    if(log.isDebugEnabled()) {</span>
+<span class="nc" id="L137">                        log.debug(</span>
+                            &quot;Lock '&quot; + lockName + &quot;' was not obtained by: &quot;
+<span class="nc" id="L139">                                    + Thread.currentThread().getName());</span>
+                    }
+<span class="nc" id="L141">                }</span>
+            }
+
+            // If we are in a transaction, register a callback to actually release
+            // the lock when the transaction completes
+<span class="nc" id="L146">            Transaction t = getTransaction();</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">            if (t != null) {</span>
+                try {
+<span class="nc" id="L149">                    t.registerSynchronization(new SemaphoreSynchronization(lockName));</span>
+<span class="nc" id="L150">                } catch (Exception e) {</span>
+<span class="nc" id="L151">                    throw new LockException(&quot;Failed to register semaphore with Transaction.&quot;, e);</span>
+<span class="nc" id="L152">                }</span>
+            }
+            
+<span class="nc bnc" id="L155" title="All 2 branches missed.">            if(log.isDebugEnabled()) {</span>
+<span class="nc" id="L156">                log.debug(</span>
+                    &quot;Lock '&quot; + lockName + &quot;' given to: &quot;
+<span class="nc" id="L158">                            + Thread.currentThread().getName());</span>
+            }
+            
+            
+<span class="nc" id="L162">            getThreadLocks().add(lockName);</span>
+<span class="nc" id="L163">            locks.add(lockName);</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">        } else if(log.isDebugEnabled()) {</span>
+<span class="nc" id="L165">            log.debug(</span>
+                &quot;Lock '&quot; + lockName + &quot;' already owned by: &quot;
+<span class="nc" id="L167">                        + Thread.currentThread().getName()</span>
+                        + &quot; -- but not owner!&quot;,
+                new Exception(&quot;stack-trace of wrongful returner&quot;));
+        }
+
+<span class="nc" id="L172">        return true;</span>
+    }
+
+    /**
+     * Helper method to get the current &lt;code&gt;{@link javax.transaction.Transaction}&lt;/code&gt;
+     * from the &lt;code&gt;{@link javax.transaction.TransactionManager}&lt;/code&gt; in JNDI.
+     * 
+     * @return The current &lt;code&gt;{@link javax.transaction.Transaction}&lt;/code&gt;, null if
+     * not currently in a transaction.
+     */
+    protected Transaction getTransaction() throws LockException{
+<span class="nc" id="L183">        InitialContext ic = null; </span>
+        try {
+<span class="nc" id="L185">            ic = new InitialContext(); </span>
+<span class="nc" id="L186">            TransactionManager tm = (TransactionManager)ic.lookup(transactionManagerJNDIName);</span>
+            
+<span class="nc" id="L188">            return tm.getTransaction();</span>
+<span class="nc" id="L189">        } catch (SystemException e) {</span>
+<span class="nc" id="L190">            throw new LockException(&quot;Failed to get Transaction from TransactionManager&quot;, e);</span>
+<span class="nc" id="L191">        } catch (NamingException e) {</span>
+<span class="nc" id="L192">            throw new LockException(&quot;Failed to find TransactionManager in JNDI under name: &quot; + transactionManagerJNDIName, e);</span>
+        } finally {
+<span class="nc bnc" id="L194" title="All 2 branches missed.">            if (ic != null) {</span>
+                try {
+<span class="nc" id="L196">                    ic.close();</span>
+<span class="nc" id="L197">                } catch (NamingException ignored) {</span>
+<span class="nc" id="L198">                }</span>
+            }
+        }
+    }
+    
+    /**
+     * Release the lock on the identified resource if it is held by the calling
+     * thread, unless currently in a JTA transaction.
+     */
+    public synchronized void releaseLock(String lockName) throws LockException {
+<span class="nc" id="L208">        releaseLock(lockName, false);</span>
+<span class="nc" id="L209">    }</span>
+    
+    /**
+     * Release the lock on the identified resource if it is held by the calling
+     * thread, unless currently in a JTA transaction.
+     * 
+     * @param fromSynchronization True if this method is being invoked from
+     *      &lt;code&gt;{@link Synchronization}&lt;/code&gt; notified of the enclosing 
+     *      transaction having completed.
+     * 
+     * @throws LockException Thrown if there was a problem accessing the JTA 
+     *      &lt;code&gt;Transaction&lt;/code&gt;.  Only relevant if &lt;code&gt;fromSynchronization&lt;/code&gt;
+     *      is false.
+     */
+    protected synchronized void releaseLock(
+        String lockName, boolean fromSynchronization) throws LockException {
+<span class="nc" id="L225">        lockName = lockName.intern();</span>
+
+<span class="nc bnc" id="L227" title="All 2 branches missed.">        if (isLockOwner(null, lockName)) {</span>
+            
+<span class="nc bnc" id="L229" title="All 2 branches missed.">            if (fromSynchronization == false) {</span>
+<span class="nc" id="L230">                Transaction t = getTransaction();</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">                if (t != null) {</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">                    if(getLog().isDebugEnabled()) {</span>
+<span class="nc" id="L233">                        getLog().debug(</span>
+                            &quot;Lock '&quot; + lockName + &quot;' is in a JTA transaction.  &quot; + 
+<span class="nc" id="L235">                            &quot;Return deferred by: &quot; + Thread.currentThread().getName());</span>
+                    }
+                    
+                    // If we are still in a transaction, then we don't want to 
+                    // actually release the lock.
+<span class="nc" id="L240">                    return;</span>
+                }
+            }
+            
+<span class="nc bnc" id="L244" title="All 2 branches missed.">            if(getLog().isDebugEnabled()) {</span>
+<span class="nc" id="L245">                getLog().debug(</span>
+                    &quot;Lock '&quot; + lockName + &quot;' returned by: &quot;
+<span class="nc" id="L247">                            + Thread.currentThread().getName());</span>
+            }
+<span class="nc" id="L249">            getThreadLocks().remove(lockName);</span>
+<span class="nc" id="L250">            locks.remove(lockName);</span>
+<span class="nc" id="L251">            this.notify();</span>
+<span class="nc bnc" id="L252" title="All 2 branches missed.">        } else if (getLog().isDebugEnabled()) {</span>
+<span class="nc" id="L253">            getLog().debug(</span>
+                &quot;Lock '&quot; + lockName + &quot;' attempt to return by: &quot;
+<span class="nc" id="L255">                        + Thread.currentThread().getName()</span>
+                        + &quot; -- but not owner!&quot;,
+                new Exception(&quot;stack-trace of wrongful returner&quot;));
+        }
+<span class="nc" id="L259">    }</span>
+
+    /**
+     * Determine whether the calling thread owns a lock on the identified
+     * resource.
+     */
+    public synchronized boolean isLockOwner(Connection conn, String lockName) {
+<span class="nc" id="L266">        lockName = lockName.intern();</span>
+
+<span class="nc" id="L268">        return getThreadLocks().contains(lockName);</span>
+    }
+
+    /**
+     * This Semaphore implementation does not use the database.
+     */
+    public boolean requiresConnection() {
+<span class="nc" id="L275">        return false;</span>
+    }
+
+    /**
+     * Helper class that is registered with the active 
+     * &lt;code&gt;{@link javax.transaction.Transaction}&lt;/code&gt; so that the lock
+     * will be released when the transaction completes.
+     */
+    private class SemaphoreSynchronization implements Synchronization {
+        private String lockName;
+        
+<span class="nc" id="L286">        public SemaphoreSynchronization(String lockName) {</span>
+<span class="nc" id="L287">            this.lockName = lockName;</span>
+<span class="nc" id="L288">        }</span>
+        
+        public void beforeCompletion() {
+            // nothing to do...
+<span class="nc" id="L292">        }</span>
+    
+        public void afterCompletion(int status) {
+            try {
+<span class="nc" id="L296">                releaseLock(lockName, true);</span>
+<span class="nc" id="L297">            } catch (LockException e) {</span>
+                // Ignore as can't be thrown with fromSynchronization set to true
+<span class="nc" id="L299">            }</span>
+<span class="nc" id="L300">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

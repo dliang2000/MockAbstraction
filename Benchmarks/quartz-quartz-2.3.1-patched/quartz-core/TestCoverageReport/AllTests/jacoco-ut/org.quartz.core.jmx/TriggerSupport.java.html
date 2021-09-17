@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TriggerSupport.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.core.jmx</a> &gt; <span class="el_source">TriggerSupport.java</span></div><h1>TriggerSupport.java</h1><pre class="source lang-java linenums">package org.quartz.core.jmx;
+
+import static javax.management.openmbean.SimpleType.DATE;
+import static javax.management.openmbean.SimpleType.INTEGER;
+import static javax.management.openmbean.SimpleType.STRING;
+
+import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.management.openmbean.CompositeData;
+import javax.management.openmbean.CompositeDataSupport;
+import javax.management.openmbean.CompositeType;
+import javax.management.openmbean.OpenDataException;
+import javax.management.openmbean.OpenType;
+import javax.management.openmbean.TabularData;
+import javax.management.openmbean.TabularDataSupport;
+import javax.management.openmbean.TabularType;
+
+import org.quartz.JobKey;
+import org.quartz.Trigger;
+import org.quartz.TriggerKey;
+import org.quartz.spi.MutableTrigger;
+import org.quartz.spi.OperableTrigger;
+
+<span class="nc" id="L28">public class TriggerSupport {</span>
+    private static final String COMPOSITE_TYPE_NAME = &quot;Trigger&quot;;
+    private static final String COMPOSITE_TYPE_DESCRIPTION = &quot;Trigger Details&quot;;
+<span class="fc" id="L31">    private static final String[] ITEM_NAMES = new String[] { &quot;name&quot;,</span>
+      &quot;group&quot;, &quot;jobName&quot;, &quot;jobGroup&quot;, &quot;description&quot;, &quot;jobDataMap&quot;,
+            &quot;calendarName&quot;, &quot;fireInstanceId&quot;, &quot;misfireInstruction&quot;, &quot;priority&quot;,
+            &quot;startTime&quot;, &quot;endTime&quot;, &quot;nextFireTime&quot;, &quot;previousFireTime&quot;, &quot;finalFireTime&quot; };
+<span class="fc" id="L35">    private static final String[] ITEM_DESCRIPTIONS = new String[] { &quot;name&quot;,</span>
+            &quot;group&quot;, &quot;jobName&quot;, &quot;jobGroup&quot;, &quot;description&quot;, &quot;jobDataMap&quot;,
+            &quot;calendarName&quot;, &quot;fireInstanceId&quot;, &quot;misfireInstruction&quot;, &quot;priority&quot;,
+      &quot;startTime&quot;, &quot;endTime&quot;, &quot;nextFireTime&quot;, &quot;previousFireTime&quot;, &quot;finalFireTime&quot; };
+<span class="fc" id="L39">    private static final OpenType[] ITEM_TYPES = new OpenType[] { STRING,</span>
+            STRING, STRING, STRING, STRING, JobDataMapSupport.TABULAR_TYPE,
+            STRING, STRING, INTEGER, INTEGER,
+      DATE, DATE, DATE, DATE, DATE };
+    private static final CompositeType COMPOSITE_TYPE;
+    private static final String TABULAR_TYPE_NAME = &quot;Trigger collection&quot;;
+    private static final String TABULAR_TYPE_DESCRIPTION = &quot;Trigger collection&quot;;
+<span class="fc" id="L46">    private static final String[] INDEX_NAMES = new String[] { &quot;name&quot;, &quot;group&quot; };</span>
+    private static final TabularType TABULAR_TYPE;
+
+    static {
+        try {
+<span class="fc" id="L51">            COMPOSITE_TYPE = new CompositeType(COMPOSITE_TYPE_NAME,</span>
+                    COMPOSITE_TYPE_DESCRIPTION, ITEM_NAMES, ITEM_DESCRIPTIONS,
+                    ITEM_TYPES);
+<span class="fc" id="L54">            TABULAR_TYPE = new TabularType(TABULAR_TYPE_NAME,</span>
+                    TABULAR_TYPE_DESCRIPTION, COMPOSITE_TYPE, INDEX_NAMES);
+<span class="nc" id="L56">        } catch (OpenDataException e) {</span>
+<span class="nc" id="L57">            throw new RuntimeException(e);</span>
+<span class="fc" id="L58">        }</span>
+<span class="fc" id="L59">    }</span>
+    
+    public static String[] getItemNames() {
+<span class="nc" id="L62">        return ITEM_NAMES;</span>
+    }
+
+    public static String[] getItemDescriptions() {
+<span class="nc" id="L66">        return ITEM_DESCRIPTIONS;</span>
+    }
+    
+    public static OpenType[] getItemTypes() {
+<span class="nc" id="L70">        return ITEM_TYPES;</span>
+    }
+    
+    public String[] getIndexNames() {
+<span class="nc" id="L74">        return INDEX_NAMES;</span>
+    }
+    
+    public static CompositeData toCompositeData(Trigger trigger) {
+        try {
+<span class="fc" id="L79">            return new CompositeDataSupport(COMPOSITE_TYPE, ITEM_NAMES,</span>
+                    new Object[] {
+<span class="fc" id="L81">                            trigger.getKey().getName(),</span>
+<span class="fc" id="L82">                            trigger.getKey().getGroup(),</span>
+<span class="fc" id="L83">                            trigger.getJobKey().getName(),</span>
+<span class="fc" id="L84">                            trigger.getJobKey().getGroup(),</span>
+<span class="fc" id="L85">                            trigger.getDescription(),</span>
+<span class="fc" id="L86">                            JobDataMapSupport.toTabularData(trigger</span>
+<span class="fc" id="L87">                                    .getJobDataMap()),</span>
+<span class="fc" id="L88">                            trigger.getCalendarName(),</span>
+<span class="fc" id="L89">                            ((OperableTrigger)trigger).getFireInstanceId(),</span>
+<span class="fc" id="L90">                            trigger.getMisfireInstruction(),</span>
+<span class="fc" id="L91">                            trigger.getPriority(), trigger.getStartTime(),</span>
+<span class="fc" id="L92">                            trigger.getEndTime(), trigger.getNextFireTime(),</span>
+<span class="fc" id="L93">                            trigger.getPreviousFireTime(),</span>
+<span class="fc" id="L94">                            trigger.getFinalFireTime() });</span>
+<span class="nc" id="L95">        } catch (OpenDataException e) {</span>
+<span class="nc" id="L96">            throw new RuntimeException(e);</span>
+        }
+    }
+
+    public static TabularData toTabularData(List&lt;? extends Trigger&gt; triggers) {
+<span class="nc" id="L101">        TabularData tData = new TabularDataSupport(TABULAR_TYPE);</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        if (triggers != null) {</span>
+<span class="nc" id="L103">            ArrayList&lt;CompositeData&gt; list = new ArrayList&lt;CompositeData&gt;();</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">            for (Trigger trigger : triggers) {</span>
+<span class="nc" id="L105">                list.add(toCompositeData(trigger));</span>
+<span class="nc" id="L106">            }</span>
+<span class="nc" id="L107">            tData.putAll(list.toArray(new CompositeData[list.size()]));</span>
+        }
+<span class="nc" id="L109">        return tData;</span>
+    }
+    
+    public static List&lt;CompositeData&gt; toCompositeList(List&lt;? extends Trigger&gt; triggers) {
+<span class="nc" id="L113">        List&lt;CompositeData&gt; result = new ArrayList&lt;CompositeData&gt;();</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">        for(Trigger trigger : triggers) {</span>
+<span class="nc" id="L115">            CompositeData cData = TriggerSupport.toCompositeData(trigger);</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">            if(cData != null) {</span>
+<span class="nc" id="L117">                result.add(cData);</span>
+            }
+<span class="nc" id="L119">        }</span>
+<span class="nc" id="L120">        return result;</span>
+    }
+    
+    public static void initializeTrigger(MutableTrigger trigger, CompositeData cData) {
+<span class="nc" id="L124">        trigger.setDescription((String) cData.get(&quot;description&quot;));</span>
+<span class="nc" id="L125">        trigger.setCalendarName((String) cData.get(&quot;calendarName&quot;));</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">        if(cData.containsKey(&quot;priority&quot;)) {</span>
+<span class="nc" id="L127">            trigger.setPriority(((Integer)cData.get(&quot;priority&quot;)).intValue());</span>
+        }
+<span class="nc bnc" id="L129" title="All 2 branches missed.">        if(cData.containsKey(&quot;jobDataMap&quot;)) {</span>
+<span class="nc" id="L130">            trigger.setJobDataMap(JobDataMapSupport.newJobDataMap((TabularData)cData.get(&quot;jobDataMap&quot;)));</span>
+        }
+        Date startTime;
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        if(cData.containsKey(&quot;startTime&quot;)) {</span>
+<span class="nc" id="L134">            startTime = (Date) cData.get(&quot;startTime&quot;);</span>
+        } else {
+<span class="nc" id="L136">            startTime = new Date();</span>
+        }
+<span class="nc" id="L138">        trigger.setStartTime(startTime);</span>
+<span class="nc" id="L139">        trigger.setEndTime((Date) cData.get(&quot;endTime&quot;));</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">        if(cData.containsKey(&quot;misfireInstruction&quot;)) {</span>
+<span class="nc" id="L141">            trigger.setMisfireInstruction(((Integer)cData.get(&quot;misfireInstruction&quot;)).intValue());</span>
+        }
+<span class="nc" id="L143">        trigger.setKey(new TriggerKey((String) cData.get(&quot;name&quot;), (String) cData.get(&quot;group&quot;)));</span>
+<span class="nc" id="L144">        trigger.setJobKey(new JobKey((String) cData.get(&quot;jobName&quot;), (String) cData.get(&quot;jobGroup&quot;)));</span>
+<span class="nc" id="L145">    }</span>
+    
+    public static void initializeTrigger(MutableTrigger trigger, Map&lt;String, Object&gt; attrMap) {
+<span class="nc" id="L148">        trigger.setDescription((String) attrMap.get(&quot;description&quot;));</span>
+<span class="nc" id="L149">        trigger.setCalendarName((String) attrMap.get(&quot;calendarName&quot;));</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">        if(attrMap.containsKey(&quot;priority&quot;)) {</span>
+<span class="nc" id="L151">            trigger.setPriority(((Integer)attrMap.get(&quot;priority&quot;)).intValue());</span>
+        }
+<span class="nc bnc" id="L153" title="All 2 branches missed.">        if(attrMap.containsKey(&quot;jobDataMap&quot;)) {</span>
+            @SuppressWarnings(&quot;unchecked&quot;) // cast as expected.
+<span class="nc" id="L155">            Map&lt;String, Object&gt; mapTyped = (Map&lt;String, Object&gt;)attrMap.get(&quot;jobDataMap&quot;);</span>
+<span class="nc" id="L156">            trigger.setJobDataMap(JobDataMapSupport.newJobDataMap(mapTyped));</span>
+        }
+        Date startTime;
+<span class="nc bnc" id="L159" title="All 2 branches missed.">        if(attrMap.containsKey(&quot;startTime&quot;)) {</span>
+<span class="nc" id="L160">            startTime = (Date) attrMap.get(&quot;startTime&quot;);</span>
+        } else {
+<span class="nc" id="L162">            startTime = new Date();</span>
+        }
+<span class="nc" id="L164">        trigger.setStartTime(startTime);</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">        if(attrMap.containsKey(&quot;endTime&quot;)) {</span>
+<span class="nc" id="L166">            trigger.setEndTime((Date) attrMap.get(&quot;endTime&quot;));</span>
+        }
+<span class="nc bnc" id="L168" title="All 2 branches missed.">        if(attrMap.containsKey(&quot;misfireInstruction&quot;)) {</span>
+<span class="nc" id="L169">            trigger.setMisfireInstruction(((Integer)attrMap.get(&quot;misfireInstruction&quot;)).intValue());</span>
+        }
+<span class="nc" id="L171">        trigger.setKey(new TriggerKey((String) attrMap.get(&quot;name&quot;), (String) attrMap.get(&quot;group&quot;)));</span>
+<span class="nc" id="L172">        trigger.setJobKey(new JobKey((String) attrMap.get(&quot;jobName&quot;), (String) attrMap.get(&quot;jobGroup&quot;)));</span>
+<span class="nc" id="L173">    }</span>
+    
+    public static OperableTrigger newTrigger(CompositeData cData) throws ParseException {
+<span class="nc" id="L176">        OperableTrigger result = null;</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">        if(cData.containsKey(&quot;cronExpression&quot;)) {</span>
+<span class="nc" id="L178">            result = CronTriggerSupport.newTrigger(cData);</span>
+        } else {
+<span class="nc" id="L180">            result = SimpleTriggerSupport.newTrigger(cData);</span>
+        }
+<span class="nc" id="L182">        return result;</span>
+    }
+    
+    public static OperableTrigger newTrigger(Map&lt;String, Object&gt; attrMap) throws ParseException {
+<span class="nc" id="L186">        OperableTrigger result = null;</span>
+<span class="nc bnc" id="L187" title="All 2 branches missed.">        if(attrMap.containsKey(&quot;cronExpression&quot;)) {</span>
+<span class="nc" id="L188">            result = CronTriggerSupport.newTrigger(attrMap);</span>
+        } else {
+<span class="nc" id="L190">            result = SimpleTriggerSupport.newTrigger(attrMap);</span>
+        }
+<span class="nc" id="L192">        return result;</span>
+    }
+    
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

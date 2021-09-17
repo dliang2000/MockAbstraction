@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>C3p0PoolingConnectionProvider.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.utils</a> &gt; <span class="el_source">C3p0PoolingConnectionProvider.java</span></div><h1>C3p0PoolingConnectionProvider.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.utils;
+
+import java.beans.PropertyVetoException;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.Properties;
+
+import org.quartz.SchedulerException;
+
+import com.mchange.v2.c3p0.ComboPooledDataSource;
+
+/**
+ * &lt;p&gt;
+ * A &lt;code&gt;ConnectionProvider&lt;/code&gt; implementation that creates its own
+ * pool of connections.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * This class uses C3PO (http://www.mchange.com/projects/c3p0/index.html) as
+ * the underlying pool implementation.&lt;/p&gt;
+ *
+ * @see DBConnectionManager
+ * @see ConnectionProvider
+ *
+ * @author Sharada Jambula
+ * @author James House
+ * @author Mohammad Rezaei
+ */
+public class C3p0PoolingConnectionProvider implements PoolingConnectionProvider {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constants.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * The maximum number of prepared statements that will be cached per connection in the pool.
+     * Depending upon your JDBC Driver this may significantly help performance, or may slightly 
+     * hinder performance.   
+     * Default is 120, as Quartz uses over 100 unique statements. 0 disables the feature. 
+     */
+    public static final String DB_MAX_CACHED_STATEMENTS_PER_CONNECTION = &quot;maxCachedStatementsPerConnection&quot;;
+
+    /**
+     * The number of seconds between tests of idle connections - only enabled
+     * if the validation query property is set.  Default is 50 seconds. 
+     */
+    public static final String DB_IDLE_VALIDATION_SECONDS = &quot;idleConnectionValidationSeconds&quot;;
+
+    /**
+     * Whether the database sql query to validate connections should be executed every time 
+     * a connection is retrieved from the pool to ensure that it is still valid.  If false,
+     * then validation will occur on check-in.  Default is false. 
+     */
+    public static final String DB_VALIDATE_ON_CHECKOUT = &quot;validateOnCheckout&quot;;
+
+    /** Discard connections after they have been idle this many seconds.  0 disables the feature. Default is 0.*/
+    public static final String DB_DISCARD_IDLE_CONNECTIONS_SECONDS = &quot;maxIdleTime&quot;;
+
+    /** Default maximum number of database connections in the pool. */
+    public static final int DEFAULT_DB_MAX_CACHED_STATEMENTS_PER_CONNECTION = 120;
+
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    private ComboPooledDataSource datasource;
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public C3p0PoolingConnectionProvider(String dbDriver, String dbURL,
+                                         String dbUser, String dbPassword, int maxConnections,
+<span class="nc" id="L104">                                         String dbValidationQuery) throws SQLException, SchedulerException {</span>
+<span class="nc" id="L105">        initialize(</span>
+                dbDriver, dbURL, dbUser, dbPassword,
+                maxConnections, DEFAULT_DB_MAX_CACHED_STATEMENTS_PER_CONNECTION, dbValidationQuery, false, 50, 0);
+<span class="nc" id="L108">    }</span>
+
+    /**
+     * Create a connection pool using the given properties.
+     *
+     * &lt;p&gt;
+     * The properties passed should contain:
+     * &lt;UL&gt;
+     * &lt;LI&gt;{@link #DB_DRIVER}- The database driver class name
+     * &lt;LI&gt;{@link #DB_URL}- The database URL
+     * &lt;LI&gt;{@link #DB_USER}- The database user
+     * &lt;LI&gt;{@link #DB_PASSWORD}- The database password
+     * &lt;LI&gt;{@link #DB_MAX_CONNECTIONS}- The maximum # connections in the pool,
+     * optional
+     * &lt;LI&gt;{@link #DB_VALIDATION_QUERY}- The sql validation query, optional
+     * &lt;/UL&gt;
+     * &lt;/p&gt;
+     *
+     * @param config
+     *            configuration properties
+     */
+<span class="fc" id="L129">    public C3p0PoolingConnectionProvider(Properties config) throws SchedulerException, SQLException {</span>
+<span class="fc" id="L130">        PropertiesParser cfg = new PropertiesParser(config);</span>
+<span class="fc" id="L131">        initialize(</span>
+<span class="fc" id="L132">                cfg.getStringProperty(DB_DRIVER),</span>
+<span class="fc" id="L133">                cfg.getStringProperty(DB_URL),</span>
+<span class="fc" id="L134">                cfg.getStringProperty(DB_USER, &quot;&quot;),</span>
+<span class="fc" id="L135">                cfg.getStringProperty(DB_PASSWORD, &quot;&quot;),</span>
+<span class="fc" id="L136">                cfg.getIntProperty(DB_MAX_CONNECTIONS, DEFAULT_DB_MAX_CONNECTIONS),</span>
+<span class="fc" id="L137">                cfg.getIntProperty(DB_MAX_CACHED_STATEMENTS_PER_CONNECTION, DEFAULT_DB_MAX_CACHED_STATEMENTS_PER_CONNECTION),</span>
+<span class="fc" id="L138">                cfg.getStringProperty(DB_VALIDATION_QUERY),</span>
+<span class="fc" id="L139">                cfg.getBooleanProperty(DB_VALIDATE_ON_CHECKOUT, false),</span>
+<span class="fc" id="L140">                cfg.getIntProperty(DB_IDLE_VALIDATION_SECONDS, 50),</span>
+<span class="fc" id="L141">                cfg.getIntProperty(DB_DISCARD_IDLE_CONNECTIONS_SECONDS, 0));</span>
+<span class="fc" id="L142">    }</span>
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * Create the underlying C3PO ComboPooledDataSource with the 
+     * default supported properties.
+     * @throws SchedulerException
+     */
+    private void initialize(
+            String dbDriver,
+            String dbURL,
+            String dbUser,
+            String dbPassword,
+            int maxConnections,
+            int maxStatementsPerConnection,
+            String dbValidationQuery,
+            boolean validateOnCheckout,
+            int idleValidationSeconds,
+            int maxIdleSeconds) throws SQLException, SchedulerException {
+<span class="pc bpc" id="L168" title="1 of 2 branches missed.">        if (dbURL == null) {</span>
+<span class="nc" id="L169">            throw new SQLException(</span>
+                    &quot;DBPool could not be created: DB URL cannot be null&quot;);
+        }
+
+<span class="pc bpc" id="L173" title="1 of 2 branches missed.">        if (dbDriver == null) {</span>
+<span class="nc" id="L174">            throw new SQLException(</span>
+                    &quot;DBPool '&quot; + dbURL + &quot;' could not be created: &quot; +
+                            &quot;DB driver class name cannot be null!&quot;);
+        }
+
+<span class="pc bpc" id="L179" title="1 of 2 branches missed.">        if (maxConnections &lt; 0) {</span>
+<span class="nc" id="L180">            throw new SQLException(</span>
+                    &quot;DBPool '&quot; + dbURL + &quot;' could not be created: &quot; +
+                            &quot;Max connections must be greater than zero!&quot;);
+        }
+
+
+<span class="fc" id="L186">        datasource = new ComboPooledDataSource();</span>
+        try {
+<span class="fc" id="L188">            datasource.setDriverClass(dbDriver);</span>
+<span class="nc" id="L189">        } catch (PropertyVetoException e) {</span>
+<span class="nc" id="L190">            throw new SchedulerException(&quot;Problem setting driver class name on datasource: &quot; + e.getMessage(), e);</span>
+<span class="fc" id="L191">        }</span>
+<span class="fc" id="L192">        datasource.setJdbcUrl(dbURL);</span>
+<span class="fc" id="L193">        datasource.setUser(dbUser);</span>
+<span class="fc" id="L194">        datasource.setPassword(dbPassword);</span>
+<span class="fc" id="L195">        datasource.setMaxPoolSize(maxConnections);</span>
+<span class="fc" id="L196">        datasource.setMinPoolSize(1);</span>
+<span class="fc" id="L197">        datasource.setMaxIdleTime(maxIdleSeconds);</span>
+<span class="fc" id="L198">        datasource.setMaxStatementsPerConnection(maxStatementsPerConnection);</span>
+
+<span class="pc bpc" id="L200" title="1 of 2 branches missed.">        if (dbValidationQuery != null) {</span>
+<span class="nc" id="L201">            datasource.setPreferredTestQuery(dbValidationQuery);</span>
+<span class="nc bnc" id="L202" title="All 2 branches missed.">            if(!validateOnCheckout)</span>
+<span class="nc" id="L203">                datasource.setTestConnectionOnCheckin(true);</span>
+            else
+<span class="nc" id="L205">                datasource.setTestConnectionOnCheckout(true);</span>
+<span class="nc" id="L206">            datasource.setIdleConnectionTestPeriod(idleValidationSeconds);</span>
+        }
+<span class="fc" id="L208">    }</span>
+
+    /**
+     * Get the C3PO ComboPooledDataSource created during initialization.
+     *
+     * &lt;p&gt;
+     * This can be used to set additional data source properties in a 
+     * subclass's constructor.
+     * &lt;/p&gt;
+     */
+    public ComboPooledDataSource getDataSource() {
+<span class="fc" id="L219">        return datasource;</span>
+    }
+
+    public Connection getConnection() throws SQLException {
+<span class="fc" id="L223">        return datasource.getConnection();</span>
+    }
+
+    public void shutdown() throws SQLException {
+<span class="fc" id="L227">        datasource.close();</span>
+<span class="fc" id="L228">    }</span>
+
+    public void initialize() throws SQLException {
+        // do nothing, already initialized during constructor call
+<span class="nc" id="L232">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

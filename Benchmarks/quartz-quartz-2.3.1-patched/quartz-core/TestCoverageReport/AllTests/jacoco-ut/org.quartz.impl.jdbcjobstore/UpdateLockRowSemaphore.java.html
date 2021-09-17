@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UpdateLockRowSemaphore.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.jdbcjobstore</a> &gt; <span class="el_source">UpdateLockRowSemaphore.java</span></div><h1>UpdateLockRowSemaphore.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy
+ * of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ */
+
+package org.quartz.impl.jdbcjobstore;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+
+/**
+ * Provide thread/resource locking in order to protect
+ * resources from being altered by multiple threads at the same time using
+ * a db row update.
+ * 
+ * &lt;p&gt;
+ * &lt;b&gt;Note:&lt;/b&gt; This Semaphore implementation is useful for databases that do
+ * not support row locking via &quot;SELECT FOR UPDATE&quot; type syntax, for example
+ * Microsoft SQLServer (MSSQL).
+ * &lt;/p&gt; 
+ */
+public class UpdateLockRowSemaphore extends DBSemaphore {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Constants.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public static final String UPDATE_FOR_LOCK = 
+        &quot;UPDATE &quot; + TABLE_PREFIX_SUBST + TABLE_LOCKS + 
+        &quot; SET &quot; + COL_LOCK_NAME + &quot; = &quot; + COL_LOCK_NAME +
+        &quot; WHERE &quot; + COL_SCHEDULER_NAME + &quot; = &quot; + SCHED_NAME_SUBST
+        + &quot; AND &quot; + COL_LOCK_NAME + &quot; = ? &quot;;
+
+
+    public static final String INSERT_LOCK = &quot;INSERT INTO &quot;
+        + TABLE_PREFIX_SUBST + TABLE_LOCKS + &quot;(&quot; + COL_SCHEDULER_NAME + &quot;, &quot; + COL_LOCK_NAME + &quot;) VALUES (&quot; 
+        + SCHED_NAME_SUBST + &quot;, ?)&quot;; 
+    
+    private static final int RETRY_COUNT = 2;
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Constructors.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public UpdateLockRowSemaphore() {
+<span class="fc" id="L66">        super(DEFAULT_TABLE_PREFIX, null, UPDATE_FOR_LOCK, INSERT_LOCK);</span>
+<span class="fc" id="L67">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Interface.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * Execute the SQL select for update that will lock the proper database row.
+     */
+    @Override
+    protected void executeSQL(Connection conn, final String lockName, final String expandedSQL, final String expandedInsertSQL) throws LockException {
+<span class="fc" id="L82">        SQLException lastFailure = null;</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">        for (int i = 0; i &lt; RETRY_COUNT; i++) {</span>
+            try {
+<span class="fc bfc" id="L85" title="All 2 branches covered.">                if (!lockViaUpdate(conn, lockName, expandedSQL)) {</span>
+<span class="fc" id="L86">                    lockViaInsert(conn, lockName, expandedInsertSQL);</span>
+                }
+<span class="fc" id="L88">                return;</span>
+<span class="fc" id="L89">            } catch (SQLException e) {</span>
+<span class="fc" id="L90">                lastFailure = e;</span>
+<span class="fc bfc" id="L91" title="All 2 branches covered.">                if ((i + 1) == RETRY_COUNT) {</span>
+<span class="fc" id="L92">                    getLog().debug(&quot;Lock '{}' was not obtained by: {}&quot;, lockName, Thread.currentThread().getName());</span>
+                } else {
+<span class="fc" id="L94">                    getLog().debug(&quot;Lock '{}' was not obtained by: {} - will try again.&quot;, lockName, Thread.currentThread().getName());</span>
+                }
+                try {
+<span class="fc" id="L97">                    Thread.sleep(1000L);</span>
+<span class="nc" id="L98">                } catch (InterruptedException _) {</span>
+<span class="nc" id="L99">                    Thread.currentThread().interrupt();</span>
+<span class="fc" id="L100">                }</span>
+            }
+        }
+<span class="fc" id="L103">        throw new LockException(&quot;Failure obtaining db row lock: &quot; + lastFailure.getMessage(), lastFailure);</span>
+    }
+    
+    protected String getUpdateLockRowSQL() {
+<span class="nc" id="L107">        return getSQL();</span>
+    }
+
+    public void setUpdateLockRowSQL(String updateLockRowSQL) {
+<span class="nc" id="L111">        setSQL(updateLockRowSQL);</span>
+<span class="nc" id="L112">    }</span>
+
+    private boolean lockViaUpdate(Connection conn, String lockName, String sql) throws SQLException {
+<span class="fc" id="L115">        PreparedStatement ps = conn.prepareStatement(sql);</span>
+        try {
+<span class="fc" id="L117">            ps.setString(1, lockName);</span>
+<span class="fc" id="L118">            getLog().debug(&quot;Lock '&quot; + lockName + &quot;' is being obtained: &quot; + Thread.currentThread().getName());</span>
+<span class="fc bfc" id="L119" title="All 2 branches covered.">            return ps.executeUpdate() &gt;= 1;</span>
+        } finally {
+<span class="fc" id="L121">            ps.close();</span>
+        }
+    }
+
+    private void lockViaInsert(Connection conn, String lockName, String sql) throws SQLException {
+<span class="fc" id="L126">        getLog().debug(&quot;Inserting new lock row for lock: '&quot; + lockName + &quot;' being obtained by thread: &quot; + Thread.currentThread().getName());</span>
+<span class="fc" id="L127">        PreparedStatement ps = conn.prepareStatement(sql);</span>
+        try {
+<span class="fc" id="L129">            ps.setString(1, lockName);</span>
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">            if(ps.executeUpdate() != 1) {</span>
+<span class="nc" id="L131">                throw new SQLException(Util.rtp(</span>
+                    &quot;No row exists, and one could not be inserted in table &quot; + TABLE_PREFIX_SUBST + TABLE_LOCKS + 
+<span class="nc" id="L133">                    &quot; for lock named: &quot; + lockName, getTablePrefix(), getSchedulerNameLiteral()));</span>
+            }
+        } finally {
+<span class="fc" id="L136">            ps.close();</span>
+        }
+<span class="fc" id="L138">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

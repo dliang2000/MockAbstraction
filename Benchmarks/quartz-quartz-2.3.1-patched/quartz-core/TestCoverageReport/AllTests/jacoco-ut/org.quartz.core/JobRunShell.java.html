@@ -1,0 +1,383 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobRunShell.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.core</a> &gt; <span class="el_source">JobRunShell.java</span></div><h1>JobRunShell.java</h1><pre class="source lang-java linenums">
+/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy
+ * of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ *
+ */
+
+package org.quartz.core;
+
+import org.quartz.Job;
+import org.quartz.JobDetail;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.quartz.Trigger.CompletedExecutionInstruction;
+import org.quartz.impl.JobExecutionContextImpl;
+import org.quartz.listeners.SchedulerListenerSupport;
+import org.quartz.spi.OperableTrigger;
+import org.quartz.spi.TriggerFiredBundle;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * &lt;p&gt;
+ * JobRunShell instances are responsible for providing the 'safe' environment
+ * for &lt;code&gt;Job&lt;/code&gt; s to run in, and for performing all of the work of
+ * executing the &lt;code&gt;Job&lt;/code&gt;, catching ANY thrown exceptions, updating
+ * the &lt;code&gt;Trigger&lt;/code&gt; with the &lt;code&gt;Job&lt;/code&gt;'s completion code,
+ * etc.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * A &lt;code&gt;JobRunShell&lt;/code&gt; instance is created by a &lt;code&gt;JobRunShellFactory&lt;/code&gt;
+ * on behalf of the &lt;code&gt;QuartzSchedulerThread&lt;/code&gt; which then runs the
+ * shell in a thread from the configured &lt;code&gt;ThreadPool&lt;/code&gt; when the
+ * scheduler determines that a &lt;code&gt;Job&lt;/code&gt; has been triggered.
+ * &lt;/p&gt;
+ *
+ * @see JobRunShellFactory
+ * @see org.quartz.core.QuartzSchedulerThread
+ * @see org.quartz.Job
+ * @see org.quartz.Trigger
+ *
+ * @author James House
+ */
+public class JobRunShell extends SchedulerListenerSupport implements Runnable {
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Data members.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+<span class="fc" id="L67">    protected JobExecutionContextImpl jec = null;</span>
+
+<span class="fc" id="L69">    protected QuartzScheduler qs = null;</span>
+    
+<span class="fc" id="L71">    protected TriggerFiredBundle firedTriggerBundle = null;</span>
+
+<span class="fc" id="L73">    protected Scheduler scheduler = null;</span>
+
+<span class="fc" id="L75">    protected volatile boolean shutdownRequested = false;</span>
+
+<span class="fc" id="L77">    private final Logger log = LoggerFactory.getLogger(getClass());</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Constructors.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Create a JobRunShell instance with the given settings.
+     * &lt;/p&gt;
+     *
+     * @param scheduler
+     *          The &lt;code&gt;Scheduler&lt;/code&gt; instance that should be made
+     *          available within the &lt;code&gt;JobExecutionContext&lt;/code&gt;.
+     */
+<span class="fc" id="L96">    public JobRunShell(Scheduler scheduler, TriggerFiredBundle bndle) {</span>
+<span class="fc" id="L97">        this.scheduler = scheduler;</span>
+<span class="fc" id="L98">        this.firedTriggerBundle = bndle;</span>
+<span class="fc" id="L99">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Interface.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    @Override
+    public void schedulerShuttingdown() {
+<span class="fc" id="L111">        requestShutdown();</span>
+<span class="fc" id="L112">    }</span>
+
+    @Override
+    protected Logger getLog() {
+<span class="nc" id="L116">        return log;</span>
+    }
+
+    public void initialize(QuartzScheduler sched)
+        throws SchedulerException {
+<span class="fc" id="L121">        this.qs = sched;</span>
+
+<span class="fc" id="L123">        Job job = null;</span>
+<span class="fc" id="L124">        JobDetail jobDetail = firedTriggerBundle.getJobDetail();</span>
+
+        try {
+<span class="fc" id="L127">            job = sched.getJobFactory().newJob(firedTriggerBundle, scheduler);</span>
+<span class="nc" id="L128">        } catch (SchedulerException se) {</span>
+<span class="nc" id="L129">            sched.notifySchedulerListenersError(</span>
+                    &quot;An error occured instantiating job to be executed. job= '&quot;
+<span class="nc" id="L131">                            + jobDetail.getKey() + &quot;'&quot;, se);</span>
+<span class="nc" id="L132">            throw se;</span>
+<span class="nc" id="L133">        } catch (Throwable ncdfe) { // such as NoClassDefFoundError</span>
+<span class="nc" id="L134">            SchedulerException se = new SchedulerException(</span>
+                    &quot;Problem instantiating class '&quot;
+<span class="nc" id="L136">                            + jobDetail.getJobClass().getName() + &quot;' - &quot;, ncdfe);</span>
+<span class="nc" id="L137">            sched.notifySchedulerListenersError(</span>
+                    &quot;An error occured instantiating job to be executed. job= '&quot;
+<span class="nc" id="L139">                            + jobDetail.getKey() + &quot;'&quot;, se);</span>
+<span class="nc" id="L140">            throw se;</span>
+<span class="fc" id="L141">        }</span>
+
+<span class="fc" id="L143">        this.jec = new JobExecutionContextImpl(scheduler, firedTriggerBundle, job);</span>
+<span class="fc" id="L144">    }</span>
+
+    public void requestShutdown() {
+<span class="fc" id="L147">        shutdownRequested = true;</span>
+<span class="fc" id="L148">    }</span>
+
+    public void run() {
+<span class="fc" id="L151">        qs.addInternalSchedulerListener(this);</span>
+
+        try {
+<span class="fc" id="L154">            OperableTrigger trigger = (OperableTrigger) jec.getTrigger();</span>
+<span class="fc" id="L155">            JobDetail jobDetail = jec.getJobDetail();</span>
+
+            do {
+
+<span class="fc" id="L159">                JobExecutionException jobExEx = null;</span>
+<span class="fc" id="L160">                Job job = jec.getJobInstance();</span>
+
+                try {
+<span class="fc" id="L163">                    begin();</span>
+<span class="nc" id="L164">                } catch (SchedulerException se) {</span>
+<span class="nc" id="L165">                    qs.notifySchedulerListenersError(&quot;Error executing Job (&quot;</span>
+<span class="nc" id="L166">                            + jec.getJobDetail().getKey()</span>
+                            + &quot;: couldn't begin execution.&quot;, se);
+<span class="nc" id="L168">                    break;</span>
+<span class="fc" id="L169">                }</span>
+
+                // notify job &amp; trigger listeners...
+                try {
+<span class="pc bpc" id="L173" title="1 of 2 branches missed.">                    if (!notifyListenersBeginning(jec)) {</span>
+<span class="nc" id="L174">                        break;</span>
+                    }
+<span class="fc" id="L176">                } catch(VetoedException ve) {</span>
+                    try {
+<span class="fc" id="L178">                        CompletedExecutionInstruction instCode = trigger.executionComplete(jec, null);</span>
+<span class="fc" id="L179">                        qs.notifyJobStoreJobVetoed(trigger, jobDetail, instCode);</span>
+                        
+                        // QTZ-205
+                        // Even if trigger got vetoed, we still needs to check to see if it's the trigger's finalized run or not.
+<span class="pc bpc" id="L183" title="1 of 2 branches missed.">                        if (jec.getTrigger().getNextFireTime() == null) {</span>
+<span class="fc" id="L184">                            qs.notifySchedulerListenersFinalized(jec.getTrigger());</span>
+                        }
+
+<span class="fc" id="L187">                        complete(true);</span>
+<span class="nc" id="L188">                    } catch (SchedulerException se) {</span>
+<span class="nc" id="L189">                        qs.notifySchedulerListenersError(&quot;Error during veto of Job (&quot;</span>
+<span class="nc" id="L190">                                + jec.getJobDetail().getKey()</span>
+                                + &quot;: couldn't finalize execution.&quot;, se);
+<span class="fc" id="L192">                    }</span>
+<span class="fc" id="L193">                    break;</span>
+<span class="fc" id="L194">                }</span>
+
+<span class="fc" id="L196">                long startTime = System.currentTimeMillis();</span>
+<span class="fc" id="L197">                long endTime = startTime;</span>
+
+                // execute the job
+                try {
+<span class="fc" id="L201">                    log.debug(&quot;Calling execute on job &quot; + jobDetail.getKey());</span>
+<span class="fc" id="L202">                    job.execute(jec);</span>
+<span class="fc" id="L203">                    endTime = System.currentTimeMillis();</span>
+<span class="nc" id="L204">                } catch (JobExecutionException jee) {</span>
+<span class="nc" id="L205">                    endTime = System.currentTimeMillis();</span>
+<span class="nc" id="L206">                    jobExEx = jee;</span>
+<span class="nc" id="L207">                    getLog().info(&quot;Job &quot; + jobDetail.getKey() +</span>
+                            &quot; threw a JobExecutionException: &quot;, jobExEx);
+<span class="nc" id="L209">                } catch (Throwable e) {</span>
+<span class="nc" id="L210">                    endTime = System.currentTimeMillis();</span>
+<span class="nc" id="L211">                    getLog().error(&quot;Job &quot; + jobDetail.getKey() +</span>
+                            &quot; threw an unhandled Exception: &quot;, e);
+<span class="nc" id="L213">                    SchedulerException se = new SchedulerException(</span>
+                            &quot;Job threw an unhandled exception.&quot;, e);
+<span class="nc" id="L215">                    qs.notifySchedulerListenersError(&quot;Job (&quot;</span>
+<span class="nc" id="L216">                            + jec.getJobDetail().getKey()</span>
+                            + &quot; threw an exception.&quot;, se);
+<span class="nc" id="L218">                    jobExEx = new JobExecutionException(se, false);</span>
+<span class="pc" id="L219">                }</span>
+
+<span class="fc" id="L221">                jec.setJobRunTime(endTime - startTime);</span>
+
+                // notify all job listeners
+<span class="pc bpc" id="L224" title="1 of 2 branches missed.">                if (!notifyJobListenersComplete(jec, jobExEx)) {</span>
+<span class="nc" id="L225">                    break;</span>
+                }
+
+<span class="fc" id="L228">                CompletedExecutionInstruction instCode = CompletedExecutionInstruction.NOOP;</span>
+
+                // update the trigger
+                try {
+<span class="fc" id="L232">                    instCode = trigger.executionComplete(jec, jobExEx);</span>
+<span class="nc" id="L233">                } catch (Exception e) {</span>
+                    // If this happens, there's a bug in the trigger...
+<span class="nc" id="L235">                    SchedulerException se = new SchedulerException(</span>
+                            &quot;Trigger threw an unhandled exception.&quot;, e);
+<span class="nc" id="L237">                    qs.notifySchedulerListenersError(</span>
+                            &quot;Please report this error to the Quartz developers.&quot;,
+                            se);
+<span class="fc" id="L240">                }</span>
+
+                // notify all trigger listeners
+<span class="pc bpc" id="L243" title="1 of 2 branches missed.">                if (!notifyTriggerListenersComplete(jec, instCode)) {</span>
+<span class="nc" id="L244">                    break;</span>
+                }
+
+                // update job/trigger or re-execute job
+<span class="pc bpc" id="L248" title="1 of 2 branches missed.">                if (instCode == CompletedExecutionInstruction.RE_EXECUTE_JOB) {</span>
+<span class="nc" id="L249">                    jec.incrementRefireCount();</span>
+                    try {
+<span class="nc" id="L251">                        complete(false);</span>
+<span class="nc" id="L252">                    } catch (SchedulerException se) {</span>
+<span class="nc" id="L253">                        qs.notifySchedulerListenersError(&quot;Error executing Job (&quot;</span>
+<span class="nc" id="L254">                                + jec.getJobDetail().getKey()</span>
+                                + &quot;: couldn't finalize execution.&quot;, se);
+<span class="nc" id="L256">                    }</span>
+<span class="nc" id="L257">                    continue;</span>
+                }
+
+                try {
+<span class="fc" id="L261">                    complete(true);</span>
+<span class="nc" id="L262">                } catch (SchedulerException se) {</span>
+<span class="nc" id="L263">                    qs.notifySchedulerListenersError(&quot;Error executing Job (&quot;</span>
+<span class="nc" id="L264">                            + jec.getJobDetail().getKey()</span>
+                            + &quot;: couldn't finalize execution.&quot;, se);
+<span class="nc" id="L266">                    continue;</span>
+<span class="fc" id="L267">                }</span>
+
+<span class="fc" id="L269">                qs.notifyJobStoreJobComplete(trigger, jobDetail, instCode);</span>
+<span class="fc" id="L270">                break;</span>
+            } while (true);
+
+        } finally {
+<span class="fc" id="L274">            qs.removeInternalSchedulerListener(this);</span>
+        }
+<span class="fc" id="L276">    }</span>
+
+    protected void begin() throws SchedulerException {
+<span class="fc" id="L279">    }</span>
+
+    protected void complete(boolean successfulExecution)
+        throws SchedulerException {
+<span class="fc" id="L283">    }</span>
+
+    public void passivate() {
+<span class="nc" id="L286">        jec = null;</span>
+<span class="nc" id="L287">        qs = null;</span>
+<span class="nc" id="L288">    }</span>
+
+    private boolean notifyListenersBeginning(JobExecutionContext jobExCtxt) throws VetoedException {
+
+<span class="fc" id="L292">        boolean vetoed = false;</span>
+
+        // notify all trigger listeners
+        try {
+<span class="fc" id="L296">            vetoed = qs.notifyTriggerListenersFired(jobExCtxt);</span>
+<span class="nc" id="L297">        } catch (SchedulerException se) {</span>
+<span class="nc" id="L298">            qs.notifySchedulerListenersError(</span>
+                    &quot;Unable to notify TriggerListener(s) while firing trigger &quot;
+                            + &quot;(Trigger and Job will NOT be fired!). trigger= &quot;
+<span class="nc" id="L301">                            + jobExCtxt.getTrigger().getKey() + &quot; job= &quot;</span>
+<span class="nc" id="L302">                            + jobExCtxt.getJobDetail().getKey(), se);</span>
+
+<span class="nc" id="L304">            return false;</span>
+<span class="fc" id="L305">        }</span>
+
+<span class="fc bfc" id="L307" title="All 2 branches covered.">        if(vetoed) {</span>
+            try {
+<span class="fc" id="L309">                qs.notifyJobListenersWasVetoed(jobExCtxt);</span>
+<span class="nc" id="L310">            } catch (SchedulerException se) {</span>
+<span class="nc" id="L311">                qs.notifySchedulerListenersError(</span>
+                        &quot;Unable to notify JobListener(s) of vetoed execution &quot; +
+                        &quot;while firing trigger (Trigger and Job will NOT be &quot; +
+                        &quot;fired!). trigger= &quot;
+<span class="nc" id="L315">                        + jobExCtxt.getTrigger().getKey() + &quot; job= &quot;</span>
+<span class="nc" id="L316">                        + jobExCtxt.getJobDetail().getKey(), se);</span>
+
+<span class="fc" id="L318">            }</span>
+<span class="fc" id="L319">            throw new VetoedException();</span>
+        }
+
+        // notify all job listeners
+        try {
+<span class="fc" id="L324">            qs.notifyJobListenersToBeExecuted(jobExCtxt);</span>
+<span class="nc" id="L325">        } catch (SchedulerException se) {</span>
+<span class="nc" id="L326">            qs.notifySchedulerListenersError(</span>
+                    &quot;Unable to notify JobListener(s) of Job to be executed: &quot;
+                            + &quot;(Job will NOT be executed!). trigger= &quot;
+<span class="nc" id="L329">                            + jobExCtxt.getTrigger().getKey() + &quot; job= &quot;</span>
+<span class="nc" id="L330">                            + jobExCtxt.getJobDetail().getKey(), se);</span>
+
+<span class="nc" id="L332">            return false;</span>
+<span class="fc" id="L333">        }</span>
+
+<span class="fc" id="L335">        return true;</span>
+    }
+
+    private boolean notifyJobListenersComplete(JobExecutionContext jobExCtxt, JobExecutionException jobExEx) {
+        try {
+<span class="fc" id="L340">            qs.notifyJobListenersWasExecuted(jobExCtxt, jobExEx);</span>
+<span class="nc" id="L341">        } catch (SchedulerException se) {</span>
+<span class="nc" id="L342">            qs.notifySchedulerListenersError(</span>
+                    &quot;Unable to notify JobListener(s) of Job that was executed: &quot;
+                            + &quot;(error will be ignored). trigger= &quot;
+<span class="nc" id="L345">                            + jobExCtxt.getTrigger().getKey() + &quot; job= &quot;</span>
+<span class="nc" id="L346">                            + jobExCtxt.getJobDetail().getKey(), se);</span>
+
+<span class="nc" id="L348">            return false;</span>
+<span class="fc" id="L349">        }</span>
+
+<span class="fc" id="L351">        return true;</span>
+    }
+
+    private boolean notifyTriggerListenersComplete(JobExecutionContext jobExCtxt, CompletedExecutionInstruction instCode) {
+        try {
+<span class="fc" id="L356">            qs.notifyTriggerListenersComplete(jobExCtxt, instCode);</span>
+
+<span class="nc" id="L358">        } catch (SchedulerException se) {</span>
+<span class="nc" id="L359">            qs.notifySchedulerListenersError(</span>
+                    &quot;Unable to notify TriggerListener(s) of Job that was executed: &quot;
+                            + &quot;(error will be ignored). trigger= &quot;
+<span class="nc" id="L362">                            + jobExCtxt.getTrigger().getKey() + &quot; job= &quot;</span>
+<span class="nc" id="L363">                            + jobExCtxt.getJobDetail().getKey(), se);</span>
+
+<span class="nc" id="L365">            return false;</span>
+<span class="fc" id="L366">        }</span>
+<span class="fc bfc" id="L367" title="All 2 branches covered.">        if (jobExCtxt.getTrigger().getNextFireTime() == null) {</span>
+<span class="fc" id="L368">            qs.notifySchedulerListenersFinalized(jobExCtxt.getTrigger());</span>
+        }
+
+<span class="fc" id="L371">        return true;</span>
+    }
+
+    static class VetoedException extends Exception {
+
+        private static final long serialVersionUID = 1539955697495918463L;
+
+<span class="fc" id="L378">        public VetoedException() {</span>
+<span class="fc" id="L379">        }</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

@@ -1,0 +1,532 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>QuartzSchedulerThread.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.core</a> &gt; <span class="el_source">QuartzSchedulerThread.java</span></div><h1>QuartzSchedulerThread.java</h1><pre class="source lang-java linenums">
+/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy
+ * of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ *
+ */
+
+package org.quartz.core;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.quartz.JobPersistenceException;
+import org.quartz.SchedulerException;
+import org.quartz.Trigger;
+import org.quartz.Trigger.CompletedExecutionInstruction;
+import org.quartz.spi.JobStore;
+import org.quartz.spi.OperableTrigger;
+import org.quartz.spi.TriggerFiredBundle;
+import org.quartz.spi.TriggerFiredResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * &lt;p&gt;
+ * The thread responsible for performing the work of firing &lt;code&gt;{@link Trigger}&lt;/code&gt;
+ * s that are registered with the &lt;code&gt;{@link QuartzScheduler}&lt;/code&gt;.
+ * &lt;/p&gt;
+ *
+ * @see QuartzScheduler
+ * @see org.quartz.Job
+ * @see Trigger
+ *
+ * @author James House
+ */
+public class QuartzSchedulerThread extends Thread {
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Data members.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+    private QuartzScheduler qs;
+
+    private QuartzSchedulerResources qsRsrcs;
+
+<span class="fc" id="L61">    private final Object sigLock = new Object();</span>
+
+    private boolean signaled;
+    private long signaledNextFireTime;
+
+    private boolean paused;
+
+    private AtomicBoolean halted;
+
+<span class="fc" id="L70">    private Random random = new Random(System.currentTimeMillis());</span>
+
+    // When the scheduler finds there is no current trigger to fire, how long
+    // it should wait until checking again...
+<span class="fc" id="L74">    private static long DEFAULT_IDLE_WAIT_TIME = 30L * 1000L;</span>
+
+<span class="fc" id="L76">    private long idleWaitTime = DEFAULT_IDLE_WAIT_TIME;</span>
+
+<span class="fc" id="L78">    private int idleWaitVariablness = 7 * 1000;</span>
+
+<span class="fc" id="L80">    private final Logger log = LoggerFactory.getLogger(getClass());</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Constructors.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Construct a new &lt;code&gt;QuartzSchedulerThread&lt;/code&gt; for the given
+     * &lt;code&gt;QuartzScheduler&lt;/code&gt; as a non-daemon &lt;code&gt;Thread&lt;/code&gt;
+     * with normal priority.
+     * &lt;/p&gt;
+     */
+    QuartzSchedulerThread(QuartzScheduler qs, QuartzSchedulerResources qsRsrcs) {
+<span class="fc" id="L98">        this(qs, qsRsrcs, qsRsrcs.getMakeSchedulerThreadDaemon(), Thread.NORM_PRIORITY);</span>
+<span class="fc" id="L99">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Construct a new &lt;code&gt;QuartzSchedulerThread&lt;/code&gt; for the given
+     * &lt;code&gt;QuartzScheduler&lt;/code&gt; as a &lt;code&gt;Thread&lt;/code&gt; with the given
+     * attributes.
+     * &lt;/p&gt;
+     */
+    QuartzSchedulerThread(QuartzScheduler qs, QuartzSchedulerResources qsRsrcs, boolean setDaemon, int threadPrio) {
+<span class="fc" id="L109">        super(qs.getSchedulerThreadGroup(), qsRsrcs.getThreadName());</span>
+<span class="fc" id="L110">        this.qs = qs;</span>
+<span class="fc" id="L111">        this.qsRsrcs = qsRsrcs;</span>
+<span class="fc" id="L112">        this.setDaemon(setDaemon);</span>
+<span class="pc bpc" id="L113" title="1 of 2 branches missed.">        if(qsRsrcs.isThreadsInheritInitializersClassLoadContext()) {</span>
+<span class="nc" id="L114">            log.info(&quot;QuartzSchedulerThread Inheriting ContextClassLoader of thread: &quot; + Thread.currentThread().getName());</span>
+<span class="nc" id="L115">            this.setContextClassLoader(Thread.currentThread().getContextClassLoader());</span>
+        }
+
+<span class="fc" id="L118">        this.setPriority(threadPrio);</span>
+
+        // start the underlying thread, but put this object into the 'paused'
+        // state
+        // so processing doesn't start yet...
+<span class="fc" id="L123">        paused = true;</span>
+<span class="fc" id="L124">        halted = new AtomicBoolean(false);</span>
+<span class="fc" id="L125">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Interface.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    void setIdleWaitTime(long waitTime) {
+<span class="fc" id="L136">        idleWaitTime = waitTime;</span>
+<span class="fc" id="L137">        idleWaitVariablness = (int) (waitTime * 0.2);</span>
+<span class="fc" id="L138">    }</span>
+
+    private long getRandomizedIdleWaitTime() {
+<span class="fc" id="L141">        return idleWaitTime - random.nextInt(idleWaitVariablness);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Signals the main processing loop to pause at the next possible point.
+     * &lt;/p&gt;
+     */
+    void togglePause(boolean pause) {
+<span class="fc" id="L150">        synchronized (sigLock) {</span>
+<span class="fc" id="L151">            paused = pause;</span>
+
+<span class="fc bfc" id="L153" title="All 2 branches covered.">            if (paused) {</span>
+<span class="fc" id="L154">                signalSchedulingChange(0);</span>
+            } else {
+<span class="fc" id="L156">                sigLock.notifyAll();</span>
+            }
+<span class="fc" id="L158">        }</span>
+<span class="fc" id="L159">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Signals the main processing loop to pause at the next possible point.
+     * &lt;/p&gt;
+     */
+    void halt(boolean wait) {
+<span class="fc" id="L167">        synchronized (sigLock) {</span>
+<span class="fc" id="L168">            halted.set(true);</span>
+
+<span class="pc bpc" id="L170" title="1 of 2 branches missed.">            if (paused) {</span>
+<span class="fc" id="L171">                sigLock.notifyAll();</span>
+            } else {
+<span class="nc" id="L173">                signalSchedulingChange(0);</span>
+            }
+<span class="fc" id="L175">        }</span>
+        
+<span class="fc bfc" id="L177" title="All 2 branches covered.">        if (wait) {</span>
+<span class="fc" id="L178">            boolean interrupted = false;</span>
+            try {
+                while (true) {
+                    try {
+<span class="fc" id="L182">                        join();</span>
+<span class="fc" id="L183">                        break;</span>
+<span class="nc" id="L184">                    } catch (InterruptedException _) {</span>
+<span class="nc" id="L185">                        interrupted = true;</span>
+<span class="nc" id="L186">                    }</span>
+                }
+            } finally {
+<span class="pc bpc" id="L189" title="1 of 2 branches missed.">                if (interrupted) {</span>
+<span class="nc" id="L190">                    Thread.currentThread().interrupt();</span>
+                }
+            }
+        }
+<span class="fc" id="L194">    }</span>
+
+    boolean isPaused() {
+<span class="fc" id="L197">        return paused;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Signals the main processing loop that a change in scheduling has been
+     * made - in order to interrupt any sleeping that may be occuring while
+     * waiting for the fire time to arrive.
+     * &lt;/p&gt;
+     *
+     * @param candidateNewNextFireTime the time (in millis) when the newly scheduled trigger
+     * will fire.  If this method is being called do to some other even (rather
+     * than scheduling a trigger), the caller should pass zero (0).
+     */
+    public void signalSchedulingChange(long candidateNewNextFireTime) {
+<span class="fc" id="L212">        synchronized(sigLock) {</span>
+<span class="fc" id="L213">            signaled = true;</span>
+<span class="fc" id="L214">            signaledNextFireTime = candidateNewNextFireTime;</span>
+<span class="fc" id="L215">            sigLock.notifyAll();</span>
+<span class="fc" id="L216">        }</span>
+<span class="fc" id="L217">    }</span>
+
+    public void clearSignaledSchedulingChange() {
+<span class="fc" id="L220">        synchronized(sigLock) {</span>
+<span class="fc" id="L221">            signaled = false;</span>
+<span class="fc" id="L222">            signaledNextFireTime = 0;</span>
+<span class="fc" id="L223">        }</span>
+<span class="fc" id="L224">    }</span>
+
+    public boolean isScheduleChanged() {
+<span class="fc" id="L227">        synchronized(sigLock) {</span>
+<span class="fc" id="L228">            return signaled;</span>
+        }
+    }
+
+    public long getSignaledNextFireTime() {
+<span class="fc" id="L233">        synchronized(sigLock) {</span>
+<span class="fc" id="L234">            return signaledNextFireTime;</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * The main processing loop of the &lt;code&gt;QuartzSchedulerThread&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    @Override
+    public void run() {
+<span class="fc" id="L245">        int acquiresFailed = 0;</span>
+
+<span class="fc bfc" id="L247" title="All 2 branches covered.">        while (!halted.get()) {</span>
+            try {
+                // check if we're supposed to pause...
+<span class="fc" id="L250">                synchronized (sigLock) {</span>
+<span class="fc bfc" id="L251" title="All 4 branches covered.">                    while (paused &amp;&amp; !halted.get()) {</span>
+                        try {
+                            // wait until togglePause(false) is called...
+<span class="fc" id="L254">                            sigLock.wait(1000L);</span>
+<span class="nc" id="L255">                        } catch (InterruptedException ignore) {</span>
+<span class="fc" id="L256">                        }</span>
+
+                        // reset failure counter when paused, so that we don't
+                        // wait again after unpausing
+<span class="fc" id="L260">                        acquiresFailed = 0;</span>
+                    }
+
+<span class="fc bfc" id="L263" title="All 2 branches covered.">                    if (halted.get()) {</span>
+<span class="fc" id="L264">                        break;</span>
+                    }
+<span class="fc" id="L266">                }</span>
+
+                // wait a bit, if reading from job store is consistently
+                // failing (e.g. DB is down or restarting)..
+<span class="fc bfc" id="L270" title="All 2 branches covered.">                if (acquiresFailed &gt; 1) {</span>
+                    try {
+<span class="fc" id="L272">                        long delay = computeDelayForRepeatedErrors(qsRsrcs.getJobStore(), acquiresFailed);</span>
+<span class="fc" id="L273">                        Thread.sleep(delay);</span>
+<span class="nc" id="L274">                    } catch (Exception ignore) {</span>
+<span class="fc" id="L275">                    }</span>
+                }
+
+<span class="fc" id="L278">                int availThreadCount = qsRsrcs.getThreadPool().blockForAvailableThreads();</span>
+<span class="fc bfc" id="L279" title="All 2 branches covered.">                if(availThreadCount &gt; 0) { // will always be true, due to semantics of blockForAvailableThreads...</span>
+
+                    List&lt;OperableTrigger&gt; triggers;
+
+<span class="fc" id="L283">                    long now = System.currentTimeMillis();</span>
+
+<span class="fc" id="L285">                    clearSignaledSchedulingChange();</span>
+                    try {
+<span class="fc" id="L287">                        triggers = qsRsrcs.getJobStore().acquireNextTriggers(</span>
+<span class="fc" id="L288">                                now + idleWaitTime, Math.min(availThreadCount, qsRsrcs.getMaxBatchSize()), qsRsrcs.getBatchTimeWindow());</span>
+<span class="fc" id="L289">                        acquiresFailed = 0;</span>
+<span class="pc bpc" id="L290" title="1 of 2 branches missed.">                        if (log.isDebugEnabled())</span>
+<span class="nc bnc" id="L291" title="All 2 branches missed.">                            log.debug(&quot;batch acquisition of &quot; + (triggers == null ? 0 : triggers.size()) + &quot; triggers&quot;);</span>
+<span class="fc" id="L292">                    } catch (JobPersistenceException jpe) {</span>
+<span class="fc bfc" id="L293" title="All 2 branches covered.">                        if (acquiresFailed == 0) {</span>
+<span class="fc" id="L294">                            qs.notifySchedulerListenersError(</span>
+                                &quot;An error occurred while scanning for the next triggers to fire.&quot;,
+                                jpe);
+                        }
+<span class="pc bpc" id="L298" title="1 of 2 branches missed.">                        if (acquiresFailed &lt; Integer.MAX_VALUE)</span>
+<span class="fc" id="L299">                            acquiresFailed++;</span>
+<span class="fc" id="L300">                        continue;</span>
+<span class="fc" id="L301">                    } catch (RuntimeException e) {</span>
+<span class="pc bpc" id="L302" title="1 of 2 branches missed.">                        if (acquiresFailed == 0) {</span>
+<span class="fc" id="L303">                            getLog().error(&quot;quartzSchedulerThreadLoop: RuntimeException &quot;</span>
+<span class="fc" id="L304">                                    +e.getMessage(), e);</span>
+                        }
+<span class="pc bpc" id="L306" title="1 of 2 branches missed.">                        if (acquiresFailed &lt; Integer.MAX_VALUE)</span>
+<span class="fc" id="L307">                            acquiresFailed++;</span>
+<span class="fc" id="L308">                        continue;</span>
+<span class="fc" id="L309">                    }</span>
+
+<span class="pc bpc" id="L311" title="1 of 4 branches missed.">                    if (triggers != null &amp;&amp; !triggers.isEmpty()) {</span>
+
+<span class="fc" id="L313">                        now = System.currentTimeMillis();</span>
+<span class="fc" id="L314">                        long triggerTime = triggers.get(0).getNextFireTime().getTime();</span>
+<span class="fc" id="L315">                        long timeUntilTrigger = triggerTime - now;</span>
+<span class="fc bfc" id="L316" title="All 2 branches covered.">                        while(timeUntilTrigger &gt; 2) {</span>
+<span class="fc" id="L317">                            synchronized (sigLock) {</span>
+<span class="pc bpc" id="L318" title="1 of 2 branches missed.">                                if (halted.get()) {</span>
+<span class="nc" id="L319">                                    break;</span>
+                                }
+<span class="fc bfc" id="L321" title="All 2 branches covered.">                                if (!isCandidateNewTimeEarlierWithinReason(triggerTime, false)) {</span>
+                                    try {
+                                        // we could have blocked a long while
+                                        // on 'synchronize', so we must recompute
+<span class="fc" id="L325">                                        now = System.currentTimeMillis();</span>
+<span class="fc" id="L326">                                        timeUntilTrigger = triggerTime - now;</span>
+<span class="pc bpc" id="L327" title="1 of 2 branches missed.">                                        if(timeUntilTrigger &gt;= 1)</span>
+<span class="fc" id="L328">                                            sigLock.wait(timeUntilTrigger);</span>
+<span class="nc" id="L329">                                    } catch (InterruptedException ignore) {</span>
+<span class="fc" id="L330">                                    }</span>
+                                }
+<span class="fc" id="L332">                            }</span>
+<span class="fc bfc" id="L333" title="All 2 branches covered.">                            if(releaseIfScheduleChangedSignificantly(triggers, triggerTime)) {</span>
+<span class="fc" id="L334">                                break;</span>
+                            }
+<span class="fc" id="L336">                            now = System.currentTimeMillis();</span>
+<span class="fc" id="L337">                            timeUntilTrigger = triggerTime - now;</span>
+                        }
+
+                        // this happens if releaseIfScheduleChangedSignificantly decided to release triggers
+<span class="fc bfc" id="L341" title="All 2 branches covered.">                        if(triggers.isEmpty())</span>
+<span class="fc" id="L342">                            continue;</span>
+
+                        // set triggers to 'executing'
+<span class="fc" id="L345">                        List&lt;TriggerFiredResult&gt; bndles = new ArrayList&lt;TriggerFiredResult&gt;();</span>
+
+<span class="fc" id="L347">                        boolean goAhead = true;</span>
+<span class="fc" id="L348">                        synchronized(sigLock) {</span>
+<span class="fc bfc" id="L349" title="All 2 branches covered.">                            goAhead = !halted.get();</span>
+<span class="fc" id="L350">                        }</span>
+<span class="fc bfc" id="L351" title="All 2 branches covered.">                        if(goAhead) {</span>
+                            try {
+<span class="fc" id="L353">                                List&lt;TriggerFiredResult&gt; res = qsRsrcs.getJobStore().triggersFired(triggers);</span>
+<span class="pc bpc" id="L354" title="1 of 2 branches missed.">                                if(res != null)</span>
+<span class="fc" id="L355">                                    bndles = res;</span>
+<span class="fc" id="L356">                            } catch (SchedulerException se) {</span>
+<span class="fc" id="L357">                                qs.notifySchedulerListenersError(</span>
+                                        &quot;An error occurred while firing triggers '&quot;
+                                                + triggers + &quot;'&quot;, se);
+                                //QTZ-179 : a problem occurred interacting with the triggers from the db
+                                //we release them and loop again
+<span class="fc bfc" id="L362" title="All 2 branches covered.">                                for (int i = 0; i &lt; triggers.size(); i++) {</span>
+<span class="fc" id="L363">                                    qsRsrcs.getJobStore().releaseAcquiredTrigger(triggers.get(i));</span>
+                                }
+<span class="fc" id="L365">                                continue;</span>
+<span class="fc" id="L366">                            }</span>
+
+                        }
+
+<span class="fc bfc" id="L370" title="All 2 branches covered.">                        for (int i = 0; i &lt; bndles.size(); i++) {</span>
+<span class="fc" id="L371">                            TriggerFiredResult result =  bndles.get(i);</span>
+<span class="fc" id="L372">                            TriggerFiredBundle bndle =  result.getTriggerFiredBundle();</span>
+<span class="fc" id="L373">                            Exception exception = result.getException();</span>
+
+<span class="pc bpc" id="L375" title="1 of 2 branches missed.">                            if (exception instanceof RuntimeException) {</span>
+<span class="nc" id="L376">                                getLog().error(&quot;RuntimeException while firing trigger &quot; + triggers.get(i), exception);</span>
+<span class="nc" id="L377">                                qsRsrcs.getJobStore().releaseAcquiredTrigger(triggers.get(i));</span>
+<span class="nc" id="L378">                                continue;</span>
+                            }
+
+                            // it's possible to get 'null' if the triggers was paused,
+                            // blocked, or other similar occurrences that prevent it being
+                            // fired at this time...  or if the scheduler was shutdown (halted)
+<span class="fc bfc" id="L384" title="All 2 branches covered.">                            if (bndle == null) {</span>
+<span class="fc" id="L385">                                qsRsrcs.getJobStore().releaseAcquiredTrigger(triggers.get(i));</span>
+<span class="fc" id="L386">                                continue;</span>
+                            }
+
+<span class="fc" id="L389">                            JobRunShell shell = null;</span>
+                            try {
+<span class="fc" id="L391">                                shell = qsRsrcs.getJobRunShellFactory().createJobRunShell(bndle);</span>
+<span class="fc" id="L392">                                shell.initialize(qs);</span>
+<span class="nc" id="L393">                            } catch (SchedulerException se) {</span>
+<span class="nc" id="L394">                                qsRsrcs.getJobStore().triggeredJobComplete(triggers.get(i), bndle.getJobDetail(), CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_ERROR);</span>
+<span class="nc" id="L395">                                continue;</span>
+<span class="fc" id="L396">                            }</span>
+
+<span class="pc bpc" id="L398" title="1 of 2 branches missed.">                            if (qsRsrcs.getThreadPool().runInThread(shell) == false) {</span>
+                                // this case should never happen, as it is indicative of the
+                                // scheduler being shutdown or a bug in the thread pool or
+                                // a thread pool being used concurrently - which the docs
+                                // say not to do...
+<span class="nc" id="L403">                                getLog().error(&quot;ThreadPool.runInThread() return false!&quot;);</span>
+<span class="nc" id="L404">                                qsRsrcs.getJobStore().triggeredJobComplete(triggers.get(i), bndle.getJobDetail(), CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_ERROR);</span>
+                            }
+
+                        }
+
+<span class="fc" id="L409">                        continue; // while (!halted)</span>
+                    }
+<span class="fc" id="L411">                } else { // if(availThreadCount &gt; 0)</span>
+                    // should never happen, if threadPool.blockForAvailableThreads() follows contract
+<span class="fc" id="L413">                    continue; // while (!halted)</span>
+                }
+
+<span class="fc" id="L416">                long now = System.currentTimeMillis();</span>
+<span class="fc" id="L417">                long waitTime = now + getRandomizedIdleWaitTime();</span>
+<span class="fc" id="L418">                long timeUntilContinue = waitTime - now;</span>
+<span class="fc" id="L419">                synchronized(sigLock) {</span>
+                    try {
+<span class="fc bfc" id="L421" title="All 2 branches covered.">                      if(!halted.get()) {</span>
+                        // QTZ-336 A job might have been completed in the mean time and we might have
+                        // missed the scheduled changed signal by not waiting for the notify() yet
+                        // Check that before waiting for too long in case this very job needs to be
+                        // scheduled very soon
+<span class="fc bfc" id="L426" title="All 2 branches covered.">                        if (!isScheduleChanged()) {</span>
+<span class="fc" id="L427">                          sigLock.wait(timeUntilContinue);</span>
+                        }
+                      }
+<span class="nc" id="L430">                    } catch (InterruptedException ignore) {</span>
+<span class="fc" id="L431">                    }</span>
+<span class="fc" id="L432">                }</span>
+
+<span class="nc" id="L434">            } catch(RuntimeException re) {</span>
+<span class="nc" id="L435">                getLog().error(&quot;Runtime error occurred in main trigger firing loop.&quot;, re);</span>
+<span class="pc" id="L436">            }</span>
+        } // while (!halted)
+
+        // drop references to scheduler stuff to aid garbage collection...
+<span class="fc" id="L440">        qs = null;</span>
+<span class="fc" id="L441">        qsRsrcs = null;</span>
+<span class="fc" id="L442">    }</span>
+
+    private static final long MIN_DELAY = 20;
+    private static final long MAX_DELAY = 600000;
+
+    private static long computeDelayForRepeatedErrors(JobStore jobStore, int acquiresFailed) {
+        long delay;
+        try {
+<span class="fc" id="L450">            delay = jobStore.getAcquireRetryDelay(acquiresFailed);</span>
+<span class="nc" id="L451">        } catch (Exception ignored) {</span>
+            // we're trying to be useful in case of error states, not cause
+            // additional errors..
+<span class="nc" id="L454">            delay = 100;</span>
+<span class="fc" id="L455">        }</span>
+
+
+        // sanity check per getAcquireRetryDelay specification
+<span class="pc bpc" id="L459" title="1 of 2 branches missed.">        if (delay &lt; MIN_DELAY)</span>
+<span class="nc" id="L460">            delay = MIN_DELAY;</span>
+<span class="pc bpc" id="L461" title="1 of 2 branches missed.">        if (delay &gt; MAX_DELAY)</span>
+<span class="nc" id="L462">            delay = MAX_DELAY;</span>
+
+<span class="fc" id="L464">        return delay;</span>
+    }
+
+    private boolean releaseIfScheduleChangedSignificantly(
+            List&lt;OperableTrigger&gt; triggers, long triggerTime) {
+<span class="fc bfc" id="L469" title="All 2 branches covered.">        if (isCandidateNewTimeEarlierWithinReason(triggerTime, true)) {</span>
+            // above call does a clearSignaledSchedulingChange()
+<span class="fc bfc" id="L471" title="All 2 branches covered.">            for (OperableTrigger trigger : triggers) {</span>
+<span class="fc" id="L472">                qsRsrcs.getJobStore().releaseAcquiredTrigger(trigger);</span>
+<span class="fc" id="L473">            }</span>
+<span class="fc" id="L474">            triggers.clear();</span>
+<span class="fc" id="L475">            return true;</span>
+        }
+<span class="fc" id="L477">        return false;</span>
+    }
+
+    private boolean isCandidateNewTimeEarlierWithinReason(long oldTime, boolean clearSignal) {
+
+        // So here's the deal: We know due to being signaled that 'the schedule'
+        // has changed.  We may know (if getSignaledNextFireTime() != 0) the
+        // new earliest fire time.  We may not (in which case we will assume
+        // that the new time is earlier than the trigger we have acquired).
+        // In either case, we only want to abandon our acquired trigger and
+        // go looking for a new one if &quot;it's worth it&quot;.  It's only worth it if
+        // the time cost incurred to abandon the trigger and acquire a new one
+        // is less than the time until the currently acquired trigger will fire,
+        // otherwise we're just &quot;thrashing&quot; the job store (e.g. database).
+        //
+        // So the question becomes when is it &quot;worth it&quot;?  This will depend on
+        // the job store implementation (and of course the particular database
+        // or whatever behind it).  Ideally we would depend on the job store
+        // implementation to tell us the amount of time in which it &quot;thinks&quot;
+        // it can abandon the acquired trigger and acquire a new one.  However
+        // we have no current facility for having it tell us that, so we make
+        // a somewhat educated but arbitrary guess ;-).
+
+<span class="fc" id="L500">        synchronized(sigLock) {</span>
+
+<span class="fc bfc" id="L502" title="All 2 branches covered.">            if (!isScheduleChanged())</span>
+<span class="fc" id="L503">                return false;</span>
+
+<span class="fc" id="L505">            boolean earlier = false;</span>
+
+<span class="pc bpc" id="L507" title="1 of 2 branches missed.">            if(getSignaledNextFireTime() == 0)</span>
+<span class="fc" id="L508">                earlier = true;</span>
+<span class="nc bnc" id="L509" title="All 2 branches missed.">            else if(getSignaledNextFireTime() &lt; oldTime )</span>
+<span class="nc" id="L510">                earlier = true;</span>
+
+<span class="pc bpc" id="L512" title="1 of 2 branches missed.">            if(earlier) {</span>
+                // so the new time is considered earlier, but is it enough earlier?
+<span class="fc" id="L514">                long diff = oldTime - System.currentTimeMillis();</span>
+<span class="fc bfc" id="L515" title="All 4 branches covered.">                if(diff &lt; (qsRsrcs.getJobStore().supportsPersistence() ? 70L : 7L))</span>
+<span class="fc" id="L516">                    earlier = false;</span>
+            }
+
+<span class="fc bfc" id="L519" title="All 2 branches covered.">            if(clearSignal) {</span>
+<span class="fc" id="L520">                clearSignaledSchedulingChange();</span>
+            }
+
+<span class="fc" id="L523">            return earlier;</span>
+        }
+    }
+
+    public Logger getLog() {
+<span class="fc" id="L528">        return log;</span>
+    }
+
+} // end of QuartzSchedulerThread
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

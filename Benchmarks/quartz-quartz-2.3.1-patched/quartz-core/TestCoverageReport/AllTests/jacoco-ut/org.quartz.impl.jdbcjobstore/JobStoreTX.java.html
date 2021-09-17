@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobStoreTX.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.jdbcjobstore</a> &gt; <span class="el_source">JobStoreTX.java</span></div><h1>JobStoreTX.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.impl.jdbcjobstore;
+
+import java.sql.Connection;
+
+import org.quartz.JobPersistenceException;
+import org.quartz.SchedulerConfigException;
+import org.quartz.spi.ClassLoadHelper;
+import org.quartz.spi.SchedulerSignaler;
+
+/**
+ * &lt;p&gt;
+ * &lt;code&gt;JobStoreTX&lt;/code&gt; is meant to be used in a standalone environment.
+ * Both commit and rollback will be handled by this class.
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * If you need a &lt;code&gt;{@link org.quartz.spi.JobStore}&lt;/code&gt; class to use
+ * within an application-server environment, use &lt;code&gt;{@link
+ * org.quartz.impl.jdbcjobstore.JobStoreCMT}&lt;/code&gt;
+ * instead.
+ * &lt;/p&gt;
+ * 
+ * @author &lt;a href=&quot;mailto:jeff@binaryfeed.org&quot;&gt;Jeffrey Wescott&lt;/a&gt;
+ * @author James House
+ */
+<span class="fc" id="L43">public class JobStoreTX extends JobStoreSupport {</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    @Override
+    public void initialize(ClassLoadHelper classLoadHelper,
+            SchedulerSignaler schedSignaler) throws SchedulerConfigException {
+
+<span class="fc" id="L57">        super.initialize(classLoadHelper, schedSignaler);</span>
+
+<span class="fc" id="L59">        getLog().info(&quot;JobStoreTX initialized.&quot;);</span>
+<span class="fc" id="L60">    }</span>
+
+    /**
+     * For &lt;code&gt;JobStoreTX&lt;/code&gt;, the non-managed TX connection is just 
+     * the normal connection because it is not CMT.
+     * 
+     * @see JobStoreSupport#getConnection()
+     */
+    @Override
+    protected Connection getNonManagedTXConnection()
+        throws JobPersistenceException {
+<span class="fc" id="L71">        return getConnection();</span>
+    }
+    
+    /**
+     * Execute the given callback having optionally aquired the given lock.
+     * For &lt;code&gt;JobStoreTX&lt;/code&gt;, because it manages its own transactions
+     * and only has the one datasource, this is the same behavior as 
+     * executeInNonManagedTXLock().
+     * 
+     * @param lockName The name of the lock to aquire, for example 
+     * &quot;TRIGGER_ACCESS&quot;.  If null, then no lock is aquired, but the
+     * lockCallback is still executed in a transaction.
+     * 
+     * @see JobStoreSupport#executeInNonManagedTXLock(String, TransactionCallback)
+     * @see JobStoreCMT#executeInLock(String, TransactionCallback)
+     * @see JobStoreSupport#getNonManagedTXConnection()
+     * @see JobStoreSupport#getConnection()
+     */
+    @Override
+    protected Object executeInLock(
+            String lockName, 
+            TransactionCallback txCallback) throws JobPersistenceException {
+<span class="fc" id="L93">        return executeInNonManagedTXLock(lockName, txCallback, null);</span>
+    }
+}
+// EOF
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

@@ -1,0 +1,352 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz</a> &gt; <span class="el_source">JobBuilder.java</span></div><h1>JobBuilder.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz;
+
+import org.quartz.impl.JobDetailImpl;
+import org.quartz.utils.Key;
+
+/**
+ * &lt;code&gt;JobBuilder&lt;/code&gt; is used to instantiate {@link JobDetail}s.
+ * 
+ * &lt;p&gt;The builder will always try to keep itself in a valid state, with 
+ * reasonable defaults set for calling build() at any point.  For instance
+ * if you do not invoke &lt;i&gt;withIdentity(..)&lt;/i&gt; a job name will be generated
+ * for you.&lt;/p&gt;
+ *   
+ * &lt;p&gt;Quartz provides a builder-style API for constructing scheduling-related
+ * entities via a Domain-Specific Language (DSL).  The DSL can best be
+ * utilized through the usage of static imports of the methods on the classes
+ * &lt;code&gt;TriggerBuilder&lt;/code&gt;, &lt;code&gt;JobBuilder&lt;/code&gt;, 
+ * &lt;code&gt;DateBuilder&lt;/code&gt;, &lt;code&gt;JobKey&lt;/code&gt;, &lt;code&gt;TriggerKey&lt;/code&gt; 
+ * and the various &lt;code&gt;ScheduleBuilder&lt;/code&gt; implementations.&lt;/p&gt;
+ * 
+ * &lt;p&gt;Client code can then use the DSL to write code such as this:&lt;/p&gt;
+ * &lt;pre&gt;
+ *         JobDetail job = newJob(MyJob.class)
+ *             .withIdentity(&quot;myJob&quot;)
+ *             .build();
+ *             
+ *         Trigger trigger = newTrigger() 
+ *             .withIdentity(triggerKey(&quot;myTrigger&quot;, &quot;myTriggerGroup&quot;))
+ *             .withSchedule(simpleSchedule()
+ *                 .withIntervalInHours(1)
+ *                 .repeatForever())
+ *             .startAt(futureDate(10, MINUTES))
+ *             .build();
+ *         
+ *         scheduler.scheduleJob(job, trigger);
+ * &lt;pre&gt;
+ *  
+ * @see TriggerBuilder
+ * @see DateBuilder 
+ * @see JobDetail
+ */
+public class JobBuilder {
+
+    private JobKey key;
+    private String description;
+    private Class&lt;? extends Job&gt; jobClass;
+    private boolean durability;
+    private boolean shouldRecover;
+    
+<span class="fc" id="L67">    private JobDataMap jobDataMap = new JobDataMap();</span>
+    
+<span class="fc" id="L69">    protected JobBuilder() {</span>
+<span class="fc" id="L70">    }</span>
+    
+    /**
+     * Create a JobBuilder with which to define a &lt;code&gt;JobDetail&lt;/code&gt;.
+     * 
+     * @return a new JobBuilder
+     */
+    public static JobBuilder newJob() {
+<span class="fc" id="L78">        return new JobBuilder();</span>
+    }
+    
+    /**
+     * Create a JobBuilder with which to define a &lt;code&gt;JobDetail&lt;/code&gt;,
+     * and set the class name of the &lt;code&gt;Job&lt;/code&gt; to be executed.
+     * 
+     * @return a new JobBuilder
+     */
+    public static JobBuilder newJob(Class &lt;? extends Job&gt; jobClass) {
+<span class="fc" id="L88">        JobBuilder b = new JobBuilder();</span>
+<span class="fc" id="L89">        b.ofType(jobClass);</span>
+<span class="fc" id="L90">        return b;</span>
+    }
+
+    /**
+     * Produce the &lt;code&gt;JobDetail&lt;/code&gt; instance defined by this 
+     * &lt;code&gt;JobBuilder&lt;/code&gt;.
+     * 
+     * @return the defined JobDetail.
+     */
+    public JobDetail build() {
+
+<span class="fc" id="L101">        JobDetailImpl job = new JobDetailImpl();</span>
+        
+<span class="fc" id="L103">        job.setJobClass(jobClass);</span>
+<span class="fc" id="L104">        job.setDescription(description);</span>
+<span class="fc bfc" id="L105" title="All 2 branches covered.">        if(key == null)</span>
+<span class="fc" id="L106">            key = new JobKey(Key.createUniqueName(null), null);</span>
+<span class="fc" id="L107">        job.setKey(key); </span>
+<span class="fc" id="L108">        job.setDurability(durability);</span>
+<span class="fc" id="L109">        job.setRequestsRecovery(shouldRecover);</span>
+        
+        
+<span class="fc bfc" id="L112" title="All 2 branches covered.">        if(!jobDataMap.isEmpty())</span>
+<span class="fc" id="L113">            job.setJobDataMap(jobDataMap);</span>
+        
+<span class="fc" id="L115">        return job;</span>
+    }
+    
+    /**
+     * Use a &lt;code&gt;JobKey&lt;/code&gt; with the given name and default group to
+     * identify the JobDetail.
+     * 
+     * &lt;p&gt;If none of the 'withIdentity' methods are set on the JobBuilder,
+     * then a random, unique JobKey will be generated.&lt;/p&gt;
+     * 
+     * @param name the name element for the Job's JobKey
+     * @return the updated JobBuilder
+     * @see JobKey
+     * @see JobDetail#getKey()
+     */
+    public JobBuilder withIdentity(String name) {
+<span class="fc" id="L131">        key = new JobKey(name, null);</span>
+<span class="fc" id="L132">        return this;</span>
+    }  
+    
+    /**
+     * Use a &lt;code&gt;JobKey&lt;/code&gt; with the given name and group to
+     * identify the JobDetail.
+     * 
+     * &lt;p&gt;If none of the 'withIdentity' methods are set on the JobBuilder,
+     * then a random, unique JobKey will be generated.&lt;/p&gt;
+     * 
+     * @param name the name element for the Job's JobKey
+     * @param group the group element for the Job's JobKey
+     * @return the updated JobBuilder
+     * @see JobKey
+     * @see JobDetail#getKey()
+     */
+    public JobBuilder withIdentity(String name, String group) {
+<span class="fc" id="L149">        key = new JobKey(name, group);</span>
+<span class="fc" id="L150">        return this;</span>
+    }
+    
+    /**
+     * Use a &lt;code&gt;JobKey&lt;/code&gt; to identify the JobDetail.
+     * 
+     * &lt;p&gt;If none of the 'withIdentity' methods are set on the JobBuilder,
+     * then a random, unique JobKey will be generated.&lt;/p&gt;
+     * 
+     * @param jobKey the Job's JobKey
+     * @return the updated JobBuilder
+     * @see JobKey
+     * @see JobDetail#getKey()
+     */
+    public JobBuilder withIdentity(JobKey jobKey) {
+<span class="fc" id="L165">        this.key = jobKey;</span>
+<span class="fc" id="L166">        return this;</span>
+    }
+    
+    /**
+     * Set the given (human-meaningful) description of the Job.
+     * 
+     * @param jobDescription the description for the Job
+     * @return the updated JobBuilder
+     * @see JobDetail#getDescription()
+     */
+    public JobBuilder withDescription(String jobDescription) {
+<span class="fc" id="L177">        this.description = jobDescription;</span>
+<span class="fc" id="L178">        return this;</span>
+    }
+    
+    /**
+     * Set the class which will be instantiated and executed when a
+     * Trigger fires that is associated with this JobDetail.
+     * 
+     * @param jobClazz a class implementing the Job interface.
+     * @return the updated JobBuilder
+     * @see JobDetail#getJobClass()
+     */
+    public JobBuilder ofType(Class &lt;? extends Job&gt; jobClazz) {
+<span class="fc" id="L190">        this.jobClass = jobClazz;</span>
+<span class="fc" id="L191">        return this;</span>
+    }
+
+    /**
+     * Instructs the &lt;code&gt;Scheduler&lt;/code&gt; whether or not the &lt;code&gt;Job&lt;/code&gt;
+     * should be re-executed if a 'recovery' or 'fail-over' situation is
+     * encountered.
+     * 
+     * &lt;p&gt;
+     * If not explicitly set, the default value is &lt;code&gt;false&lt;/code&gt;.
+     * - this method sets the value to &lt;code&gt;true&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @return the updated JobBuilder
+     * @see JobDetail#requestsRecovery()
+     */
+    public JobBuilder requestRecovery() {
+<span class="fc" id="L208">        this.shouldRecover = true;</span>
+<span class="fc" id="L209">        return this;</span>
+    }
+
+    /**
+     * Instructs the &lt;code&gt;Scheduler&lt;/code&gt; whether or not the &lt;code&gt;Job&lt;/code&gt;
+     * should be re-executed if a 'recovery' or 'fail-over' situation is
+     * encountered.
+     * 
+     * &lt;p&gt;
+     * If not explicitly set, the default value is &lt;code&gt;false&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @param jobShouldRecover the desired setting
+     * @return the updated JobBuilder
+     */
+    public JobBuilder requestRecovery(boolean jobShouldRecover) {
+<span class="fc" id="L225">        this.shouldRecover = jobShouldRecover;</span>
+<span class="fc" id="L226">        return this;</span>
+    }
+
+    /**
+     * Whether or not the &lt;code&gt;Job&lt;/code&gt; should remain stored after it is
+     * orphaned (no &lt;code&gt;{@link Trigger}s&lt;/code&gt; point to it).
+     * 
+     * &lt;p&gt;
+     * If not explicitly set, the default value is &lt;code&gt;false&lt;/code&gt; 
+     * - this method sets the value to &lt;code&gt;true&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @return the updated JobBuilder
+     * @see JobDetail#isDurable()
+     */
+    public JobBuilder storeDurably() {
+<span class="fc" id="L242">        return storeDurably(true);</span>
+    }
+    
+    /**
+     * Whether or not the &lt;code&gt;Job&lt;/code&gt; should remain stored after it is
+     * orphaned (no &lt;code&gt;{@link Trigger}s&lt;/code&gt; point to it).
+     * 
+     * &lt;p&gt;
+     * If not explicitly set, the default value is &lt;code&gt;false&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @param jobDurability the value to set for the durability property.
+     * @return the updated JobBuilder
+     * @see JobDetail#isDurable()
+     */
+    public JobBuilder storeDurably(boolean jobDurability) {
+<span class="fc" id="L258">        this.durability = jobDurability;</span>
+<span class="fc" id="L259">        return this;</span>
+    }
+    
+    /**
+     * Add the given key-value pair to the JobDetail's {@link JobDataMap}.
+     * 
+     * @return the updated JobBuilder
+     * @see JobDetail#getJobDataMap()
+     */
+    public JobBuilder usingJobData(String dataKey, String value) {
+<span class="fc" id="L269">        jobDataMap.put(dataKey, value);</span>
+<span class="fc" id="L270">        return this;</span>
+    }
+    
+    /**
+     * Add the given key-value pair to the JobDetail's {@link JobDataMap}.
+     * 
+     * @return the updated JobBuilder
+     * @see JobDetail#getJobDataMap()
+     */
+    public JobBuilder usingJobData(String dataKey, Integer value) {
+<span class="fc" id="L280">        jobDataMap.put(dataKey, value);</span>
+<span class="fc" id="L281">        return this;</span>
+    }
+    
+    /**
+     * Add the given key-value pair to the JobDetail's {@link JobDataMap}.
+     * 
+     * @return the updated JobBuilder
+     * @see JobDetail#getJobDataMap()
+     */
+    public JobBuilder usingJobData(String dataKey, Long value) {
+<span class="nc" id="L291">        jobDataMap.put(dataKey, value);</span>
+<span class="nc" id="L292">        return this;</span>
+    }
+    
+    /**
+     * Add the given key-value pair to the JobDetail's {@link JobDataMap}.
+     * 
+     * @return the updated JobBuilder
+     * @see JobDetail#getJobDataMap()
+     */
+    public JobBuilder usingJobData(String dataKey, Float value) {
+<span class="nc" id="L302">        jobDataMap.put(dataKey, value);</span>
+<span class="nc" id="L303">        return this;</span>
+    }
+    
+    /**
+     * Add the given key-value pair to the JobDetail's {@link JobDataMap}.
+     * 
+     * @return the updated JobBuilder
+     * @see JobDetail#getJobDataMap()
+     */
+    public JobBuilder usingJobData(String dataKey, Double value) {
+<span class="nc" id="L313">        jobDataMap.put(dataKey, value);</span>
+<span class="nc" id="L314">        return this;</span>
+    }
+    
+    /**
+     * Add the given key-value pair to the JobDetail's {@link JobDataMap}.
+     * 
+     * @return the updated JobBuilder
+     * @see JobDetail#getJobDataMap()
+     */
+    public JobBuilder usingJobData(String dataKey, Boolean value) {
+<span class="nc" id="L324">        jobDataMap.put(dataKey, value);</span>
+<span class="nc" id="L325">        return this;</span>
+    }
+    
+    /**
+     * Add all the data from the given {@link JobDataMap} to the
+     * {@code JobDetail}'s {@code JobDataMap}.
+     * 
+     * @return the updated JobBuilder
+     * @see JobDetail#getJobDataMap()
+     */
+    public JobBuilder usingJobData(JobDataMap newJobDataMap) {
+<span class="fc" id="L336">        jobDataMap.putAll(newJobDataMap);</span>
+<span class="fc" id="L337">        return this;</span>
+    }
+
+    /**
+     * Replace the {@code JobDetail}'s {@link JobDataMap} with the
+     * given {@code JobDataMap}.
+     * 
+     * @return the updated JobBuilder
+     * @see JobDetail#getJobDataMap() 
+     */
+    public JobBuilder setJobData(JobDataMap newJobDataMap) {
+<span class="fc" id="L348">        jobDataMap = newJobDataMap;</span>
+<span class="fc" id="L349">        return this;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

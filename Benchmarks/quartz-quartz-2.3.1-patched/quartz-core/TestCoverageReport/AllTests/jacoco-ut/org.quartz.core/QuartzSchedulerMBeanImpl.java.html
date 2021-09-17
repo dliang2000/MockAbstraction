@@ -1,0 +1,1012 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>QuartzSchedulerMBeanImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.core</a> &gt; <span class="el_source">QuartzSchedulerMBeanImpl.java</span></div><h1>QuartzSchedulerMBeanImpl.java</h1><pre class="source lang-java linenums">package org.quartz.core;
+
+import static org.quartz.JobKey.jobKey;
+import static org.quartz.TriggerKey.triggerKey;
+
+import java.beans.BeanInfo;
+import java.beans.IntrospectionException;
+import java.beans.Introspector;
+import java.beans.MethodDescriptor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
+
+import javax.management.ListenerNotFoundException;
+import javax.management.MBeanNotificationInfo;
+import javax.management.NotCompliantMBeanException;
+import javax.management.Notification;
+import javax.management.NotificationBroadcasterSupport;
+import javax.management.NotificationEmitter;
+import javax.management.NotificationFilter;
+import javax.management.NotificationListener;
+import javax.management.StandardMBean;
+import javax.management.openmbean.CompositeData;
+import javax.management.openmbean.TabularData;
+
+import org.quartz.JobDataMap;
+import org.quartz.JobDetail;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.quartz.JobKey;
+import org.quartz.JobListener;
+import org.quartz.SchedulerException;
+import org.quartz.SchedulerListener;
+import org.quartz.Trigger;
+import org.quartz.Trigger.TriggerState;
+import org.quartz.TriggerKey;
+import org.quartz.core.jmx.JobDetailSupport;
+import org.quartz.core.jmx.JobExecutionContextSupport;
+import org.quartz.core.jmx.QuartzSchedulerMBean;
+import org.quartz.core.jmx.TriggerSupport;
+import org.quartz.impl.matchers.GroupMatcher;
+import org.quartz.impl.triggers.AbstractTrigger;
+import org.quartz.spi.OperableTrigger;
+
+public class QuartzSchedulerMBeanImpl extends StandardMBean implements
+        NotificationEmitter, QuartzSchedulerMBean, JobListener,
+        SchedulerListener {
+    private static final MBeanNotificationInfo[] NOTIFICATION_INFO;
+
+    private final QuartzScheduler scheduler;
+    private boolean sampledStatisticsEnabled;
+    private SampledStatistics sampledStatistics;
+
+<span class="fc" id="L61">    private final static SampledStatistics NULL_SAMPLED_STATISTICS = new NullSampledStatisticsImpl();</span>
+
+    static {
+<span class="fc" id="L64">        final String[] notifTypes = new String[] { SCHEDULER_STARTED,</span>
+                SCHEDULER_PAUSED, SCHEDULER_SHUTDOWN, };
+<span class="fc" id="L66">        final String name = Notification.class.getName();</span>
+<span class="fc" id="L67">        final String description = &quot;QuartzScheduler JMX Event&quot;;</span>
+<span class="fc" id="L68">        NOTIFICATION_INFO = new MBeanNotificationInfo[] { new MBeanNotificationInfo(</span>
+                notifTypes, name, description), };
+<span class="fc" id="L70">    }</span>
+
+    /**
+     * emitter
+     */
+<span class="fc" id="L75">    protected final Emitter emitter = new Emitter();</span>
+
+    /**
+     * sequenceNumber
+     */
+<span class="fc" id="L80">    protected final AtomicLong sequenceNumber = new AtomicLong();</span>
+
+    /**
+     * QuartzSchedulerMBeanImpl
+     * 
+     * @throws NotCompliantMBeanException
+     */
+    protected QuartzSchedulerMBeanImpl(QuartzScheduler scheduler)
+            throws NotCompliantMBeanException {
+<span class="fc" id="L89">        super(QuartzSchedulerMBean.class);</span>
+<span class="fc" id="L90">        this.scheduler = scheduler;</span>
+<span class="fc" id="L91">        this.scheduler.addInternalJobListener(this);</span>
+<span class="fc" id="L92">        this.scheduler.addInternalSchedulerListener(this);</span>
+<span class="fc" id="L93">        this.sampledStatistics = NULL_SAMPLED_STATISTICS;</span>
+<span class="fc" id="L94">        this.sampledStatisticsEnabled = false;</span>
+<span class="fc" id="L95">    }</span>
+
+    public TabularData getCurrentlyExecutingJobs() throws Exception {
+        try {
+<span class="nc" id="L99">            List&lt;JobExecutionContext&gt; currentlyExecutingJobs = scheduler.getCurrentlyExecutingJobs();</span>
+<span class="nc" id="L100">            return JobExecutionContextSupport.toTabularData(currentlyExecutingJobs);</span>
+<span class="nc" id="L101">        } catch (Exception e) {</span>
+<span class="nc" id="L102">            throw newPlainException(e);</span>
+        }
+    }
+
+    public TabularData getAllJobDetails() throws Exception {
+        try {
+<span class="nc" id="L108">            List&lt;JobDetail&gt; detailList = new ArrayList&lt;JobDetail&gt;();</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">            for (String jobGroupName : scheduler.getJobGroupNames()) {</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">                for (JobKey jobKey : scheduler.getJobKeys(GroupMatcher.jobGroupEquals(jobGroupName))) {</span>
+<span class="nc" id="L111">                    detailList.add(scheduler.getJobDetail(jobKey));</span>
+<span class="nc" id="L112">                }</span>
+<span class="nc" id="L113">            }</span>
+<span class="nc" id="L114">            return JobDetailSupport.toTabularData(detailList.toArray(new JobDetail[detailList.size()]));</span>
+<span class="nc" id="L115">        } catch (Exception e) {</span>
+<span class="nc" id="L116">            throw newPlainException(e);</span>
+        }
+    }
+
+    public List&lt;CompositeData&gt; getAllTriggers() throws Exception {
+        try {
+<span class="nc" id="L122">            List&lt;Trigger&gt; triggerList = new ArrayList&lt;Trigger&gt;();</span>
+<span class="nc bnc" id="L123" title="All 2 branches missed.">            for (String triggerGroupName : scheduler.getTriggerGroupNames()) {</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">                for (TriggerKey triggerKey : scheduler.getTriggerKeys(GroupMatcher.triggerGroupEquals(triggerGroupName))) {</span>
+<span class="nc" id="L125">                    triggerList.add(scheduler.getTrigger(triggerKey));</span>
+<span class="nc" id="L126">                }</span>
+<span class="nc" id="L127">            }</span>
+<span class="nc" id="L128">            return TriggerSupport.toCompositeList(triggerList);</span>
+<span class="nc" id="L129">        } catch (Exception e) {</span>
+<span class="nc" id="L130">            throw newPlainException(e);</span>
+        }
+    }
+
+    public void addJob(CompositeData jobDetail, boolean replace) throws Exception {
+        try {
+<span class="fc" id="L136">            scheduler.addJob(JobDetailSupport.newJobDetail(jobDetail), replace);</span>
+<span class="nc" id="L137">        } catch (Exception e) {</span>
+<span class="nc" id="L138">            throw newPlainException(e);</span>
+<span class="fc" id="L139">        }</span>
+<span class="fc" id="L140">    }</span>
+
+    private static void invokeSetter(Object target, String attribute, Object value) throws Exception {
+<span class="nc" id="L143">        String setterName = &quot;set&quot; + Character.toUpperCase(attribute.charAt(0)) + attribute.substring(1);</span>
+<span class="nc" id="L144">        Class&lt;?&gt;[] argTypes = {value.getClass()};</span>
+<span class="nc" id="L145">        Method setter = findMethod(target.getClass(), setterName, argTypes);</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">        if(setter != null) {</span>
+<span class="nc" id="L147">            setter.invoke(target, value);</span>
+        } else {
+<span class="nc" id="L149">            throw new Exception(&quot;Unable to find setter for attribute '&quot; + attribute</span>
+                    + &quot;' and value '&quot; + value + &quot;'&quot;);
+        }
+<span class="nc" id="L152">    }</span>
+    
+    private static Class&lt;?&gt; getWrapperIfPrimitive(Class&lt;?&gt; c) {
+<span class="nc" id="L155">        Class&lt;?&gt; result = c;</span>
+        try {
+<span class="nc" id="L157">            Field f = c.getField(&quot;TYPE&quot;);</span>
+<span class="nc" id="L158">            f.setAccessible(true);</span>
+<span class="nc" id="L159">            result = (Class&lt;?&gt;) f.get(null);</span>
+<span class="nc" id="L160">        } catch (Exception e) {</span>
+            /**/
+<span class="nc" id="L162">        }</span>
+<span class="nc" id="L163">        return result;</span>
+    }
+    
+    private static Method findMethod(Class&lt;?&gt; targetType, String methodName,
+            Class&lt;?&gt;[] argTypes) throws IntrospectionException {
+<span class="nc" id="L168">        BeanInfo beanInfo = Introspector.getBeanInfo(targetType);</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">        if (beanInfo != null) {</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">            for(MethodDescriptor methodDesc: beanInfo.getMethodDescriptors()) {</span>
+<span class="nc" id="L171">                Method method = methodDesc.getMethod();</span>
+<span class="nc" id="L172">                Class&lt;?&gt;[] parameterTypes = method.getParameterTypes();</span>
+<span class="nc bnc" id="L173" title="All 4 branches missed.">                if (methodName.equals(method.getName()) &amp;&amp; argTypes.length == parameterTypes.length) {</span>
+<span class="nc" id="L174">                    boolean matchedArgTypes = true;</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">                    for (int i = 0; i &lt; argTypes.length; i++) { </span>
+<span class="nc bnc" id="L176" title="All 2 branches missed.">                        if (getWrapperIfPrimitive(argTypes[i]) != parameterTypes[i]) {</span>
+<span class="nc" id="L177">                            matchedArgTypes = false;</span>
+<span class="nc" id="L178">                            break;</span>
+                        }
+                    }
+<span class="nc bnc" id="L181" title="All 2 branches missed.">                    if (matchedArgTypes) {</span>
+<span class="nc" id="L182">                        return method;</span>
+                    }
+                }
+            }
+        }
+<span class="nc" id="L187">        return null;</span>
+    }
+    
+    public void scheduleBasicJob(Map&lt;String, Object&gt; jobDetailInfo,
+            Map&lt;String, Object&gt; triggerInfo) throws Exception {
+        try {
+<span class="nc" id="L193">            JobDetail jobDetail = JobDetailSupport.newJobDetail(jobDetailInfo);</span>
+<span class="nc" id="L194">            OperableTrigger trigger = TriggerSupport.newTrigger(triggerInfo);</span>
+<span class="nc" id="L195">            scheduler.deleteJob(jobDetail.getKey());</span>
+<span class="nc" id="L196">            scheduler.scheduleJob(jobDetail, trigger);</span>
+<span class="nc" id="L197">        } catch (ParseException pe) {</span>
+<span class="nc" id="L198">            throw pe;</span>
+<span class="nc" id="L199">        } catch (Exception e) {</span>
+<span class="nc" id="L200">            throw newPlainException(e);</span>
+<span class="nc" id="L201">        }</span>
+<span class="nc" id="L202">    }</span>
+
+    public void scheduleJob(Map&lt;String, Object&gt; abstractJobInfo,
+            Map&lt;String, Object&gt; abstractTriggerInfo) throws Exception {
+        try {
+<span class="nc" id="L207">            String triggerClassName = (String) abstractTriggerInfo.remove(&quot;triggerClass&quot;);</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">            if(triggerClassName == null) {</span>
+<span class="nc" id="L209">                throw new IllegalArgumentException(&quot;No triggerClass specified&quot;);</span>
+            }
+<span class="nc" id="L211">            Class&lt;?&gt; triggerClass = Class.forName(triggerClassName);</span>
+<span class="nc" id="L212">            Trigger trigger = (Trigger) triggerClass.newInstance();</span>
+            
+<span class="nc" id="L214">            String jobDetailClassName = (String) abstractJobInfo.remove(&quot;jobDetailClass&quot;);</span>
+<span class="nc bnc" id="L215" title="All 2 branches missed.">            if(jobDetailClassName == null) {</span>
+<span class="nc" id="L216">                throw new IllegalArgumentException(&quot;No jobDetailClass specified&quot;);</span>
+            }
+<span class="nc" id="L218">            Class&lt;?&gt; jobDetailClass = Class.forName(jobDetailClassName);</span>
+<span class="nc" id="L219">            JobDetail jobDetail = (JobDetail) jobDetailClass.newInstance();</span>
+            
+<span class="nc" id="L221">            String jobClassName = (String) abstractJobInfo.remove(&quot;jobClass&quot;);</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">            if(jobClassName == null) {</span>
+<span class="nc" id="L223">                throw new IllegalArgumentException(&quot;No jobClass specified&quot;);</span>
+            }
+<span class="nc" id="L225">            Class&lt;?&gt; jobClass = Class.forName(jobClassName);</span>
+<span class="nc" id="L226">            abstractJobInfo.put(&quot;jobClass&quot;, jobClass);</span>
+            
+<span class="nc bnc" id="L228" title="All 2 branches missed.">            for(Map.Entry&lt;String, Object&gt; entry : abstractTriggerInfo.entrySet()) {</span>
+<span class="nc" id="L229">                String key = entry.getKey();</span>
+<span class="nc" id="L230">                Object value = entry.getValue();</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">                if(&quot;jobDataMap&quot;.equals(key)) {</span>
+<span class="nc" id="L232">                    value = new JobDataMap((Map&lt;?, ?&gt;)value);</span>
+                }
+<span class="nc" id="L234">                invokeSetter(trigger, key, value);</span>
+<span class="nc" id="L235">            }</span>
+            
+<span class="nc bnc" id="L237" title="All 2 branches missed.">            for(Map.Entry&lt;String, Object&gt; entry : abstractJobInfo.entrySet()) {</span>
+<span class="nc" id="L238">                String key = entry.getKey();</span>
+<span class="nc" id="L239">                Object value = entry.getValue();</span>
+<span class="nc bnc" id="L240" title="All 2 branches missed.">                if(&quot;jobDataMap&quot;.equals(key)) {</span>
+<span class="nc" id="L241">                    value = new JobDataMap((Map&lt;?, ?&gt;)value);</span>
+                }
+<span class="nc" id="L243">                invokeSetter(jobDetail, key, value);</span>
+<span class="nc" id="L244">            }</span>
+    
+<span class="nc" id="L246">            AbstractTrigger&lt;?&gt; at = (AbstractTrigger&lt;?&gt;)trigger;</span>
+<span class="nc" id="L247">            at.setKey(new TriggerKey(at.getName(), at.getGroup()));</span>
+            
+<span class="nc" id="L249">            Date startDate = at.getStartTime();</span>
+<span class="nc bnc" id="L250" title="All 4 branches missed.">            if(startDate == null || startDate.before(new Date())) {</span>
+<span class="nc" id="L251">                at.setStartTime(new Date());</span>
+            }
+            
+<span class="nc" id="L254">            scheduler.deleteJob(jobDetail.getKey());</span>
+<span class="nc" id="L255">            scheduler.scheduleJob(jobDetail, trigger);</span>
+<span class="nc" id="L256">        } catch (Exception e) {</span>
+<span class="nc" id="L257">            throw newPlainException(e);</span>
+<span class="nc" id="L258">        }</span>
+<span class="nc" id="L259">    }</span>
+    
+    public void scheduleJob(String jobName, String jobGroup,
+            Map&lt;String, Object&gt; abstractTriggerInfo) throws Exception {
+        try {
+<span class="nc" id="L264">            JobKey jobKey = new JobKey(jobName, jobGroup);</span>
+<span class="nc" id="L265">            JobDetail jobDetail = scheduler.getJobDetail(jobKey);</span>
+<span class="nc bnc" id="L266" title="All 2 branches missed.">            if(jobDetail == null) {</span>
+<span class="nc" id="L267">                throw new IllegalArgumentException(&quot;No such job '&quot; + jobKey + &quot;'&quot;);</span>
+            }
+            
+<span class="nc" id="L270">            String triggerClassName = (String) abstractTriggerInfo.remove(&quot;triggerClass&quot;);</span>
+<span class="nc bnc" id="L271" title="All 2 branches missed.">            if(triggerClassName == null) {</span>
+<span class="nc" id="L272">                throw new IllegalArgumentException(&quot;No triggerClass specified&quot;);</span>
+            }
+<span class="nc" id="L274">            Class&lt;?&gt; triggerClass = Class.forName(triggerClassName);</span>
+<span class="nc" id="L275">            Trigger trigger = (Trigger) triggerClass.newInstance();</span>
+            
+<span class="nc bnc" id="L277" title="All 2 branches missed.">            for(Map.Entry&lt;String, Object&gt; entry : abstractTriggerInfo.entrySet()) {</span>
+<span class="nc" id="L278">                String key = entry.getKey();</span>
+<span class="nc" id="L279">                Object value = entry.getValue();</span>
+<span class="nc bnc" id="L280" title="All 2 branches missed.">                if(&quot;jobDataMap&quot;.equals(key)) {</span>
+<span class="nc" id="L281">                    value = new JobDataMap((Map&lt;?, ?&gt;)value);</span>
+                }
+<span class="nc" id="L283">                invokeSetter(trigger, key, value);</span>
+<span class="nc" id="L284">            }</span>
+            
+<span class="nc" id="L286">            AbstractTrigger&lt;?&gt; at = (AbstractTrigger&lt;?&gt;)trigger;</span>
+<span class="nc" id="L287">            at.setKey(new TriggerKey(at.getName(), at.getGroup()));</span>
+            
+<span class="nc" id="L289">            Date startDate = at.getStartTime();</span>
+<span class="nc bnc" id="L290" title="All 4 branches missed.">            if(startDate == null || startDate.before(new Date())) {</span>
+<span class="nc" id="L291">                at.setStartTime(new Date());</span>
+            }
+            
+<span class="nc" id="L294">            scheduler.scheduleJob(trigger);</span>
+<span class="nc" id="L295">        } catch (Exception e) {</span>
+<span class="nc" id="L296">            throw newPlainException(e);</span>
+<span class="nc" id="L297">        }</span>
+<span class="nc" id="L298">    }</span>
+    
+    public void addJob(Map&lt;String, Object&gt; abstractJobInfo,    boolean replace) throws Exception {
+        try {
+<span class="nc" id="L302">            String jobDetailClassName = (String) abstractJobInfo.remove(&quot;jobDetailClass&quot;);</span>
+<span class="nc bnc" id="L303" title="All 2 branches missed.">            if(jobDetailClassName == null) {</span>
+<span class="nc" id="L304">                throw new IllegalArgumentException(&quot;No jobDetailClass specified&quot;);</span>
+            }
+<span class="nc" id="L306">            Class&lt;?&gt; jobDetailClass = Class.forName(jobDetailClassName);</span>
+<span class="nc" id="L307">            JobDetail jobDetail = (JobDetail) jobDetailClass.newInstance();</span>
+            
+<span class="nc" id="L309">            String jobClassName = (String) abstractJobInfo.remove(&quot;jobClass&quot;);</span>
+<span class="nc bnc" id="L310" title="All 2 branches missed.">            if(jobClassName == null) {</span>
+<span class="nc" id="L311">                throw new IllegalArgumentException(&quot;No jobClass specified&quot;);</span>
+            }
+<span class="nc" id="L313">            Class&lt;?&gt; jobClass = Class.forName(jobClassName);</span>
+<span class="nc" id="L314">            abstractJobInfo.put(&quot;jobClass&quot;, jobClass);</span>
+            
+<span class="nc bnc" id="L316" title="All 2 branches missed.">            for(Map.Entry&lt;String, Object&gt; entry : abstractJobInfo.entrySet()) {</span>
+<span class="nc" id="L317">                String key = entry.getKey();</span>
+<span class="nc" id="L318">                Object value = entry.getValue();</span>
+<span class="nc bnc" id="L319" title="All 2 branches missed.">                if(&quot;jobDataMap&quot;.equals(key)) {</span>
+<span class="nc" id="L320">                    value = new JobDataMap((Map&lt;?, ?&gt;)value);</span>
+                }
+<span class="nc" id="L322">                invokeSetter(jobDetail, key, value);</span>
+<span class="nc" id="L323">            }</span>
+    
+<span class="nc" id="L325">            scheduler.addJob(jobDetail, replace);</span>
+<span class="nc" id="L326">        } catch (Exception e) {</span>
+<span class="nc" id="L327">            throw newPlainException(e);</span>
+<span class="nc" id="L328">        }</span>
+<span class="nc" id="L329">    }</span>
+    
+    private Exception newPlainException(Exception e) {
+<span class="nc" id="L332">        String type = e.getClass().getName();</span>
+<span class="nc bnc" id="L333" title="All 4 branches missed.">        if(type.startsWith(&quot;java.&quot;) || type.startsWith(&quot;javax.&quot;)) {</span>
+<span class="nc" id="L334">            return e;</span>
+        } else {
+<span class="nc" id="L336">            Exception result = new Exception(e.getMessage());</span>
+<span class="nc" id="L337">            result.setStackTrace(e.getStackTrace());</span>
+<span class="nc" id="L338">            return result;</span>
+        }
+    }
+    
+    public void deleteCalendar(String calendarName) throws Exception {
+        try {
+<span class="fc" id="L344">            scheduler.deleteCalendar(calendarName);</span>
+<span class="nc" id="L345">        } catch(Exception e) {</span>
+<span class="nc" id="L346">            throw newPlainException(e);</span>
+<span class="fc" id="L347">        }</span>
+<span class="fc" id="L348">    }</span>
+
+    public boolean deleteJob(String jobName, String jobGroupName) throws Exception {
+        try {
+<span class="fc" id="L352">            return scheduler.deleteJob(jobKey(jobName, jobGroupName));</span>
+<span class="nc" id="L353">        } catch (Exception e) {</span>
+<span class="nc" id="L354">            throw newPlainException(e);</span>
+        }
+    }
+
+    public List&lt;String&gt; getCalendarNames()    throws Exception {
+        try {
+<span class="fc" id="L360">            return scheduler.getCalendarNames();</span>
+<span class="nc" id="L361">        } catch (Exception e) {</span>
+<span class="nc" id="L362">            throw newPlainException(e);</span>
+        }
+    }
+
+    public CompositeData getJobDetail(String jobName, String jobGroupName)
+      throws Exception {
+        try {
+<span class="fc" id="L369">            JobDetail jobDetail = scheduler.getJobDetail(jobKey(jobName, jobGroupName));</span>
+<span class="fc" id="L370">            return JobDetailSupport.toCompositeData(jobDetail);</span>
+<span class="nc" id="L371">        } catch (Exception e) {</span>
+<span class="nc" id="L372">            throw newPlainException(e);</span>
+        }
+    }
+
+    public List&lt;String&gt; getJobGroupNames()    throws Exception {
+        try {
+<span class="fc" id="L378">            return scheduler.getJobGroupNames();</span>
+<span class="nc" id="L379">        } catch (Exception e) {</span>
+<span class="nc" id="L380">            throw newPlainException(e);</span>
+        }
+    }
+
+    public List&lt;String&gt; getJobNames(String groupName) throws Exception {
+        try {
+<span class="fc" id="L386">            List&lt;String&gt; jobNames = new ArrayList&lt;String&gt;();</span>
+<span class="fc bfc" id="L387" title="All 2 branches covered.">            for(JobKey key: scheduler.getJobKeys(GroupMatcher.jobGroupEquals(groupName))) {</span>
+<span class="fc" id="L388">                jobNames.add(key.getName());</span>
+<span class="fc" id="L389">            }</span>
+<span class="fc" id="L390">            return jobNames;</span>
+<span class="nc" id="L391">        } catch (Exception e) {</span>
+<span class="nc" id="L392">            throw newPlainException(e);</span>
+        }
+    }
+
+    public String getJobStoreClassName() {
+<span class="fc" id="L397">        return scheduler.getJobStoreClass().getName();</span>
+    }
+
+    public Set&lt;String&gt; getPausedTriggerGroups() throws Exception {
+        try {
+<span class="fc" id="L402">            return scheduler.getPausedTriggerGroups();</span>
+<span class="nc" id="L403">        } catch (Exception e) {</span>
+<span class="nc" id="L404">            throw newPlainException(e);</span>
+        }
+    }
+
+    public CompositeData getTrigger(String name, String groupName) throws Exception {
+        try {
+<span class="nc" id="L410">            Trigger trigger = scheduler.getTrigger(triggerKey(name, groupName));</span>
+<span class="nc" id="L411">            return TriggerSupport.toCompositeData(trigger);</span>
+<span class="nc" id="L412">        } catch (Exception e) {</span>
+<span class="nc" id="L413">            throw newPlainException(e);</span>
+        }
+    }
+
+    public List&lt;String&gt; getTriggerGroupNames()    throws Exception {
+        try {
+<span class="fc" id="L419">            return scheduler.getTriggerGroupNames();</span>
+<span class="nc" id="L420">        } catch (Exception e) {</span>
+<span class="nc" id="L421">            throw newPlainException(e);</span>
+        }
+    }
+
+    public List&lt;String&gt; getTriggerNames(String groupName) throws Exception {
+        try {
+<span class="nc" id="L427">            List&lt;String&gt; triggerNames = new ArrayList&lt;String&gt;();</span>
+<span class="nc bnc" id="L428" title="All 2 branches missed.">            for(TriggerKey key: scheduler.getTriggerKeys(GroupMatcher.triggerGroupEquals(groupName))) {</span>
+<span class="nc" id="L429">                triggerNames.add(key.getName());</span>
+<span class="nc" id="L430">            }</span>
+<span class="nc" id="L431">            return triggerNames;</span>
+<span class="nc" id="L432">        } catch (Exception e) {</span>
+<span class="nc" id="L433">            throw newPlainException(e);</span>
+        }
+    }
+
+    public String getTriggerState(String triggerName, String triggerGroupName) throws Exception {
+        try {
+<span class="fc" id="L439">            TriggerKey triggerKey = triggerKey(triggerName, triggerGroupName);</span>
+<span class="fc" id="L440">            TriggerState ts = scheduler.getTriggerState(triggerKey);</span>
+<span class="fc" id="L441">            return ts.name();</span>
+<span class="nc" id="L442">        } catch (Exception e) {</span>
+<span class="nc" id="L443">            throw newPlainException(e);</span>
+        }
+    }
+
+    public List&lt;CompositeData&gt; getTriggersOfJob(String jobName, String jobGroupName) throws Exception {
+        try {
+<span class="nc" id="L449">            JobKey jobKey = jobKey(jobName, jobGroupName);</span>
+<span class="nc" id="L450">            return TriggerSupport.toCompositeList(scheduler.getTriggersOfJob(jobKey));</span>
+<span class="nc" id="L451">        } catch (Exception e) {</span>
+<span class="nc" id="L452">            throw newPlainException(e);</span>
+        }
+    }
+
+    public boolean interruptJob(String jobName, String jobGroupName) throws Exception {
+        try {
+<span class="fc" id="L458">            return scheduler.interrupt(jobKey(jobName, jobGroupName));</span>
+<span class="nc" id="L459">        } catch (Exception e) {</span>
+<span class="nc" id="L460">            throw newPlainException(e);</span>
+        }
+    }
+
+    public boolean interruptJob(String fireInstanceId) throws Exception {
+        try {
+<span class="nc" id="L466">            return scheduler.interrupt(fireInstanceId);</span>
+<span class="nc" id="L467">        } catch (Exception e) {</span>
+<span class="nc" id="L468">            throw newPlainException(e);</span>
+        }
+    }
+
+    public Date scheduleJob(String jobName, String jobGroup,
+            String triggerName, String triggerGroup) throws Exception {
+        try {
+<span class="nc" id="L475">            JobKey jobKey = jobKey(jobName, jobGroup);</span>
+<span class="nc" id="L476">            JobDetail jobDetail = scheduler.getJobDetail(jobKey);</span>
+<span class="nc bnc" id="L477" title="All 2 branches missed.">            if (jobDetail == null) {</span>
+<span class="nc" id="L478">                throw new IllegalArgumentException(&quot;No such job: &quot; + jobKey);</span>
+            }
+<span class="nc" id="L480">            TriggerKey triggerKey = triggerKey(triggerName, triggerGroup);</span>
+<span class="nc" id="L481">            Trigger trigger = scheduler.getTrigger(triggerKey);</span>
+<span class="nc bnc" id="L482" title="All 2 branches missed.">            if (trigger == null) {</span>
+<span class="nc" id="L483">                throw new IllegalArgumentException(&quot;No such trigger: &quot; + triggerKey);</span>
+            }
+<span class="nc" id="L485">            return scheduler.scheduleJob(jobDetail, trigger);</span>
+<span class="nc" id="L486">        } catch (Exception e) {</span>
+<span class="nc" id="L487">            throw newPlainException(e);</span>
+        }
+    }
+
+    public boolean unscheduleJob(String triggerName, String triggerGroup) throws Exception {
+        try {
+<span class="fc" id="L493">            return scheduler.unscheduleJob(triggerKey(triggerName, triggerGroup));</span>
+<span class="nc" id="L494">        } catch (Exception e) {</span>
+<span class="nc" id="L495">            throw newPlainException(e);</span>
+        }
+    }
+
+   public void clear() throws Exception {
+       try {
+<span class="fc" id="L501">           scheduler.clear();</span>
+<span class="nc" id="L502">        } catch (Exception e) {</span>
+<span class="nc" id="L503">            throw newPlainException(e);</span>
+<span class="fc" id="L504">        }</span>
+<span class="fc" id="L505">    }</span>
+
+    public String getVersion() {
+<span class="fc" id="L508">        return scheduler.getVersion();</span>
+    }
+
+    public boolean isShutdown() {
+<span class="fc" id="L512">        return scheduler.isShutdown();</span>
+    }
+
+    public boolean isStarted() {
+<span class="fc" id="L516">        return scheduler.isStarted();</span>
+    }
+
+    public void start() throws Exception {
+        try {
+<span class="fc" id="L521">            scheduler.start();</span>
+<span class="nc" id="L522">        } catch (Exception e) {</span>
+<span class="nc" id="L523">            throw newPlainException(e);</span>
+<span class="fc" id="L524">        }</span>
+<span class="fc" id="L525">    }</span>
+
+    public void shutdown() {
+<span class="fc" id="L528">        scheduler.shutdown();</span>
+<span class="fc" id="L529">    }</span>
+
+    public void standby() {
+<span class="fc" id="L532">        scheduler.standby();</span>
+<span class="fc" id="L533">    }</span>
+
+    public boolean isStandbyMode() {
+<span class="fc" id="L536">        return scheduler.isInStandbyMode();</span>
+    }
+
+    public String getSchedulerName() {
+<span class="fc" id="L540">        return scheduler.getSchedulerName();</span>
+    }
+
+    public String getSchedulerInstanceId() {
+<span class="fc" id="L544">        return scheduler.getSchedulerInstanceId();</span>
+    }
+
+    public String getThreadPoolClassName() {
+<span class="fc" id="L548">        return scheduler.getThreadPoolClass().getName();</span>
+    }
+
+    public int getThreadPoolSize() {
+<span class="fc" id="L552">        return scheduler.getThreadPoolSize();</span>
+    }
+
+    public void pauseJob(String jobName, String jobGroup) throws Exception {
+        try {
+<span class="fc" id="L557">            scheduler.pauseJob(jobKey(jobName, jobGroup));</span>
+<span class="nc" id="L558">        } catch (Exception e) {</span>
+<span class="nc" id="L559">            throw newPlainException(e);</span>
+<span class="fc" id="L560">        }</span>
+<span class="fc" id="L561">    }</span>
+
+    public void pauseJobs(GroupMatcher&lt;JobKey&gt; matcher) throws Exception {
+        try {
+<span class="fc" id="L565">            scheduler.pauseJobs(matcher);</span>
+<span class="nc" id="L566">        } catch (Exception e) {</span>
+<span class="nc" id="L567">            throw newPlainException(e);</span>
+<span class="fc" id="L568">        }</span>
+<span class="fc" id="L569">    }</span>
+    
+    public void pauseJobGroup(String jobGroup) throws Exception {
+<span class="fc" id="L572">        pauseJobs(GroupMatcher.&lt;JobKey&gt;groupEquals(jobGroup));</span>
+<span class="fc" id="L573">    }</span>
+
+    public void pauseJobsStartingWith(String jobGroupPrefix) throws Exception {
+<span class="nc" id="L576">        pauseJobs(GroupMatcher.&lt;JobKey&gt;groupStartsWith(jobGroupPrefix));</span>
+<span class="nc" id="L577">    }</span>
+
+    public void pauseJobsEndingWith(String jobGroupSuffix) throws Exception {
+<span class="nc" id="L580">        pauseJobs(GroupMatcher.&lt;JobKey&gt;groupEndsWith(jobGroupSuffix));</span>
+<span class="nc" id="L581">    }</span>
+
+    public void pauseJobsContaining(String jobGroupToken) throws Exception {
+<span class="nc" id="L584">        pauseJobs(GroupMatcher.&lt;JobKey&gt;groupContains(jobGroupToken));</span>
+<span class="nc" id="L585">    }</span>
+
+    public void pauseJobsAll() throws Exception {
+<span class="nc" id="L588">        pauseJobs(GroupMatcher.anyJobGroup());</span>
+<span class="nc" id="L589">    }</span>
+
+    public void pauseAllTriggers() throws Exception {
+        try {
+<span class="fc" id="L593">            scheduler.pauseAll();</span>
+<span class="nc" id="L594">        } catch (Exception e) {</span>
+<span class="nc" id="L595">            throw newPlainException(e);</span>
+<span class="fc" id="L596">        }</span>
+<span class="fc" id="L597">    }</span>
+
+    private void pauseTriggers(GroupMatcher&lt;TriggerKey&gt; matcher) throws Exception {
+        try {
+<span class="fc" id="L601">            scheduler.pauseTriggers(matcher);</span>
+<span class="nc" id="L602">        } catch (Exception e) {</span>
+<span class="nc" id="L603">            throw newPlainException(e);</span>
+<span class="fc" id="L604">        }</span>
+<span class="fc" id="L605">    }</span>
+    
+    public void pauseTriggerGroup(String triggerGroup) throws Exception {
+<span class="fc" id="L608">        pauseTriggers(GroupMatcher.&lt;TriggerKey&gt;groupEquals(triggerGroup));</span>
+<span class="fc" id="L609">    }</span>
+
+    public void pauseTriggersStartingWith(String triggerGroupPrefix) throws Exception {
+<span class="nc" id="L612">        pauseTriggers(GroupMatcher.&lt;TriggerKey&gt;groupStartsWith(triggerGroupPrefix));</span>
+<span class="nc" id="L613">    }</span>
+
+    public void pauseTriggersEndingWith(String triggerGroupSuffix) throws Exception {
+<span class="nc" id="L616">        pauseTriggers(GroupMatcher.&lt;TriggerKey&gt;groupEndsWith(triggerGroupSuffix));</span>
+<span class="nc" id="L617">    }</span>
+
+    public void pauseTriggersContaining(String triggerGroupToken) throws Exception {
+<span class="nc" id="L620">        pauseTriggers(GroupMatcher.&lt;TriggerKey&gt;groupContains(triggerGroupToken));</span>
+<span class="nc" id="L621">    }</span>
+
+    public void pauseTriggersAll() throws Exception {
+<span class="nc" id="L624">        pauseTriggers(GroupMatcher.anyTriggerGroup());</span>
+<span class="nc" id="L625">    }</span>
+
+    public void pauseTrigger(String triggerName, String triggerGroup) throws Exception {
+        try {
+<span class="fc" id="L629">            scheduler.pauseTrigger(triggerKey(triggerName, triggerGroup));</span>
+<span class="nc" id="L630">        } catch (Exception e) {</span>
+<span class="nc" id="L631">            throw newPlainException(e);</span>
+<span class="fc" id="L632">        }</span>
+<span class="fc" id="L633">    }</span>
+
+    public void resumeAllTriggers() throws Exception {
+        try {
+<span class="fc" id="L637">            scheduler.resumeAll();</span>
+<span class="nc" id="L638">        } catch (Exception e) {</span>
+<span class="nc" id="L639">            throw newPlainException(e);</span>
+<span class="fc" id="L640">        }</span>
+<span class="fc" id="L641">    }</span>
+
+    public void resumeJob(String jobName, String jobGroup) throws Exception {
+        try {
+<span class="fc" id="L645">            scheduler.resumeJob(jobKey(jobName, jobGroup));</span>
+<span class="nc" id="L646">        } catch (Exception e) {</span>
+<span class="nc" id="L647">            throw newPlainException(e);</span>
+<span class="fc" id="L648">        }</span>
+<span class="fc" id="L649">    }</span>
+
+    public void resumeJobs(GroupMatcher&lt;JobKey&gt; matcher) throws Exception {
+        try {
+<span class="fc" id="L653">            scheduler.resumeJobs(matcher);</span>
+<span class="nc" id="L654">        } catch (Exception e) {</span>
+<span class="nc" id="L655">            throw newPlainException(e);</span>
+<span class="fc" id="L656">        }</span>
+<span class="fc" id="L657">    }</span>
+
+    public void resumeJobGroup(String jobGroup) throws Exception {
+<span class="fc" id="L660">        resumeJobs(GroupMatcher.&lt;JobKey&gt;groupEquals(jobGroup));</span>
+<span class="fc" id="L661">    }</span>
+
+    public void resumeJobsStartingWith(String jobGroupPrefix) throws Exception {
+<span class="nc" id="L664">        resumeJobs(GroupMatcher.&lt;JobKey&gt;groupStartsWith(jobGroupPrefix));</span>
+<span class="nc" id="L665">    }</span>
+
+    public void resumeJobsEndingWith(String jobGroupSuffix) throws Exception {
+<span class="nc" id="L668">        resumeJobs(GroupMatcher.&lt;JobKey&gt;groupEndsWith(jobGroupSuffix));</span>
+<span class="nc" id="L669">    }</span>
+
+    public void resumeJobsContaining(String jobGroupToken) throws Exception {
+<span class="nc" id="L672">        resumeJobs(GroupMatcher.&lt;JobKey&gt;groupContains(jobGroupToken));</span>
+<span class="nc" id="L673">    }</span>
+
+    public void resumeJobsAll() throws Exception {
+<span class="nc" id="L676">        resumeJobs(GroupMatcher.anyJobGroup());</span>
+<span class="nc" id="L677">    }</span>
+
+    public void resumeTrigger(String triggerName, String triggerGroup) throws Exception {
+        try {
+<span class="fc" id="L681">            scheduler.resumeTrigger(triggerKey(triggerName, triggerGroup));</span>
+<span class="nc" id="L682">        } catch (Exception e) {</span>
+<span class="nc" id="L683">            throw newPlainException(e);</span>
+<span class="fc" id="L684">        }</span>
+<span class="fc" id="L685">    }</span>
+
+    private void resumeTriggers(GroupMatcher&lt;TriggerKey&gt; matcher) throws Exception {
+        try {
+<span class="fc" id="L689">            scheduler.resumeTriggers(matcher);</span>
+<span class="nc" id="L690">        } catch (Exception e) {</span>
+<span class="nc" id="L691">            throw newPlainException(e);</span>
+<span class="fc" id="L692">        }</span>
+<span class="fc" id="L693">    }</span>
+    
+    public void resumeTriggerGroup(String triggerGroup) throws Exception {
+<span class="fc" id="L696">        resumeTriggers(GroupMatcher.&lt;TriggerKey&gt;groupEquals(triggerGroup));</span>
+<span class="fc" id="L697">    }</span>
+
+    public void resumeTriggersStartingWith(String triggerGroupPrefix) throws Exception {
+<span class="nc" id="L700">        resumeTriggers(GroupMatcher.&lt;TriggerKey&gt;groupStartsWith(triggerGroupPrefix));</span>
+<span class="nc" id="L701">    }</span>
+
+    public void resumeTriggersEndingWith(String triggerGroupSuffix) throws Exception {
+<span class="nc" id="L704">        resumeTriggers(GroupMatcher.&lt;TriggerKey&gt;groupEndsWith(triggerGroupSuffix));</span>
+<span class="nc" id="L705">    }</span>
+
+    public void resumeTriggersContaining(String triggerGroupToken) throws Exception {
+<span class="nc" id="L708">        resumeTriggers(GroupMatcher.&lt;TriggerKey&gt;groupContains(triggerGroupToken));</span>
+<span class="nc" id="L709">    }</span>
+
+    public void resumeTriggersAll() throws Exception {
+<span class="nc" id="L712">        resumeTriggers(GroupMatcher.anyTriggerGroup());</span>
+<span class="nc" id="L713">    }</span>
+
+    public void triggerJob(String jobName, String jobGroup, Map&lt;String, String&gt; jobDataMap)
+            throws Exception {
+        try {
+<span class="nc" id="L718">            scheduler.triggerJob(jobKey(jobName, jobGroup), new JobDataMap(jobDataMap));</span>
+<span class="nc" id="L719">        } catch (Exception e) {</span>
+<span class="nc" id="L720">            throw newPlainException(e);</span>
+<span class="nc" id="L721">        }</span>
+<span class="nc" id="L722">    }</span>
+
+    public void triggerJob(CompositeData trigger) throws Exception {
+        try {
+<span class="nc" id="L726">            scheduler.triggerJob(TriggerSupport.newTrigger(trigger));</span>
+<span class="nc" id="L727">        } catch (Exception e) {</span>
+<span class="nc" id="L728">            throw newPlainException(e);</span>
+<span class="nc" id="L729">        }</span>
+<span class="nc" id="L730">    }</span>
+    
+    // ScheduleListener
+
+    public void jobAdded(JobDetail jobDetail) {
+<span class="fc" id="L735">        sendNotification(JOB_ADDED, JobDetailSupport.toCompositeData(jobDetail));</span>
+<span class="fc" id="L736">    }</span>
+
+    public void jobDeleted(JobKey jobKey) {
+<span class="fc" id="L739">        Map&lt;String, String&gt; map = new HashMap&lt;String, String&gt;();</span>
+<span class="fc" id="L740">        map.put(&quot;jobName&quot;, jobKey.getName());</span>
+<span class="fc" id="L741">        map.put(&quot;jobGroup&quot;, jobKey.getGroup());</span>
+<span class="fc" id="L742">        sendNotification(JOB_DELETED, map);</span>
+<span class="fc" id="L743">    }</span>
+
+    public void jobScheduled(Trigger trigger) {
+<span class="fc" id="L746">        sendNotification(JOB_SCHEDULED, TriggerSupport.toCompositeData(trigger));</span>
+<span class="fc" id="L747">    }</span>
+
+    public void jobUnscheduled(TriggerKey triggerKey) {
+<span class="fc" id="L750">        Map&lt;String, String&gt; map = new HashMap&lt;String, String&gt;();</span>
+<span class="fc" id="L751">        map.put(&quot;triggerName&quot;, triggerKey.getName());</span>
+<span class="fc" id="L752">        map.put(&quot;triggerGroup&quot;, triggerKey.getGroup());</span>
+<span class="fc" id="L753">        sendNotification(JOB_UNSCHEDULED, map);</span>
+<span class="fc" id="L754">    }</span>
+    
+    public void schedulingDataCleared() {
+<span class="fc" id="L757">        sendNotification(SCHEDULING_DATA_CLEARED);</span>
+<span class="fc" id="L758">    }</span>
+    
+    public void jobPaused(JobKey jobKey) {
+<span class="fc" id="L761">        Map&lt;String, String&gt; map = new HashMap&lt;String, String&gt;();</span>
+<span class="fc" id="L762">        map.put(&quot;jobName&quot;, jobKey.getName());</span>
+<span class="fc" id="L763">        map.put(&quot;jobGroup&quot;, jobKey.getGroup());</span>
+<span class="fc" id="L764">        sendNotification(JOBS_PAUSED, map);</span>
+<span class="fc" id="L765">    }</span>
+
+    public void jobsPaused(String jobGroup) {
+<span class="fc" id="L768">        Map&lt;String, String&gt; map = new HashMap&lt;String, String&gt;();</span>
+<span class="fc" id="L769">        map.put(&quot;jobName&quot;, null);</span>
+<span class="fc" id="L770">        map.put(&quot;jobGroup&quot;, jobGroup);</span>
+<span class="fc" id="L771">        sendNotification(JOBS_PAUSED, map);</span>
+<span class="fc" id="L772">    }</span>
+    
+    public void jobsResumed(String jobGroup) {
+<span class="fc" id="L775">        Map&lt;String, String&gt; map = new HashMap&lt;String, String&gt;();</span>
+<span class="fc" id="L776">        map.put(&quot;jobName&quot;, null);</span>
+<span class="fc" id="L777">        map.put(&quot;jobGroup&quot;, jobGroup);</span>
+<span class="fc" id="L778">        sendNotification(JOBS_RESUMED, map);</span>
+<span class="fc" id="L779">    }</span>
+
+    public void jobResumed(JobKey jobKey) {
+<span class="fc" id="L782">        Map&lt;String, String&gt; map = new HashMap&lt;String, String&gt;();</span>
+<span class="fc" id="L783">        map.put(&quot;jobName&quot;, jobKey.getName());</span>
+<span class="fc" id="L784">        map.put(&quot;jobGroup&quot;, jobKey.getGroup());</span>
+<span class="fc" id="L785">        sendNotification(JOBS_RESUMED, map);</span>
+<span class="fc" id="L786">    }</span>
+    
+    public void schedulerError(String msg, SchedulerException cause) {
+<span class="nc" id="L789">        sendNotification(SCHEDULER_ERROR, cause.getMessage());</span>
+<span class="nc" id="L790">    }</span>
+
+    public void schedulerStarted() {
+<span class="fc" id="L793">        sendNotification(SCHEDULER_STARTED);</span>
+<span class="fc" id="L794">    }</span>
+    
+    //not doing anything, just like schedulerShuttingdown
+    public void schedulerStarting() {
+<span class="fc" id="L798">    }</span>
+
+    public void schedulerInStandbyMode() {
+<span class="fc" id="L801">        sendNotification(SCHEDULER_PAUSED);</span>
+<span class="fc" id="L802">    }</span>
+
+    public void schedulerShutdown() {
+<span class="fc" id="L805">        scheduler.removeInternalSchedulerListener(this);</span>
+<span class="fc" id="L806">        scheduler.removeInternalJobListener(getName());</span>
+
+<span class="fc" id="L808">        sendNotification(SCHEDULER_SHUTDOWN);</span>
+<span class="fc" id="L809">    }</span>
+
+    public void schedulerShuttingdown() {
+<span class="fc" id="L812">    }</span>
+
+    public void triggerFinalized(Trigger trigger) {
+<span class="nc" id="L815">        Map&lt;String, String&gt; map = new HashMap&lt;String, String&gt;();</span>
+<span class="nc" id="L816">        map.put(&quot;triggerName&quot;, trigger.getKey().getName());</span>
+<span class="nc" id="L817">        map.put(&quot;triggerGroup&quot;, trigger.getKey().getGroup());</span>
+<span class="nc" id="L818">        sendNotification(TRIGGER_FINALIZED, map);</span>
+<span class="nc" id="L819">    }</span>
+
+    public void triggersPaused(String triggerGroup) {
+<span class="fc" id="L822">        Map&lt;String, String&gt; map = new HashMap&lt;String, String&gt;();</span>
+<span class="fc" id="L823">        map.put(&quot;triggerName&quot;, null);</span>
+<span class="fc" id="L824">        map.put(&quot;triggerGroup&quot;, triggerGroup);</span>
+<span class="fc" id="L825">        sendNotification(TRIGGERS_PAUSED, map);</span>
+<span class="fc" id="L826">    }</span>
+
+    public void triggerPaused(TriggerKey triggerKey) {
+<span class="fc" id="L829">        Map&lt;String, String&gt; map = new HashMap&lt;String, String&gt;();</span>
+<span class="pc bpc" id="L830" title="1 of 2 branches missed.">        if(triggerKey != null) {</span>
+<span class="fc" id="L831">            map.put(&quot;triggerName&quot;, triggerKey.getName());</span>
+<span class="fc" id="L832">            map.put(&quot;triggerGroup&quot;, triggerKey.getGroup());</span>
+        }
+<span class="fc" id="L834">        sendNotification(TRIGGERS_PAUSED, map);</span>
+<span class="fc" id="L835">    }</span>
+
+    public void triggersResumed(String triggerGroup) {
+<span class="fc" id="L838">        Map&lt;String, String&gt; map = new HashMap&lt;String, String&gt;();</span>
+<span class="fc" id="L839">        map.put(&quot;triggerName&quot;, null);</span>
+<span class="fc" id="L840">        map.put(&quot;triggerGroup&quot;, triggerGroup);</span>
+<span class="fc" id="L841">        sendNotification(TRIGGERS_RESUMED, map);</span>
+<span class="fc" id="L842">    }</span>
+
+    public void triggerResumed(TriggerKey triggerKey) {
+<span class="fc" id="L845">        Map&lt;String, String&gt; map = new HashMap&lt;String, String&gt;();</span>
+<span class="fc bfc" id="L846" title="All 2 branches covered.">        if(triggerKey != null) {</span>
+<span class="fc" id="L847">            map.put(&quot;triggerName&quot;, triggerKey.getName());</span>
+<span class="fc" id="L848">            map.put(&quot;triggerGroup&quot;, triggerKey.getGroup());</span>
+        }
+<span class="fc" id="L850">        sendNotification(TRIGGERS_RESUMED, map);</span>
+<span class="fc" id="L851">    }</span>
+    
+    // JobListener
+
+    public String getName() {
+<span class="fc" id="L856">        return &quot;QuartzSchedulerMBeanImpl.listener&quot;;</span>
+    }
+
+    public void jobExecutionVetoed(JobExecutionContext context) {
+        try {
+<span class="nc" id="L861">            sendNotification(JOB_EXECUTION_VETOED, JobExecutionContextSupport</span>
+<span class="nc" id="L862">                    .toCompositeData(context));</span>
+<span class="nc" id="L863">        } catch (Exception e) {</span>
+<span class="nc" id="L864">            throw new RuntimeException(newPlainException(e));</span>
+<span class="nc" id="L865">        }</span>
+<span class="nc" id="L866">    }</span>
+
+    public void jobToBeExecuted(JobExecutionContext context) {
+        try {
+<span class="nc" id="L870">            sendNotification(JOB_TO_BE_EXECUTED, JobExecutionContextSupport</span>
+<span class="nc" id="L871">                    .toCompositeData(context));</span>
+<span class="nc" id="L872">        } catch (Exception e) {</span>
+<span class="nc" id="L873">            throw new RuntimeException(newPlainException(e));</span>
+<span class="nc" id="L874">        }</span>
+<span class="nc" id="L875">    }</span>
+
+    public void jobWasExecuted(JobExecutionContext context,
+            JobExecutionException jobException) {
+        try {
+<span class="nc" id="L880">            sendNotification(JOB_WAS_EXECUTED, JobExecutionContextSupport</span>
+<span class="nc" id="L881">                    .toCompositeData(context));</span>
+<span class="nc" id="L882">        } catch (Exception e) {</span>
+<span class="nc" id="L883">            throw new RuntimeException(newPlainException(e));</span>
+<span class="nc" id="L884">        }</span>
+<span class="nc" id="L885">    }</span>
+
+    // NotificationBroadcaster
+
+    /**
+     * sendNotification
+     * 
+     * @param eventType
+     */
+    public void sendNotification(String eventType) {
+<span class="fc" id="L895">        sendNotification(eventType, null, null);</span>
+<span class="fc" id="L896">    }</span>
+
+    /**
+     * sendNotification
+     * 
+     * @param eventType
+     * @param data
+     */
+    public void sendNotification(String eventType, Object data) {
+<span class="fc" id="L905">        sendNotification(eventType, data, null);</span>
+<span class="fc" id="L906">    }</span>
+
+    /**
+     * sendNotification
+     * 
+     * @param eventType
+     * @param data
+     * @param msg
+     */
+    public void sendNotification(String eventType, Object data, String msg) {
+<span class="fc" id="L916">        Notification notif = new Notification(eventType, this, sequenceNumber</span>
+<span class="fc" id="L917">                .incrementAndGet(), System.currentTimeMillis(), msg);</span>
+<span class="fc bfc" id="L918" title="All 2 branches covered.">        if (data != null) {</span>
+<span class="fc" id="L919">            notif.setUserData(data);</span>
+        }
+<span class="fc" id="L921">        emitter.sendNotification(notif);</span>
+<span class="fc" id="L922">    }</span>
+
+    /**
+     * @author gkeim
+     */
+<span class="fc" id="L927">    private class Emitter extends NotificationBroadcasterSupport {</span>
+        /**
+         * @see javax.management.NotificationBroadcasterSupport#getNotificationInfo()
+         */
+        @Override
+        public MBeanNotificationInfo[] getNotificationInfo() {
+<span class="nc" id="L933">            return QuartzSchedulerMBeanImpl.this.getNotificationInfo();</span>
+        }
+    }
+
+    /**
+     * @see javax.management.NotificationBroadcaster#addNotificationListener(javax.management.NotificationListener,
+     *      javax.management.NotificationFilter, java.lang.Object)
+     */
+    public void addNotificationListener(NotificationListener notif,
+            NotificationFilter filter, Object callBack) {
+<span class="nc" id="L943">        emitter.addNotificationListener(notif, filter, callBack);</span>
+<span class="nc" id="L944">    }</span>
+
+    /**
+     * @see javax.management.NotificationBroadcaster#getNotificationInfo()
+     */
+    public MBeanNotificationInfo[] getNotificationInfo() {
+<span class="fc" id="L950">        return NOTIFICATION_INFO;</span>
+    }
+
+    /**
+     * @see javax.management.NotificationBroadcaster#removeNotificationListener(javax.management.NotificationListener)
+     */
+    public void removeNotificationListener(NotificationListener listener)
+            throws ListenerNotFoundException {
+<span class="nc" id="L958">        emitter.removeNotificationListener(listener);</span>
+<span class="nc" id="L959">    }</span>
+
+    /**
+     * @see javax.management.NotificationEmitter#removeNotificationListener(javax.management.NotificationListener,
+     *      javax.management.NotificationFilter, java.lang.Object)
+     */
+    public void removeNotificationListener(NotificationListener notif,
+            NotificationFilter filter, Object callBack)
+            throws ListenerNotFoundException {
+<span class="nc" id="L968">        emitter.removeNotificationListener(notif, filter, callBack);</span>
+<span class="nc" id="L969">    }</span>
+
+    public synchronized boolean isSampledStatisticsEnabled() {
+<span class="nc" id="L972">        return sampledStatisticsEnabled;</span>
+    }
+
+    public void setSampledStatisticsEnabled(boolean enabled) {
+<span class="pc bpc" id="L976" title="1 of 2 branches missed.">        if (enabled != this.sampledStatisticsEnabled) {</span>
+<span class="nc" id="L977">            this.sampledStatisticsEnabled = enabled;</span>
+<span class="nc bnc" id="L978" title="All 2 branches missed.">            if(enabled) {</span>
+<span class="nc" id="L979">                this.sampledStatistics = new SampledStatisticsImpl(scheduler);</span>
+            }
+            else {
+<span class="nc" id="L982">                 this.sampledStatistics.shutdown(); </span>
+<span class="nc" id="L983">                 this.sampledStatistics = NULL_SAMPLED_STATISTICS;</span>
+            }
+<span class="nc" id="L985">            sendNotification(SAMPLED_STATISTICS_ENABLED, Boolean.valueOf(enabled));</span>
+        }
+<span class="fc" id="L987">    }</span>
+
+    public long getJobsCompletedMostRecentSample() {
+<span class="fc" id="L990">        return this.sampledStatistics.getJobsCompletedMostRecentSample();</span>
+    }
+
+    public long getJobsExecutedMostRecentSample() {
+<span class="fc" id="L994">        return this.sampledStatistics.getJobsExecutingMostRecentSample();</span>
+    }
+
+    public long getJobsScheduledMostRecentSample() {
+<span class="fc" id="L998">        return this.sampledStatistics.getJobsScheduledMostRecentSample();</span>
+    }
+
+    public Map&lt;String, Long&gt; getPerformanceMetrics() {
+<span class="fc" id="L1002">        Map&lt;String, Long&gt; result = new HashMap&lt;String, Long&gt;();</span>
+<span class="fc" id="L1003">        result.put(&quot;JobsCompleted&quot;, Long</span>
+<span class="fc" id="L1004">                .valueOf(getJobsCompletedMostRecentSample()));</span>
+<span class="fc" id="L1005">        result.put(&quot;JobsExecuted&quot;, Long</span>
+<span class="fc" id="L1006">                .valueOf(getJobsExecutedMostRecentSample()));</span>
+<span class="fc" id="L1007">        result.put(&quot;JobsScheduled&quot;, Long</span>
+<span class="fc" id="L1008">                .valueOf(getJobsScheduledMostRecentSample()));</span>
+<span class="fc" id="L1009">        return result;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

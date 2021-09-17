@@ -1,0 +1,1022 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DateBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz</a> &gt; <span class="el_source">DateBuilder.java</span></div><h1>DateBuilder.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz;
+
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
+
+/**
+ * &lt;code&gt;DateBuilder&lt;/code&gt; is used to conveniently create 
+ * &lt;code&gt;java.util.Date&lt;/code&gt; instances that meet particular criteria.
+ *  
+ * &lt;p&gt;Quartz provides a builder-style API for constructing scheduling-related
+ * entities via a Domain-Specific Language (DSL).  The DSL can best be
+ * utilized through the usage of static imports of the methods on the classes
+ * &lt;code&gt;TriggerBuilder&lt;/code&gt;, &lt;code&gt;JobBuilder&lt;/code&gt;, 
+ * &lt;code&gt;DateBuilder&lt;/code&gt;, &lt;code&gt;JobKey&lt;/code&gt;, &lt;code&gt;TriggerKey&lt;/code&gt; 
+ * and the various &lt;code&gt;ScheduleBuilder&lt;/code&gt; implementations.&lt;/p&gt;
+ * 
+ * &lt;p&gt;Client code can then use the DSL to write code such as this:&lt;/p&gt;
+ * &lt;pre&gt;
+ *         JobDetail job = newJob(MyJob.class)
+ *             .withIdentity(&quot;myJob&quot;)
+ *             .build();
+ *             
+ *         Trigger trigger = newTrigger() 
+ *             .withIdentity(triggerKey(&quot;myTrigger&quot;, &quot;myTriggerGroup&quot;))
+ *             .withSchedule(simpleSchedule()
+ *                 .withIntervalInHours(1)
+ *                 .repeatForever())
+ *             .startAt(futureDate(10, MINUTES))
+ *             .build();
+ *         
+ *         scheduler.scheduleJob(job, trigger);
+ * &lt;pre&gt;
+ *  
+ * @see TriggerBuilder
+ * @see JobBuilder 
+ */
+public class DateBuilder {
+
+<span class="fc" id="L58">    public enum IntervalUnit { MILLISECOND, SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, YEAR }</span>
+    
+    public static final int SUNDAY = 1;
+
+    public static final int MONDAY = 2;
+
+    public static final int TUESDAY = 3;
+
+    public static final int WEDNESDAY = 4;
+
+    public static final int THURSDAY = 5;
+
+    public static final int FRIDAY = 6;
+
+    public static final int SATURDAY = 7;
+    
+    public static final int JANUARY = 1;
+    
+    public static final int FEBRUARY = 2;
+
+    public static final int MARCH = 3;
+
+    public static final int APRIL = 4;
+
+    public static final int MAY = 5;
+
+    public static final int JUNE = 6;
+
+    public static final int JULY = 7;
+
+    public static final int AUGUST = 8;
+
+    public static final int SEPTEMBER = 9;
+
+    public static final int OCTOBER = 10;
+
+    public static final int NOVEMBER = 11;
+
+    public static final int DECEMBER = 12;
+
+    public static final long MILLISECONDS_IN_MINUTE = 60l * 1000l;
+
+    public static final long MILLISECONDS_IN_HOUR = 60l * 60l * 1000l;
+
+    public static final long SECONDS_IN_MOST_DAYS = 24l * 60l * 60L;
+
+    public static final long MILLISECONDS_IN_DAY = SECONDS_IN_MOST_DAYS * 1000l;
+    
+    private int month;
+    private int day;
+    private int year;
+    private int hour;
+    private int minute;
+    private int second;
+    private TimeZone tz;
+    private Locale lc;
+    
+    /**
+     * Create a DateBuilder, with initial settings for the current date and time in the system default timezone.
+     */
+<span class="fc" id="L118">    private DateBuilder() {</span>
+<span class="fc" id="L119">        Calendar cal = Calendar.getInstance();</span>
+        
+<span class="fc" id="L121">        month = cal.get(Calendar.MONTH) + 1;</span>
+<span class="fc" id="L122">        day = cal.get(Calendar.DAY_OF_MONTH);</span>
+<span class="fc" id="L123">        year = cal.get(Calendar.YEAR);</span>
+<span class="fc" id="L124">        hour = cal.get(Calendar.HOUR_OF_DAY);</span>
+<span class="fc" id="L125">        minute = cal.get(Calendar.MINUTE);</span>
+<span class="fc" id="L126">        second = cal.get(Calendar.SECOND);</span>
+<span class="fc" id="L127">    }</span>
+
+    /**
+     * Create a DateBuilder, with initial settings for the current date and time in the given timezone.
+     */
+<span class="fc" id="L132">    private DateBuilder(TimeZone tz) {</span>
+<span class="fc" id="L133">        Calendar cal = Calendar.getInstance(tz);</span>
+        
+<span class="fc" id="L135">        this.tz = tz;</span>
+<span class="fc" id="L136">        month = cal.get(Calendar.MONTH) + 1;</span>
+<span class="fc" id="L137">        day = cal.get(Calendar.DAY_OF_MONTH);</span>
+<span class="fc" id="L138">        year = cal.get(Calendar.YEAR);</span>
+<span class="fc" id="L139">        hour = cal.get(Calendar.HOUR_OF_DAY);</span>
+<span class="fc" id="L140">        minute = cal.get(Calendar.MINUTE);</span>
+<span class="fc" id="L141">        second = cal.get(Calendar.SECOND);</span>
+<span class="fc" id="L142">    }</span>
+
+    /**
+     * Create a DateBuilder, with initial settings for the current date and time in the given locale.
+     */
+<span class="fc" id="L147">    private DateBuilder(Locale lc) {</span>
+<span class="fc" id="L148">        Calendar cal = Calendar.getInstance(lc);</span>
+        
+<span class="fc" id="L150">        this.lc = lc;</span>
+<span class="fc" id="L151">        month = cal.get(Calendar.MONTH) + 1;</span>
+<span class="fc" id="L152">        day = cal.get(Calendar.DAY_OF_MONTH);</span>
+<span class="fc" id="L153">        year = cal.get(Calendar.YEAR);</span>
+<span class="fc" id="L154">        hour = cal.get(Calendar.HOUR_OF_DAY);</span>
+<span class="fc" id="L155">        minute = cal.get(Calendar.MINUTE);</span>
+<span class="fc" id="L156">        second = cal.get(Calendar.SECOND);</span>
+<span class="fc" id="L157">    }</span>
+
+    /**
+     * Create a DateBuilder, with initial settings for the current date and time in the given timezone and locale.
+     */
+<span class="fc" id="L162">    private DateBuilder(TimeZone tz, Locale lc) {</span>
+<span class="fc" id="L163">        Calendar cal = Calendar.getInstance(tz, lc);</span>
+        
+<span class="fc" id="L165">        this.tz = tz;</span>
+<span class="fc" id="L166">        this.lc = lc;</span>
+<span class="fc" id="L167">        month = cal.get(Calendar.MONTH) + 1;</span>
+<span class="fc" id="L168">        day = cal.get(Calendar.DAY_OF_MONTH);</span>
+<span class="fc" id="L169">        year = cal.get(Calendar.YEAR);</span>
+<span class="fc" id="L170">        hour = cal.get(Calendar.HOUR_OF_DAY);</span>
+<span class="fc" id="L171">        minute = cal.get(Calendar.MINUTE);</span>
+<span class="fc" id="L172">        second = cal.get(Calendar.SECOND);</span>
+<span class="fc" id="L173">    }</span>
+
+    /**
+     * Create a DateBuilder, with initial settings for the current date and time in the system default timezone.
+     */
+    public static DateBuilder newDate() {
+<span class="fc" id="L179">        return new DateBuilder();</span>
+    }
+
+    /**
+     * Create a DateBuilder, with initial settings for the current date and time in the given timezone.
+     */
+    public static DateBuilder newDateInTimezone(TimeZone tz) {
+<span class="fc" id="L186">        return new DateBuilder(tz);</span>
+    }
+
+    /**
+     * Create a DateBuilder, with initial settings for the current date and time in the given locale.
+     */
+    public static DateBuilder newDateInLocale(Locale lc) {
+<span class="fc" id="L193">        return new DateBuilder(lc);</span>
+    }
+
+    /**
+     * Create a DateBuilder, with initial settings for the current date and time in the given timezone and locale.
+     */
+    public static DateBuilder newDateInTimeZoneAndLocale(TimeZone tz, Locale lc) {
+<span class="fc" id="L200">        return new DateBuilder(tz, lc);</span>
+    }
+
+    /**
+     * Build the Date defined by this builder instance. 
+     */
+    public Date build() {
+        Calendar cal;
+
+<span class="pc bpc" id="L209" title="1 of 4 branches missed.">        if(tz != null &amp;&amp; lc != null)</span>
+<span class="fc" id="L210">            cal = Calendar.getInstance(tz, lc);</span>
+<span class="pc bpc" id="L211" title="1 of 2 branches missed.">        else if(tz != null)</span>
+<span class="nc" id="L212">            cal = Calendar.getInstance(tz);</span>
+<span class="pc bpc" id="L213" title="1 of 2 branches missed.">        else if(lc != null)</span>
+<span class="nc" id="L214">            cal = Calendar.getInstance(lc);</span>
+        else 
+<span class="fc" id="L216">          cal = Calendar.getInstance();</span>
+        
+<span class="fc" id="L218">        cal.set(Calendar.YEAR, year);</span>
+<span class="fc" id="L219">        cal.set(Calendar.MONTH, month - 1);</span>
+<span class="fc" id="L220">        cal.set(Calendar.DAY_OF_MONTH, day);</span>
+<span class="fc" id="L221">        cal.set(Calendar.HOUR_OF_DAY, hour);</span>
+<span class="fc" id="L222">        cal.set(Calendar.MINUTE, minute);</span>
+<span class="fc" id="L223">        cal.set(Calendar.SECOND, second);</span>
+<span class="fc" id="L224">        cal.set(Calendar.MILLISECOND, 0);</span>
+        
+<span class="fc" id="L226">        return cal.getTime();</span>
+    }
+    
+    /**
+     * Set the hour (0-23) for the Date that will be built by this builder.
+     */
+    public DateBuilder atHourOfDay(int atHour) {
+<span class="fc" id="L233">        validateHour(atHour);</span>
+        
+<span class="fc" id="L235">        this.hour = atHour;</span>
+<span class="fc" id="L236">        return this;</span>
+    }
+
+    /**
+     * Set the minute (0-59) for the Date that will be built by this builder.
+     */
+    public DateBuilder atMinute(int atMinute) {
+<span class="fc" id="L243">        validateMinute(atMinute);</span>
+        
+<span class="fc" id="L245">        this.minute = atMinute;</span>
+<span class="fc" id="L246">        return this;</span>
+    }
+
+    /**
+     * Set the second (0-59) for the Date that will be built by this builder, and truncate the milliseconds to 000.
+     */
+    public DateBuilder atSecond(int atSecond) {
+<span class="fc" id="L253">        validateSecond(atSecond);</span>
+        
+<span class="fc" id="L255">        this.second = atSecond;</span>
+<span class="fc" id="L256">        return this;</span>
+    }
+
+    public DateBuilder atHourMinuteAndSecond(int atHour, int atMinute, int atSecond) {
+<span class="fc" id="L260">        validateHour(atHour);</span>
+<span class="fc" id="L261">        validateMinute(atMinute);</span>
+<span class="fc" id="L262">        validateSecond(atSecond);</span>
+        
+<span class="fc" id="L264">        this.hour = atHour;</span>
+<span class="fc" id="L265">        this.second = atSecond;</span>
+<span class="fc" id="L266">        this.minute = atMinute;</span>
+<span class="fc" id="L267">        return this;</span>
+    }
+    
+    /**
+     * Set the day of month (1-31) for the Date that will be built by this builder.
+     */
+    public DateBuilder onDay(int onDay) {
+<span class="fc" id="L274">        validateDayOfMonth(onDay);</span>
+        
+<span class="fc" id="L276">        this.day = onDay;</span>
+<span class="fc" id="L277">        return this;</span>
+    }
+
+    /**
+     * Set the month (1-12) for the Date that will be built by this builder.
+     */
+    public DateBuilder inMonth(int inMonth) {
+<span class="fc" id="L284">        validateMonth(inMonth);</span>
+        
+<span class="fc" id="L286">        this.month = inMonth;</span>
+<span class="fc" id="L287">        return this;</span>
+    }
+    
+    public DateBuilder inMonthOnDay(int inMonth, int onDay) {
+<span class="fc" id="L291">        validateMonth(inMonth);</span>
+<span class="fc" id="L292">        validateDayOfMonth(onDay);</span>
+        
+<span class="fc" id="L294">        this.month = inMonth;</span>
+<span class="fc" id="L295">        this.day = onDay;</span>
+<span class="fc" id="L296">        return this;</span>
+    }
+
+    /**
+     * Set the year for the Date that will be built by this builder.
+     */
+    public DateBuilder inYear(int inYear) {
+<span class="fc" id="L303">        validateYear(inYear);</span>
+        
+<span class="fc" id="L305">        this.year = inYear;</span>
+<span class="fc" id="L306">        return this;</span>
+    }
+
+    /**
+     * Set the TimeZone for the Date that will be built by this builder (if &quot;null&quot;, system default will be used)
+     */
+    public DateBuilder inTimeZone(TimeZone timezone) {
+<span class="fc" id="L313">        this.tz = timezone;</span>
+<span class="fc" id="L314">        return this;</span>
+    }
+
+    /**
+     * Set the Locale for the Date that will be built by this builder (if &quot;null&quot;, system default will be used)
+     */
+    public DateBuilder inLocale(Locale locale) {
+<span class="fc" id="L321">        this.lc = locale;</span>
+<span class="fc" id="L322">        return this;</span>
+    }
+
+    public static Date futureDate(int interval, IntervalUnit unit) {
+        
+<span class="fc" id="L327">        Calendar c = Calendar.getInstance();</span>
+<span class="fc" id="L328">        c.setTime(new Date());</span>
+<span class="fc" id="L329">        c.setLenient(true);</span>
+        
+<span class="fc" id="L331">        c.add(translate(unit), interval);</span>
+
+<span class="fc" id="L333">        return c.getTime();</span>
+    }
+    
+
+    private static int translate(IntervalUnit unit) {
+<span class="pc bpc" id="L338" title="7 of 9 branches missed.">        switch(unit) {</span>
+<span class="nc" id="L339">            case DAY : return Calendar.DAY_OF_YEAR;</span>
+<span class="nc" id="L340">            case HOUR : return Calendar.HOUR_OF_DAY;</span>
+<span class="fc" id="L341">            case MINUTE : return Calendar.MINUTE;</span>
+<span class="nc" id="L342">            case MONTH : return Calendar.MONTH;</span>
+<span class="nc" id="L343">            case SECOND : return Calendar.SECOND;</span>
+<span class="nc" id="L344">            case MILLISECOND : return Calendar.MILLISECOND;</span>
+<span class="fc" id="L345">            case WEEK : return Calendar.WEEK_OF_YEAR;</span>
+<span class="nc" id="L346">            case YEAR : return Calendar.YEAR;</span>
+<span class="nc" id="L347">            default : throw new IllegalArgumentException(&quot;Unknown IntervalUnit&quot;);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get a &lt;code&gt;Date&lt;/code&gt; object that represents the given time, on
+     * tomorrow's date.
+     * &lt;/p&gt;
+     * 
+     * @param second
+     *          The value (0-59) to give the seconds field of the date
+     * @param minute
+     *          The value (0-59) to give the minutes field of the date
+     * @param hour
+     *          The value (0-23) to give the hours field of the date
+     * @return the new date
+     */
+    public static Date tomorrowAt(int hour, int minute, int second) {
+<span class="fc" id="L366">        validateSecond(second);</span>
+<span class="fc" id="L367">        validateMinute(minute);</span>
+<span class="fc" id="L368">        validateHour(hour);</span>
+
+<span class="fc" id="L370">        Date date = new Date();</span>
+
+<span class="fc" id="L372">        Calendar c = Calendar.getInstance();</span>
+<span class="fc" id="L373">        c.setTime(date);</span>
+<span class="fc" id="L374">        c.setLenient(true);</span>
+
+        // advance one day
+<span class="fc" id="L377">        c.add(Calendar.DAY_OF_YEAR, 1);</span>
+        
+<span class="fc" id="L379">        c.set(Calendar.HOUR_OF_DAY, hour);</span>
+<span class="fc" id="L380">        c.set(Calendar.MINUTE, minute);</span>
+<span class="fc" id="L381">        c.set(Calendar.SECOND, second);</span>
+<span class="fc" id="L382">        c.set(Calendar.MILLISECOND, 0);</span>
+
+<span class="fc" id="L384">        return c.getTime();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get a &lt;code&gt;Date&lt;/code&gt; object that represents the given time, on
+     * today's date (equivalent to {@link #dateOf(int, int, int)}).
+     * &lt;/p&gt;
+     * 
+     * @param second
+     *          The value (0-59) to give the seconds field of the date
+     * @param minute
+     *          The value (0-59) to give the minutes field of the date
+     * @param hour
+     *          The value (0-23) to give the hours field of the date
+     * @return the new date
+     */
+    public static Date todayAt(int hour, int minute, int second) {
+<span class="fc" id="L402">        return dateOf(hour, minute, second);</span>
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Get a &lt;code&gt;Date&lt;/code&gt; object that represents the given time, on
+     * today's date  (equivalent to {@link #todayAt(int, int, int)}).
+     * &lt;/p&gt;
+     * 
+     * @param second
+     *          The value (0-59) to give the seconds field of the date
+     * @param minute
+     *          The value (0-59) to give the minutes field of the date
+     * @param hour
+     *          The value (0-23) to give the hours field of the date
+     * @return the new date
+     */
+    public static Date dateOf(int hour, int minute, int second) {
+<span class="fc" id="L420">        validateSecond(second);</span>
+<span class="fc" id="L421">        validateMinute(minute);</span>
+<span class="fc" id="L422">        validateHour(hour);</span>
+
+<span class="fc" id="L424">        Date date = new Date();</span>
+
+<span class="fc" id="L426">        Calendar c = Calendar.getInstance();</span>
+<span class="fc" id="L427">        c.setTime(date);</span>
+<span class="fc" id="L428">        c.setLenient(true);</span>
+
+<span class="fc" id="L430">        c.set(Calendar.HOUR_OF_DAY, hour);</span>
+<span class="fc" id="L431">        c.set(Calendar.MINUTE, minute);</span>
+<span class="fc" id="L432">        c.set(Calendar.SECOND, second);</span>
+<span class="fc" id="L433">        c.set(Calendar.MILLISECOND, 0);</span>
+
+<span class="fc" id="L435">        return c.getTime();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get a &lt;code&gt;Date&lt;/code&gt; object that represents the given time, on the
+     * given date.
+     * &lt;/p&gt;
+     * 
+     * @param second
+     *          The value (0-59) to give the seconds field of the date
+     * @param minute
+     *          The value (0-59) to give the minutes field of the date
+     * @param hour
+     *          The value (0-23) to give the hours field of the date
+     * @param dayOfMonth
+     *          The value (1-31) to give the day of month field of the date
+     * @param month
+     *          The value (1-12) to give the month field of the date
+     * @return the new date
+     */
+    public static Date dateOf(int hour, int minute, int second,
+            int dayOfMonth, int month) {
+<span class="nc" id="L458">        validateSecond(second);</span>
+<span class="nc" id="L459">        validateMinute(minute);</span>
+<span class="nc" id="L460">        validateHour(hour);</span>
+<span class="nc" id="L461">        validateDayOfMonth(dayOfMonth);</span>
+<span class="nc" id="L462">        validateMonth(month);</span>
+
+<span class="nc" id="L464">        Date date = new Date();</span>
+
+<span class="nc" id="L466">        Calendar c = Calendar.getInstance();</span>
+<span class="nc" id="L467">        c.setTime(date);</span>
+
+<span class="nc" id="L469">        c.set(Calendar.MONTH, month - 1);</span>
+<span class="nc" id="L470">        c.set(Calendar.DAY_OF_MONTH, dayOfMonth);</span>
+<span class="nc" id="L471">        c.set(Calendar.HOUR_OF_DAY, hour);</span>
+<span class="nc" id="L472">        c.set(Calendar.MINUTE, minute);</span>
+<span class="nc" id="L473">        c.set(Calendar.SECOND, second);</span>
+<span class="nc" id="L474">        c.set(Calendar.MILLISECOND, 0);</span>
+
+<span class="nc" id="L476">        return c.getTime();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get a &lt;code&gt;Date&lt;/code&gt; object that represents the given time, on the
+     * given date.
+     * &lt;/p&gt;
+     * 
+     * @param second
+     *          The value (0-59) to give the seconds field of the date
+     * @param minute
+     *          The value (0-59) to give the minutes field of the date
+     * @param hour
+     *          The value (0-23) to give the hours field of the date
+     * @param dayOfMonth
+     *          The value (1-31) to give the day of month field of the date
+     * @param month
+     *          The value (1-12) to give the month field of the date
+     * @param year
+     *          The value (1970-2099) to give the year field of the date
+     * @return the new date
+     */
+    public static Date dateOf(int hour, int minute, int second,
+            int dayOfMonth, int month, int year) {
+<span class="fc" id="L501">        validateSecond(second);</span>
+<span class="fc" id="L502">        validateMinute(minute);</span>
+<span class="fc" id="L503">        validateHour(hour);</span>
+<span class="fc" id="L504">        validateDayOfMonth(dayOfMonth);</span>
+<span class="fc" id="L505">        validateMonth(month);</span>
+<span class="fc" id="L506">        validateYear(year);</span>
+
+<span class="fc" id="L508">        Date date = new Date();</span>
+
+<span class="fc" id="L510">        Calendar c = Calendar.getInstance();</span>
+<span class="fc" id="L511">        c.setTime(date);</span>
+
+<span class="fc" id="L513">        c.set(Calendar.YEAR, year);</span>
+<span class="fc" id="L514">        c.set(Calendar.MONTH, month - 1);</span>
+<span class="fc" id="L515">        c.set(Calendar.DAY_OF_MONTH, dayOfMonth);</span>
+<span class="fc" id="L516">        c.set(Calendar.HOUR_OF_DAY, hour);</span>
+<span class="fc" id="L517">        c.set(Calendar.MINUTE, minute);</span>
+<span class="fc" id="L518">        c.set(Calendar.SECOND, second);</span>
+<span class="fc" id="L519">        c.set(Calendar.MILLISECOND, 0);</span>
+
+<span class="fc" id="L521">        return c.getTime();</span>
+    }
+
+
+    /**
+     * &lt;p&gt;
+     * Returns a date that is rounded to the next even hour after the current time.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * For example a current time of 08:13:54 would result in a date
+     * with the time of 09:00:00. If the date's time is in the 23rd hour, the
+     * date's 'day' will be promoted, and the time will be set to 00:00:00.
+     * &lt;/p&gt;
+     * 
+     * @return the new rounded date
+     */
+    public static Date evenHourDateAfterNow() {
+<span class="fc" id="L539">        return evenHourDate(null);</span>
+    }
+    /**
+     * &lt;p&gt;
+     * Returns a date that is rounded to the next even hour above the given
+     * date.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * For example an input date with a time of 08:13:54 would result in a date
+     * with the time of 09:00:00. If the date's time is in the 23rd hour, the
+     * date's 'day' will be promoted, and the time will be set to 00:00:00.
+     * &lt;/p&gt;
+     * 
+     * @param date
+     *          the Date to round, if &lt;code&gt;null&lt;/code&gt; the current time will
+     *          be used
+     * @return the new rounded date
+     */
+    public static Date evenHourDate(Date date) {
+<span class="fc bfc" id="L559" title="All 2 branches covered.">        if (date == null) {</span>
+<span class="fc" id="L560">            date = new Date();</span>
+        }
+
+<span class="fc" id="L563">        Calendar c = Calendar.getInstance();</span>
+<span class="fc" id="L564">        c.setTime(date);</span>
+<span class="fc" id="L565">        c.setLenient(true);</span>
+
+<span class="fc" id="L567">        c.set(Calendar.HOUR_OF_DAY, c.get(Calendar.HOUR_OF_DAY) + 1);</span>
+<span class="fc" id="L568">        c.set(Calendar.MINUTE, 0);</span>
+<span class="fc" id="L569">        c.set(Calendar.SECOND, 0);</span>
+<span class="fc" id="L570">        c.set(Calendar.MILLISECOND, 0);</span>
+
+<span class="fc" id="L572">        return c.getTime();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns a date that is rounded to the previous even hour below the given
+     * date.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * For example an input date with a time of 08:13:54 would result in a date
+     * with the time of 08:00:00.
+     * &lt;/p&gt;
+     * 
+     * @param date
+     *          the Date to round, if &lt;code&gt;null&lt;/code&gt; the current time will
+     *          be used
+     * @return the new rounded date
+     */
+    public static Date evenHourDateBefore(Date date) {
+<span class="pc bpc" id="L592" title="1 of 2 branches missed.">        if (date == null) {</span>
+<span class="nc" id="L593">            date = new Date();</span>
+        }
+
+<span class="fc" id="L596">        Calendar c = Calendar.getInstance();</span>
+<span class="fc" id="L597">        c.setTime(date);</span>
+
+<span class="fc" id="L599">        c.set(Calendar.MINUTE, 0);</span>
+<span class="fc" id="L600">        c.set(Calendar.SECOND, 0);</span>
+<span class="fc" id="L601">        c.set(Calendar.MILLISECOND, 0);</span>
+
+<span class="fc" id="L603">        return c.getTime();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns a date that is rounded to the next even minute after the current time.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * For example a current time of 08:13:54 would result in a date
+     * with the time of 08:14:00. If the date's time is in the 59th minute,
+     * then the hour (and possibly the day) will be promoted.
+     * &lt;/p&gt;
+     * 
+     * @return the new rounded date
+     */
+    public static Date evenMinuteDateAfterNow() {
+<span class="fc" id="L620">        return evenMinuteDate(null);</span>
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Returns a date that is rounded to the next even minute above the given
+     * date.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * For example an input date with a time of 08:13:54 would result in a date
+     * with the time of 08:14:00. If the date's time is in the 59th minute,
+     * then the hour (and possibly the day) will be promoted.
+     * &lt;/p&gt;
+     * 
+     * @param date
+     *          the Date to round, if &lt;code&gt;null&lt;/code&gt; the current time will
+     *          be used
+     * @return the new rounded date
+     */
+    public static Date evenMinuteDate(Date date) {
+<span class="fc bfc" id="L641" title="All 2 branches covered.">        if (date == null) {</span>
+<span class="fc" id="L642">            date = new Date();</span>
+        }
+
+<span class="fc" id="L645">        Calendar c = Calendar.getInstance();</span>
+<span class="fc" id="L646">        c.setTime(date);</span>
+<span class="fc" id="L647">        c.setLenient(true);</span>
+
+<span class="fc" id="L649">        c.set(Calendar.MINUTE, c.get(Calendar.MINUTE) + 1);</span>
+<span class="fc" id="L650">        c.set(Calendar.SECOND, 0);</span>
+<span class="fc" id="L651">        c.set(Calendar.MILLISECOND, 0);</span>
+
+<span class="fc" id="L653">        return c.getTime();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns a date that is rounded to the previous even minute below the 
+     * given date.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * For example an input date with a time of 08:13:54 would result in a date
+     * with the time of 08:13:00.
+     * &lt;/p&gt;
+     * 
+     * @param date
+     *          the Date to round, if &lt;code&gt;null&lt;/code&gt; the current time will
+     *          be used
+     * @return the new rounded date
+     */
+    public static Date evenMinuteDateBefore(Date date) {
+<span class="fc bfc" id="L673" title="All 2 branches covered.">        if (date == null) {</span>
+<span class="fc" id="L674">            date = new Date();</span>
+        }
+
+<span class="fc" id="L677">        Calendar c = Calendar.getInstance();</span>
+<span class="fc" id="L678">        c.setTime(date);</span>
+
+<span class="fc" id="L680">        c.set(Calendar.SECOND, 0);</span>
+<span class="fc" id="L681">        c.set(Calendar.MILLISECOND, 0);</span>
+
+<span class="fc" id="L683">        return c.getTime();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns a date that is rounded to the next even second after the current time.
+     * &lt;/p&gt;
+     * 
+     * @return the new rounded date
+     */
+    public static Date evenSecondDateAfterNow() {
+<span class="fc" id="L694">        return evenSecondDate(null);</span>
+    }
+    /**
+     * &lt;p&gt;
+     * Returns a date that is rounded to the next even second above the given
+     * date.
+     * &lt;/p&gt;
+     * 
+     * @param date
+     *          the Date to round, if &lt;code&gt;null&lt;/code&gt; the current time will
+     *          be used
+     * @return the new rounded date
+     */
+    public static Date evenSecondDate(Date date) {
+<span class="fc bfc" id="L708" title="All 2 branches covered.">        if (date == null) {</span>
+<span class="fc" id="L709">            date = new Date();</span>
+        }
+
+<span class="fc" id="L712">        Calendar c = Calendar.getInstance();</span>
+<span class="fc" id="L713">        c.setTime(date);</span>
+<span class="fc" id="L714">        c.setLenient(true);</span>
+
+<span class="fc" id="L716">        c.set(Calendar.SECOND, c.get(Calendar.SECOND) + 1);</span>
+<span class="fc" id="L717">        c.set(Calendar.MILLISECOND, 0);</span>
+
+<span class="fc" id="L719">        return c.getTime();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns a date that is rounded to the previous even second below the
+     * given date.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * For example an input date with a time of 08:13:54.341 would result in a
+     * date with the time of 08:13:54.000.
+     * &lt;/p&gt;
+     * 
+     * @param date
+     *          the Date to round, if &lt;code&gt;null&lt;/code&gt; the current time will
+     *          be used
+     * @return the new rounded date
+     */
+    public static Date evenSecondDateBefore(Date date) {
+<span class="pc bpc" id="L739" title="1 of 2 branches missed.">        if (date == null) {</span>
+<span class="nc" id="L740">            date = new Date();</span>
+        }
+
+<span class="fc" id="L743">        Calendar c = Calendar.getInstance();</span>
+<span class="fc" id="L744">        c.setTime(date);</span>
+
+<span class="fc" id="L746">        c.set(Calendar.MILLISECOND, 0);</span>
+
+<span class="fc" id="L748">        return c.getTime();</span>
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Returns a date that is rounded to the next even multiple of the given
+     * minute.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * For example an input date with a time of 08:13:54, and an input
+     * minute-base of 5 would result in a date with the time of 08:15:00. The
+     * same input date with an input minute-base of 10 would result in a date
+     * with the time of 08:20:00. But a date with the time 08:53:31 and an
+     * input minute-base of 45 would result in 09:00:00, because the even-hour
+     * is the next 'base' for 45-minute intervals.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * More examples: &lt;table&gt;
+     * &lt;tr&gt;
+     * &lt;th&gt;Input Time&lt;/th&gt;
+     * &lt;th&gt;Minute-Base&lt;/th&gt;
+     * &lt;th&gt;Result Time&lt;/th&gt;
+     * &lt;/tr&gt;
+     * &lt;tr&gt;
+     * &lt;td&gt;11:16:41&lt;/td&gt;
+     * &lt;td&gt;20&lt;/td&gt;
+     * &lt;td&gt;11:20:00&lt;/td&gt;
+     * &lt;/tr&gt;
+     * &lt;tr&gt;
+     * &lt;td&gt;11:36:41&lt;/td&gt;
+     * &lt;td&gt;20&lt;/td&gt;
+     * &lt;td&gt;11:40:00&lt;/td&gt;
+     * &lt;/tr&gt;
+     * &lt;tr&gt;
+     * &lt;td&gt;11:46:41&lt;/td&gt;
+     * &lt;td&gt;20&lt;/td&gt;
+     * &lt;td&gt;12:00:00&lt;/td&gt;
+     * &lt;/tr&gt;
+     * &lt;tr&gt;
+     * &lt;td&gt;11:26:41&lt;/td&gt;
+     * &lt;td&gt;30&lt;/td&gt;
+     * &lt;td&gt;11:30:00&lt;/td&gt;
+     * &lt;/tr&gt;
+     * &lt;tr&gt;
+     * &lt;td&gt;11:36:41&lt;/td&gt;
+     * &lt;td&gt;30&lt;/td&gt;
+     * &lt;td&gt;12:00:00&lt;/td&gt;
+     * &lt;/tr&gt;
+     * &lt;td&gt;11:16:41&lt;/td&gt;
+     * &lt;td&gt;17&lt;/td&gt;
+     * &lt;td&gt;11:17:00&lt;/td&gt;
+     * &lt;/tr&gt;
+     * &lt;/tr&gt;
+     * &lt;td&gt;11:17:41&lt;/td&gt;
+     * &lt;td&gt;17&lt;/td&gt;
+     * &lt;td&gt;11:34:00&lt;/td&gt;
+     * &lt;/tr&gt;
+     * &lt;/tr&gt;
+     * &lt;td&gt;11:52:41&lt;/td&gt;
+     * &lt;td&gt;17&lt;/td&gt;
+     * &lt;td&gt;12:00:00&lt;/td&gt;
+     * &lt;/tr&gt;
+     * &lt;/tr&gt;
+     * &lt;td&gt;11:52:41&lt;/td&gt;
+     * &lt;td&gt;5&lt;/td&gt;
+     * &lt;td&gt;11:55:00&lt;/td&gt;
+     * &lt;/tr&gt;
+     * &lt;/tr&gt;
+     * &lt;td&gt;11:57:41&lt;/td&gt;
+     * &lt;td&gt;5&lt;/td&gt;
+     * &lt;td&gt;12:00:00&lt;/td&gt;
+     * &lt;/tr&gt;
+     * &lt;/tr&gt;
+     * &lt;td&gt;11:17:41&lt;/td&gt;
+     * &lt;td&gt;0&lt;/td&gt;
+     * &lt;td&gt;12:00:00&lt;/td&gt;
+     * &lt;/tr&gt;
+     * &lt;/tr&gt;
+     * &lt;td&gt;11:17:41&lt;/td&gt;
+     * &lt;td&gt;1&lt;/td&gt;
+     * &lt;td&gt;11:08:00&lt;/td&gt;
+     * &lt;/tr&gt;
+     * &lt;/table&gt;
+     * &lt;/p&gt;
+     * 
+     * @param date
+     *          the Date to round, if &lt;code&gt;null&lt;/code&gt; the current time will
+     *          be used
+     * @param minuteBase
+     *          the base-minute to set the time on
+     * @return the new rounded date
+     * 
+     * @see #nextGivenSecondDate(Date, int)
+     */
+    public static Date nextGivenMinuteDate(Date date, int minuteBase) {
+<span class="pc bpc" id="L845" title="2 of 4 branches missed.">        if (minuteBase &lt; 0 || minuteBase &gt; 59) {</span>
+<span class="nc" id="L846">            throw new IllegalArgumentException(</span>
+                    &quot;minuteBase must be &gt;=0 and &lt;= 59&quot;);
+        }
+
+<span class="pc bpc" id="L850" title="1 of 2 branches missed.">        if (date == null) {</span>
+<span class="nc" id="L851">            date = new Date();</span>
+        }
+
+<span class="fc" id="L854">        Calendar c = Calendar.getInstance();</span>
+<span class="fc" id="L855">        c.setTime(date);</span>
+<span class="fc" id="L856">        c.setLenient(true);</span>
+
+<span class="pc bpc" id="L858" title="1 of 2 branches missed.">        if (minuteBase == 0) {</span>
+<span class="nc" id="L859">            c.set(Calendar.HOUR_OF_DAY, c.get(Calendar.HOUR_OF_DAY) + 1);</span>
+<span class="nc" id="L860">            c.set(Calendar.MINUTE, 0);</span>
+<span class="nc" id="L861">            c.set(Calendar.SECOND, 0);</span>
+<span class="nc" id="L862">            c.set(Calendar.MILLISECOND, 0);</span>
+
+<span class="nc" id="L864">            return c.getTime();</span>
+        }
+
+<span class="fc" id="L867">        int minute = c.get(Calendar.MINUTE);</span>
+
+<span class="fc" id="L869">        int arItr = minute / minuteBase;</span>
+
+<span class="fc" id="L871">        int nextMinuteOccurance = minuteBase * (arItr + 1);</span>
+
+<span class="fc bfc" id="L873" title="All 2 branches covered.">        if (nextMinuteOccurance &lt; 60) {</span>
+<span class="fc" id="L874">            c.set(Calendar.MINUTE, nextMinuteOccurance);</span>
+<span class="fc" id="L875">            c.set(Calendar.SECOND, 0);</span>
+<span class="fc" id="L876">            c.set(Calendar.MILLISECOND, 0);</span>
+
+<span class="fc" id="L878">            return c.getTime();</span>
+        } else {
+<span class="fc" id="L880">            c.set(Calendar.HOUR_OF_DAY, c.get(Calendar.HOUR_OF_DAY) + 1);</span>
+<span class="fc" id="L881">            c.set(Calendar.MINUTE, 0);</span>
+<span class="fc" id="L882">            c.set(Calendar.SECOND, 0);</span>
+<span class="fc" id="L883">            c.set(Calendar.MILLISECOND, 0);</span>
+
+<span class="fc" id="L885">            return c.getTime();</span>
+        }
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Returns a date that is rounded to the next even multiple of the given
+     * minute.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * The rules for calculating the second are the same as those for
+     * calculating the minute in the method 
+     * &lt;code&gt;getNextGivenMinuteDate(..)&lt;code&gt;.
+     * &lt;/p&gt;
+     *
+     * @param date the Date to round, if &lt;code&gt;null&lt;/code&gt; the current time will
+     * be used
+     * @param secondBase the base-second to set the time on
+     * @return the new rounded date
+     * 
+     * @see #nextGivenMinuteDate(Date, int)
+     */
+    public static Date nextGivenSecondDate(Date date, int secondBase) {
+<span class="nc bnc" id="L909" title="All 4 branches missed.">        if (secondBase &lt; 0 || secondBase &gt; 59) {</span>
+<span class="nc" id="L910">            throw new IllegalArgumentException(</span>
+                    &quot;secondBase must be &gt;=0 and &lt;= 59&quot;);
+        }
+
+<span class="nc bnc" id="L914" title="All 2 branches missed.">        if (date == null) {</span>
+<span class="nc" id="L915">            date = new Date();</span>
+        }
+
+<span class="nc" id="L918">        Calendar c = Calendar.getInstance();</span>
+<span class="nc" id="L919">        c.setTime(date);</span>
+<span class="nc" id="L920">        c.setLenient(true);</span>
+
+<span class="nc bnc" id="L922" title="All 2 branches missed.">        if (secondBase == 0) {</span>
+<span class="nc" id="L923">            c.set(Calendar.MINUTE, c.get(Calendar.MINUTE) + 1);</span>
+<span class="nc" id="L924">            c.set(Calendar.SECOND, 0);</span>
+<span class="nc" id="L925">            c.set(Calendar.MILLISECOND, 0);</span>
+
+<span class="nc" id="L927">            return c.getTime();</span>
+        }
+
+<span class="nc" id="L930">        int second = c.get(Calendar.SECOND);</span>
+
+<span class="nc" id="L932">        int arItr = second / secondBase;</span>
+
+<span class="nc" id="L934">        int nextSecondOccurance = secondBase * (arItr + 1);</span>
+
+<span class="nc bnc" id="L936" title="All 2 branches missed.">        if (nextSecondOccurance &lt; 60) {</span>
+<span class="nc" id="L937">            c.set(Calendar.SECOND, nextSecondOccurance);</span>
+<span class="nc" id="L938">            c.set(Calendar.MILLISECOND, 0);</span>
+
+<span class="nc" id="L940">            return c.getTime();</span>
+        } else {
+<span class="nc" id="L942">            c.set(Calendar.MINUTE, c.get(Calendar.MINUTE) + 1);</span>
+<span class="nc" id="L943">            c.set(Calendar.SECOND, 0);</span>
+<span class="nc" id="L944">            c.set(Calendar.MILLISECOND, 0);</span>
+
+<span class="nc" id="L946">            return c.getTime();</span>
+        }
+    }
+
+    /**
+     * Translate a date &amp; time from a users time zone to the another
+     * (probably server) time zone to assist in creating a simple trigger with 
+     * the right date &amp; time.
+     * 
+     * @param date the date to translate
+     * @param src the original time-zone
+     * @param dest the destination time-zone
+     * @return the translated date
+     */
+    public static Date translateTime(Date date, TimeZone src, TimeZone dest) {
+
+<span class="fc" id="L962">        Date newDate = new Date();</span>
+
+<span class="fc" id="L964">        int offset = (dest.getOffset(date.getTime()) - src.getOffset(date.getTime()));</span>
+
+<span class="fc" id="L966">        newDate.setTime(date.getTime() - offset);</span>
+
+<span class="fc" id="L968">        return newDate;</span>
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+    public static void validateDayOfWeek(int dayOfWeek) {
+<span class="pc bpc" id="L974" title="2 of 4 branches missed.">        if (dayOfWeek &lt; SUNDAY || dayOfWeek &gt; SATURDAY) {</span>
+<span class="nc" id="L975">            throw new IllegalArgumentException(&quot;Invalid day of week.&quot;);</span>
+        }
+<span class="fc" id="L977">    }</span>
+
+    public static void validateHour(int hour) {
+<span class="pc bpc" id="L980" title="2 of 4 branches missed.">        if (hour &lt; 0 || hour &gt; 23) {</span>
+<span class="nc" id="L981">            throw new IllegalArgumentException(</span>
+                    &quot;Invalid hour (must be &gt;= 0 and &lt;= 23).&quot;);
+        }
+<span class="fc" id="L984">    }</span>
+
+    public static void validateMinute(int minute) {
+<span class="pc bpc" id="L987" title="2 of 4 branches missed.">        if (minute &lt; 0 || minute &gt; 59) {</span>
+<span class="nc" id="L988">            throw new IllegalArgumentException(</span>
+                    &quot;Invalid minute (must be &gt;= 0 and &lt;= 59).&quot;);
+        }
+<span class="fc" id="L991">    }</span>
+
+    public static void validateSecond(int second) {
+<span class="pc bpc" id="L994" title="2 of 4 branches missed.">        if (second &lt; 0 || second &gt; 59) {</span>
+<span class="nc" id="L995">            throw new IllegalArgumentException(</span>
+                    &quot;Invalid second (must be &gt;= 0 and &lt;= 59).&quot;);
+        }
+<span class="fc" id="L998">    }</span>
+
+    public static void validateDayOfMonth(int day) {
+<span class="pc bpc" id="L1001" title="2 of 4 branches missed.">        if (day &lt; 1 || day &gt; 31) {</span>
+<span class="nc" id="L1002">            throw new IllegalArgumentException(&quot;Invalid day of month.&quot;);</span>
+        }
+<span class="fc" id="L1004">    }</span>
+
+    public static void validateMonth(int month) {
+<span class="pc bpc" id="L1007" title="2 of 4 branches missed.">        if (month &lt; 1 || month &gt; 12) {</span>
+<span class="nc" id="L1008">            throw new IllegalArgumentException(</span>
+                    &quot;Invalid month (must be &gt;= 1 and &lt;= 12.&quot;);
+        }
+<span class="fc" id="L1011">    }</span>
+
+<span class="fc" id="L1013">    private static final int MAX_YEAR = Calendar.getInstance().get(Calendar.YEAR) + 100;</span>
+    public static void validateYear(int year) {
+<span class="pc bpc" id="L1015" title="2 of 4 branches missed.">        if (year &lt; 0 || year &gt; MAX_YEAR) {</span>
+<span class="nc" id="L1016">            throw new IllegalArgumentException(</span>
+                    &quot;Invalid year (must be &gt;= 0 and &lt;= &quot; + MAX_YEAR);
+        }
+<span class="fc" id="L1019">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

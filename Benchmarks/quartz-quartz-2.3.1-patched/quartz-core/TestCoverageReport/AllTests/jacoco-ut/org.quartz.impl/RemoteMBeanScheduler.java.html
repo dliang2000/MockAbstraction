@@ -1,0 +1,964 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RemoteMBeanScheduler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl</a> &gt; <span class="el_source">RemoteMBeanScheduler.java</span></div><h1>RemoteMBeanScheduler.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+package org.quartz.impl;
+
+import java.text.ParseException;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import javax.management.Attribute;
+import javax.management.AttributeList;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
+import javax.management.openmbean.CompositeData;
+
+import org.quartz.Calendar;
+import org.quartz.JobDataMap;
+import org.quartz.JobDetail;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobKey;
+import org.quartz.ListenerManager;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerContext;
+import org.quartz.SchedulerException;
+import org.quartz.SchedulerMetaData;
+import org.quartz.Trigger;
+import org.quartz.TriggerKey;
+import org.quartz.UnableToInterruptJobException;
+import org.quartz.Trigger.TriggerState;
+import org.quartz.core.jmx.JobDetailSupport;
+import org.quartz.core.jmx.TriggerSupport;
+import org.quartz.impl.matchers.GroupMatcher;
+import org.quartz.impl.matchers.StringMatcher;
+import org.quartz.spi.JobFactory;
+
+/**
+ * &lt;p&gt;
+ * An implementation of the &lt;code&gt;Scheduler&lt;/code&gt; interface that remotely
+ * proxies all method calls to the equivalent call on a given &lt;code&gt;QuartzScheduler&lt;/code&gt;
+ * instance, via JMX.
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * A user must create a subclass to implement the actual connection to the remote 
+ * MBeanServer using their application specific connector.
+ * &lt;/p&gt;
+ * @see org.quartz.Scheduler
+ * @see org.quartz.core.QuartzScheduler
+ */
+public abstract class RemoteMBeanScheduler implements Scheduler {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    private ObjectName schedulerObjectName;
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+<span class="fc" id="L87">    public RemoteMBeanScheduler() { </span>
+<span class="fc" id="L88">    }</span>
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Properties.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+    
+    /**
+     * Get the name under which the Scheduler MBean is registered on the
+     * remote MBean server.
+     */
+    protected ObjectName getSchedulerObjectName() {
+<span class="nc" id="L103">        return schedulerObjectName;</span>
+    }
+
+    /**
+     * Set the name under which the Scheduler MBean is registered on the
+     * remote MBean server.
+     */
+    public void setSchedulerObjectName(String schedulerObjectName)  throws SchedulerException {
+        try {
+<span class="nc" id="L112">            this.schedulerObjectName = new ObjectName(schedulerObjectName);</span>
+<span class="nc" id="L113">        } catch (MalformedObjectNameException e) {</span>
+<span class="nc" id="L114">            throw new SchedulerException(&quot;Failed to parse Scheduler MBean name: &quot; + schedulerObjectName, e);</span>
+<span class="nc" id="L115">        }</span>
+<span class="nc" id="L116">    }</span>
+
+    /**
+     * Set the name under which the Scheduler MBean is registered on the
+     * remote MBean server.
+     */
+    public void setSchedulerObjectName(ObjectName schedulerObjectName)  throws SchedulerException {
+<span class="nc" id="L123">        this.schedulerObjectName = schedulerObjectName;</span>
+<span class="nc" id="L124">    }</span>
+
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Abstract methods.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * Initialize this RemoteMBeanScheduler instance, connecting to the
+     * remote MBean server.
+     */
+    public abstract void initialize() throws SchedulerException;
+
+    /**
+     * Get the given attribute of the remote Scheduler MBean.
+     */
+    protected abstract Object getAttribute(
+            String attribute) throws SchedulerException;
+        
+    /**
+     * Get the given attributes of the remote Scheduler MBean.
+     */
+    protected abstract AttributeList getAttributes(String[] attributes)
+        throws SchedulerException;
+    
+    /**
+     * Invoke the given operation on the remote Scheduler MBean.
+     */
+    protected abstract Object invoke(
+        String operationName,
+        Object[] params,
+        String[] signature) throws SchedulerException;
+        
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Returns the name of the &lt;code&gt;Scheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public String getSchedulerName() throws SchedulerException {
+<span class="fc" id="L176">        return (String)getAttribute(&quot;SchedulerName&quot;);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns the instance Id of the &lt;code&gt;Scheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public String getSchedulerInstanceId() throws SchedulerException {
+<span class="fc" id="L185">        return (String)getAttribute(&quot;SchedulerInstanceId&quot;);</span>
+    }
+
+    public SchedulerMetaData getMetaData() throws SchedulerException {
+<span class="fc" id="L189">        AttributeList attributeList =</span>
+<span class="fc" id="L190">            getAttributes(</span>
+                new String[] {
+                    &quot;SchedulerName&quot;,
+                    &quot;SchedulerInstanceId&quot;,
+                    &quot;StandbyMode&quot;,
+                    &quot;Shutdown&quot;,
+                    &quot;JobStoreClassName&quot;,
+                    &quot;ThreadPoolClassName&quot;,
+                    &quot;ThreadPoolSize&quot;,
+                    &quot;Version&quot;,
+                    &quot;PerformanceMetrics&quot;
+                });
+
+        try {
+<span class="fc" id="L204">            return new SchedulerMetaData(</span>
+<span class="fc" id="L205">                    (String)getAttribute(attributeList, 0).getValue(),</span>
+<span class="fc" id="L206">                    (String)getAttribute(attributeList, 1).getValue(),</span>
+<span class="fc" id="L207">                    getClass(), true, false,</span>
+<span class="fc" id="L208">                    (Boolean)getAttribute(attributeList, 2).getValue(),</span>
+<span class="fc" id="L209">                    (Boolean)getAttribute(attributeList, 3).getValue(),</span>
+                    null,
+<span class="fc" id="L211">                    Integer.parseInt(((Map)getAttribute(attributeList, 8).getValue()).get(&quot;JobsExecuted&quot;).toString()),</span>
+<span class="fc" id="L212">                    Class.forName((String)getAttribute(attributeList, 4).getValue()),</span>
+                    false,
+                    false,
+<span class="fc" id="L215">                    Class.forName((String)getAttribute(attributeList, 5).getValue()),</span>
+<span class="fc" id="L216">                    (Integer)getAttribute(attributeList, 6).getValue(),</span>
+<span class="fc" id="L217">                    (String)getAttribute(attributeList, 7).getValue());</span>
+<span class="nc" id="L218">        } catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L219">            throw new SchedulerException(e);</span>
+        }
+    }
+
+    private Attribute getAttribute(AttributeList attributeList, int index) {
+<span class="fc" id="L224">        return (Attribute)attributeList.get(index);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns the &lt;code&gt;SchedulerContext&lt;/code&gt; of the &lt;code&gt;Scheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public SchedulerContext getContext() throws SchedulerException {
+<span class="fc" id="L233">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    ///
+    /// Schedululer State Management Methods
+    ///
+    ///////////////////////////////////////////////////////////////////////////
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void start() throws SchedulerException {
+<span class="fc" id="L248">        invoke(&quot;start&quot;, new Object[] {}, new String[] {});</span>
+<span class="fc" id="L249">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void startDelayed(int seconds) throws SchedulerException {
+<span class="nc" id="L257">        invoke(&quot;startDelayed&quot;, new Object[] {seconds}, new String[] {int.class.getName()});</span>
+<span class="nc" id="L258">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void standby() throws SchedulerException {
+<span class="fc" id="L266">        invoke(&quot;standby&quot;, new Object[] {}, new String[] {});</span>
+<span class="fc" id="L267">    }</span>
+
+    /**
+     * Whether the scheduler has been started.  
+     * 
+     * &lt;p&gt;
+     * Note: This only reflects whether &lt;code&gt;{@link #start()}&lt;/code&gt; has ever
+     * been called on this Scheduler, so it will return &lt;code&gt;true&lt;/code&gt; even 
+     * if the &lt;code&gt;Scheduler&lt;/code&gt; is currently in standby mode or has been 
+     * since shutdown.
+     * &lt;/p&gt;
+     * 
+     * @see #start()
+     * @see #isShutdown()
+     * @see #isInStandbyMode()
+     */    
+    public boolean isStarted() throws SchedulerException {
+<span class="fc" id="L284">        return (Boolean) getAttribute(&quot;Started&quot;);</span>
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public boolean isInStandbyMode() throws SchedulerException {
+<span class="fc" id="L293">        return (Boolean)getAttribute(&quot;StandbyMode&quot;);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void shutdown() throws SchedulerException {
+        // Have to get the scheduler name before we actually call shutdown.
+<span class="fc" id="L303">        String schedulerName = getSchedulerName();</span>
+        
+<span class="fc" id="L305">        invoke(&quot;shutdown&quot;, new Object[] {}, new String[] {});</span>
+<span class="fc" id="L306">        SchedulerRepository.getInstance().remove(schedulerName);</span>
+<span class="fc" id="L307">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void shutdown(boolean waitForJobsToComplete) throws SchedulerException {
+<span class="fc" id="L315">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public boolean isShutdown() throws SchedulerException {
+<span class="fc" id="L324">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public List&lt;JobExecutionContext&gt; getCurrentlyExecutingJobs() throws SchedulerException {
+<span class="fc" id="L334">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    ///
+    /// Scheduling-related Methods
+    ///
+    ///////////////////////////////////////////////////////////////////////////
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public Date scheduleJob(JobDetail jobDetail, Trigger trigger)
+        throws SchedulerException {
+<span class="fc" id="L352">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public Date scheduleJob(Trigger trigger) throws SchedulerException {
+<span class="fc" id="L363">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public void addJob(JobDetail jobDetail, boolean replace)
+        throws SchedulerException {
+<span class="fc" id="L375">        invoke(</span>
+            &quot;addJob&quot;, 
+<span class="fc" id="L377">            new Object[] { JobDetailSupport.toCompositeData(jobDetail), replace },</span>
+<span class="fc" id="L378">            new String[] { CompositeData.class.getName(), boolean.class.getName() });</span>
+<span class="fc" id="L379">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public void addJob(JobDetail jobDetail, boolean replace, boolean storeNonDurableWhileAwaitingScheduling)
+            throws SchedulerException {
+<span class="nc" id="L390">        invoke(</span>
+                &quot;addJob&quot;,
+<span class="nc" id="L392">                new Object[] { JobDetailSupport.toCompositeData(jobDetail), replace , storeNonDurableWhileAwaitingScheduling},</span>
+<span class="nc" id="L393">                new String[] { CompositeData.class.getName(), boolean.class.getName(), boolean.class.getName() });</span>
+<span class="nc" id="L394">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public boolean deleteJob(JobKey jobKey)
+        throws SchedulerException {
+<span class="fc" id="L405">        return (Boolean)invoke(</span>
+                &quot;deleteJob&quot;,
+<span class="fc" id="L407">                new Object[] { jobKey.getName(), jobKey.getGroup() },</span>
+<span class="fc" id="L408">                new String[] { String.class.getName(), String.class.getName() });</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public boolean unscheduleJob(TriggerKey triggerKey)
+        throws SchedulerException {
+<span class="fc" id="L420">        return (Boolean)invoke(</span>
+                &quot;unscheduleJob&quot;,
+<span class="fc" id="L422">                new Object[] { triggerKey.getName(), triggerKey.getGroup() },</span>
+<span class="fc" id="L423">                new String[] { String.class.getName(), String.class.getName() });</span>
+    }
+
+
+    public boolean deleteJobs(List&lt;JobKey&gt; jobKeys) throws SchedulerException {
+<span class="fc" id="L428">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+
+    public void scheduleJobs(Map&lt;JobDetail, Set&lt;? extends Trigger&gt;&gt; triggersAndJobs, boolean replace) throws SchedulerException {
+<span class="fc" id="L432">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+
+    public void scheduleJob(JobDetail jobDetail, Set&lt;? extends Trigger&gt; triggersForJob, boolean replace) throws SchedulerException {
+<span class="nc" id="L436">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+
+    public boolean unscheduleJobs(List&lt;TriggerKey&gt; triggerKeys) throws SchedulerException {
+<span class="fc" id="L440">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public Date rescheduleJob(TriggerKey triggerKey,
+            Trigger newTrigger) throws SchedulerException {
+<span class="fc" id="L452">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+    
+    
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public void triggerJob(JobKey jobKey) throws SchedulerException {
+<span class="nc" id="L464">        triggerJob(jobKey, null);</span>
+<span class="nc" id="L465">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public void triggerJob(JobKey jobKey, JobDataMap data) throws SchedulerException {
+<span class="fc" id="L475">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public void pauseTrigger(TriggerKey triggerKey) throws SchedulerException {
+<span class="fc" id="L486">        invoke(</span>
+            &quot;pauseTrigger&quot;, 
+<span class="fc" id="L488">            new Object[] { triggerKey.getName(), triggerKey.getGroup() },</span>
+<span class="fc" id="L489">            new String[] { String.class.getName(), String.class.getName() });</span>
+<span class="fc" id="L490">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public void pauseTriggers(GroupMatcher&lt;TriggerKey&gt; matcher) throws SchedulerException {
+<span class="fc" id="L500">        String operation = null;</span>
+<span class="pc bpc" id="L501" title="5 of 6 branches missed.">        switch (matcher.getCompareWithOperator()) {</span>
+            case EQUALS:
+<span class="fc" id="L503">                operation = &quot;pauseTriggerGroup&quot;;</span>
+<span class="fc" id="L504">                break;</span>
+            case CONTAINS:
+<span class="nc" id="L506">                operation = &quot;pauseTriggersContaining&quot;;</span>
+<span class="nc" id="L507">                break;</span>
+            case STARTS_WITH:
+<span class="nc" id="L509">                operation = &quot;pauseTriggersStartingWith&quot;;</span>
+<span class="nc" id="L510">                break;</span>
+            case ENDS_WITH:
+<span class="nc" id="L512">                operation = &quot;pauseTriggersEndingWith&quot;;</span>
+            case ANYTHING:
+<span class="nc" id="L514">                operation = &quot;pauseTriggersAll&quot;;</span>
+        }
+
+<span class="pc bpc" id="L517" title="1 of 2 branches missed.">        if (operation != null) {</span>
+<span class="fc" id="L518">            invoke(</span>
+                    operation,
+<span class="fc" id="L520">                    new Object[] { matcher.getCompareToValue() },</span>
+<span class="fc" id="L521">                    new String[] { String.class.getName() });</span>
+        } else {
+<span class="nc" id="L523">            throw new SchedulerException(&quot;Unsupported GroupMatcher kind for pausing triggers: &quot; + matcher.getCompareWithOperator());</span>
+        }
+<span class="fc" id="L525">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public void pauseJob(JobKey jobKey) throws SchedulerException {
+<span class="fc" id="L535">        invoke(</span>
+            &quot;pauseJob&quot;, 
+<span class="fc" id="L537">            new Object[] { jobKey.getName(), jobKey.getGroup() },</span>
+<span class="fc" id="L538">            new String[] { String.class.getName(), String.class.getName() });</span>
+<span class="fc" id="L539">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public void pauseJobs(GroupMatcher&lt;JobKey&gt; matcher) throws SchedulerException {
+<span class="fc" id="L549">        String operation = null;</span>
+<span class="pc bpc" id="L550" title="5 of 6 branches missed.">        switch (matcher.getCompareWithOperator()) {</span>
+            case EQUALS:
+<span class="fc" id="L552">                operation = &quot;pauseJobGroup&quot;;</span>
+<span class="fc" id="L553">                break;</span>
+            case STARTS_WITH:
+<span class="nc" id="L555">                operation = &quot;pauseJobsStartingWith&quot;;</span>
+<span class="nc" id="L556">                break;</span>
+            case ENDS_WITH:
+<span class="nc" id="L558">                operation = &quot;pauseJobsEndingWith&quot;;</span>
+<span class="nc" id="L559">                break;</span>
+            case CONTAINS:
+<span class="nc" id="L561">                operation = &quot;pauseJobsContaining&quot;;</span>
+            case ANYTHING:
+<span class="nc" id="L563">                operation = &quot;pauseJobsAll&quot;;</span>
+        }
+
+<span class="fc" id="L566">        invoke(</span>
+                operation,
+<span class="fc" id="L568">                new Object[] { matcher.getCompareToValue() },</span>
+<span class="fc" id="L569">                new String[] { String.class.getName() });</span>
+<span class="fc" id="L570">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public void resumeTrigger(TriggerKey triggerKey)
+        throws SchedulerException {
+<span class="fc" id="L581">        invoke(</span>
+            &quot;resumeTrigger&quot;, 
+<span class="fc" id="L583">            new Object[] { triggerKey.getName(), triggerKey.getGroup() },</span>
+<span class="fc" id="L584">            new String[] { String.class.getName(), String.class.getName() });</span>
+<span class="fc" id="L585">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public void resumeTriggers(GroupMatcher&lt;TriggerKey&gt; matcher) throws SchedulerException {
+<span class="fc" id="L595">        String operation = null;</span>
+<span class="pc bpc" id="L596" title="5 of 6 branches missed.">        switch (matcher.getCompareWithOperator()) {</span>
+            case EQUALS:
+<span class="fc" id="L598">                operation = &quot;resumeTriggerGroup&quot;;</span>
+<span class="fc" id="L599">                break;</span>
+            case CONTAINS:
+<span class="nc" id="L601">                operation = &quot;resumeTriggersContaining&quot;;</span>
+<span class="nc" id="L602">                break;</span>
+            case STARTS_WITH:
+<span class="nc" id="L604">                operation = &quot;resumeTriggersStartingWith&quot;;</span>
+<span class="nc" id="L605">                break;</span>
+            case ENDS_WITH:
+<span class="nc" id="L607">                operation = &quot;resumeTriggersEndingWith&quot;;</span>
+            case ANYTHING:
+<span class="nc" id="L609">                operation = &quot;resumeTriggersAll&quot;;</span>
+        }
+
+<span class="pc bpc" id="L612" title="1 of 2 branches missed.">        if (operation != null) {</span>
+<span class="fc" id="L613">            invoke(</span>
+                    operation,
+<span class="fc" id="L615">                    new Object[] { matcher.getCompareToValue() },</span>
+<span class="fc" id="L616">                    new String[] { String.class.getName() });</span>
+        } else {
+<span class="nc" id="L618">            throw new SchedulerException(&quot;Unsupported GroupMatcher kind for resuming triggers: &quot; + matcher.getCompareWithOperator());</span>
+        }
+<span class="fc" id="L620">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public void resumeJob(JobKey jobKey)
+        throws SchedulerException {
+<span class="fc" id="L631">        invoke(</span>
+            &quot;resumeJob&quot;, 
+<span class="fc" id="L633">            new Object[] { jobKey.getName(), jobKey.getGroup() },</span>
+<span class="fc" id="L634">            new String[] { String.class.getName(), String.class.getName() });</span>
+<span class="fc" id="L635">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public void resumeJobs(GroupMatcher&lt;JobKey&gt; matcher) throws SchedulerException {
+<span class="fc" id="L645">        String operation = null;</span>
+<span class="pc bpc" id="L646" title="5 of 6 branches missed.">        switch (matcher.getCompareWithOperator()) {</span>
+            case EQUALS:
+<span class="fc" id="L648">                operation = &quot;resumeJobGroup&quot;;</span>
+<span class="fc" id="L649">                break;</span>
+            case STARTS_WITH:
+<span class="nc" id="L651">                operation = &quot;resumeJobsStartingWith&quot;;</span>
+<span class="nc" id="L652">                break;</span>
+            case ENDS_WITH:
+<span class="nc" id="L654">                operation = &quot;resumeJobsEndingWith&quot;;</span>
+<span class="nc" id="L655">                break;</span>
+            case CONTAINS:
+<span class="nc" id="L657">                operation = &quot;resumeJobsContaining&quot;;</span>
+            case ANYTHING:
+<span class="nc" id="L659">                operation = &quot;resumeJobsAll&quot;;</span>
+        }
+
+<span class="fc" id="L662">        invoke(</span>
+                operation,
+<span class="fc" id="L664">                new Object[] { matcher.getCompareToValue() },</span>
+<span class="fc" id="L665">                new String[] { String.class.getName() });</span>
+<span class="fc" id="L666">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public void pauseAll() throws SchedulerException {
+<span class="fc" id="L676">        invoke(</span>
+            &quot;pauseAllTriggers&quot;,
+            new Object[] { }, 
+            new String[] { });
+<span class="fc" id="L680">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public void resumeAll() throws SchedulerException {
+<span class="fc" id="L690">        invoke(</span>
+            &quot;resumeAllTriggers&quot;,
+            new Object[] { }, 
+            new String[] { });
+<span class="fc" id="L694">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public List&lt;String&gt; getJobGroupNames() throws SchedulerException {
+<span class="fc" id="L705">        return (List&lt;String&gt;)getAttribute(&quot;JobGroupNames&quot;);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public Set&lt;JobKey&gt; getJobKeys(GroupMatcher&lt;JobKey&gt; matcher) throws SchedulerException {
+<span class="pc bpc" id="L717" title="1 of 2 branches missed.">        if (matcher.getCompareWithOperator().equals(StringMatcher.StringOperatorName.EQUALS)) {</span>
+<span class="fc" id="L718">            List&lt;JobKey&gt; keys = (List&lt;JobKey&gt;)invoke(</span>
+                    &quot;getJobNames&quot;,
+<span class="fc" id="L720">                    new Object[] { matcher.getCompareToValue() },</span>
+<span class="fc" id="L721">                    new String[] { String.class.getName() });</span>
+
+<span class="fc" id="L723">            return new HashSet&lt;JobKey&gt;(keys);</span>
+        } else {
+<span class="nc" id="L725">            throw new SchedulerException(&quot;Only equals matcher are supported for looking up JobKeys&quot;);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public List&lt;Trigger&gt; getTriggersOfJob(JobKey jobKey) throws SchedulerException {
+<span class="fc" id="L738">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public List&lt;String&gt; getTriggerGroupNames() throws SchedulerException {
+<span class="fc" id="L750">        return (List&lt;String&gt;)getAttribute(&quot;TriggerGroupNames&quot;);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public Set&lt;TriggerKey&gt; getTriggerKeys(GroupMatcher&lt;TriggerKey&gt; matcher) throws SchedulerException {
+<span class="fc" id="L762">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public JobDetail getJobDetail(JobKey jobKey) throws SchedulerException {
+        try {
+<span class="fc" id="L774">            return JobDetailSupport.newJobDetail((CompositeData)invoke(</span>
+                    &quot;getJobDetail&quot;,
+<span class="fc" id="L776">                    new Object[] { jobKey.getName(), jobKey.getGroup() },</span>
+<span class="fc" id="L777">                    new String[] { String.class.getName(), String.class.getName() }));</span>
+<span class="nc" id="L778">        } catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L779">            throw new SchedulerException(&quot;Unable to resolve job class&quot;, e);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public Trigger getTrigger(TriggerKey triggerKey) throws SchedulerException {
+<span class="fc" id="L789">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public boolean checkExists(JobKey jobKey) throws SchedulerException {
+<span class="fc" id="L798">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public boolean checkExists(TriggerKey triggerKey) throws SchedulerException {
+<span class="pc" id="L807">        return (Boolean)invoke(</span>
+                &quot;checkExists&quot;, 
+                new Object[] { triggerKey }, 
+<span class="fc" id="L810">                new String[] { TriggerKey.class.getName() });</span>
+    }
+    
+    public void clear() throws SchedulerException {
+<span class="fc" id="L814">        invoke(</span>
+                &quot;clear&quot;, 
+                new Object[] {  }, 
+                new String[] {  });
+<span class="fc" id="L818">    }</span>
+
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public TriggerState getTriggerState(TriggerKey triggerKey)
+        throws SchedulerException {
+<span class="fc" id="L830">        return TriggerState.valueOf((String)invoke(</span>
+                &quot;getTriggerState&quot;,
+<span class="fc" id="L832">                new Object[] { triggerKey.getName(), triggerKey.getGroup() },</span>
+<span class="fc" id="L833">                new String[] { String.class.getName(), String.class.getName() }));</span>
+    }
+
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public void resetTriggerFromErrorState(TriggerKey triggerKey)
+            throws SchedulerException {
+<span class="nc" id="L846">        invoke(</span>
+            &quot;resetTriggerFromErrorState&quot;,
+<span class="nc" id="L848">            new Object[] { triggerKey.getName(), triggerKey.getGroup() },</span>
+<span class="nc" id="L849">            new String[] { String.class.getName(), String.class.getName() });</span>
+<span class="nc" id="L850">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public void addCalendar(String calName, Calendar calendar, boolean replace, boolean updateTriggers)
+        throws SchedulerException {
+<span class="pc" id="L861">        invoke(</span>
+            &quot;addCalendar&quot;, 
+<span class="fc" id="L863">            new Object[] { calName, calendar, replace, updateTriggers },</span>
+<span class="fc" id="L864">            new String[] { String.class.getName(), </span>
+<span class="fc" id="L865">                    Calendar.class.getName(), boolean.class.getName(), boolean.class.getName() });</span>
+<span class="nc" id="L866">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public boolean deleteCalendar(String calName) throws SchedulerException {
+<span class="fc" id="L876">        invoke(&quot;deleteCalendar&quot;,</span>
+                new Object[] { calName },
+<span class="fc" id="L878">                new String[] { String.class.getName() });</span>
+<span class="fc" id="L879">        return true;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls th0e equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    public Calendar getCalendar(String calName) throws SchedulerException {
+<span class="fc" id="L890">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;,
+     * passing the &lt;code&gt;SchedulingContext&lt;/code&gt; associated with this
+     * instance.
+     * &lt;/p&gt;
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public List&lt;String&gt; getCalendarNames() throws SchedulerException {
+<span class="fc" id="L902">        return (List&lt;String&gt;)getAttribute(&quot;CalendarNames&quot;);</span>
+    }
+
+    /**
+     * @see org.quartz.Scheduler#getPausedTriggerGroups()
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public Set&lt;String&gt; getPausedTriggerGroups() throws SchedulerException {
+<span class="fc" id="L910">        return (Set&lt;String&gt;)getAttribute(&quot;PausedTriggerGroups&quot;);</span>
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    ///
+    /// Other Methods
+    ///
+    ///////////////////////////////////////////////////////////////////////////
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public ListenerManager getListenerManager() throws SchedulerException {
+<span class="fc" id="L925">        throw new SchedulerException(</span>
+                &quot;Operation not supported for remote schedulers.&quot;);
+    }
+
+    /**
+     * @see org.quartz.Scheduler#interrupt(JobKey)
+     */
+    public boolean interrupt(JobKey jobKey) throws UnableToInterruptJobException  {
+        try {
+<span class="fc" id="L934">            return (Boolean)invoke(</span>
+                    &quot;interruptJob&quot;,
+<span class="fc" id="L936">                    new Object[] { jobKey.getName(), jobKey.getGroup() },</span>
+<span class="fc" id="L937">                    new String[] { String.class.getName(), String.class.getName() });</span>
+<span class="nc" id="L938">        } catch (SchedulerException se) {</span>
+<span class="nc" id="L939">            throw new UnableToInterruptJobException(se);</span>
+        }
+    }
+
+
+
+    public boolean interrupt(String fireInstanceId) throws UnableToInterruptJobException {
+        try {
+<span class="nc" id="L947">            return (Boolean)invoke(</span>
+                    &quot;interruptJob&quot;,
+                    new Object[] { fireInstanceId },
+<span class="nc" id="L950">                    new String[] { String.class.getName() });</span>
+<span class="nc" id="L951">        } catch (SchedulerException se) {</span>
+<span class="nc" id="L952">            throw new UnableToInterruptJobException(se);</span>
+        }
+    }
+    
+    /**
+     * @see org.quartz.Scheduler#setJobFactory(org.quartz.spi.JobFactory)
+     */
+    public void setJobFactory(JobFactory factory) throws SchedulerException {
+<span class="fc" id="L960">        throw new SchedulerException(&quot;Operation not supported for remote schedulers.&quot;);</span>
+    }
+    
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

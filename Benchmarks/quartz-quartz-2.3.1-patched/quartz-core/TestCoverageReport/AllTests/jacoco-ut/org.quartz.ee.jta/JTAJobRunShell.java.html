@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JTAJobRunShell.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.ee.jta</a> &gt; <span class="el_source">JTAJobRunShell.java</span></div><h1>JTAJobRunShell.java</h1><pre class="source lang-java linenums">
+/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.ee.jta;
+
+import javax.transaction.Status;
+import javax.transaction.SystemException;
+import javax.transaction.UserTransaction;
+
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.quartz.core.JobRunShell;
+import org.quartz.spi.TriggerFiredBundle;
+
+/**
+ * &lt;p&gt;
+ * An extension of &lt;code&gt;{@link org.quartz.core.JobRunShell}&lt;/code&gt; that
+ * begins an XA transaction before executing the Job, and commits (or
+ * rolls-back) the transaction after execution completes.
+ * &lt;/p&gt;
+ * 
+ * @see org.quartz.core.JobRunShell
+ * 
+ * @author James House
+ */
+public class JTAJobRunShell extends JobRunShell {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+    private final Integer transactionTimeout;
+
+    private UserTransaction ut;
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Create a JTAJobRunShell instance with the given settings.
+     * &lt;/p&gt;
+     */
+    public JTAJobRunShell(Scheduler scheduler, TriggerFiredBundle bndle) {
+<span class="nc" id="L68">        super(scheduler, bndle);</span>
+<span class="nc" id="L69">        this.transactionTimeout = null;</span>
+<span class="nc" id="L70">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a JTAJobRunShell instance with the given settings.
+     * &lt;/p&gt;
+     */
+    public JTAJobRunShell(Scheduler scheduler, TriggerFiredBundle bndle, int timeout) {
+<span class="nc" id="L78">        super(scheduler, bndle);</span>
+<span class="nc" id="L79">        this.transactionTimeout = timeout;</span>
+<span class="nc" id="L80">    }</span>
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    @Override
+    protected void begin() throws SchedulerException {
+        // Don't get a new UserTransaction w/o making sure we cleaned up the old 
+        // one.  This is necessary because there are paths through JobRunShell.run()
+        // where begin() can be called multiple times w/o complete being called in
+        // between.
+<span class="nc" id="L96">        cleanupUserTransaction();</span>
+        
+<span class="nc" id="L98">        boolean beganSuccessfully = false;</span>
+        try {
+<span class="nc" id="L100">            getLog().debug(&quot;Looking up UserTransaction.&quot;);</span>
+<span class="nc" id="L101">            ut = UserTransactionHelper.lookupUserTransaction();</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">            if (transactionTimeout != null) {</span>
+<span class="nc" id="L103">                ut.setTransactionTimeout(transactionTimeout);</span>
+            }
+
+<span class="nc" id="L106">            getLog().debug(&quot;Beginning UserTransaction.&quot;);</span>
+<span class="nc" id="L107">            ut.begin();</span>
+            
+<span class="nc" id="L109">            beganSuccessfully = true;</span>
+<span class="nc" id="L110">        } catch (SchedulerException se) {</span>
+<span class="nc" id="L111">            throw se;</span>
+<span class="nc" id="L112">        } catch (Exception nse) {</span>
+
+<span class="nc" id="L114">            throw new SchedulerException(</span>
+                    &quot;JTAJobRunShell could not start UserTransaction.&quot;, nse);
+        } finally {
+<span class="nc bnc" id="L117" title="All 2 branches missed.">            if (beganSuccessfully == false) {</span>
+<span class="nc" id="L118">                cleanupUserTransaction();</span>
+            }
+        }
+<span class="nc" id="L121">    }</span>
+
+    @Override
+    protected void complete(boolean successfulExecution)
+        throws SchedulerException {
+<span class="nc bnc" id="L126" title="All 2 branches missed.">        if (ut == null) {</span>
+<span class="nc" id="L127">            return;</span>
+        }
+
+        try {
+            try {
+<span class="nc bnc" id="L132" title="All 2 branches missed.">                if (ut.getStatus() == Status.STATUS_MARKED_ROLLBACK) {</span>
+<span class="nc" id="L133">                    getLog().debug(&quot;UserTransaction marked for rollback only.&quot;);</span>
+<span class="nc" id="L134">                    successfulExecution = false;</span>
+                }
+<span class="nc" id="L136">            } catch (SystemException e) {</span>
+<span class="nc" id="L137">                throw new SchedulerException(</span>
+                        &quot;JTAJobRunShell could not read UserTransaction status.&quot;, e);
+<span class="nc" id="L139">            }</span>
+    
+<span class="nc bnc" id="L141" title="All 2 branches missed.">            if (successfulExecution) {</span>
+                try {
+<span class="nc" id="L143">                    getLog().debug(&quot;Committing UserTransaction.&quot;);</span>
+<span class="nc" id="L144">                    ut.commit();</span>
+<span class="nc" id="L145">                } catch (Exception nse) {</span>
+<span class="nc" id="L146">                    throw new SchedulerException(</span>
+                            &quot;JTAJobRunShell could not commit UserTransaction.&quot;, nse);
+<span class="nc" id="L148">                }</span>
+            } else {
+                try {
+<span class="nc" id="L151">                    getLog().debug(&quot;Rolling-back UserTransaction.&quot;);</span>
+<span class="nc" id="L152">                    ut.rollback();</span>
+<span class="nc" id="L153">                } catch (Exception nse) {</span>
+<span class="nc" id="L154">                    throw new SchedulerException(</span>
+                            &quot;JTAJobRunShell could not rollback UserTransaction.&quot;,
+                            nse);
+<span class="nc" id="L157">                }</span>
+            }
+        } finally {
+<span class="nc" id="L160">            cleanupUserTransaction();</span>
+        }
+<span class="nc" id="L162">    }</span>
+
+    /**
+     * Override passivate() to ensure we always cleanup the UserTransaction. 
+     */
+    @Override
+    public void passivate() {
+<span class="nc" id="L169">        cleanupUserTransaction();</span>
+<span class="nc" id="L170">        super.passivate();</span>
+<span class="nc" id="L171">    }</span>
+    
+    private void cleanupUserTransaction() {
+<span class="nc bnc" id="L174" title="All 2 branches missed.">        if (ut != null) {</span>
+<span class="nc" id="L175">            UserTransactionHelper.returnUserTransaction(ut);</span>
+<span class="nc" id="L176">            ut = null;</span>
+        }
+<span class="nc" id="L178">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SimpleTriggerPersistenceDelegate.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.jdbcjobstore</a> &gt; <span class="el_source">SimpleTriggerPersistenceDelegate.java</span></div><h1>SimpleTriggerPersistenceDelegate.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.quartz.impl.jdbcjobstore;
+
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.quartz.JobDetail;
+import org.quartz.SimpleScheduleBuilder;
+import org.quartz.SimpleTrigger;
+import org.quartz.TriggerKey;
+import org.quartz.impl.triggers.SimpleTriggerImpl;
+import org.quartz.spi.OperableTrigger;
+
+<span class="fc" id="L32">public class SimpleTriggerPersistenceDelegate implements TriggerPersistenceDelegate, StdJDBCConstants {</span>
+
+    protected String tablePrefix;
+    protected String schedNameLiteral;
+
+    public void initialize(String theTablePrefix, String schedName) {
+<span class="fc" id="L38">        this.tablePrefix = theTablePrefix;</span>
+<span class="fc" id="L39">        this.schedNameLiteral = &quot;'&quot; + schedName + &quot;'&quot;;</span>
+<span class="fc" id="L40">    }</span>
+
+    public String getHandledTriggerTypeDiscriminator() {
+<span class="fc" id="L43">        return TTYPE_SIMPLE;</span>
+    }
+
+    public boolean canHandleTriggerType(OperableTrigger trigger) {
+<span class="pc bpc" id="L47" title="1 of 4 branches missed.">        return ((trigger instanceof SimpleTriggerImpl) &amp;&amp; !((SimpleTriggerImpl)trigger).hasAdditionalProperties());</span>
+    }
+
+    public int deleteExtendedTriggerProperties(Connection conn, TriggerKey triggerKey) throws SQLException {
+<span class="fc" id="L51">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="fc" id="L54">            ps = conn.prepareStatement(Util.rtp(DELETE_SIMPLE_TRIGGER, tablePrefix, schedNameLiteral));</span>
+<span class="fc" id="L55">            ps.setString(1, triggerKey.getName());</span>
+<span class="fc" id="L56">            ps.setString(2, triggerKey.getGroup());</span>
+
+<span class="fc" id="L58">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L60">            Util.closeStatement(ps);</span>
+        }
+    }
+
+    public int insertExtendedTriggerProperties(Connection conn, OperableTrigger trigger, String state, JobDetail jobDetail) throws SQLException, IOException {
+
+<span class="fc" id="L66">        SimpleTrigger simpleTrigger = (SimpleTrigger)trigger;</span>
+        
+<span class="fc" id="L68">        PreparedStatement ps = null;</span>
+        
+        try {
+<span class="fc" id="L71">            ps = conn.prepareStatement(Util.rtp(INSERT_SIMPLE_TRIGGER, tablePrefix, schedNameLiteral));</span>
+<span class="fc" id="L72">            ps.setString(1, trigger.getKey().getName());</span>
+<span class="fc" id="L73">            ps.setString(2, trigger.getKey().getGroup());</span>
+<span class="fc" id="L74">            ps.setInt(3, simpleTrigger.getRepeatCount());</span>
+<span class="fc" id="L75">            ps.setBigDecimal(4, new BigDecimal(String.valueOf(simpleTrigger.getRepeatInterval())));</span>
+<span class="fc" id="L76">            ps.setInt(5, simpleTrigger.getTimesTriggered());</span>
+
+<span class="fc" id="L78">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L80">            Util.closeStatement(ps);</span>
+        }
+    }
+
+    public TriggerPropertyBundle loadExtendedTriggerProperties(Connection conn, TriggerKey triggerKey) throws SQLException {
+
+<span class="fc" id="L86">        PreparedStatement ps = null;</span>
+<span class="fc" id="L87">        ResultSet rs = null;</span>
+        
+        try {
+<span class="fc" id="L90">            ps = conn.prepareStatement(Util.rtp(SELECT_SIMPLE_TRIGGER, tablePrefix, schedNameLiteral));</span>
+<span class="fc" id="L91">            ps.setString(1, triggerKey.getName());</span>
+<span class="fc" id="L92">            ps.setString(2, triggerKey.getGroup());</span>
+<span class="fc" id="L93">            rs = ps.executeQuery();</span>
+    
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">            if (rs.next()) {</span>
+<span class="fc" id="L96">                int repeatCount = rs.getInt(COL_REPEAT_COUNT);</span>
+<span class="fc" id="L97">                long repeatInterval = rs.getLong(COL_REPEAT_INTERVAL);</span>
+<span class="fc" id="L98">                int timesTriggered = rs.getInt(COL_TIMES_TRIGGERED);</span>
+
+<span class="fc" id="L100">                SimpleScheduleBuilder sb = SimpleScheduleBuilder.simpleSchedule()</span>
+<span class="fc" id="L101">                    .withRepeatCount(repeatCount)</span>
+<span class="fc" id="L102">                    .withIntervalInMilliseconds(repeatInterval);</span>
+                
+<span class="fc" id="L104">                String[] statePropertyNames = { &quot;timesTriggered&quot; };</span>
+<span class="fc" id="L105">                Object[] statePropertyValues = { timesTriggered };</span>
+                
+<span class="fc" id="L107">                return new TriggerPropertyBundle(sb, statePropertyNames, statePropertyValues);</span>
+            }
+            
+<span class="nc" id="L110">            throw new IllegalStateException(&quot;No record found for selection of Trigger with key: '&quot; + triggerKey + &quot;' and statement: &quot; + Util.rtp(SELECT_SIMPLE_TRIGGER, tablePrefix, schedNameLiteral));</span>
+        } finally {
+<span class="fc" id="L112">            Util.closeResultSet(rs);</span>
+<span class="fc" id="L113">            Util.closeStatement(ps);</span>
+        }
+    }
+
+    public int updateExtendedTriggerProperties(Connection conn, OperableTrigger trigger, String state, JobDetail jobDetail) throws SQLException, IOException {
+
+<span class="fc" id="L119">        SimpleTrigger simpleTrigger = (SimpleTrigger)trigger;</span>
+        
+<span class="fc" id="L121">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="fc" id="L124">            ps = conn.prepareStatement(Util.rtp(UPDATE_SIMPLE_TRIGGER, tablePrefix, schedNameLiteral));</span>
+
+<span class="fc" id="L126">            ps.setInt(1, simpleTrigger.getRepeatCount());</span>
+<span class="fc" id="L127">            ps.setBigDecimal(2, new BigDecimal(String.valueOf(simpleTrigger.getRepeatInterval())));</span>
+<span class="fc" id="L128">            ps.setInt(3, simpleTrigger.getTimesTriggered());</span>
+<span class="fc" id="L129">            ps.setString(4, simpleTrigger.getKey().getName());</span>
+<span class="fc" id="L130">            ps.setString(5, simpleTrigger.getKey().getGroup());</span>
+
+<span class="fc" id="L132">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L134">            Util.closeStatement(ps);</span>
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

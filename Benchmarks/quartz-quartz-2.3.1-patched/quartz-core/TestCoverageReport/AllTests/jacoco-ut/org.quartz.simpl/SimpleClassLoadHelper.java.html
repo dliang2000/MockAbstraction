@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SimpleClassLoadHelper.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.simpl</a> &gt; <span class="el_source">SimpleClassLoadHelper.java</span></div><h1>SimpleClassLoadHelper.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.simpl;
+
+import org.quartz.spi.ClassLoadHelper;
+
+import java.lang.reflect.AccessibleObject;
+import java.lang.reflect.Method;
+import java.net.URL;
+import java.io.InputStream;
+
+/**
+ * A &lt;code&gt;ClassLoadHelper&lt;/code&gt; that simply calls &lt;code&gt;Class.forName(..)&lt;/code&gt;.
+ * 
+ * @see org.quartz.spi.ClassLoadHelper
+ * @see org.quartz.simpl.ThreadContextClassLoadHelper
+ * @see org.quartz.simpl.CascadingClassLoadHelper
+ * @see org.quartz.simpl.LoadingLoaderClassLoadHelper
+ * 
+ * @author jhouse
+ * @author pl47ypus
+ */
+<span class="fc" id="L38">public class SimpleClassLoadHelper implements ClassLoadHelper {</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * Called to give the ClassLoadHelper a chance to initialize itself,
+     * including the opportunity to &quot;steal&quot; the class loader off of the calling
+     * thread, which is the thread that is initializing Quartz.
+     */
+    public void initialize() {
+<span class="fc" id="L54">    }</span>
+
+    /**
+     * Return the class with the given name.
+     */
+    public Class&lt;?&gt; loadClass(String name) throws ClassNotFoundException {
+<span class="nc" id="L60">        return Class.forName(name);</span>
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public &lt;T&gt; Class&lt;? extends T&gt; loadClass(String name, Class&lt;T&gt; clazz)
+            throws ClassNotFoundException {
+<span class="nc" id="L66">        return (Class&lt;? extends T&gt;) loadClass(name);</span>
+    }
+
+    /**
+     * Finds a resource with a given name. This method returns null if no
+     * resource with this name is found.
+     * @param name name of the desired resource
+     * @return a java.net.URL object
+     */
+    public URL getResource(String name) {
+<span class="nc" id="L76">        return getClassLoader().getResource(name);</span>
+    }
+
+    /**
+     * Finds a resource with a given name. This method returns null if no
+     * resource with this name is found.
+     * @param name name of the desired resource
+     * @return a java.io.InputStream object
+     */
+    public InputStream getResourceAsStream(String name) {
+<span class="fc" id="L86">        return getClassLoader().getResourceAsStream(name);</span>
+    }
+
+    /**
+     * Enable sharing of the class-loader with 3rd party.
+     *
+     * @return the class-loader user be the helper.
+     */
+    public ClassLoader getClassLoader() {
+        // To follow the same behavior of Class.forName(...) I had to play
+        // dirty (Supported by Sun, IBM &amp; BEA JVMs)
+        try {
+            // Get a reference to this class' class-loader
+<span class="fc" id="L99">            ClassLoader cl = this.getClass().getClassLoader();</span>
+            // Create a method instance representing the protected
+            // getCallerClassLoader method of class ClassLoader
+<span class="nc" id="L102">            Method mthd = ClassLoader.class.getDeclaredMethod(</span>
+                    &quot;getCallerClassLoader&quot;, new Class&lt;?&gt;[0]);
+            // Make the method accessible.
+<span class="nc" id="L105">            AccessibleObject.setAccessible(new AccessibleObject[] {mthd}, true);</span>
+            // Try to get the caller's class-loader
+<span class="nc" id="L107">            return (ClassLoader)mthd.invoke(cl, new Object[0]);</span>
+<span class="fc" id="L108">        } catch (Throwable all) {</span>
+            // Use this class' class-loader
+<span class="fc" id="L110">            return this.getClass().getClassLoader();</span>
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

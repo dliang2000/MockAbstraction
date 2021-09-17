@@ -1,0 +1,414 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DailyTimeIntervalScheduleBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz</a> &gt; <span class="el_source">DailyTimeIntervalScheduleBuilder.java</span></div><h1>DailyTimeIntervalScheduleBuilder.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+package org.quartz;
+
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.quartz.DateBuilder.IntervalUnit;
+import org.quartz.impl.triggers.DailyTimeIntervalTriggerImpl;
+import org.quartz.spi.MutableTrigger;
+
+/**
+ * A {@link ScheduleBuilder} implementation that build schedule for DailyTimeIntervalTrigger.
+ * 
+ * &lt;p&gt;This builder provide an extra convenient method for you to set the trigger's endTimeOfDay. You may
+ * use either endingDailyAt() or endingDailyAfterCount() to set the value. The later will auto calculate
+ * your endTimeOfDay by using the interval, intervalUnit and startTimeOfDay to perform the calculation.
+ *  
+ * &lt;p&gt;When using endingDailyAfterCount(), you should note that it is used to calculating endTimeOfDay. So
+ * if your startTime on the first day is already pass by a time that would not add up to the count you
+ * expected, until the next day comes. Remember that DailyTimeIntervalTrigger will use startTimeOfDay
+ * and endTimeOfDay as fresh per each day!
+ *  
+ * &lt;p&gt;Quartz provides a builder-style API for constructing scheduling-related
+ * entities via a Domain-Specific Language (DSL).  The DSL can best be
+ * utilized through the usage of static imports of the methods on the classes
+ * &lt;code&gt;TriggerBuilder&lt;/code&gt;, &lt;code&gt;JobBuilder&lt;/code&gt;, 
+ * &lt;code&gt;DateBuilder&lt;/code&gt;, &lt;code&gt;JobKey&lt;/code&gt;, &lt;code&gt;TriggerKey&lt;/code&gt; 
+ * and the various &lt;code&gt;ScheduleBuilder&lt;/code&gt; implementations.&lt;/p&gt;
+ * 
+ * &lt;p&gt;Client code can then use the DSL to write code such as this:&lt;/p&gt;
+ * &lt;pre&gt;
+ *         JobDetail job = newJob(MyJob.class)
+ *             .withIdentity(&quot;myJob&quot;)
+ *             .build();
+ *             
+ *         Trigger trigger = newTrigger() 
+ *             .withIdentity(triggerKey(&quot;myTrigger&quot;, &quot;myTriggerGroup&quot;))
+ *             .withSchedule(onDaysOfTheWeek(MONDAY, THURSDAY))
+ *             .startAt(futureDate(10, MINUTES))
+ *             .build();
+ *         
+ *         scheduler.scheduleJob(job, trigger);
+ * &lt;pre&gt;
+ *   
+ * @since 2.1.0
+ * 
+ * @author James House
+ * @author Zemian Deng &lt;saltnlight5@gmail.com&gt;
+ */
+public class DailyTimeIntervalScheduleBuilder extends ScheduleBuilder&lt;DailyTimeIntervalTrigger&gt; {
+
+<span class="fc" id="L70">    private int interval = 1;</span>
+<span class="fc" id="L71">    private IntervalUnit intervalUnit = IntervalUnit.MINUTE;</span>
+    private Set&lt;Integer&gt; daysOfWeek;
+    private TimeOfDay startTimeOfDay;
+    private TimeOfDay endTimeOfDay;
+<span class="fc" id="L75">    private int repeatCount = DailyTimeIntervalTrigger.REPEAT_INDEFINITELY;</span>
+
+<span class="fc" id="L77">    private int misfireInstruction = CalendarIntervalTrigger.MISFIRE_INSTRUCTION_SMART_POLICY;</span>
+    
+    /**
+     * A set of all days of the week.
+     * 
+     * The set contains all values between {@link java.util.Calendar#SUNDAY} and {@link java.util.Calendar#SATURDAY} 
+     * (the integers from 1 through 7). 
+     */
+    public static final Set&lt;Integer&gt; ALL_DAYS_OF_THE_WEEK;
+    
+    /** 
+     * A set of the business days of the week (for locales similar to the USA).
+     * 
+     * The set contains all values between {@link java.util.Calendar#MONDAY} and {@link java.util.Calendar#FRIDAY} 
+     * (the integers from 2 through 6). 
+     */
+    public static final Set&lt;Integer&gt; MONDAY_THROUGH_FRIDAY;
+    
+    /**
+     * A set of the weekend days of the week (for locales similar to the USA).
+     * 
+     * The set contains {@link java.util.Calendar#SATURDAY} and {@link java.util.Calendar#SUNDAY} 
+     */
+    public static final Set&lt;Integer&gt; SATURDAY_AND_SUNDAY;
+    
+    static {
+<span class="fc" id="L103">        Set&lt;Integer&gt; t = new HashSet&lt;Integer&gt;(7);</span>
+<span class="fc bfc" id="L104" title="All 2 branches covered.">        for(int i=Calendar.SUNDAY; i &lt;= Calendar.SATURDAY; i++)</span>
+<span class="fc" id="L105">            t.add(i);</span>
+<span class="fc" id="L106">        ALL_DAYS_OF_THE_WEEK = Collections.unmodifiableSet(t);</span>
+        
+<span class="fc" id="L108">        t = new HashSet&lt;Integer&gt;(5);</span>
+<span class="fc bfc" id="L109" title="All 2 branches covered.">        for(int i=Calendar.MONDAY; i &lt;= Calendar.FRIDAY; i++)</span>
+<span class="fc" id="L110">            t.add(i);</span>
+<span class="fc" id="L111">        MONDAY_THROUGH_FRIDAY = Collections.unmodifiableSet(t);</span>
+        
+<span class="fc" id="L113">        t = new HashSet&lt;Integer&gt;(2);</span>
+<span class="fc" id="L114">        t.add(Calendar.SUNDAY);</span>
+<span class="fc" id="L115">        t.add(Calendar.SATURDAY);</span>
+<span class="fc" id="L116">        SATURDAY_AND_SUNDAY = Collections.unmodifiableSet(t);</span>
+<span class="fc" id="L117">    }</span>
+    
+<span class="fc" id="L119">    protected DailyTimeIntervalScheduleBuilder() {</span>
+<span class="fc" id="L120">    }</span>
+    
+    /**
+     * Create a DailyTimeIntervalScheduleBuilder.
+     * 
+     * @return the new DailyTimeIntervalScheduleBuilder
+     */
+    public static DailyTimeIntervalScheduleBuilder dailyTimeIntervalSchedule() {
+<span class="fc" id="L128">        return new DailyTimeIntervalScheduleBuilder();</span>
+    }
+    
+    /**
+     * Build the actual Trigger -- NOT intended to be invoked by end users,
+     * but will rather be invoked by a TriggerBuilder which this 
+     * ScheduleBuilder is given to.
+     * 
+     * @see TriggerBuilder#withSchedule(ScheduleBuilder)
+     */
+    @Override
+    public MutableTrigger build() {
+
+<span class="fc" id="L141">        DailyTimeIntervalTriggerImpl st = new DailyTimeIntervalTriggerImpl();</span>
+<span class="fc" id="L142">        st.setRepeatInterval(interval);</span>
+<span class="fc" id="L143">        st.setRepeatIntervalUnit(intervalUnit);</span>
+<span class="fc" id="L144">        st.setMisfireInstruction(misfireInstruction);</span>
+<span class="fc" id="L145">        st.setRepeatCount(repeatCount);</span>
+        
+<span class="fc bfc" id="L147" title="All 2 branches covered.">        if(daysOfWeek != null)</span>
+<span class="fc" id="L148">            st.setDaysOfWeek(daysOfWeek);</span>
+        else
+<span class="fc" id="L150">            st.setDaysOfWeek(ALL_DAYS_OF_THE_WEEK);</span>
+
+<span class="fc bfc" id="L152" title="All 2 branches covered.">        if(startTimeOfDay != null)</span>
+<span class="fc" id="L153">            st.setStartTimeOfDay(startTimeOfDay);</span>
+        else
+<span class="fc" id="L155">            st.setStartTimeOfDay(TimeOfDay.hourAndMinuteOfDay(0, 0));</span>
+
+<span class="fc bfc" id="L157" title="All 2 branches covered.">        if(endTimeOfDay != null)</span>
+<span class="fc" id="L158">            st.setEndTimeOfDay(endTimeOfDay);</span>
+        else
+<span class="fc" id="L160">            st.setEndTimeOfDay(TimeOfDay.hourMinuteAndSecondOfDay(23, 59, 59));</span>
+        
+<span class="fc" id="L162">        return st;</span>
+    }
+
+    /**
+     * Specify the time unit and interval for the Trigger to be produced.
+     * 
+     * @param timeInterval the interval at which the trigger should repeat.
+     * @param unit the time unit (IntervalUnit) of the interval. The only intervals that are valid for this type of 
+     * trigger are {@link IntervalUnit#SECOND}, {@link IntervalUnit#MINUTE}, and {@link IntervalUnit#HOUR}.
+     * @return the updated DailyTimeIntervalScheduleBuilder
+     * @see DailyTimeIntervalTrigger#getRepeatInterval()
+     * @see DailyTimeIntervalTrigger#getRepeatIntervalUnit()
+     */
+    public DailyTimeIntervalScheduleBuilder withInterval(int timeInterval, IntervalUnit unit) {
+<span class="pc bpc" id="L176" title="1 of 4 branches missed.">        if (unit == null || !(unit.equals(IntervalUnit.SECOND) || </span>
+<span class="pc bpc" id="L177" title="1 of 4 branches missed.">                unit.equals(IntervalUnit.MINUTE) ||unit.equals(IntervalUnit.HOUR)))</span>
+<span class="nc" id="L178">            throw new IllegalArgumentException(&quot;Invalid repeat IntervalUnit (must be SECOND, MINUTE or HOUR).&quot;);</span>
+<span class="fc" id="L179">        validateInterval(timeInterval);</span>
+<span class="fc" id="L180">        this.interval = timeInterval;</span>
+<span class="fc" id="L181">        this.intervalUnit = unit;</span>
+<span class="fc" id="L182">        return this;</span>
+    }
+
+    /**
+     * Specify an interval in the IntervalUnit.SECOND that the produced 
+     * Trigger will repeat at.
+     * 
+     * @param intervalInSeconds the number of seconds at which the trigger should repeat.
+     * @return the updated DailyTimeIntervalScheduleBuilder
+     * @see DailyTimeIntervalTrigger#getRepeatInterval()
+     * @see DailyTimeIntervalTrigger#getRepeatIntervalUnit()
+     */
+    public DailyTimeIntervalScheduleBuilder withIntervalInSeconds(int intervalInSeconds) {
+<span class="fc" id="L195">        withInterval(intervalInSeconds, IntervalUnit.SECOND);</span>
+<span class="fc" id="L196">        return this;</span>
+    }
+    
+    /**
+     * Specify an interval in the IntervalUnit.MINUTE that the produced 
+     * Trigger will repeat at.
+     * 
+     * @param intervalInMinutes the number of minutes at which the trigger should repeat.
+     * @return the updated CalendarIntervalScheduleBuilder
+     * @see DailyTimeIntervalTrigger#getRepeatInterval()
+     * @see DailyTimeIntervalTrigger#getRepeatIntervalUnit()
+     */
+    public DailyTimeIntervalScheduleBuilder withIntervalInMinutes(int intervalInMinutes) {
+<span class="fc" id="L209">        withInterval(intervalInMinutes, IntervalUnit.MINUTE);</span>
+<span class="fc" id="L210">        return this;</span>
+    }
+
+    /**
+     * Specify an interval in the IntervalUnit.HOUR that the produced 
+     * Trigger will repeat at.
+     * 
+     * @param intervalInHours the number of hours at which the trigger should repeat.
+     * @return the updated DailyTimeIntervalScheduleBuilder
+     * @see DailyTimeIntervalTrigger#getRepeatInterval()
+     * @see DailyTimeIntervalTrigger#getRepeatIntervalUnit()
+     */
+    public DailyTimeIntervalScheduleBuilder withIntervalInHours(int intervalInHours) {
+<span class="fc" id="L223">        withInterval(intervalInHours, IntervalUnit.HOUR);</span>
+<span class="fc" id="L224">        return this;</span>
+    }
+
+    /**
+     * Set the trigger to fire on the given days of the week.
+     * 
+     * @param onDaysOfWeek a Set containing the integers representing the days of the week, per the values 1-7 as defined by 
+     * {@link java.util.Calendar#SUNDAY} - {@link java.util.Calendar#SATURDAY}. 
+     * @return the updated DailyTimeIntervalScheduleBuilder
+     */
+    public DailyTimeIntervalScheduleBuilder onDaysOfTheWeek(Set&lt;Integer&gt; onDaysOfWeek) {
+<span class="nc bnc" id="L235" title="All 4 branches missed.">        if(onDaysOfWeek == null || onDaysOfWeek.size() == 0)</span>
+<span class="nc" id="L236">            throw new IllegalArgumentException(&quot;Days of week must be an non-empty set.&quot;);</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">        for (Integer day : onDaysOfWeek)</span>
+<span class="nc bnc" id="L238" title="All 2 branches missed.">            if (!ALL_DAYS_OF_THE_WEEK.contains(day))</span>
+<span class="nc" id="L239">                throw new IllegalArgumentException(&quot;Invalid value for day of week: &quot; + day);</span>
+                
+<span class="nc" id="L241">        this.daysOfWeek = onDaysOfWeek;</span>
+<span class="nc" id="L242">        return this;</span>
+    }
+
+    /**
+     * Set the trigger to fire on the given days of the week.
+     * 
+     * @param onDaysOfWeek a variable length list of Integers representing the days of the week, per the values 1-7 as 
+     * defined by {@link java.util.Calendar#SUNDAY} - {@link java.util.Calendar#SATURDAY}. 
+     * @return the updated DailyTimeIntervalScheduleBuilder
+     */
+    public DailyTimeIntervalScheduleBuilder onDaysOfTheWeek(Integer ... onDaysOfWeek) {
+<span class="nc" id="L253">        Set&lt;Integer&gt; daysAsSet = new HashSet&lt;Integer&gt;(12);</span>
+<span class="nc" id="L254">        Collections.addAll(daysAsSet, onDaysOfWeek);</span>
+<span class="nc" id="L255">        return onDaysOfTheWeek(daysAsSet);</span>
+    }
+    
+    /**
+     * Set the trigger to fire on the days from Monday through Friday.
+     * 
+     * @return the updated DailyTimeIntervalScheduleBuilder
+     */
+    public DailyTimeIntervalScheduleBuilder onMondayThroughFriday() {
+<span class="fc" id="L264">        this.daysOfWeek = MONDAY_THROUGH_FRIDAY;</span>
+<span class="fc" id="L265">        return this;</span>
+    }
+
+    /**
+     * Set the trigger to fire on the days Saturday and Sunday.
+     * 
+     * @return the updated DailyTimeIntervalScheduleBuilder
+     */
+    public DailyTimeIntervalScheduleBuilder onSaturdayAndSunday() {
+<span class="fc" id="L274">        this.daysOfWeek = SATURDAY_AND_SUNDAY;</span>
+<span class="fc" id="L275">        return this;</span>
+    }
+
+    /**
+     * Set the trigger to fire on all days of the week.
+     * 
+     * @return the updated DailyTimeIntervalScheduleBuilder
+     */
+    public DailyTimeIntervalScheduleBuilder onEveryDay() {
+<span class="nc" id="L284">        this.daysOfWeek = ALL_DAYS_OF_THE_WEEK;</span>
+<span class="nc" id="L285">        return this;</span>
+    }
+
+    /**
+     * Set the trigger to begin firing each day at the given time.
+     * 
+     * @return the updated DailyTimeIntervalScheduleBuilder
+     */
+    public DailyTimeIntervalScheduleBuilder startingDailyAt(TimeOfDay timeOfDay) {
+<span class="pc bpc" id="L294" title="1 of 2 branches missed.">        if(timeOfDay == null)</span>
+<span class="nc" id="L295">            throw new IllegalArgumentException(&quot;Start time of day cannot be null!&quot;);</span>
+        
+<span class="fc" id="L297">        this.startTimeOfDay = timeOfDay;</span>
+<span class="fc" id="L298">        return this;</span>
+    }
+
+    /**
+     * Set the startTimeOfDay for this trigger to end firing each day at the given time.
+     * 
+     * @return the updated DailyTimeIntervalScheduleBuilder
+     */
+    public DailyTimeIntervalScheduleBuilder endingDailyAt(TimeOfDay timeOfDay) {        
+<span class="fc" id="L307">        this.endTimeOfDay = timeOfDay;</span>
+<span class="fc" id="L308">        return this;</span>
+    }
+
+    /**
+     * Calculate and set the endTimeOfDay using count, interval and starTimeOfDay. This means
+     * that these must be set before this method is call.
+     * 
+     * @return the updated DailyTimeIntervalScheduleBuilder
+     */
+    public DailyTimeIntervalScheduleBuilder endingDailyAfterCount(int count) {
+<span class="fc bfc" id="L318" title="All 2 branches covered.">        if(count &lt;=0)</span>
+<span class="fc" id="L319">            throw new IllegalArgumentException(&quot;Ending daily after count must be a positive number!&quot;);</span>
+        
+<span class="fc bfc" id="L321" title="All 2 branches covered.">        if(startTimeOfDay == null)</span>
+<span class="fc" id="L322">            throw new IllegalArgumentException(&quot;You must set the startDailyAt() before calling this endingDailyAfterCount()!&quot;);</span>
+        
+<span class="fc" id="L324">        Date today = new Date();</span>
+<span class="fc" id="L325">        Date startTimeOfDayDate = startTimeOfDay.getTimeOfDayForDate(today);</span>
+<span class="fc" id="L326">        Date maxEndTimeOfDayDate = TimeOfDay.hourMinuteAndSecondOfDay(23, 59, 59).getTimeOfDayForDate(today);</span>
+<span class="fc" id="L327">        long remainingMillisInDay = maxEndTimeOfDayDate.getTime() - startTimeOfDayDate.getTime();</span>
+        long intervalInMillis;
+<span class="pc bpc" id="L329" title="1 of 2 branches missed.">        if (intervalUnit == IntervalUnit.SECOND)</span>
+<span class="nc" id="L330">            intervalInMillis = interval * 1000L;</span>
+<span class="pc bpc" id="L331" title="1 of 2 branches missed.">        else if (intervalUnit == IntervalUnit.MINUTE)</span>
+<span class="fc" id="L332">                intervalInMillis = interval * 1000L * 60;</span>
+<span class="nc bnc" id="L333" title="All 2 branches missed.">        else if (intervalUnit == IntervalUnit.HOUR)</span>
+<span class="nc" id="L334">            intervalInMillis = interval * 1000L * 60 * 24;</span>
+        else
+<span class="nc" id="L336">            throw new IllegalArgumentException(&quot;The IntervalUnit: &quot; + intervalUnit + &quot; is invalid for this trigger.&quot;); </span>
+        
+<span class="pc bpc" id="L338" title="1 of 2 branches missed.">        if (remainingMillisInDay - intervalInMillis &lt;= 0)</span>
+<span class="nc" id="L339">            throw new IllegalArgumentException(&quot;The startTimeOfDay is too late with given Interval and IntervalUnit values.&quot;);</span>
+        
+<span class="fc" id="L341">        long maxNumOfCount = (remainingMillisInDay / intervalInMillis);</span>
+<span class="pc bpc" id="L342" title="1 of 2 branches missed.">        if (count &gt; maxNumOfCount)</span>
+<span class="nc" id="L343">            throw new IllegalArgumentException(&quot;The given count &quot; + count + &quot; is too large! The max you can set is &quot; + maxNumOfCount);</span>
+        
+<span class="fc" id="L345">        long incrementInMillis = (count - 1) * intervalInMillis;</span>
+<span class="fc" id="L346">        Date endTimeOfDayDate = new Date(startTimeOfDayDate.getTime() + incrementInMillis);</span>
+        
+<span class="pc bpc" id="L348" title="1 of 2 branches missed.">        if (endTimeOfDayDate.getTime() &gt; maxEndTimeOfDayDate.getTime())</span>
+<span class="nc" id="L349">            throw new IllegalArgumentException(&quot;The given count &quot; + count + &quot; is too large! The max you can set is &quot; + maxNumOfCount);</span>
+        
+<span class="fc" id="L351">        Calendar cal = Calendar.getInstance();</span>
+<span class="fc" id="L352">        cal.setTime(endTimeOfDayDate);</span>
+<span class="fc" id="L353">        int hour = cal.get(Calendar.HOUR_OF_DAY);</span>
+<span class="fc" id="L354">        int minute = cal.get(Calendar.MINUTE);</span>
+<span class="fc" id="L355">        int second = cal.get(Calendar.SECOND);</span>
+        
+<span class="fc" id="L357">        endTimeOfDay = TimeOfDay.hourMinuteAndSecondOfDay(hour, minute, second);</span>
+<span class="fc" id="L358">        return this;</span>
+    }
+
+    /**
+     * If the Trigger misfires, use the 
+     * {@link Trigger#MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY} instruction.
+     * 
+     * @return the updated DailyTimeIntervalScheduleBuilder
+     * @see Trigger#MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY
+     */
+    public DailyTimeIntervalScheduleBuilder withMisfireHandlingInstructionIgnoreMisfires() {
+<span class="nc" id="L369">        misfireInstruction = Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY;</span>
+<span class="nc" id="L370">        return this;</span>
+    }
+    
+    /**
+     * If the Trigger misfires, use the 
+     * {@link DailyTimeIntervalTrigger#MISFIRE_INSTRUCTION_DO_NOTHING} instruction.
+     * 
+     * @return the updated DailyTimeIntervalScheduleBuilder
+     * @see DailyTimeIntervalTrigger#MISFIRE_INSTRUCTION_DO_NOTHING
+     */
+    public DailyTimeIntervalScheduleBuilder withMisfireHandlingInstructionDoNothing() {
+<span class="nc" id="L381">        misfireInstruction = DailyTimeIntervalTrigger.MISFIRE_INSTRUCTION_DO_NOTHING;</span>
+<span class="nc" id="L382">        return this;</span>
+    }
+
+    /**
+     * If the Trigger misfires, use the 
+     * {@link DailyTimeIntervalTrigger#MISFIRE_INSTRUCTION_FIRE_ONCE_NOW} instruction.
+     * 
+     * @return the updated DailyTimeIntervalScheduleBuilder
+     * @see DailyTimeIntervalTrigger#MISFIRE_INSTRUCTION_FIRE_ONCE_NOW
+     */
+    public DailyTimeIntervalScheduleBuilder withMisfireHandlingInstructionFireAndProceed() {
+<span class="nc" id="L393">        misfireInstruction = CalendarIntervalTrigger.MISFIRE_INSTRUCTION_FIRE_ONCE_NOW;</span>
+<span class="nc" id="L394">        return this;</span>
+    }
+    
+    /**
+     * Set number of times for interval to repeat.
+     * 
+     * &lt;p&gt;Note: if you want total count = 1 (at start time) + repeatCount&lt;/p&gt;
+     * 
+     * @return the new DailyTimeIntervalScheduleBuilder
+     */
+    public DailyTimeIntervalScheduleBuilder withRepeatCount(int repeatCount) {
+<span class="fc" id="L405">        this.repeatCount = repeatCount;</span>
+<span class="fc" id="L406">        return this;</span>
+    }
+
+    private void validateInterval(int timeInterval) {
+<span class="pc bpc" id="L410" title="1 of 2 branches missed.">        if(timeInterval &lt;= 0)</span>
+<span class="nc" id="L411">            throw new IllegalArgumentException(&quot;Interval must be a positive value.&quot;);</span>
+<span class="fc" id="L412">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

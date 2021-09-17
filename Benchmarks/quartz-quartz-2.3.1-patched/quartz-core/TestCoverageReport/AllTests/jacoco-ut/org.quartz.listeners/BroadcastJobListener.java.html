@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BroadcastJobListener.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.listeners</a> &gt; <span class="el_source">BroadcastJobListener.java</span></div><h1>BroadcastJobListener.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy
+ * of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ */
+package org.quartz.listeners;
+
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.quartz.JobListener;
+
+/**
+ * Holds a List of references to JobListener instances and broadcasts all
+ * events to them (in order).
+ *
+ * &lt;p&gt;The broadcasting behavior of this listener to delegate listeners may be
+ * more convenient than registering all of the listeners directly with the
+ * Scheduler, and provides the flexibility of easily changing which listeners
+ * get notified.&lt;/p&gt;
+ *
+ *
+ * @see #addListener(org.quartz.JobListener)
+ * @see #removeListener(org.quartz.JobListener)
+ * @see #removeListener(String)
+ *
+ * @author James House (jhouse AT revolition DOT net)
+ */
+public class BroadcastJobListener implements JobListener {
+
+    private String name;
+    private List&lt;JobListener&gt; listeners;
+
+    /**
+     * Construct an instance with the given name.
+     *
+     * (Remember to add some delegate listeners!)
+     *
+     * @param name the name of this instance
+     */
+<span class="nc" id="L54">    public BroadcastJobListener(String name) {</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">        if(name == null) {</span>
+<span class="nc" id="L56">            throw new IllegalArgumentException(&quot;Listener name cannot be null!&quot;);</span>
+        }
+<span class="nc" id="L58">        this.name = name;</span>
+<span class="nc" id="L59">        listeners = new LinkedList&lt;JobListener&gt;();</span>
+<span class="nc" id="L60">    }</span>
+
+    /**
+     * Construct an instance with the given name, and List of listeners.
+     *
+     * @param name the name of this instance
+     * @param listeners the initial List of JobListeners to broadcast to.
+     */
+    public BroadcastJobListener(String name, List&lt;JobListener&gt; listeners) {
+<span class="nc" id="L69">        this(name);</span>
+<span class="nc" id="L70">        this.listeners.addAll(listeners);</span>
+<span class="nc" id="L71">    }</span>
+
+    public String getName() {
+<span class="nc" id="L74">        return name;</span>
+    }
+
+    public void addListener(JobListener listener) {
+<span class="nc" id="L78">        listeners.add(listener);</span>
+<span class="nc" id="L79">    }</span>
+
+    public boolean removeListener(JobListener listener) {
+<span class="nc" id="L82">        return listeners.remove(listener);</span>
+    }
+
+    public boolean removeListener(String listenerName) {
+<span class="nc" id="L86">        Iterator&lt;JobListener&gt; itr = listeners.iterator();</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">        while(itr.hasNext()) {</span>
+<span class="nc" id="L88">            JobListener jl = itr.next();</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">            if(jl.getName().equals(listenerName)) {</span>
+<span class="nc" id="L90">                itr.remove();</span>
+<span class="nc" id="L91">                return true;</span>
+            }
+<span class="nc" id="L93">        }</span>
+<span class="nc" id="L94">        return false;</span>
+    }
+
+    public List&lt;JobListener&gt; getListeners() {
+<span class="nc" id="L98">        return java.util.Collections.unmodifiableList(listeners);</span>
+    }
+
+    public void jobToBeExecuted(JobExecutionContext context) {
+
+<span class="nc" id="L103">        Iterator&lt;JobListener&gt; itr = listeners.iterator();</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        while(itr.hasNext()) {</span>
+<span class="nc" id="L105">            JobListener jl = itr.next();</span>
+<span class="nc" id="L106">            jl.jobToBeExecuted(context);</span>
+<span class="nc" id="L107">        }</span>
+<span class="nc" id="L108">    }</span>
+
+    public void jobExecutionVetoed(JobExecutionContext context) {
+
+<span class="nc" id="L112">        Iterator&lt;JobListener&gt; itr = listeners.iterator();</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">        while(itr.hasNext()) {</span>
+<span class="nc" id="L114">            JobListener jl = itr.next();</span>
+<span class="nc" id="L115">            jl.jobExecutionVetoed(context);</span>
+<span class="nc" id="L116">        }</span>
+<span class="nc" id="L117">    }</span>
+
+    public void jobWasExecuted(JobExecutionContext context, JobExecutionException jobException) {
+
+<span class="nc" id="L121">        Iterator&lt;JobListener&gt; itr = listeners.iterator();</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">        while(itr.hasNext()) {</span>
+<span class="nc" id="L123">            JobListener jl = itr.next();</span>
+<span class="nc" id="L124">            jl.jobWasExecuted(context, jobException);</span>
+<span class="nc" id="L125">        }</span>
+<span class="nc" id="L126">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

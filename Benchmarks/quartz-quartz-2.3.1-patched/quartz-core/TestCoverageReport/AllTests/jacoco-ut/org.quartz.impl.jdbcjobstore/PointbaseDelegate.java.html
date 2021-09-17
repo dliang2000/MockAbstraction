@@ -1,0 +1,460 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PointbaseDelegate.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.jdbcjobstore</a> &gt; <span class="el_source">PointbaseDelegate.java</span></div><h1>PointbaseDelegate.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.impl.jdbcjobstore;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.quartz.Calendar;
+import org.quartz.JobDetail;
+import org.quartz.spi.ClassLoadHelper;
+import org.quartz.spi.OperableTrigger;
+import org.slf4j.Logger;
+
+/**
+ * &lt;p&gt;
+ * This is a driver delegate for the Pointbase JDBC driver.
+ * &lt;/p&gt;
+ * 
+ * @author Gregg Freeman
+ */
+<span class="nc" id="L44">public class PointbaseDelegate extends StdJDBCDelegate {</span>
+
+    //---------------------------------------------------------------------------
+    // jobs
+    //---------------------------------------------------------------------------
+
+    /**
+     * &lt;p&gt;
+     * Insert the job detail record.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param job
+     *          the job to insert
+     * @return number of rows inserted
+     * @throws IOException
+     *           if there were problems serializing the JobDataMap
+     */
+    @Override           
+    public int insertJobDetail(Connection conn, JobDetail job)
+        throws IOException, SQLException {
+        //log.debug( &quot;Inserting JobDetail &quot; + job );
+<span class="nc" id="L67">        ByteArrayOutputStream baos = serializeJobData(job.getJobDataMap());</span>
+<span class="nc" id="L68">        int len = baos.toByteArray().length;</span>
+<span class="nc" id="L69">        ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());</span>
+
+<span class="nc" id="L71">        PreparedStatement ps = null;</span>
+
+<span class="nc" id="L73">        int insertResult = 0;</span>
+
+        try {
+<span class="nc" id="L76">            ps = conn.prepareStatement(rtp(INSERT_JOB_DETAIL));</span>
+<span class="nc" id="L77">            ps.setString(1, job.getKey().getName());</span>
+<span class="nc" id="L78">            ps.setString(2, job.getKey().getGroup());</span>
+<span class="nc" id="L79">            ps.setString(3, job.getDescription());</span>
+<span class="nc" id="L80">            ps.setString(4, job.getJobClass().getName());</span>
+<span class="nc" id="L81">            setBoolean(ps, 5, job.isDurable());</span>
+<span class="nc" id="L82">            setBoolean(ps, 6, job.isConcurrentExectionDisallowed());</span>
+<span class="nc" id="L83">            setBoolean(ps, 7, job.isPersistJobDataAfterExecution());</span>
+<span class="nc" id="L84">            setBoolean(ps, 8, job.requestsRecovery());</span>
+<span class="nc" id="L85">            ps.setBinaryStream(9, bais, len);</span>
+
+<span class="nc" id="L87">            insertResult = ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L89">            closeStatement(ps);</span>
+        }
+
+<span class="nc" id="L92">        return insertResult;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Update the job detail record.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param job
+     *          the job to update
+     * @return number of rows updated
+     * @throws IOException
+     *           if there were problems serializing the JobDataMap
+     */
+    @Override           
+    public int updateJobDetail(Connection conn, JobDetail job)
+        throws IOException, SQLException {
+        //log.debug( &quot;Updating job detail &quot; + job );
+<span class="nc" id="L112">        ByteArrayOutputStream baos = serializeJobData(job.getJobDataMap());</span>
+<span class="nc" id="L113">        int len = baos.toByteArray().length;</span>
+<span class="nc" id="L114">        ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());</span>
+
+<span class="nc" id="L116">        PreparedStatement ps = null;</span>
+
+<span class="nc" id="L118">        int insertResult = 0;</span>
+
+        try {
+<span class="nc" id="L121">            ps = conn.prepareStatement(rtp(UPDATE_JOB_DETAIL));</span>
+<span class="nc" id="L122">            ps.setString(1, job.getDescription());</span>
+<span class="nc" id="L123">            ps.setString(2, job.getJobClass().getName());</span>
+<span class="nc" id="L124">            setBoolean(ps, 3, job.isDurable());</span>
+<span class="nc" id="L125">            setBoolean(ps, 4, job.isConcurrentExectionDisallowed());</span>
+<span class="nc" id="L126">            setBoolean(ps, 5, job.isPersistJobDataAfterExecution());</span>
+<span class="nc" id="L127">            setBoolean(ps, 6, job.requestsRecovery());</span>
+<span class="nc" id="L128">            ps.setBinaryStream(7, bais, len);</span>
+<span class="nc" id="L129">            ps.setString(8, job.getKey().getName());</span>
+<span class="nc" id="L130">            ps.setString(9, job.getKey().getGroup());</span>
+
+<span class="nc" id="L132">            insertResult = ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L134">            closeStatement(ps);</span>
+        }
+
+<span class="nc" id="L137">        return insertResult;</span>
+    }
+
+    @Override
+    public int insertTrigger(Connection conn, OperableTrigger trigger, String state,
+            JobDetail jobDetail) throws SQLException, IOException {
+
+<span class="nc" id="L144">        ByteArrayOutputStream baos = serializeJobData(trigger.getJobDataMap());</span>
+<span class="nc" id="L145">        int len = baos.toByteArray().length;</span>
+<span class="nc" id="L146">        ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());</span>
+        
+<span class="nc" id="L148">        PreparedStatement ps = null;</span>
+
+<span class="nc" id="L150">        int insertResult = 0;</span>
+
+        try {
+<span class="nc" id="L153">            ps = conn.prepareStatement(rtp(INSERT_TRIGGER));</span>
+<span class="nc" id="L154">            ps.setString(1, trigger.getKey().getName());</span>
+<span class="nc" id="L155">            ps.setString(2, trigger.getKey().getGroup());</span>
+<span class="nc" id="L156">            ps.setString(3, trigger.getJobKey().getName());</span>
+<span class="nc" id="L157">            ps.setString(4, trigger.getJobKey().getGroup());</span>
+<span class="nc" id="L158">            ps.setString(5, trigger.getDescription());</span>
+<span class="nc" id="L159">            ps.setBigDecimal(6, new BigDecimal(String.valueOf(trigger</span>
+<span class="nc" id="L160">                    .getNextFireTime().getTime())));</span>
+<span class="nc" id="L161">            long prevFireTime = -1;</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">            if (trigger.getPreviousFireTime() != null) {</span>
+<span class="nc" id="L163">                prevFireTime = trigger.getPreviousFireTime().getTime();</span>
+            }
+<span class="nc" id="L165">            ps.setBigDecimal(7, new BigDecimal(String.valueOf(prevFireTime)));</span>
+<span class="nc" id="L166">            ps.setString(8, state);</span>
+            
+<span class="nc" id="L168">            TriggerPersistenceDelegate tDel = findTriggerPersistenceDelegate(trigger);</span>
+            
+<span class="nc" id="L170">            String type = TTYPE_BLOB;</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">            if(tDel != null)</span>
+<span class="nc" id="L172">                type = tDel.getHandledTriggerTypeDiscriminator();</span>
+<span class="nc" id="L173">            ps.setString(9, type);</span>
+            
+<span class="nc" id="L175">            ps.setBigDecimal(10, new BigDecimal(String.valueOf(trigger</span>
+<span class="nc" id="L176">                    .getStartTime().getTime())));</span>
+<span class="nc" id="L177">            long endTime = 0;</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">            if (trigger.getEndTime() != null) {</span>
+<span class="nc" id="L179">                endTime = trigger.getEndTime().getTime();</span>
+            }
+<span class="nc" id="L181">            ps.setBigDecimal(11, new BigDecimal(String.valueOf(endTime)));</span>
+<span class="nc" id="L182">            ps.setString(12, trigger.getCalendarName());</span>
+<span class="nc" id="L183">            ps.setInt(13, trigger.getMisfireInstruction());</span>
+<span class="nc" id="L184">            ps.setBinaryStream(14, bais, len);</span>
+<span class="nc" id="L185">            ps.setInt(15, trigger.getPriority());</span>
+            
+<span class="nc" id="L187">            insertResult = ps.executeUpdate();</span>
+            
+<span class="nc bnc" id="L189" title="All 2 branches missed.">            if(tDel == null)</span>
+<span class="nc" id="L190">                insertBlobTrigger(conn, trigger);</span>
+            else
+<span class="nc" id="L192">                tDel.insertExtendedTriggerProperties(conn, trigger, state, jobDetail);</span>
+                        
+        } finally {
+<span class="nc" id="L195">            closeStatement(ps);</span>
+        }
+
+<span class="nc" id="L198">        return insertResult;</span>
+    }
+    
+    @Override           
+    public int updateTrigger(Connection conn, OperableTrigger trigger, String state,
+            JobDetail jobDetail) throws SQLException, IOException {
+
+<span class="nc" id="L205">        ByteArrayOutputStream baos = serializeJobData(trigger.getJobDataMap());</span>
+<span class="nc" id="L206">        int len = baos.toByteArray().length;</span>
+<span class="nc" id="L207">        ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());</span>
+                
+<span class="nc" id="L209">        PreparedStatement ps = null;</span>
+
+<span class="nc" id="L211">        int insertResult = 0;</span>
+
+
+        try {
+<span class="nc" id="L215">            ps = conn.prepareStatement(rtp(UPDATE_TRIGGER));</span>
+                
+<span class="nc" id="L217">            ps.setString(1, trigger.getJobKey().getName());</span>
+<span class="nc" id="L218">            ps.setString(2, trigger.getJobKey().getGroup());</span>
+<span class="nc" id="L219">            ps.setString(3, trigger.getDescription());</span>
+<span class="nc" id="L220">            long nextFireTime = -1;</span>
+<span class="nc bnc" id="L221" title="All 2 branches missed.">            if (trigger.getNextFireTime() != null) {</span>
+<span class="nc" id="L222">                nextFireTime = trigger.getNextFireTime().getTime();</span>
+            }
+<span class="nc" id="L224">            ps.setBigDecimal(4, new BigDecimal(String.valueOf(nextFireTime)));</span>
+<span class="nc" id="L225">            long prevFireTime = -1;</span>
+<span class="nc bnc" id="L226" title="All 2 branches missed.">            if (trigger.getPreviousFireTime() != null) {</span>
+<span class="nc" id="L227">                prevFireTime = trigger.getPreviousFireTime().getTime();</span>
+            }
+<span class="nc" id="L229">            ps.setBigDecimal(5, new BigDecimal(String.valueOf(prevFireTime)));</span>
+<span class="nc" id="L230">            ps.setString(6, state);</span>
+            
+<span class="nc" id="L232">            TriggerPersistenceDelegate tDel = findTriggerPersistenceDelegate(trigger);</span>
+            
+<span class="nc" id="L234">            String type = TTYPE_BLOB;</span>
+<span class="nc bnc" id="L235" title="All 2 branches missed.">            if(tDel != null)</span>
+<span class="nc" id="L236">                type = tDel.getHandledTriggerTypeDiscriminator();</span>
+
+<span class="nc" id="L238">            ps.setString(7, type);</span>
+            
+<span class="nc" id="L240">            ps.setBigDecimal(8, new BigDecimal(String.valueOf(trigger</span>
+<span class="nc" id="L241">                    .getStartTime().getTime())));</span>
+<span class="nc" id="L242">            long endTime = 0;</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">            if (trigger.getEndTime() != null) {</span>
+<span class="nc" id="L244">                endTime = trigger.getEndTime().getTime();</span>
+            }
+<span class="nc" id="L246">            ps.setBigDecimal(9, new BigDecimal(String.valueOf(endTime)));</span>
+<span class="nc" id="L247">            ps.setString(10, trigger.getCalendarName());</span>
+<span class="nc" id="L248">            ps.setInt(11, trigger.getMisfireInstruction());</span>
+            
+<span class="nc" id="L250">            ps.setInt(12, trigger.getPriority());</span>
+<span class="nc" id="L251">            ps.setBinaryStream(13, bais, len);</span>
+<span class="nc" id="L252">            ps.setString(14, trigger.getKey().getName());</span>
+<span class="nc" id="L253">            ps.setString(15, trigger.getKey().getGroup());</span>
+
+<span class="nc" id="L255">            insertResult = ps.executeUpdate();</span>
+            
+<span class="nc bnc" id="L257" title="All 2 branches missed.">            if(tDel == null)</span>
+<span class="nc" id="L258">                updateBlobTrigger(conn, trigger);</span>
+            else
+<span class="nc" id="L260">                tDel.updateExtendedTriggerProperties(conn, trigger, state, jobDetail);</span>
+            
+        } finally {
+<span class="nc" id="L263">            closeStatement(ps);</span>
+        }
+
+<span class="nc" id="L266">        return insertResult;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Update the job data map for the given job.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param job
+     *          the job to update
+     * @return the number of rows updated
+     */
+    @Override           
+    public int updateJobData(Connection conn, JobDetail job)
+        throws IOException, SQLException {
+        //log.debug( &quot;Updating Job Data for Job &quot; + job );
+<span class="nc" id="L284">        ByteArrayOutputStream baos = serializeJobData(job.getJobDataMap());</span>
+<span class="nc" id="L285">        int len = baos.toByteArray().length;</span>
+<span class="nc" id="L286">        ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());</span>
+<span class="nc" id="L287">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="nc" id="L290">            ps = conn.prepareStatement(rtp(UPDATE_JOB_DATA));</span>
+<span class="nc" id="L291">            ps.setBinaryStream(1, bais, len);</span>
+<span class="nc" id="L292">            ps.setString(2, job.getKey().getName());</span>
+<span class="nc" id="L293">            ps.setString(3, job.getKey().getGroup());</span>
+
+<span class="nc" id="L295">            return ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L297">            closeStatement(ps);</span>
+        }
+    }
+
+    //---------------------------------------------------------------------------
+    // triggers
+    //---------------------------------------------------------------------------
+
+    //---------------------------------------------------------------------------
+    // calendars
+    //---------------------------------------------------------------------------
+
+    /**
+     * &lt;p&gt;
+     * Insert a new calendar.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param calendarName
+     *          the name for the new calendar
+     * @param calendar
+     *          the calendar
+     * @return the number of rows inserted
+     * @throws IOException
+     *           if there were problems serializing the calendar
+     */
+    @Override           
+    public int insertCalendar(Connection conn, String calendarName,
+            Calendar calendar) throws IOException, SQLException {
+        //log.debug( &quot;Inserting Calendar &quot; + calendarName + &quot; : &quot; + calendar
+        // );
+<span class="nc" id="L329">        ByteArrayOutputStream baos = serializeObject(calendar);</span>
+<span class="nc" id="L330">        byte buf[] = baos.toByteArray();</span>
+<span class="nc" id="L331">        ByteArrayInputStream bais = new ByteArrayInputStream(buf);</span>
+
+<span class="nc" id="L333">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="nc" id="L336">            ps = conn.prepareStatement(rtp(INSERT_CALENDAR));</span>
+<span class="nc" id="L337">            ps.setString(1, calendarName);</span>
+<span class="nc" id="L338">            ps.setBinaryStream(2, bais, buf.length);</span>
+
+<span class="nc" id="L340">            return ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L342">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Update a calendar.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param calendarName
+     *          the name for the new calendar
+     * @param calendar
+     *          the calendar
+     * @return the number of rows updated
+     * @throws IOException
+     *           if there were problems serializing the calendar
+     */
+    @Override           
+    public int updateCalendar(Connection conn, String calendarName,
+            Calendar calendar) throws IOException, SQLException {
+        //log.debug( &quot;Updating calendar &quot; + calendarName + &quot; : &quot; + calendar );
+<span class="nc" id="L365">        ByteArrayOutputStream baos = serializeObject(calendar);</span>
+<span class="nc" id="L366">        byte buf[] = baos.toByteArray();</span>
+<span class="nc" id="L367">        ByteArrayInputStream bais = new ByteArrayInputStream(buf);</span>
+
+<span class="nc" id="L369">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="nc" id="L372">            ps = conn.prepareStatement(rtp(UPDATE_CALENDAR));</span>
+<span class="nc" id="L373">            ps.setBinaryStream(1, bais, buf.length);</span>
+<span class="nc" id="L374">            ps.setString(2, calendarName);</span>
+
+<span class="nc" id="L376">            return ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L378">            closeStatement(ps);</span>
+        }
+    }
+
+    //---------------------------------------------------------------------------
+    // protected methods that can be overridden by subclasses
+    //---------------------------------------------------------------------------
+
+    /**
+     * &lt;p&gt;
+     * This method should be overridden by any delegate subclasses that need
+     * special handling for BLOBs. The default implementation uses standard
+     * JDBC &lt;code&gt;java.sql.Blob&lt;/code&gt; operations.
+     * &lt;/p&gt;
+     * 
+     * @param rs
+     *          the result set, already queued to the correct row
+     * @param colName
+     *          the column name for the BLOB
+     * @return the deserialized Object from the ResultSet BLOB
+     * @throws ClassNotFoundException
+     *           if a class found during deserialization cannot be found
+     * @throws IOException
+     *           if deserialization causes an error
+     */
+    @Override           
+    protected Object getObjectFromBlob(ResultSet rs, String colName)
+        throws ClassNotFoundException, IOException, SQLException {
+        //log.debug( &quot;Getting blob from column: &quot; + colName );
+<span class="nc" id="L407">        Object obj = null;</span>
+
+<span class="nc" id="L409">        byte binaryData[] = rs.getBytes(colName);</span>
+
+<span class="nc" id="L411">        InputStream binaryInput = new ByteArrayInputStream(binaryData);</span>
+
+<span class="nc bnc" id="L413" title="All 4 branches missed.">        if (null != binaryInput &amp;&amp; binaryInput.available() != 0) {</span>
+<span class="nc" id="L414">            ObjectInputStream in = new ObjectInputStream(binaryInput);</span>
+            try {
+<span class="nc" id="L416">                obj = in.readObject();</span>
+            } finally {
+<span class="nc" id="L418">                in.close();</span>
+            }
+        }
+
+<span class="nc" id="L422">        return obj;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * This method should be overridden by any delegate subclasses that need
+     * special handling for BLOBs for job details. The default implementation
+     * uses standard JDBC &lt;code&gt;java.sql.Blob&lt;/code&gt; operations.
+     * &lt;/p&gt;
+     * 
+     * @param rs
+     *          the result set, already queued to the correct row
+     * @param colName
+     *          the column name for the BLOB
+     * @return the deserialized Object from the ResultSet BLOB
+     * @throws ClassNotFoundException
+     *           if a class found during deserialization cannot be found
+     * @throws IOException
+     *           if deserialization causes an error
+     */
+    @Override           
+    protected Object getJobDataFromBlob(ResultSet rs, String colName)
+        throws ClassNotFoundException, IOException, SQLException {
+        //log.debug( &quot;Getting Job details from blob in col &quot; + colName );
+<span class="nc bnc" id="L446" title="All 2 branches missed.">        if (canUseProperties()) {</span>
+<span class="nc" id="L447">            byte data[] = rs.getBytes(colName);</span>
+<span class="nc bnc" id="L448" title="All 2 branches missed.">            if(data == null) {</span>
+<span class="nc" id="L449">                return null;</span>
+            }
+<span class="nc" id="L451">            InputStream binaryInput = new ByteArrayInputStream(data);</span>
+<span class="nc" id="L452">            return binaryInput;</span>
+        }
+
+<span class="nc" id="L455">        return getObjectFromBlob(rs, colName);</span>
+    }
+}
+
+// EOF
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

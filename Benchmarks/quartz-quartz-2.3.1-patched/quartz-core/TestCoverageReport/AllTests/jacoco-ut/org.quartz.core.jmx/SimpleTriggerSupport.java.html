@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SimpleTriggerSupport.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.core.jmx</a> &gt; <span class="el_source">SimpleTriggerSupport.java</span></div><h1>SimpleTriggerSupport.java</h1><pre class="source lang-java linenums">package org.quartz.core.jmx;
+
+import static javax.management.openmbean.SimpleType.INTEGER;
+import static javax.management.openmbean.SimpleType.LONG;
+
+import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+import javax.management.openmbean.CompositeData;
+import javax.management.openmbean.CompositeDataSupport;
+import javax.management.openmbean.CompositeType;
+import javax.management.openmbean.OpenDataException;
+import javax.management.openmbean.OpenType;
+import javax.management.openmbean.TabularData;
+import javax.management.openmbean.TabularDataSupport;
+import javax.management.openmbean.TabularType;
+
+import org.quartz.SimpleTrigger;
+import org.quartz.impl.triggers.SimpleTriggerImpl;
+import org.quartz.spi.OperableTrigger;
+
+<span class="nc" id="L25">public class SimpleTriggerSupport {</span>
+    private static final String COMPOSITE_TYPE_NAME = &quot;SimpleTrigger&quot;;
+    private static final String COMPOSITE_TYPE_DESCRIPTION = &quot;SimpleTrigger Details&quot;;
+<span class="nc" id="L28">    private static final String[] ITEM_NAMES = new String[] { &quot;repeatCount&quot;, &quot;repeatInterval&quot;, &quot;timesTriggered&quot; };</span>
+<span class="nc" id="L29">    private static final String[] ITEM_DESCRIPTIONS = new String[] { &quot;repeatCount&quot;, &quot;repeatInterval&quot;, &quot;timesTriggered&quot; };</span>
+<span class="nc" id="L30">    private static final OpenType[] ITEM_TYPES = new OpenType[] { INTEGER, LONG, INTEGER };</span>
+    private static final CompositeType COMPOSITE_TYPE;
+    private static final String TABULAR_TYPE_NAME = &quot;SimpleTrigger collection&quot;;
+    private static final String TABULAR_TYPE_DESCRIPTION = &quot;SimpleTrigger collection&quot;;
+    private static final TabularType TABULAR_TYPE;
+
+    static {
+        try {
+<span class="nc" id="L38">            COMPOSITE_TYPE = new CompositeType(COMPOSITE_TYPE_NAME,</span>
+<span class="nc" id="L39">                    COMPOSITE_TYPE_DESCRIPTION, getItemNames(), getItemDescriptions(),</span>
+<span class="nc" id="L40">                    getItemTypes());</span>
+<span class="nc" id="L41">            TABULAR_TYPE = new TabularType(TABULAR_TYPE_NAME,</span>
+<span class="nc" id="L42">                    TABULAR_TYPE_DESCRIPTION, COMPOSITE_TYPE, getItemNames());</span>
+<span class="nc" id="L43">        } catch (OpenDataException e) {</span>
+<span class="nc" id="L44">            throw new RuntimeException(e);</span>
+<span class="nc" id="L45">        }</span>
+<span class="nc" id="L46">    }</span>
+    
+    public static String[] getItemNames() {
+<span class="nc" id="L49">        List&lt;String&gt; l = new ArrayList&lt;String&gt;(Arrays.asList(ITEM_NAMES));</span>
+<span class="nc" id="L50">        l.addAll(Arrays.asList(TriggerSupport.getItemNames()));</span>
+<span class="nc" id="L51">        return l.toArray(new String[l.size()]);</span>
+    }
+
+    public static String[] getItemDescriptions() {
+<span class="nc" id="L55">        List&lt;String&gt; l = new ArrayList&lt;String&gt;(Arrays.asList(ITEM_DESCRIPTIONS));</span>
+<span class="nc" id="L56">        l.addAll(Arrays.asList(TriggerSupport.getItemDescriptions()));</span>
+<span class="nc" id="L57">        return l.toArray(new String[l.size()]);</span>
+    }
+    
+    public static OpenType[] getItemTypes() {
+<span class="nc" id="L61">        List&lt;OpenType&gt; l = new ArrayList&lt;OpenType&gt;(Arrays.asList(ITEM_TYPES));</span>
+<span class="nc" id="L62">        l.addAll(Arrays.asList(TriggerSupport.getItemTypes()));</span>
+<span class="nc" id="L63">        return l.toArray(new OpenType[l.size()]);</span>
+    }
+    
+    public static CompositeData toCompositeData(SimpleTrigger trigger) {
+        try {
+<span class="nc" id="L68">            return new CompositeDataSupport(COMPOSITE_TYPE, ITEM_NAMES,</span>
+                    new Object[] {
+<span class="nc" id="L70">                            trigger.getRepeatCount(),</span>
+<span class="nc" id="L71">                            trigger.getRepeatInterval(),</span>
+<span class="nc" id="L72">                            trigger.getTimesTriggered(),</span>
+<span class="nc" id="L73">                            trigger.getKey().getName(),</span>
+<span class="nc" id="L74">                            trigger.getKey().getGroup(),</span>
+<span class="nc" id="L75">                            trigger.getJobKey().getName(),</span>
+<span class="nc" id="L76">                            trigger.getJobKey().getGroup(),</span>
+<span class="nc" id="L77">                            trigger.getDescription(),</span>
+<span class="nc" id="L78">                            JobDataMapSupport.toTabularData(trigger</span>
+<span class="nc" id="L79">                                    .getJobDataMap()),</span>
+<span class="nc" id="L80">                            trigger.getCalendarName(),</span>
+<span class="nc" id="L81">                            ((OperableTrigger)trigger).getFireInstanceId(),</span>
+<span class="nc" id="L82">                            trigger.getMisfireInstruction(),</span>
+<span class="nc" id="L83">                            trigger.getPriority(), trigger.getStartTime(),</span>
+<span class="nc" id="L84">                            trigger.getEndTime(), trigger.getNextFireTime(),</span>
+<span class="nc" id="L85">                            trigger.getPreviousFireTime(),</span>
+<span class="nc" id="L86">                            trigger.getFinalFireTime() });</span>
+<span class="nc" id="L87">        } catch (OpenDataException e) {</span>
+<span class="nc" id="L88">            throw new RuntimeException(e);</span>
+        }
+    }
+
+    public static TabularData toTabularData(List&lt;? extends SimpleTrigger&gt; triggers) {
+<span class="nc" id="L93">        TabularData tData = new TabularDataSupport(TABULAR_TYPE);</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">        if (triggers != null) {</span>
+<span class="nc" id="L95">            ArrayList&lt;CompositeData&gt; list = new ArrayList&lt;CompositeData&gt;();</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">            for (SimpleTrigger trigger : triggers) {</span>
+<span class="nc" id="L97">                list.add(toCompositeData(trigger));</span>
+<span class="nc" id="L98">            }</span>
+<span class="nc" id="L99">            tData.putAll(list.toArray(new CompositeData[list.size()]));</span>
+        }
+<span class="nc" id="L101">        return tData;</span>
+    }
+    
+    public static OperableTrigger newTrigger(CompositeData cData) throws ParseException {
+<span class="nc" id="L105">        SimpleTriggerImpl result = new SimpleTriggerImpl();</span>
+<span class="nc" id="L106">        result.setRepeatCount(((Integer) cData.get(&quot;repeatCount&quot;)).intValue());</span>
+<span class="nc" id="L107">        result.setRepeatInterval(((Long) cData.get(&quot;repeatInterval&quot;)).longValue());</span>
+<span class="nc" id="L108">        result.setTimesTriggered(((Integer) cData.get(&quot;timesTriggered&quot;)).intValue());</span>
+<span class="nc" id="L109">        TriggerSupport.initializeTrigger(result, cData);</span>
+<span class="nc" id="L110">        return result;</span>
+    }
+
+    public static OperableTrigger newTrigger(Map&lt;String, Object&gt; attrMap) throws ParseException {
+<span class="nc" id="L114">        SimpleTriggerImpl result = new SimpleTriggerImpl();</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">        if(attrMap.containsKey(&quot;repeatCount&quot;)) {</span>
+<span class="nc" id="L116">            result.setRepeatCount(((Integer) attrMap.get(&quot;repeatCount&quot;)).intValue());</span>
+        }
+<span class="nc bnc" id="L118" title="All 2 branches missed.">        if(attrMap.containsKey(&quot;repeatInterval&quot;)) {</span>
+<span class="nc" id="L119">            result.setRepeatInterval(((Long) attrMap.get(&quot;repeatInterval&quot;)).longValue());</span>
+        }
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        if(attrMap.containsKey(&quot;timesTriggered&quot;)) {</span>
+<span class="nc" id="L122">            result.setTimesTriggered(((Integer) attrMap.get(&quot;timesTriggered&quot;)).intValue());</span>
+        }
+<span class="nc" id="L124">        TriggerSupport.initializeTrigger(result, attrMap);</span>
+<span class="nc" id="L125">        return result;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

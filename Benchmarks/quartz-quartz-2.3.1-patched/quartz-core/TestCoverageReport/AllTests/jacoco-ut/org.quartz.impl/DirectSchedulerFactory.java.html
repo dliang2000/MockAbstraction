@@ -1,0 +1,582 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DirectSchedulerFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl</a> &gt; <span class="el_source">DirectSchedulerFactory.java</span></div><h1>DirectSchedulerFactory.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy
+ * of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ *
+ */
+
+package org.quartz.impl;
+
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.quartz.SchedulerFactory;
+import org.quartz.core.JobRunShellFactory;
+import org.quartz.core.QuartzScheduler;
+import org.quartz.core.QuartzSchedulerResources;
+import org.quartz.simpl.CascadingClassLoadHelper;
+import org.quartz.simpl.RAMJobStore;
+import org.quartz.simpl.SimpleThreadPool;
+import org.quartz.spi.ClassLoadHelper;
+import org.quartz.spi.JobStore;
+import org.quartz.spi.SchedulerPlugin;
+import org.quartz.spi.ThreadExecutor;
+import org.quartz.spi.ThreadPool;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * &lt;p&gt;
+ * A singleton implementation of &lt;code&gt;{@link org.quartz.SchedulerFactory}&lt;/code&gt;.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * Here are some examples of using this class:
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * To create a scheduler that does not write anything to the database (is not
+ * persistent), you can call &lt;code&gt;createVolatileScheduler&lt;/code&gt;:
+ *
+ * &lt;pre&gt;
+ *  DirectSchedulerFactory.getInstance().createVolatileScheduler(10); // 10 threads * // don't forget to start the scheduler: DirectSchedulerFactory.getInstance().getScheduler().start();
+ * &lt;/pre&gt;
+ *
+ *
+ * &lt;p&gt;
+ * Several create methods are provided for convenience. All create methods
+ * eventually end up calling the create method with all the parameters:
+ * &lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ *  public void createScheduler(String schedulerName, String schedulerInstanceId, ThreadPool threadPool, JobStore jobStore, String rmiRegistryHost, int rmiRegistryPort)
+ * &lt;/pre&gt;
+ *
+ *
+ * &lt;p&gt;
+ * Here is an example of using this method:
+ * &lt;/p&gt;
+ *  *
+ *  * &lt;pre&gt;// create the thread pool SimpleThreadPool threadPool = new SimpleThreadPool(maxThreads, Thread.NORM_PRIORITY); threadPool.initialize(); * // create the job store JobStore jobStore = new RAMJobStore();
+ *
+ *  DirectSchedulerFactory.getInstance().createScheduler(&quot;My Quartz Scheduler&quot;, &quot;My Instance&quot;, threadPool, jobStore, &quot;localhost&quot;, 1099); * // don't forget to start the scheduler: DirectSchedulerFactory.getInstance().getScheduler(&quot;My Quartz Scheduler&quot;, &quot;My Instance&quot;).start();
+ * &lt;/pre&gt;
+ *
+ *
+ * &lt;p&gt;
+ * You can also use a JDBCJobStore instead of the RAMJobStore:
+ * &lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ *  DBConnectionManager.getInstance().addConnectionProvider(&quot;someDatasource&quot;, new JNDIConnectionProvider(&quot;someDatasourceJNDIName&quot;));
+ *
+ *  JobStoreTX jdbcJobStore = new JobStoreTX(); jdbcJobStore.setDataSource(&quot;someDatasource&quot;); jdbcJobStore.setPostgresStyleBlobs(true); jdbcJobStore.setTablePrefix(&quot;QRTZ_&quot;); jdbcJobStore.setInstanceId(&quot;My Instance&quot;);
+ * &lt;/pre&gt;
+ *
+ * @author Mohammad Rezaei
+ * @author James House
+ *
+ * @see JobStore
+ * @see ThreadPool
+ */
+public class DirectSchedulerFactory implements SchedulerFactory {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Constants.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+    public static final String DEFAULT_INSTANCE_ID = &quot;SIMPLE_NON_CLUSTERED&quot;;
+
+    public static final String DEFAULT_SCHEDULER_NAME = &quot;SimpleQuartzScheduler&quot;;
+
+    private static final boolean DEFAULT_JMX_EXPORT = false;
+
+<span class="fc" id="L110">    private static final String DEFAULT_JMX_OBJECTNAME = null;</span>
+
+<span class="fc" id="L112">    private static final DefaultThreadExecutor DEFAULT_THREAD_EXECUTOR = new DefaultThreadExecutor();</span>
+
+    private static final int DEFAULT_BATCH_MAX_SIZE = 1;
+
+    private static final long DEFAULT_BATCH_TIME_WINDOW = 0L;
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Data members.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+<span class="fc" id="L126">    private boolean initialized = false;</span>
+
+<span class="fc" id="L128">    private static DirectSchedulerFactory instance = new DirectSchedulerFactory();</span>
+
+<span class="fc" id="L130">    private final Logger log = LoggerFactory.getLogger(getClass());</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Constructors.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    protected Logger getLog() {
+<span class="fc" id="L141">        return log;</span>
+    }
+
+    /**
+     * Constructor
+     */
+<span class="fc" id="L147">    protected DirectSchedulerFactory() {</span>
+<span class="fc" id="L148">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Interface.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public static DirectSchedulerFactory getInstance() {
+<span class="fc" id="L159">        return instance;</span>
+    }
+
+    /**
+     * Creates an in memory job store (&lt;code&gt;{@link RAMJobStore}&lt;/code&gt;)
+     * The thread priority is set to Thread.NORM_PRIORITY
+     *
+     * @param maxThreads
+     *          The number of threads in the thread pool
+     * @throws SchedulerException
+     *           if initialization failed.
+     */
+    public void createVolatileScheduler(int maxThreads)
+        throws SchedulerException {
+<span class="fc" id="L173">        SimpleThreadPool threadPool = new SimpleThreadPool(maxThreads,</span>
+                Thread.NORM_PRIORITY);
+<span class="fc" id="L175">        JobStore jobStore = new RAMJobStore();</span>
+<span class="fc" id="L176">        this.createScheduler(threadPool, jobStore);</span>
+<span class="fc" id="L177">    }</span>
+
+
+    /**
+     * Creates a proxy to a remote scheduler. This scheduler can be retrieved
+     * via {@link DirectSchedulerFactory#getScheduler()}
+     *
+     * @param rmiHost
+     *          The hostname for remote scheduler
+     * @param rmiPort
+     *          Port for the remote scheduler. The default RMI port is 1099.
+     * @throws SchedulerException
+     *           if the remote scheduler could not be reached.
+     */
+    public void createRemoteScheduler(String rmiHost, int rmiPort)
+        throws SchedulerException {
+<span class="nc" id="L193">        createRemoteScheduler(DEFAULT_SCHEDULER_NAME, DEFAULT_INSTANCE_ID,</span>
+                rmiHost, rmiPort);
+<span class="nc" id="L195">    }</span>
+
+    /**
+     * Same as
+     * {@link DirectSchedulerFactory#createRemoteScheduler(String rmiHost, int rmiPort)},
+     * with the addition of specifying the scheduler name and instance ID. This
+     * scheduler can only be retrieved via
+     * {@link DirectSchedulerFactory#getScheduler(String)}
+     *
+     * @param schedulerName
+     *          The name for the scheduler.
+     * @param schedulerInstanceId
+     *          The instance ID for the scheduler.
+     * @param rmiHost
+     *          The hostname for remote scheduler
+     * @param rmiPort
+     *          Port for the remote scheduler. The default RMI port is 1099.
+     * @throws SchedulerException
+     *           if the remote scheduler could not be reached.
+     */
+    public void createRemoteScheduler(String schedulerName,
+            String schedulerInstanceId, String rmiHost, int rmiPort)
+        throws SchedulerException {
+<span class="nc" id="L218">        createRemoteScheduler(schedulerName,</span>
+                schedulerInstanceId, null, rmiHost, rmiPort);
+<span class="nc" id="L220">    }</span>
+
+    /**
+     * Same as
+     * {@link DirectSchedulerFactory#createRemoteScheduler(String rmiHost, int rmiPort)},
+     * with the addition of specifying the scheduler name, instance ID, and rmi
+     * bind name. This scheduler can only be retrieved via
+     * {@link DirectSchedulerFactory#getScheduler(String)}
+     *
+     * @param schedulerName
+     *          The name for the scheduler.
+     * @param schedulerInstanceId
+     *          The instance ID for the scheduler.
+     * @param rmiBindName
+     *          The name of the remote scheduler in the RMI repository.  If null
+     *          defaults to the generated unique identifier.
+     * @param rmiHost
+     *          The hostname for remote scheduler
+     * @param rmiPort
+     *          Port for the remote scheduler. The default RMI port is 1099.
+     * @throws SchedulerException
+     *           if the remote scheduler could not be reached.
+     */
+    public void createRemoteScheduler(String schedulerName,
+            String schedulerInstanceId, String rmiBindName, String rmiHost, int rmiPort)
+        throws SchedulerException {
+
+<span class="nc bnc" id="L247" title="All 2 branches missed.">        String uid = (rmiBindName != null) ? rmiBindName :</span>
+<span class="nc" id="L248">            QuartzSchedulerResources.getUniqueIdentifier(</span>
+                schedulerName, schedulerInstanceId);
+
+<span class="nc" id="L251">        RemoteScheduler remoteScheduler = new RemoteScheduler(uid, rmiHost, rmiPort);</span>
+
+<span class="nc" id="L253">        SchedulerRepository schedRep = SchedulerRepository.getInstance();</span>
+<span class="nc" id="L254">        schedRep.bind(remoteScheduler);</span>
+<span class="nc" id="L255">        initialized = true;</span>
+<span class="nc" id="L256">    }</span>
+
+    /**
+     * Creates a scheduler using the specified thread pool and job store. This
+     * scheduler can be retrieved via
+     * {@link DirectSchedulerFactory#getScheduler()}
+     *
+     * @param threadPool
+     *          The thread pool for executing jobs
+     * @param jobStore
+     *          The type of job store
+     * @throws SchedulerException
+     *           if initialization failed
+     */
+    public void createScheduler(ThreadPool threadPool, JobStore jobStore)
+        throws SchedulerException {
+<span class="fc" id="L272">        createScheduler(DEFAULT_SCHEDULER_NAME, DEFAULT_INSTANCE_ID,</span>
+                threadPool, jobStore);
+<span class="fc" id="L274">    }</span>
+
+    /**
+     * Same as
+     * {@link DirectSchedulerFactory#createScheduler(ThreadPool threadPool, JobStore jobStore)},
+     * with the addition of specifying the scheduler name and instance ID. This
+     * scheduler can only be retrieved via
+     * {@link DirectSchedulerFactory#getScheduler(String)}
+     *
+     * @param schedulerName
+     *          The name for the scheduler.
+     * @param schedulerInstanceId
+     *          The instance ID for the scheduler.
+     * @param threadPool
+     *          The thread pool for executing jobs
+     * @param jobStore
+     *          The type of job store
+     * @throws SchedulerException
+     *           if initialization failed
+     */
+    public void createScheduler(String schedulerName,
+            String schedulerInstanceId, ThreadPool threadPool, JobStore jobStore)
+        throws SchedulerException {
+<span class="fc" id="L297">        createScheduler(schedulerName, schedulerInstanceId, threadPool,</span>
+                jobStore, null, 0, -1, -1);
+<span class="fc" id="L299">    }</span>
+
+    /**
+     * Creates a scheduler using the specified thread pool and job store and
+     * binds it to RMI.
+     *
+     * @param schedulerName
+     *          The name for the scheduler.
+     * @param schedulerInstanceId
+     *          The instance ID for the scheduler.
+     * @param threadPool
+     *          The thread pool for executing jobs
+     * @param jobStore
+     *          The type of job store
+     * @param rmiRegistryHost
+     *          The hostname to register this scheduler with for RMI. Can use
+     *          &quot;null&quot; if no RMI is required.
+     * @param rmiRegistryPort
+     *          The port for RMI. Typically 1099.
+     * @param idleWaitTime
+     *          The idle wait time in milliseconds. You can specify &quot;-1&quot; for
+     *          the default value, which is currently 30000 ms.
+     * @throws SchedulerException
+     *           if initialization failed
+     */
+    public void createScheduler(String schedulerName,
+            String schedulerInstanceId, ThreadPool threadPool,
+            JobStore jobStore, String rmiRegistryHost, int rmiRegistryPort,
+            long idleWaitTime, long dbFailureRetryInterval)
+        throws SchedulerException {
+<span class="fc" id="L329">        createScheduler(schedulerName,</span>
+                schedulerInstanceId, threadPool,
+                jobStore, null, // plugins
+                rmiRegistryHost, rmiRegistryPort,
+                idleWaitTime, dbFailureRetryInterval,
+                DEFAULT_JMX_EXPORT, DEFAULT_JMX_OBJECTNAME);
+<span class="fc" id="L335">    }</span>
+
+    /**
+     * Creates a scheduler using the specified thread pool, job store, and
+     * plugins, and binds it to RMI.
+     *
+     * @param schedulerName
+     *          The name for the scheduler.
+     * @param schedulerInstanceId
+     *          The instance ID for the scheduler.
+     * @param threadPool
+     *          The thread pool for executing jobs
+     * @param jobStore
+     *          The type of job store
+     * @param schedulerPluginMap
+     *          Map from a &lt;code&gt;String&lt;/code&gt; plugin names to
+     *          &lt;code&gt;{@link org.quartz.spi.SchedulerPlugin}&lt;/code&gt;s.  Can use
+     *          &quot;null&quot; if no plugins are required.
+     * @param rmiRegistryHost
+     *          The hostname to register this scheduler with for RMI. Can use
+     *          &quot;null&quot; if no RMI is required.
+     * @param rmiRegistryPort
+     *          The port for RMI. Typically 1099.
+     * @param idleWaitTime
+     *          The idle wait time in milliseconds. You can specify &quot;-1&quot; for
+     *          the default value, which is currently 30000 ms.
+     * @throws SchedulerException
+     *           if initialization failed
+     */
+    public void createScheduler(String schedulerName,
+            String schedulerInstanceId, ThreadPool threadPool,
+            JobStore jobStore, Map&lt;String, SchedulerPlugin&gt; schedulerPluginMap,
+            String rmiRegistryHost, int rmiRegistryPort,
+            long idleWaitTime, long dbFailureRetryInterval,
+            boolean jmxExport, String jmxObjectName)
+        throws SchedulerException {
+<span class="fc" id="L371">        createScheduler(schedulerName, schedulerInstanceId, threadPool,</span>
+                DEFAULT_THREAD_EXECUTOR, jobStore, schedulerPluginMap,
+                rmiRegistryHost, rmiRegistryPort, idleWaitTime,
+                dbFailureRetryInterval, jmxExport, jmxObjectName);
+<span class="fc" id="L375">    }</span>
+
+    /**
+     * Creates a scheduler using the specified thread pool, job store, and
+     * plugins, and binds it to RMI.
+     *
+     * @param schedulerName
+     *          The name for the scheduler.
+     * @param schedulerInstanceId
+     *          The instance ID for the scheduler.
+     * @param threadPool
+     *          The thread pool for executing jobs
+     * @param threadExecutor
+     *          The thread executor for executing jobs
+     * @param jobStore
+     *          The type of job store
+     * @param schedulerPluginMap
+     *          Map from a &lt;code&gt;String&lt;/code&gt; plugin names to
+     *          &lt;code&gt;{@link org.quartz.spi.SchedulerPlugin}&lt;/code&gt;s.  Can use
+     *          &quot;null&quot; if no plugins are required.
+     * @param rmiRegistryHost
+     *          The hostname to register this scheduler with for RMI. Can use
+     *          &quot;null&quot; if no RMI is required.
+     * @param rmiRegistryPort
+     *          The port for RMI. Typically 1099.
+     * @param idleWaitTime
+     *          The idle wait time in milliseconds. You can specify &quot;-1&quot; for
+     *          the default value, which is currently 30000 ms.
+     * @throws SchedulerException
+     *           if initialization failed
+     */
+    public void createScheduler(String schedulerName,
+            String schedulerInstanceId, ThreadPool threadPool,
+            ThreadExecutor threadExecutor,
+            JobStore jobStore, Map&lt;String, SchedulerPlugin&gt; schedulerPluginMap,
+            String rmiRegistryHost, int rmiRegistryPort,
+            long idleWaitTime, long dbFailureRetryInterval,
+            boolean jmxExport, String jmxObjectName)
+        throws SchedulerException {
+<span class="fc" id="L414">        createScheduler(schedulerName, schedulerInstanceId, threadPool,</span>
+                DEFAULT_THREAD_EXECUTOR, jobStore, schedulerPluginMap,
+                rmiRegistryHost, rmiRegistryPort, idleWaitTime,
+                dbFailureRetryInterval, jmxExport, jmxObjectName, DEFAULT_BATCH_MAX_SIZE, DEFAULT_BATCH_TIME_WINDOW);
+<span class="fc" id="L418">    }</span>
+
+    /**
+     * Creates a scheduler using the specified thread pool, job store, and
+     * plugins, and binds it to RMI.
+     *
+     * @param schedulerName
+     *          The name for the scheduler.
+     * @param schedulerInstanceId
+     *          The instance ID for the scheduler.
+     * @param threadPool
+     *          The thread pool for executing jobs
+     * @param threadExecutor
+     *          The thread executor for executing jobs
+     * @param jobStore
+     *          The type of job store
+     * @param schedulerPluginMap
+     *          Map from a &lt;code&gt;String&lt;/code&gt; plugin names to
+     *          &lt;code&gt;{@link org.quartz.spi.SchedulerPlugin}&lt;/code&gt;s.  Can use
+     *          &quot;null&quot; if no plugins are required.
+     * @param rmiRegistryHost
+     *          The hostname to register this scheduler with for RMI. Can use
+     *          &quot;null&quot; if no RMI is required.
+     * @param rmiRegistryPort
+     *          The port for RMI. Typically 1099.
+     * @param idleWaitTime
+     *          The idle wait time in milliseconds. You can specify &quot;-1&quot; for
+     *          the default value, which is currently 30000 ms.
+     * @param maxBatchSize
+     *          The maximum batch size of triggers, when acquiring them
+     * @param batchTimeWindow
+     *          The time window for which it is allowed to &quot;pre-acquire&quot; triggers to fire
+     * @throws SchedulerException
+     *           if initialization failed
+     */
+    public void createScheduler(String schedulerName,
+            String schedulerInstanceId, ThreadPool threadPool,
+            ThreadExecutor threadExecutor,
+            JobStore jobStore, Map&lt;String, SchedulerPlugin&gt; schedulerPluginMap,
+            String rmiRegistryHost, int rmiRegistryPort,
+            long idleWaitTime, long dbFailureRetryInterval,
+            boolean jmxExport, String jmxObjectName, int maxBatchSize, long batchTimeWindow)
+        throws SchedulerException {
+        // Currently only one run-shell factory is available...
+<span class="fc" id="L462">        JobRunShellFactory jrsf = new StdJobRunShellFactory();</span>
+
+        // Fire everything up
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+<span class="fc" id="L466">        threadPool.setInstanceName(schedulerName);</span>
+<span class="fc" id="L467">        threadPool.initialize();</span>
+        
+<span class="fc" id="L469">        QuartzSchedulerResources qrs = new QuartzSchedulerResources();</span>
+
+<span class="fc" id="L471">        qrs.setName(schedulerName);</span>
+<span class="fc" id="L472">        qrs.setInstanceId(schedulerInstanceId);</span>
+<span class="fc" id="L473">        SchedulerDetailsSetter.setDetails(threadPool, schedulerName, schedulerInstanceId);</span>
+<span class="fc" id="L474">        qrs.setJobRunShellFactory(jrsf);</span>
+<span class="fc" id="L475">        qrs.setThreadPool(threadPool);</span>
+<span class="fc" id="L476">        qrs.setThreadExecutor(threadExecutor);</span>
+<span class="fc" id="L477">        qrs.setJobStore(jobStore);</span>
+<span class="fc" id="L478">        qrs.setMaxBatchSize(maxBatchSize);</span>
+<span class="fc" id="L479">        qrs.setBatchTimeWindow(batchTimeWindow);</span>
+<span class="fc" id="L480">        qrs.setRMIRegistryHost(rmiRegistryHost);</span>
+<span class="fc" id="L481">        qrs.setRMIRegistryPort(rmiRegistryPort);</span>
+<span class="fc" id="L482">        qrs.setJMXExport(jmxExport);</span>
+<span class="pc bpc" id="L483" title="1 of 2 branches missed.">        if (jmxObjectName != null) {</span>
+<span class="nc" id="L484">           qrs.setJMXObjectName(jmxObjectName);</span>
+        }
+        
+        // add plugins
+<span class="fc bfc" id="L488" title="All 2 branches covered.">        if (schedulerPluginMap != null) {</span>
+<span class="fc bfc" id="L489" title="All 2 branches covered.">            for (Iterator&lt;SchedulerPlugin&gt; pluginIter = schedulerPluginMap.values().iterator(); pluginIter.hasNext();) {</span>
+<span class="fc" id="L490">                qrs.addSchedulerPlugin(pluginIter.next());</span>
+            }
+        }
+
+<span class="fc" id="L494">        QuartzScheduler qs = new QuartzScheduler(qrs, idleWaitTime, dbFailureRetryInterval);</span>
+
+<span class="fc" id="L496">        ClassLoadHelper cch = new CascadingClassLoadHelper();</span>
+<span class="fc" id="L497">        cch.initialize();</span>
+
+<span class="fc" id="L499">        SchedulerDetailsSetter.setDetails(jobStore, schedulerName, schedulerInstanceId);</span>
+
+<span class="fc" id="L501">        jobStore.initialize(cch, qs.getSchedulerSignaler());</span>
+
+<span class="fc" id="L503">        Scheduler scheduler = new StdScheduler(qs);</span>
+
+<span class="fc" id="L505">        jrsf.initialize(scheduler);</span>
+
+<span class="fc" id="L507">        qs.initialize();</span>
+        
+
+        // Initialize plugins now that we have a Scheduler instance.
+<span class="fc bfc" id="L511" title="All 2 branches covered.">        if (schedulerPluginMap != null) {</span>
+<span class="fc bfc" id="L512" title="All 2 branches covered.">            for (Iterator&lt;Entry&lt;String, SchedulerPlugin&gt;&gt; pluginEntryIter = schedulerPluginMap.entrySet().iterator(); pluginEntryIter.hasNext();) {</span>
+<span class="fc" id="L513">                Entry&lt;String, SchedulerPlugin&gt; pluginEntry = pluginEntryIter.next();</span>
+
+<span class="fc" id="L515">                pluginEntry.getValue().initialize(pluginEntry.getKey(), scheduler, cch);</span>
+<span class="fc" id="L516">            }</span>
+        }
+
+<span class="fc" id="L519">        getLog().info(&quot;Quartz scheduler '&quot; + scheduler.getSchedulerName());</span>
+
+<span class="fc" id="L521">        getLog().info(&quot;Quartz scheduler version: &quot; + qs.getVersion());</span>
+
+<span class="fc" id="L523">        SchedulerRepository schedRep = SchedulerRepository.getInstance();</span>
+
+<span class="fc" id="L525">        qs.addNoGCObject(schedRep); // prevents the repository from being</span>
+        // garbage collected
+
+<span class="fc" id="L528">        schedRep.bind(scheduler);</span>
+        
+<span class="fc" id="L530">        initialized = true;</span>
+<span class="fc" id="L531">    }</span>
+
+    /*
+     * public void registerSchedulerForRmi(String schedulerName, String
+     * schedulerId, String registryHost, int registryPort) throws
+     * SchedulerException, RemoteException { QuartzScheduler scheduler =
+     * (QuartzScheduler) this.getScheduler(); scheduler.bind(registryHost,
+     * registryPort); }
+     */
+
+    /**
+     * &lt;p&gt;
+     * Returns a handle to the Scheduler produced by this factory.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * you must call createRemoteScheduler or createScheduler methods before
+     * calling getScheduler()
+     * &lt;/p&gt;
+     */
+    public Scheduler getScheduler() throws SchedulerException {
+<span class="pc bpc" id="L552" title="1 of 2 branches missed.">        if (!initialized) {</span>
+<span class="nc" id="L553">            throw new SchedulerException(</span>
+                &quot;you must call createRemoteScheduler or createScheduler methods before calling getScheduler()&quot;);
+        }
+
+<span class="fc" id="L557">        return getScheduler(DEFAULT_SCHEDULER_NAME);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns a handle to the Scheduler with the given name, if it exists.
+     * &lt;/p&gt;
+     */
+    public Scheduler getScheduler(String schedName) throws SchedulerException {
+<span class="fc" id="L566">        SchedulerRepository schedRep = SchedulerRepository.getInstance();</span>
+
+<span class="fc" id="L568">        return schedRep.lookup(schedName);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns a handle to all known Schedulers (made by any
+     * StdSchedulerFactory instance.).
+     * &lt;/p&gt;
+     */
+    public Collection&lt;Scheduler&gt; getAllSchedulers() throws SchedulerException {
+<span class="nc" id="L578">        return SchedulerRepository.getInstance().lookupAll();</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

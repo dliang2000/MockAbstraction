@@ -1,0 +1,976 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CalendarIntervalTriggerImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.triggers</a> &gt; <span class="el_source">CalendarIntervalTriggerImpl.java</span></div><h1>CalendarIntervalTriggerImpl.java</h1><pre class="source lang-java linenums">
+/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.impl.triggers;
+
+import java.util.Calendar;
+import java.util.Date;
+import java.util.TimeZone;
+
+import org.quartz.CalendarIntervalScheduleBuilder;
+import org.quartz.CalendarIntervalTrigger;
+import org.quartz.CronTrigger;
+import org.quartz.DateBuilder.IntervalUnit;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.quartz.ScheduleBuilder;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.quartz.SimpleTrigger;
+import org.quartz.Trigger;
+import org.quartz.TriggerUtils;
+
+
+/**
+ * &lt;p&gt;A concrete &lt;code&gt;{@link Trigger}&lt;/code&gt; that is used to fire a &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt;
+ * based upon repeating calendar time intervals.&lt;/p&gt;
+ * 
+ * &lt;p&gt;The trigger will fire every N (see {@link #setRepeatInterval(int)} ) units of calendar time
+ * (see {@link #setRepeatIntervalUnit(org.quartz.DateBuilder.IntervalUnit)}) as specified in the trigger's definition.
+ * This trigger can achieve schedules that are not possible with {@link SimpleTrigger} (e.g 
+ * because months are not a fixed number of seconds) or {@link CronTrigger} (e.g. because
+ * &quot;every 5 months&quot; is not an even divisor of 12).&lt;/p&gt;
+ * 
+ * &lt;p&gt;If you use an interval unit of &lt;code&gt;MONTH&lt;/code&gt; then care should be taken when setting
+ * a &lt;code&gt;startTime&lt;/code&gt; value that is on a day near the end of the month.  For example,
+ * if you choose a start time that occurs on January 31st, and have a trigger with unit
+ * &lt;code&gt;MONTH&lt;/code&gt; and interval &lt;code&gt;1&lt;/code&gt;, then the next fire time will be February 28th, 
+ * and the next time after that will be March 28th - and essentially each subsequent firing will 
+ * occur on the 28th of the month, even if a 31st day exists.  If you want a trigger that always
+ * fires on the last day of the month - regardless of the number of days in the month, 
+ * you should use &lt;code&gt;CronTrigger&lt;/code&gt;.&lt;/p&gt; 
+ * 
+ * @see Trigger
+ * @see CronTrigger
+ * @see SimpleTrigger
+ * @see TriggerUtils
+ * 
+ * @since 1.7
+ * 
+ * @author James House
+ */
+public class CalendarIntervalTriggerImpl extends AbstractTrigger&lt;CalendarIntervalTrigger&gt; implements CalendarIntervalTrigger, CoreTrigger {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constants.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    private static final long serialVersionUID = -2635982274232850343L;
+
+    
+<span class="fc" id="L80">    private static final int YEAR_TO_GIVEUP_SCHEDULING_AT = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) + 100;</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+    
+<span class="pc" id="L90">    private Date startTime = null;</span>
+
+<span class="pc" id="L92">    private Date endTime = null;</span>
+
+<span class="pc" id="L94">    private Date nextFireTime = null;</span>
+
+<span class="pc" id="L96">    private Date previousFireTime = null;</span>
+
+<span class="pc" id="L98">    private  int repeatInterval = 0;</span>
+    
+<span class="pc" id="L100">    private IntervalUnit repeatIntervalUnit = IntervalUnit.DAY;</span>
+
+    private TimeZone timeZone;
+
+<span class="pc" id="L104">    private boolean preserveHourOfDayAcrossDaylightSavings = false; // false is backward-compatible with behavior</span>
+
+<span class="pc" id="L106">    private boolean skipDayIfHourDoesNotExist = false;</span>
+
+<span class="pc" id="L108">    private int timesTriggered = 0;</span>
+
+<span class="pc" id="L110">    private boolean complete = false;</span>
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;DateIntervalTrigger&lt;/code&gt; with no settings.
+     * &lt;/p&gt;
+     */
+    public CalendarIntervalTriggerImpl() {
+<span class="fc" id="L126">        super();</span>
+<span class="fc" id="L127">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;DateIntervalTrigger&lt;/code&gt; that will occur immediately, and
+     * repeat at the the given interval.
+     * &lt;/p&gt;
+     */
+    public CalendarIntervalTriggerImpl(String name, IntervalUnit intervalUnit,  int repeatInterval) {
+<span class="nc" id="L136">        this(name, null, intervalUnit, repeatInterval);</span>
+<span class="nc" id="L137">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;DateIntervalTrigger&lt;/code&gt; that will occur immediately, and
+     * repeat at the the given interval.
+     * &lt;/p&gt;
+     */
+    public CalendarIntervalTriggerImpl(String name, String group, IntervalUnit intervalUnit,
+            int repeatInterval) {
+<span class="nc" id="L147">        this(name, group, new Date(), null, intervalUnit, repeatInterval);</span>
+<span class="nc" id="L148">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;DateIntervalTrigger&lt;/code&gt; that will occur at the given time,
+     * and repeat at the the given interval until the given end time.
+     * &lt;/p&gt;
+     * 
+     * @param startTime
+     *          A &lt;code&gt;Date&lt;/code&gt; set to the time for the &lt;code&gt;Trigger&lt;/code&gt;
+     *          to fire.
+     * @param endTime
+     *          A &lt;code&gt;Date&lt;/code&gt; set to the time for the &lt;code&gt;Trigger&lt;/code&gt;
+     *          to quit repeat firing.
+     * @param intervalUnit
+     *          The repeat interval unit (minutes, days, months, etc).
+     * @param repeatInterval
+     *          The number of milliseconds to pause between the repeat firing.
+     */
+    public CalendarIntervalTriggerImpl(String name, Date startTime,
+            Date endTime, IntervalUnit intervalUnit,  int repeatInterval) {
+<span class="fc" id="L169">        this(name, null, startTime, endTime, intervalUnit, repeatInterval);</span>
+<span class="fc" id="L170">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;DateIntervalTrigger&lt;/code&gt; that will occur at the given time,
+     * and repeat at the the given interval until the given end time.
+     * &lt;/p&gt;
+     * 
+     * @param startTime
+     *          A &lt;code&gt;Date&lt;/code&gt; set to the time for the &lt;code&gt;Trigger&lt;/code&gt;
+     *          to fire.
+     * @param endTime
+     *          A &lt;code&gt;Date&lt;/code&gt; set to the time for the &lt;code&gt;Trigger&lt;/code&gt;
+     *          to quit repeat firing.
+     * @param intervalUnit
+     *          The repeat interval unit (minutes, days, months, etc).
+     * @param repeatInterval
+     *          The number of milliseconds to pause between the repeat firing.
+     */
+    public CalendarIntervalTriggerImpl(String name, String group, Date startTime,
+            Date endTime, IntervalUnit intervalUnit,  int repeatInterval) {
+<span class="fc" id="L191">        super(name, group);</span>
+
+<span class="fc" id="L193">        setStartTime(startTime);</span>
+<span class="fc" id="L194">        setEndTime(endTime);</span>
+<span class="fc" id="L195">        setRepeatIntervalUnit(intervalUnit);</span>
+<span class="fc" id="L196">        setRepeatInterval(repeatInterval);</span>
+<span class="fc" id="L197">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;DateIntervalTrigger&lt;/code&gt; that will occur at the given time,
+     * fire the identified &lt;code&gt;Job&lt;/code&gt; and repeat at the the given
+     * interval until the given end time.
+     * &lt;/p&gt;
+     * 
+     * @param startTime
+     *          A &lt;code&gt;Date&lt;/code&gt; set to the time for the &lt;code&gt;Trigger&lt;/code&gt;
+     *          to fire.
+     * @param endTime
+     *          A &lt;code&gt;Date&lt;/code&gt; set to the time for the &lt;code&gt;Trigger&lt;/code&gt;
+     *          to quit repeat firing.
+     * @param intervalUnit
+     *          The repeat interval unit (minutes, days, months, etc).
+     * @param repeatInterval
+     *          The number of milliseconds to pause between the repeat firing.
+     */
+    public CalendarIntervalTriggerImpl(String name, String group, String jobName,
+            String jobGroup, Date startTime, Date endTime,  
+            IntervalUnit intervalUnit,  int repeatInterval) {
+<span class="nc" id="L220">        super(name, group, jobName, jobGroup);</span>
+
+<span class="nc" id="L222">        setStartTime(startTime);</span>
+<span class="nc" id="L223">        setEndTime(endTime);</span>
+<span class="nc" id="L224">        setRepeatIntervalUnit(intervalUnit);</span>
+<span class="nc" id="L225">        setRepeatInterval(repeatInterval);</span>
+<span class="nc" id="L226">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Get the time at which the &lt;code&gt;DateIntervalTrigger&lt;/code&gt; should occur.
+     * &lt;/p&gt;
+     */
+    @Override
+    public Date getStartTime() {
+<span class="pc bpc" id="L243" title="1 of 2 branches missed.">        if(startTime == null)</span>
+<span class="nc" id="L244">            startTime = new Date();</span>
+<span class="fc" id="L245">        return startTime;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the time at which the &lt;code&gt;DateIntervalTrigger&lt;/code&gt; should occur.
+     * &lt;/p&gt;
+     * 
+     * @exception IllegalArgumentException
+     *              if startTime is &lt;code&gt;null&lt;/code&gt;.
+     */
+    @Override
+    public void setStartTime(Date startTime) {
+<span class="pc bpc" id="L258" title="1 of 2 branches missed.">        if (startTime == null) {</span>
+<span class="nc" id="L259">            throw new IllegalArgumentException(&quot;Start time cannot be null&quot;);</span>
+        }
+
+<span class="fc" id="L262">        Date eTime = getEndTime();</span>
+<span class="pc bpc" id="L263" title="3 of 4 branches missed.">        if (eTime != null &amp;&amp; eTime.before(startTime)) {</span>
+<span class="nc" id="L264">            throw new IllegalArgumentException(</span>
+                &quot;End time cannot be before start time&quot;);    
+        }
+
+<span class="fc" id="L268">        this.startTime = startTime;</span>
+<span class="fc" id="L269">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the time at which the &lt;code&gt;DateIntervalTrigger&lt;/code&gt; should quit
+     * repeating.
+     * &lt;/p&gt;
+     * 
+     * @see #getFinalFireTime()
+     */
+    @Override
+    public Date getEndTime() {
+<span class="fc" id="L281">        return endTime;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the time at which the &lt;code&gt;DateIntervalTrigger&lt;/code&gt; should quit
+     * repeating (and be automatically deleted).
+     * &lt;/p&gt;
+     * 
+     * @exception IllegalArgumentException
+     *              if endTime is before start time.
+     */
+    @Override
+    public void setEndTime(Date endTime) {
+<span class="fc" id="L295">        Date sTime = getStartTime();</span>
+<span class="pc bpc" id="L296" title="2 of 6 branches missed.">        if (sTime != null &amp;&amp; endTime != null &amp;&amp; sTime.after(endTime)) {</span>
+<span class="nc" id="L297">            throw new IllegalArgumentException(</span>
+                    &quot;End time cannot be before start time&quot;);
+        }
+
+<span class="fc" id="L301">        this.endTime = endTime;</span>
+<span class="fc" id="L302">    }</span>
+
+    /* (non-Javadoc)
+     * @see org.quartz.DateIntervalTriggerI#getRepeatIntervalUnit()
+     */
+    public IntervalUnit getRepeatIntervalUnit() {
+<span class="fc" id="L308">        return repeatIntervalUnit;</span>
+    }
+
+    /**
+     * &lt;p&gt;Set the interval unit - the time unit on with the interval applies.&lt;/p&gt;
+     */
+    public void setRepeatIntervalUnit(IntervalUnit intervalUnit) {
+<span class="fc" id="L315">        this.repeatIntervalUnit = intervalUnit;</span>
+<span class="fc" id="L316">    }</span>
+
+    /* (non-Javadoc)
+     * @see org.quartz.DateIntervalTriggerI#getRepeatInterval()
+     */
+    public int getRepeatInterval() {
+<span class="fc" id="L322">        return repeatInterval;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * set the the time interval that will be added to the &lt;code&gt;DateIntervalTrigger&lt;/code&gt;'s
+     * fire time (in the set repeat interval unit) in order to calculate the time of the 
+     * next trigger repeat.
+     * &lt;/p&gt;
+     * 
+     * @exception IllegalArgumentException
+     *              if repeatInterval is &lt; 1
+     */
+    public void setRepeatInterval( int repeatInterval) {
+<span class="pc bpc" id="L336" title="1 of 2 branches missed.">        if (repeatInterval &lt; 0) {</span>
+<span class="nc" id="L337">            throw new IllegalArgumentException(</span>
+                    &quot;Repeat interval must be &gt;= 1&quot;);
+        }
+
+<span class="fc" id="L341">        this.repeatInterval = repeatInterval;</span>
+<span class="fc" id="L342">    }</span>
+
+    /* (non-Javadoc)
+     * @see org.quartz.CalendarIntervalTriggerI#getTimeZone()
+     */
+    public TimeZone getTimeZone() {
+        
+<span class="nc bnc" id="L349" title="All 2 branches missed.">        if (timeZone == null) {</span>
+<span class="nc" id="L350">            timeZone = TimeZone.getDefault();</span>
+        }
+<span class="nc" id="L352">        return timeZone;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Sets the time zone within which time calculations related to this 
+     * trigger will be performed.
+     * &lt;/p&gt;
+     *
+     * @param timeZone the desired TimeZone, or null for the system default.
+     */
+    public void setTimeZone(TimeZone timeZone) {
+<span class="fc" id="L364">        this.timeZone = timeZone;</span>
+<span class="fc" id="L365">    }</span>
+    
+    /**
+     * If intervals are a day or greater, this property (set to true) will 
+     * cause the firing of the trigger to always occur at the same time of day,
+     * (the time of day of the startTime) regardless of daylight saving time 
+     * transitions.  Default value is false.
+     * 
+     * &lt;p&gt;
+     * For example, without the property set, your trigger may have a start 
+     * time of 9:00 am on March 1st, and a repeat interval of 2 days.  But 
+     * after the daylight saving transition occurs, the trigger may start 
+     * firing at 8:00 am every other day.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * If however, the time of day does not exist on a given day to fire
+     * (e.g. 2:00 am in the United States on the days of daylight saving
+     * transition), the trigger will go ahead and fire one hour off on 
+     * that day, and then resume the normal hour on other days.  If
+     * you wish for the trigger to never fire at the &quot;wrong&quot; hour, then
+     * you should set the property skipDayIfHourDoesNotExist.
+     * &lt;/p&gt;
+     * 
+     * @see #isSkipDayIfHourDoesNotExist()
+     * @see #getStartTime()
+     * @see #getTimeZone()
+     */
+    public boolean isPreserveHourOfDayAcrossDaylightSavings() {
+<span class="fc" id="L394">        return preserveHourOfDayAcrossDaylightSavings;</span>
+    }
+
+    public void setPreserveHourOfDayAcrossDaylightSavings(boolean preserveHourOfDayAcrossDaylightSavings) {
+<span class="fc" id="L398">        this.preserveHourOfDayAcrossDaylightSavings = preserveHourOfDayAcrossDaylightSavings;</span>
+<span class="fc" id="L399">    }</span>
+    
+    /**
+     * If intervals are a day or greater, and 
+     * preserveHourOfDayAcrossDaylightSavings property is set to true, and the
+     * hour of the day does not exist on a given day for which the trigger 
+     * would fire, the day will be skipped and the trigger advanced a second
+     * interval if this property is set to true.  Defaults to false.
+     * 
+     * &lt;p&gt;
+     * &lt;b&gt;CAUTION!&lt;/b&gt;  If you enable this property, and your hour of day happens 
+     * to be that of daylight savings transition (e.g. 2:00 am in the United 
+     * States) and the trigger's interval would have had the trigger fire on
+     * that day, then you may actually completely miss a firing on the day of 
+     * transition if that hour of day does not exist on that day!  In such a 
+     * case the next fire time of the trigger will be computed as double (if 
+     * the interval is 2 days, then a span of 4 days between firings will 
+     * occur).
+     * &lt;/p&gt;
+     * 
+     * @see #isPreserveHourOfDayAcrossDaylightSavings()
+     */
+    public boolean isSkipDayIfHourDoesNotExist() {
+<span class="nc" id="L422">        return skipDayIfHourDoesNotExist;</span>
+    }
+
+    public void setSkipDayIfHourDoesNotExist(boolean skipDayIfHourDoesNotExist) {
+<span class="nc" id="L426">        this.skipDayIfHourDoesNotExist = skipDayIfHourDoesNotExist;</span>
+<span class="nc" id="L427">    }</span>
+    
+    /* (non-Javadoc)
+     * @see org.quartz.DateIntervalTriggerI#getTimesTriggered()
+     */
+    public int getTimesTriggered() {
+<span class="nc" id="L433">        return timesTriggered;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the number of times the &lt;code&gt;DateIntervalTrigger&lt;/code&gt; has already
+     * fired.
+     * &lt;/p&gt;
+     */
+    public void setTimesTriggered(int timesTriggered) {
+<span class="nc" id="L443">        this.timesTriggered = timesTriggered;</span>
+<span class="nc" id="L444">    }</span>
+
+    @Override
+    protected boolean validateMisfireInstruction(int misfireInstruction) {
+<span class="pc bpc" id="L448" title="1 of 2 branches missed.">        if (misfireInstruction &lt; MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY) {</span>
+<span class="nc" id="L449">            return false;</span>
+        }
+
+<span class="fc bfc" id="L452" title="All 2 branches covered.">        return misfireInstruction &lt;= MISFIRE_INSTRUCTION_DO_NOTHING;</span>
+    }
+
+
+    /**
+     * &lt;p&gt;
+     * Updates the &lt;code&gt;DateIntervalTrigger&lt;/code&gt;'s state based on the
+     * MISFIRE_INSTRUCTION_XXX that was selected when the &lt;code&gt;DateIntervalTrigger&lt;/code&gt;
+     * was created.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * If the misfire instruction is set to MISFIRE_INSTRUCTION_SMART_POLICY,
+     * then the following scheme will be used: &lt;br&gt;
+     * &lt;ul&gt;
+     * &lt;li&gt;The instruction will be interpreted as &lt;code&gt;MISFIRE_INSTRUCTION_FIRE_ONCE_NOW&lt;/code&gt;
+     * &lt;/ul&gt;
+     * &lt;/p&gt;
+     */
+    @Override
+    public void updateAfterMisfire(org.quartz.Calendar cal) {
+<span class="nc" id="L473">        int instr = getMisfireInstruction();</span>
+
+<span class="nc bnc" id="L475" title="All 2 branches missed.">        if(instr == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY)</span>
+<span class="nc" id="L476">            return;</span>
+
+<span class="nc bnc" id="L478" title="All 2 branches missed.">        if (instr == MISFIRE_INSTRUCTION_SMART_POLICY) {</span>
+<span class="nc" id="L479">            instr = MISFIRE_INSTRUCTION_FIRE_ONCE_NOW;</span>
+        }
+
+<span class="nc bnc" id="L482" title="All 2 branches missed.">        if (instr == MISFIRE_INSTRUCTION_DO_NOTHING) {</span>
+<span class="nc" id="L483">            Date newFireTime = getFireTimeAfter(new Date());</span>
+<span class="nc bnc" id="L484" title="All 4 branches missed.">            while (newFireTime != null &amp;&amp; cal != null</span>
+<span class="nc bnc" id="L485" title="All 2 branches missed.">                    &amp;&amp; !cal.isTimeIncluded(newFireTime.getTime())) {</span>
+<span class="nc" id="L486">                newFireTime = getFireTimeAfter(newFireTime);</span>
+            }
+<span class="nc" id="L488">            setNextFireTime(newFireTime);</span>
+<span class="nc bnc" id="L489" title="All 2 branches missed.">        } else if (instr == MISFIRE_INSTRUCTION_FIRE_ONCE_NOW) { </span>
+            // fire once now...
+<span class="nc" id="L491">            setNextFireTime(new Date());</span>
+            // the new fire time afterward will magically preserve the original  
+            // time of day for firing for day/week/month interval triggers, 
+            // because of the way getFireTimeAfter() works - in its always restarting
+            // computation from the start time.
+        }
+<span class="nc" id="L497">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Called when the &lt;code&gt;{@link Scheduler}&lt;/code&gt; has decided to 'fire'
+     * the trigger (execute the associated &lt;code&gt;Job&lt;/code&gt;), in order to
+     * give the &lt;code&gt;Trigger&lt;/code&gt; a chance to update itself for its next
+     * triggering (if any).
+     * &lt;/p&gt;
+     * 
+     * @see #executionComplete(JobExecutionContext, JobExecutionException)
+     */
+    @Override
+    public void triggered(org.quartz.Calendar calendar) {
+<span class="fc" id="L511">        timesTriggered++;</span>
+<span class="fc" id="L512">        previousFireTime = nextFireTime;</span>
+<span class="fc" id="L513">        nextFireTime = getFireTimeAfter(nextFireTime);</span>
+
+<span class="pc bpc" id="L515" title="2 of 4 branches missed.">        while (nextFireTime != null &amp;&amp; calendar != null</span>
+<span class="nc bnc" id="L516" title="All 2 branches missed.">                &amp;&amp; !calendar.isTimeIncluded(nextFireTime.getTime())) {</span>
+            
+<span class="nc" id="L518">            nextFireTime = getFireTimeAfter(nextFireTime);</span>
+
+<span class="nc bnc" id="L520" title="All 2 branches missed.">            if(nextFireTime == null)</span>
+<span class="nc" id="L521">                break;</span>
+            
+            //avoid infinite loop
+<span class="nc" id="L524">            java.util.Calendar c = java.util.Calendar.getInstance();</span>
+<span class="nc" id="L525">            c.setTime(nextFireTime);</span>
+<span class="nc bnc" id="L526" title="All 2 branches missed.">            if (c.get(java.util.Calendar.YEAR) &gt; YEAR_TO_GIVEUP_SCHEDULING_AT) {</span>
+<span class="nc" id="L527">                nextFireTime = null;</span>
+            }
+<span class="nc" id="L529">        }</span>
+<span class="fc" id="L530">    }</span>
+
+
+    /**
+     *  
+     * @see org.quartz.spi.OperableTrigger#updateWithNewCalendar(org.quartz.Calendar, long)
+     */
+    @Override
+    public void updateWithNewCalendar(org.quartz.Calendar calendar, long misfireThreshold)
+    {
+<span class="nc" id="L540">        nextFireTime = getFireTimeAfter(previousFireTime);</span>
+
+<span class="nc bnc" id="L542" title="All 4 branches missed.">        if (nextFireTime == null || calendar == null) {</span>
+<span class="nc" id="L543">            return;</span>
+        }
+        
+<span class="nc" id="L546">        Date now = new Date();</span>
+<span class="nc bnc" id="L547" title="All 4 branches missed.">        while (nextFireTime != null &amp;&amp; !calendar.isTimeIncluded(nextFireTime.getTime())) {</span>
+
+<span class="nc" id="L549">            nextFireTime = getFireTimeAfter(nextFireTime);</span>
+
+<span class="nc bnc" id="L551" title="All 2 branches missed.">            if(nextFireTime == null)</span>
+<span class="nc" id="L552">                break;</span>
+            
+            //avoid infinite loop
+<span class="nc" id="L555">            java.util.Calendar c = java.util.Calendar.getInstance();</span>
+<span class="nc" id="L556">            c.setTime(nextFireTime);</span>
+<span class="nc bnc" id="L557" title="All 2 branches missed.">            if (c.get(java.util.Calendar.YEAR) &gt; YEAR_TO_GIVEUP_SCHEDULING_AT) {</span>
+<span class="nc" id="L558">                nextFireTime = null;</span>
+            }
+
+<span class="nc bnc" id="L561" title="All 4 branches missed.">            if(nextFireTime != null &amp;&amp; nextFireTime.before(now)) {</span>
+<span class="nc" id="L562">                long diff = now.getTime() - nextFireTime.getTime();</span>
+<span class="nc bnc" id="L563" title="All 2 branches missed.">                if(diff &gt;= misfireThreshold) {</span>
+<span class="nc" id="L564">                    nextFireTime = getFireTimeAfter(nextFireTime);</span>
+                }
+            }
+<span class="nc" id="L567">        }</span>
+<span class="nc" id="L568">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Called by the scheduler at the time a &lt;code&gt;Trigger&lt;/code&gt; is first
+     * added to the scheduler, in order to have the &lt;code&gt;Trigger&lt;/code&gt;
+     * compute its first fire time, based on any associated calendar.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * After this method has been called, &lt;code&gt;getNextFireTime()&lt;/code&gt;
+     * should return a valid answer.
+     * &lt;/p&gt;
+     * 
+     * @return the first time at which the &lt;code&gt;Trigger&lt;/code&gt; will be fired
+     *         by the scheduler, which is also the same value &lt;code&gt;getNextFireTime()&lt;/code&gt;
+     *         will return (until after the first firing of the &lt;code&gt;Trigger&lt;/code&gt;).
+     *         &lt;/p&gt;
+     */
+    @Override
+    public Date computeFirstFireTime(org.quartz.Calendar calendar) {
+<span class="fc" id="L589">        nextFireTime = getStartTime();</span>
+
+<span class="pc bpc" id="L591" title="1 of 4 branches missed.">        while (nextFireTime != null &amp;&amp; calendar != null</span>
+<span class="pc bpc" id="L592" title="1 of 2 branches missed.">                &amp;&amp; !calendar.isTimeIncluded(nextFireTime.getTime())) {</span>
+            
+<span class="nc" id="L594">            nextFireTime = getFireTimeAfter(nextFireTime);</span>
+            
+<span class="nc bnc" id="L596" title="All 2 branches missed.">            if(nextFireTime == null)</span>
+<span class="nc" id="L597">                break;</span>
+
+            //avoid infinite loop
+<span class="nc" id="L600">            java.util.Calendar c = java.util.Calendar.getInstance();</span>
+<span class="nc" id="L601">            c.setTime(nextFireTime);</span>
+<span class="nc bnc" id="L602" title="All 2 branches missed.">            if (c.get(java.util.Calendar.YEAR) &gt; YEAR_TO_GIVEUP_SCHEDULING_AT) {</span>
+<span class="nc" id="L603">                return null;</span>
+            }
+<span class="nc" id="L605">        }</span>
+        
+<span class="fc" id="L607">        return nextFireTime;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns the next time at which the &lt;code&gt;Trigger&lt;/code&gt; is scheduled to fire. If
+     * the trigger will not fire again, &lt;code&gt;null&lt;/code&gt; will be returned.  Note that
+     * the time returned can possibly be in the past, if the time that was computed
+     * for the trigger to next fire has already arrived, but the scheduler has not yet
+     * been able to fire the trigger (which would likely be due to lack of resources
+     * e.g. threads).
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;The value returned is not guaranteed to be valid until after the &lt;code&gt;Trigger&lt;/code&gt;
+     * has been added to the scheduler.
+     * &lt;/p&gt;
+     */
+    @Override
+    public Date getNextFireTime() {
+<span class="fc" id="L626">        return nextFireTime;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns the previous time at which the &lt;code&gt;DateIntervalTrigger&lt;/code&gt; 
+     * fired. If the trigger has not yet fired, &lt;code&gt;null&lt;/code&gt; will be
+     * returned.
+     */
+    @Override
+    public Date getPreviousFireTime() {
+<span class="nc" id="L637">        return previousFireTime;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the next time at which the &lt;code&gt;DateIntervalTrigger&lt;/code&gt; should fire.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * &lt;b&gt;This method should not be invoked by client code.&lt;/b&gt;
+     * &lt;/p&gt;
+     */
+    public void setNextFireTime(Date nextFireTime) {
+<span class="nc" id="L650">        this.nextFireTime = nextFireTime;</span>
+<span class="nc" id="L651">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Set the previous time at which the &lt;code&gt;DateIntervalTrigger&lt;/code&gt; fired.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * &lt;b&gt;This method should not be invoked by client code.&lt;/b&gt;
+     * &lt;/p&gt;
+     */
+    public void setPreviousFireTime(Date previousFireTime) {
+<span class="nc" id="L663">        this.previousFireTime = previousFireTime;</span>
+<span class="nc" id="L664">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Returns the next time at which the &lt;code&gt;DateIntervalTrigger&lt;/code&gt; will
+     * fire, after the given time. If the trigger will not fire after the given
+     * time, &lt;code&gt;null&lt;/code&gt; will be returned.
+     * &lt;/p&gt;
+     */
+    @Override
+    public Date getFireTimeAfter(Date afterTime) {
+<span class="fc" id="L675">        return getFireTimeAfter(afterTime, false);</span>
+    }
+    
+    protected Date getFireTimeAfter(Date afterTime, boolean ignoreEndTime) {
+<span class="pc bpc" id="L679" title="1 of 2 branches missed.">        if (complete) {</span>
+<span class="nc" id="L680">            return null;</span>
+        }
+
+        // increment afterTme by a second, so that we are 
+        // comparing against a time after it!
+<span class="pc bpc" id="L685" title="1 of 2 branches missed.">        if (afterTime == null) {</span>
+<span class="nc" id="L686">            afterTime = new Date();</span>
+        }
+
+<span class="fc" id="L689">        long startMillis = getStartTime().getTime();</span>
+<span class="fc" id="L690">        long afterMillis = afterTime.getTime();</span>
+<span class="fc bfc" id="L691" title="All 2 branches covered.">        long endMillis = (getEndTime() == null) ? Long.MAX_VALUE : getEndTime()</span>
+<span class="fc" id="L692">                .getTime();</span>
+
+<span class="pc bpc" id="L694" title="1 of 4 branches missed.">        if (!ignoreEndTime &amp;&amp; (endMillis &lt;= afterMillis)) {</span>
+<span class="nc" id="L695">            return null;</span>
+        }
+
+<span class="pc bpc" id="L698" title="1 of 2 branches missed.">        if (afterMillis &lt; startMillis) {</span>
+<span class="nc" id="L699">            return new Date(startMillis);</span>
+        }
+
+        
+<span class="fc" id="L703">        long secondsAfterStart = 1 + (afterMillis - startMillis) / 1000L;</span>
+
+<span class="fc" id="L705">        Date time = null;</span>
+<span class="fc" id="L706">        long repeatLong = getRepeatInterval();</span>
+        
+<span class="fc" id="L708">        Calendar aTime = Calendar.getInstance();</span>
+<span class="fc" id="L709">        aTime.setTime(afterTime);</span>
+
+<span class="fc" id="L711">        Calendar sTime = Calendar.getInstance();</span>
+<span class="fc bfc" id="L712" title="All 2 branches covered.">        if(timeZone != null)</span>
+<span class="fc" id="L713">            sTime.setTimeZone(timeZone);</span>
+<span class="fc" id="L714">        sTime.setTime(getStartTime());</span>
+<span class="fc" id="L715">        sTime.setLenient(true);</span>
+        
+<span class="fc bfc" id="L717" title="All 2 branches covered.">        if(getRepeatIntervalUnit().equals(IntervalUnit.SECOND)) {</span>
+<span class="fc" id="L718">            long jumpCount = secondsAfterStart / repeatLong;</span>
+<span class="pc bpc" id="L719" title="1 of 2 branches missed.">            if(secondsAfterStart % repeatLong != 0)</span>
+<span class="fc" id="L720">                jumpCount++;</span>
+<span class="fc" id="L721">            sTime.add(Calendar.SECOND, getRepeatInterval() * (int)jumpCount);</span>
+<span class="fc" id="L722">            time = sTime.getTime();</span>
+<span class="fc" id="L723">        }</span>
+<span class="fc bfc" id="L724" title="All 2 branches covered.">        else if(getRepeatIntervalUnit().equals(IntervalUnit.MINUTE)) {</span>
+<span class="fc" id="L725">            long jumpCount = secondsAfterStart / (repeatLong * 60L);</span>
+<span class="pc bpc" id="L726" title="1 of 2 branches missed.">            if(secondsAfterStart % (repeatLong * 60L) != 0)</span>
+<span class="fc" id="L727">                jumpCount++;</span>
+<span class="fc" id="L728">            sTime.add(Calendar.MINUTE, getRepeatInterval() * (int)jumpCount);</span>
+<span class="fc" id="L729">            time = sTime.getTime();</span>
+<span class="fc" id="L730">        }</span>
+<span class="fc bfc" id="L731" title="All 2 branches covered.">        else if(getRepeatIntervalUnit().equals(IntervalUnit.HOUR)) {</span>
+<span class="fc" id="L732">            long jumpCount = secondsAfterStart / (repeatLong * 60L * 60L);</span>
+<span class="pc bpc" id="L733" title="1 of 2 branches missed.">            if(secondsAfterStart % (repeatLong * 60L * 60L) != 0)</span>
+<span class="fc" id="L734">                jumpCount++;</span>
+<span class="fc" id="L735">            sTime.add(Calendar.HOUR_OF_DAY, getRepeatInterval() * (int)jumpCount);</span>
+<span class="fc" id="L736">            time = sTime.getTime();</span>
+<span class="fc" id="L737">        }</span>
+        else { // intervals a day or greater ...
+
+<span class="fc" id="L740">            int initialHourOfDay = sTime.get(Calendar.HOUR_OF_DAY);</span>
+            
+<span class="fc bfc" id="L742" title="All 2 branches covered.">            if(getRepeatIntervalUnit().equals(IntervalUnit.DAY)) {</span>
+<span class="fc" id="L743">                sTime.setLenient(true);</span>
+                
+                // Because intervals greater than an hour have an non-fixed number 
+                // of seconds in them (due to daylight savings, variation number of 
+                // days in each month, leap year, etc. ) we can't jump forward an
+                // exact number of seconds to calculate the fire time as we can
+                // with the second, minute and hour intervals.   But, rather
+                // than slowly crawling our way there by iteratively adding the 
+                // increment to the start time until we reach the &quot;after time&quot;,
+                // we can first make a big leap most of the way there...
+                
+<span class="fc" id="L754">                long jumpCount = secondsAfterStart / (repeatLong * 24L * 60L * 60L);</span>
+                // if we need to make a big jump, jump most of the way there, 
+                // but not all the way because in some cases we may over-shoot or under-shoot
+<span class="fc bfc" id="L757" title="All 2 branches covered.">                if(jumpCount &gt; 20) {</span>
+<span class="pc bpc" id="L758" title="1 of 2 branches missed.">                    if(jumpCount &lt; 50)</span>
+<span class="nc" id="L759">                        jumpCount = (long) (jumpCount * 0.80);</span>
+<span class="pc bpc" id="L760" title="1 of 2 branches missed.">                    else if(jumpCount &lt; 500)</span>
+<span class="fc" id="L761">                        jumpCount = (long) (jumpCount * 0.90);</span>
+                    else
+<span class="nc" id="L763">                        jumpCount = (long) (jumpCount * 0.95);</span>
+<span class="fc" id="L764">                    sTime.add(java.util.Calendar.DAY_OF_YEAR, (int) (getRepeatInterval() * jumpCount));</span>
+                }
+                
+                // now baby-step the rest of the way there...
+<span class="fc bfc" id="L768" title="All 2 branches covered.">                while(!sTime.getTime().after(afterTime) &amp;&amp;</span>
+<span class="pc bpc" id="L769" title="1 of 2 branches missed.">                        (sTime.get(java.util.Calendar.YEAR) &lt; YEAR_TO_GIVEUP_SCHEDULING_AT)) {            </span>
+<span class="fc" id="L770">                    sTime.add(java.util.Calendar.DAY_OF_YEAR, getRepeatInterval());</span>
+                }
+<span class="fc bfc" id="L772" title="All 2 branches covered.">                while(daylightSavingHourShiftOccurredAndAdvanceNeeded(sTime, initialHourOfDay, afterTime) &amp;&amp;</span>
+<span class="pc bpc" id="L773" title="1 of 2 branches missed.">                        (sTime.get(java.util.Calendar.YEAR) &lt; YEAR_TO_GIVEUP_SCHEDULING_AT)) {</span>
+<span class="fc" id="L774">                    sTime.add(java.util.Calendar.DAY_OF_YEAR, getRepeatInterval());</span>
+                }
+<span class="fc" id="L776">                time = sTime.getTime();</span>
+<span class="fc" id="L777">            }</span>
+<span class="fc bfc" id="L778" title="All 2 branches covered.">            else if(getRepeatIntervalUnit().equals(IntervalUnit.WEEK)) {</span>
+<span class="fc" id="L779">                sTime.setLenient(true);</span>
+    
+                // Because intervals greater than an hour have an non-fixed number 
+                // of seconds in them (due to daylight savings, variation number of 
+                // days in each month, leap year, etc. ) we can't jump forward an
+                // exact number of seconds to calculate the fire time as we can
+                // with the second, minute and hour intervals.   But, rather
+                // than slowly crawling our way there by iteratively adding the 
+                // increment to the start time until we reach the &quot;after time&quot;,
+                // we can first make a big leap most of the way there...
+                
+<span class="fc" id="L790">                long jumpCount = secondsAfterStart / (repeatLong * 7L * 24L * 60L * 60L);</span>
+                // if we need to make a big jump, jump most of the way there, 
+                // but not all the way because in some cases we may over-shoot or under-shoot
+<span class="pc bpc" id="L793" title="1 of 2 branches missed.">                if(jumpCount &gt; 20) {</span>
+<span class="nc bnc" id="L794" title="All 2 branches missed.">                    if(jumpCount &lt; 50)</span>
+<span class="nc" id="L795">                        jumpCount = (long) (jumpCount * 0.80);</span>
+<span class="nc bnc" id="L796" title="All 2 branches missed.">                    else if(jumpCount &lt; 500)</span>
+<span class="nc" id="L797">                        jumpCount = (long) (jumpCount * 0.90);</span>
+                    else
+<span class="nc" id="L799">                        jumpCount = (long) (jumpCount * 0.95);</span>
+<span class="nc" id="L800">                    sTime.add(java.util.Calendar.WEEK_OF_YEAR, (int) (getRepeatInterval() * jumpCount));</span>
+                }
+                
+<span class="fc bfc" id="L803" title="All 2 branches covered.">                while(!sTime.getTime().after(afterTime) &amp;&amp;</span>
+<span class="pc bpc" id="L804" title="1 of 2 branches missed.">                        (sTime.get(java.util.Calendar.YEAR) &lt; YEAR_TO_GIVEUP_SCHEDULING_AT)) {            </span>
+<span class="fc" id="L805">                    sTime.add(java.util.Calendar.WEEK_OF_YEAR, getRepeatInterval());</span>
+                }
+<span class="pc bpc" id="L807" title="1 of 2 branches missed.">                while(daylightSavingHourShiftOccurredAndAdvanceNeeded(sTime, initialHourOfDay, afterTime) &amp;&amp;</span>
+<span class="nc bnc" id="L808" title="All 2 branches missed.">                        (sTime.get(java.util.Calendar.YEAR) &lt; YEAR_TO_GIVEUP_SCHEDULING_AT)) {</span>
+<span class="nc" id="L809">                    sTime.add(java.util.Calendar.WEEK_OF_YEAR, getRepeatInterval());</span>
+                }
+<span class="fc" id="L811">                time = sTime.getTime();</span>
+<span class="fc" id="L812">            }</span>
+<span class="fc bfc" id="L813" title="All 2 branches covered.">            else if(getRepeatIntervalUnit().equals(IntervalUnit.MONTH)) {</span>
+<span class="fc" id="L814">                sTime.setLenient(true);</span>
+    
+                // because of the large variation in size of months, and 
+                // because months are already large blocks of time, we will
+                // just advance via brute-force iteration.
+                
+<span class="fc bfc" id="L820" title="All 2 branches covered.">                while(!sTime.getTime().after(afterTime) &amp;&amp;</span>
+<span class="pc bpc" id="L821" title="1 of 2 branches missed.">                        (sTime.get(java.util.Calendar.YEAR) &lt; YEAR_TO_GIVEUP_SCHEDULING_AT)) {            </span>
+<span class="fc" id="L822">                    sTime.add(java.util.Calendar.MONTH, getRepeatInterval());</span>
+                }
+<span class="pc bpc" id="L824" title="1 of 2 branches missed.">                while(daylightSavingHourShiftOccurredAndAdvanceNeeded(sTime, initialHourOfDay, afterTime) &amp;&amp;</span>
+<span class="nc bnc" id="L825" title="All 2 branches missed.">                        (sTime.get(java.util.Calendar.YEAR) &lt; YEAR_TO_GIVEUP_SCHEDULING_AT)) {</span>
+<span class="nc" id="L826">                    sTime.add(java.util.Calendar.MONTH, getRepeatInterval());</span>
+                }
+<span class="fc" id="L828">                time = sTime.getTime();</span>
+            }
+<span class="pc bpc" id="L830" title="1 of 2 branches missed.">            else if(getRepeatIntervalUnit().equals(IntervalUnit.YEAR)) {</span>
+    
+<span class="fc bfc" id="L832" title="All 2 branches covered.">                while(!sTime.getTime().after(afterTime) &amp;&amp;</span>
+<span class="pc bpc" id="L833" title="1 of 2 branches missed.">                        (sTime.get(java.util.Calendar.YEAR) &lt; YEAR_TO_GIVEUP_SCHEDULING_AT)) {            </span>
+<span class="fc" id="L834">                    sTime.add(java.util.Calendar.YEAR, getRepeatInterval());</span>
+                }
+<span class="pc bpc" id="L836" title="1 of 2 branches missed.">                while(daylightSavingHourShiftOccurredAndAdvanceNeeded(sTime, initialHourOfDay, afterTime) &amp;&amp;</span>
+<span class="nc bnc" id="L837" title="All 2 branches missed.">                        (sTime.get(java.util.Calendar.YEAR) &lt; YEAR_TO_GIVEUP_SCHEDULING_AT)) {</span>
+<span class="nc" id="L838">                    sTime.add(java.util.Calendar.YEAR, getRepeatInterval());</span>
+                }
+<span class="fc" id="L840">                time = sTime.getTime();</span>
+            }
+        } // case of interval of a day or greater
+        
+<span class="pc bpc" id="L844" title="1 of 4 branches missed.">        if (!ignoreEndTime &amp;&amp; (endMillis &lt;= time.getTime())) {</span>
+<span class="nc" id="L845">            return null;</span>
+        }
+
+<span class="fc" id="L848">        return time;</span>
+    }
+
+    private boolean daylightSavingHourShiftOccurredAndAdvanceNeeded(Calendar newTime, int initialHourOfDay, Date afterTime) {
+<span class="fc bfc" id="L852" title="All 4 branches covered.">        if(isPreserveHourOfDayAcrossDaylightSavings() &amp;&amp; newTime.get(Calendar.HOUR_OF_DAY) != initialHourOfDay) {</span>
+<span class="fc" id="L853">            newTime.set(Calendar.HOUR_OF_DAY, initialHourOfDay);</span>
+<span class="pc bpc" id="L854" title="1 of 2 branches missed.">            if (newTime.get(Calendar.HOUR_OF_DAY) != initialHourOfDay) {</span>
+<span class="nc" id="L855">                return isSkipDayIfHourDoesNotExist();</span>
+            } else {
+<span class="pc bpc" id="L857" title="1 of 2 branches missed.">                return !newTime.getTime().after(afterTime);</span>
+            }
+        }
+<span class="fc" id="L860">        return false;</span>
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Returns the final time at which the &lt;code&gt;DateIntervalTrigger&lt;/code&gt; will
+     * fire, if there is no end time set, null will be returned.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Note that the return time may be in the past.
+     * &lt;/p&gt;
+     */
+    @Override
+    public Date getFinalFireTime() {
+<span class="pc bpc" id="L875" title="2 of 4 branches missed.">        if (complete || getEndTime() == null) {</span>
+<span class="nc" id="L876">            return null;</span>
+        }
+
+        // back up a second from end time
+<span class="fc" id="L880">        Date fTime = new Date(getEndTime().getTime() - 1000L);</span>
+        // find the next fire time after that
+<span class="fc" id="L882">        fTime = getFireTimeAfter(fTime, true);</span>
+        
+        // the the trigger fires at the end time, that's it!
+<span class="fc bfc" id="L885" title="All 2 branches covered.">        if(fTime.equals(getEndTime()))</span>
+<span class="fc" id="L886">            return fTime;</span>
+        
+        // otherwise we have to back up one interval from the fire time after the end time
+        
+<span class="fc" id="L890">        Calendar lTime = Calendar.getInstance();</span>
+<span class="pc bpc" id="L891" title="1 of 2 branches missed.">        if(timeZone != null)</span>
+<span class="nc" id="L892">            lTime.setTimeZone(timeZone);</span>
+<span class="fc" id="L893">        lTime.setTime(fTime);</span>
+<span class="fc" id="L894">        lTime.setLenient(true);</span>
+        
+<span class="pc bpc" id="L896" title="1 of 2 branches missed.">        if(getRepeatIntervalUnit().equals(IntervalUnit.SECOND)) {</span>
+<span class="nc" id="L897">            lTime.add(java.util.Calendar.SECOND, -1 * getRepeatInterval());</span>
+        }
+<span class="pc bpc" id="L899" title="1 of 2 branches missed.">        else if(getRepeatIntervalUnit().equals(IntervalUnit.MINUTE)) {</span>
+<span class="fc" id="L900">            lTime.add(java.util.Calendar.MINUTE, -1 * getRepeatInterval());</span>
+        }
+<span class="nc bnc" id="L902" title="All 2 branches missed.">        else if(getRepeatIntervalUnit().equals(IntervalUnit.HOUR)) {</span>
+<span class="nc" id="L903">            lTime.add(java.util.Calendar.HOUR_OF_DAY, -1 * getRepeatInterval());</span>
+        }
+<span class="nc bnc" id="L905" title="All 2 branches missed.">        else if(getRepeatIntervalUnit().equals(IntervalUnit.DAY)) {</span>
+<span class="nc" id="L906">            lTime.add(java.util.Calendar.DAY_OF_YEAR, -1 * getRepeatInterval());</span>
+        }
+<span class="nc bnc" id="L908" title="All 2 branches missed.">        else if(getRepeatIntervalUnit().equals(IntervalUnit.WEEK)) {</span>
+<span class="nc" id="L909">            lTime.add(java.util.Calendar.WEEK_OF_YEAR, -1 * getRepeatInterval());</span>
+        }
+<span class="nc bnc" id="L911" title="All 2 branches missed.">        else if(getRepeatIntervalUnit().equals(IntervalUnit.MONTH)) {</span>
+<span class="nc" id="L912">            lTime.add(java.util.Calendar.MONTH, -1 * getRepeatInterval());</span>
+        }
+<span class="nc bnc" id="L914" title="All 2 branches missed.">        else if(getRepeatIntervalUnit().equals(IntervalUnit.YEAR)) {</span>
+<span class="nc" id="L915">            lTime.add(java.util.Calendar.YEAR, -1 * getRepeatInterval());</span>
+        }
+
+<span class="fc" id="L918">        return lTime.getTime();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Determines whether or not the &lt;code&gt;DateIntervalTrigger&lt;/code&gt; will occur
+     * again.
+     * &lt;/p&gt;
+     */
+    @Override
+    public boolean mayFireAgain() {
+<span class="nc bnc" id="L929" title="All 2 branches missed.">        return (getNextFireTime() != null);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Validates whether the properties of the &lt;code&gt;JobDetail&lt;/code&gt; are
+     * valid for submission into a &lt;code&gt;Scheduler&lt;/code&gt;.
+     * 
+     * @throws IllegalStateException
+     *           if a required property (such as Name, Group, Class) is not
+     *           set.
+     */
+    @Override
+    public void validate() throws SchedulerException {
+<span class="nc" id="L943">        super.validate();</span>
+        
+<span class="nc bnc" id="L945" title="All 2 branches missed.">        if (repeatInterval &lt; 1) {</span>
+<span class="nc" id="L946">            throw new SchedulerException(&quot;Repeat Interval cannot be zero.&quot;);</span>
+        }
+<span class="nc" id="L948">    }</span>
+
+    /**
+     * Get a {@link ScheduleBuilder} that is configured to produce a 
+     * schedule identical to this trigger's schedule.
+     * 
+     * @see #getTriggerBuilder()
+     */
+    @Override
+    public ScheduleBuilder&lt;CalendarIntervalTrigger&gt; getScheduleBuilder() {
+        
+<span class="nc" id="L959">        CalendarIntervalScheduleBuilder cb = CalendarIntervalScheduleBuilder.calendarIntervalSchedule()</span>
+<span class="nc" id="L960">                .withInterval(getRepeatInterval(), getRepeatIntervalUnit());</span>
+            
+<span class="nc bnc" id="L962" title="All 3 branches missed.">        switch(getMisfireInstruction()) {</span>
+<span class="nc" id="L963">            case MISFIRE_INSTRUCTION_DO_NOTHING : cb.withMisfireHandlingInstructionDoNothing();</span>
+<span class="nc" id="L964">            break;</span>
+<span class="nc" id="L965">            case MISFIRE_INSTRUCTION_FIRE_ONCE_NOW : cb.withMisfireHandlingInstructionFireAndProceed();</span>
+            break;
+        }
+        
+<span class="nc" id="L969">        return cb;</span>
+    }
+
+    public boolean hasAdditionalProperties() {
+<span class="nc" id="L973">        return false;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

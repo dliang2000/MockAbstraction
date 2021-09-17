@@ -1,0 +1,1606 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StdSchedulerFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl</a> &gt; <span class="el_source">StdSchedulerFactory.java</span></div><h1>StdSchedulerFactory.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy
+ * of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ *
+ */
+
+package org.quartz.impl;
+
+import org.quartz.JobListener;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerConfigException;
+import org.quartz.SchedulerException;
+import org.quartz.SchedulerFactory;
+import org.quartz.TriggerListener;
+import org.quartz.core.JobRunShellFactory;
+import org.quartz.core.QuartzScheduler;
+import org.quartz.core.QuartzSchedulerResources;
+import org.quartz.ee.jta.JTAAnnotationAwareJobRunShellFactory;
+import org.quartz.ee.jta.JTAJobRunShellFactory;
+import org.quartz.ee.jta.UserTransactionHelper;
+import org.quartz.impl.jdbcjobstore.JobStoreSupport;
+import org.quartz.impl.jdbcjobstore.Semaphore;
+import org.quartz.impl.jdbcjobstore.TablePrefixAware;
+import org.quartz.impl.matchers.EverythingMatcher;
+import org.quartz.management.ManagementRESTServiceConfiguration;
+import org.quartz.simpl.RAMJobStore;
+import org.quartz.simpl.SimpleThreadPool;
+import org.quartz.spi.ClassLoadHelper;
+import org.quartz.spi.InstanceIdGenerator;
+import org.quartz.spi.JobFactory;
+import org.quartz.spi.JobStore;
+import org.quartz.spi.SchedulerPlugin;
+import org.quartz.spi.ThreadExecutor;
+import org.quartz.spi.ThreadPool;
+import org.quartz.utils.ConnectionProvider;
+import org.quartz.utils.DBConnectionManager;
+import org.quartz.utils.JNDIConnectionProvider;
+import org.quartz.utils.C3p0PoolingConnectionProvider;
+import org.quartz.utils.PoolingConnectionProvider;
+import org.quartz.utils.PropertiesParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.beans.BeanInfo;
+import java.beans.IntrospectionException;
+import java.beans.Introspector;
+import java.beans.PropertyDescriptor;
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.security.AccessControlException;
+import java.util.Collection;
+import java.util.Locale;
+import java.util.Properties;
+
+/**
+ * &lt;p&gt;
+ * An implementation of &lt;code&gt;{@link org.quartz.SchedulerFactory}&lt;/code&gt; that
+ * does all of its work of creating a &lt;code&gt;QuartzScheduler&lt;/code&gt; instance
+ * based on the contents of a &lt;code&gt;Properties&lt;/code&gt; file.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * By default a properties file named &quot;quartz.properties&quot; is loaded from the
+ * 'current working directory'. If that fails, then the &quot;quartz.properties&quot;
+ * file located (as a resource) in the org/quartz package is loaded. If you
+ * wish to use a file other than these defaults, you must define the system
+ * property 'org.quartz.properties' to point to the file you want.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * Alternatively, you can explicitly initialize the factory by calling one of
+ * the &lt;code&gt;initialize(xx)&lt;/code&gt; methods before calling &lt;code&gt;getScheduler()&lt;/code&gt;.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * See the sample properties files that are distributed with Quartz for
+ * information about the various settings available within the file.
+ * Full configuration documentation can be found at
+ * http://www.quartz-scheduler.org/docs/index.html
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * Instances of the specified &lt;code&gt;{@link org.quartz.spi.JobStore}&lt;/code&gt;,
+ * &lt;code&gt;{@link org.quartz.spi.ThreadPool}&lt;/code&gt;, and other SPI classes will be created
+ * by name, and then any additional properties specified for them in the config
+ * file will be set on the instance by calling an equivalent 'set' method. For
+ * example if the properties file contains the property
+ * 'org.quartz.jobStore.myProp = 10' then after the JobStore class has been
+ * instantiated, the method 'setMyProp()' will be called on it. Type conversion
+ * to primitive Java types (int, long, float, double, boolean, and String) are
+ * performed before calling the property's setter method.
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * One property can reference another property's value by specifying a value
+ * following the convention of &quot;$@other.property.name&quot;, for example, to reference
+ * the scheduler's instance name as the value for some other property, you
+ * would use &quot;$@org.quartz.scheduler.instanceName&quot;.
+ * &lt;/p&gt; 
+ *
+ * @author James House
+ * @author Anthony Eden
+ * @author Mohammad Rezaei
+ */
+public class StdSchedulerFactory implements SchedulerFactory {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Constants.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public static final String PROPERTIES_FILE = &quot;org.quartz.properties&quot;;
+
+    public static final String PROP_SCHED_INSTANCE_NAME = &quot;org.quartz.scheduler.instanceName&quot;;
+
+    public static final String PROP_SCHED_INSTANCE_ID = &quot;org.quartz.scheduler.instanceId&quot;;
+
+    public static final String PROP_SCHED_INSTANCE_ID_GENERATOR_PREFIX = &quot;org.quartz.scheduler.instanceIdGenerator&quot;;
+
+    public static final String PROP_SCHED_INSTANCE_ID_GENERATOR_CLASS =
+        PROP_SCHED_INSTANCE_ID_GENERATOR_PREFIX + &quot;.class&quot;;
+
+    public static final String PROP_SCHED_THREAD_NAME = &quot;org.quartz.scheduler.threadName&quot;;
+
+    public static final String PROP_SCHED_BATCH_TIME_WINDOW = &quot;org.quartz.scheduler.batchTriggerAcquisitionFireAheadTimeWindow&quot;;
+
+    public static final String PROP_SCHED_MAX_BATCH_SIZE = &quot;org.quartz.scheduler.batchTriggerAcquisitionMaxCount&quot;;
+
+    public static final String PROP_SCHED_JMX_EXPORT = &quot;org.quartz.scheduler.jmx.export&quot;;
+
+    public static final String PROP_SCHED_JMX_OBJECT_NAME = &quot;org.quartz.scheduler.jmx.objectName&quot;;
+
+    public static final String PROP_SCHED_JMX_PROXY = &quot;org.quartz.scheduler.jmx.proxy&quot;;
+
+    public static final String PROP_SCHED_JMX_PROXY_CLASS = &quot;org.quartz.scheduler.jmx.proxy.class&quot;;
+    
+    public static final String PROP_SCHED_RMI_EXPORT = &quot;org.quartz.scheduler.rmi.export&quot;;
+
+    public static final String PROP_SCHED_RMI_PROXY = &quot;org.quartz.scheduler.rmi.proxy&quot;;
+
+    public static final String PROP_SCHED_RMI_HOST = &quot;org.quartz.scheduler.rmi.registryHost&quot;;
+
+    public static final String PROP_SCHED_RMI_PORT = &quot;org.quartz.scheduler.rmi.registryPort&quot;;
+
+    public static final String PROP_SCHED_RMI_SERVER_PORT = &quot;org.quartz.scheduler.rmi.serverPort&quot;;
+
+    public static final String PROP_SCHED_RMI_CREATE_REGISTRY = &quot;org.quartz.scheduler.rmi.createRegistry&quot;;
+
+    public static final String PROP_SCHED_RMI_BIND_NAME = &quot;org.quartz.scheduler.rmi.bindName&quot;;
+
+    public static final String PROP_SCHED_WRAP_JOB_IN_USER_TX = &quot;org.quartz.scheduler.wrapJobExecutionInUserTransaction&quot;;
+
+    public static final String PROP_SCHED_USER_TX_URL = &quot;org.quartz.scheduler.userTransactionURL&quot;;
+
+    public static final String PROP_SCHED_IDLE_WAIT_TIME = &quot;org.quartz.scheduler.idleWaitTime&quot;;
+
+    public static final String PROP_SCHED_DB_FAILURE_RETRY_INTERVAL = &quot;org.quartz.scheduler.dbFailureRetryInterval&quot;;
+
+    public static final String PROP_SCHED_MAKE_SCHEDULER_THREAD_DAEMON = &quot;org.quartz.scheduler.makeSchedulerThreadDaemon&quot;;
+
+    public static final String PROP_SCHED_SCHEDULER_THREADS_INHERIT_CONTEXT_CLASS_LOADER_OF_INITIALIZING_THREAD = &quot;org.quartz.scheduler.threadsInheritContextClassLoaderOfInitializer&quot;;
+
+    public static final String PROP_SCHED_CLASS_LOAD_HELPER_CLASS = &quot;org.quartz.scheduler.classLoadHelper.class&quot;;
+
+    public static final String PROP_SCHED_JOB_FACTORY_CLASS = &quot;org.quartz.scheduler.jobFactory.class&quot;;
+
+    public static final String PROP_SCHED_JOB_FACTORY_PREFIX = &quot;org.quartz.scheduler.jobFactory&quot;;
+
+    public static final String PROP_SCHED_INTERRUPT_JOBS_ON_SHUTDOWN = &quot;org.quartz.scheduler.interruptJobsOnShutdown&quot;;
+
+    public static final String PROP_SCHED_INTERRUPT_JOBS_ON_SHUTDOWN_WITH_WAIT = &quot;org.quartz.scheduler.interruptJobsOnShutdownWithWait&quot;;
+
+    public static final String PROP_SCHED_CONTEXT_PREFIX = &quot;org.quartz.context.key&quot;;
+
+    public static final String PROP_THREAD_POOL_PREFIX = &quot;org.quartz.threadPool&quot;;
+
+    public static final String PROP_THREAD_POOL_CLASS = &quot;org.quartz.threadPool.class&quot;;
+
+    public static final String PROP_JOB_STORE_PREFIX = &quot;org.quartz.jobStore&quot;;
+
+    public static final String PROP_JOB_STORE_LOCK_HANDLER_PREFIX = PROP_JOB_STORE_PREFIX + &quot;.lockHandler&quot;;
+
+    public static final String PROP_JOB_STORE_LOCK_HANDLER_CLASS = PROP_JOB_STORE_LOCK_HANDLER_PREFIX + &quot;.class&quot;;
+
+    public static final String PROP_TABLE_PREFIX = &quot;tablePrefix&quot;;
+
+    public static final String PROP_SCHED_NAME = &quot;schedName&quot;;
+
+    public static final String PROP_JOB_STORE_CLASS = &quot;org.quartz.jobStore.class&quot;;
+
+    public static final String PROP_JOB_STORE_USE_PROP = &quot;org.quartz.jobStore.useProperties&quot;;
+
+    public static final String PROP_DATASOURCE_PREFIX = &quot;org.quartz.dataSource&quot;;
+
+    public static final String PROP_CONNECTION_PROVIDER_CLASS = &quot;connectionProvider.class&quot;;
+
+    /**
+     * @deprecated Replaced with {@link PoolingConnectionProvider#DB_DRIVER}
+     */
+    @Deprecated
+    public static final String PROP_DATASOURCE_DRIVER = &quot;driver&quot;;
+
+    /**
+     * @deprecated Replaced with {@link PoolingConnectionProvider#DB_URL}
+     */
+    @Deprecated
+    public static final String PROP_DATASOURCE_URL = &quot;URL&quot;;
+
+    /**
+     * @deprecated Replaced with {@link PoolingConnectionProvider#DB_USER}
+     */
+    @Deprecated
+    public static final String PROP_DATASOURCE_USER = &quot;user&quot;;
+
+    /**
+     * @deprecated Replaced with {@link PoolingConnectionProvider#DB_PASSWORD}
+     */
+    @Deprecated
+    public static final String PROP_DATASOURCE_PASSWORD = &quot;password&quot;;
+
+    /**
+     * @deprecated Replaced with {@link PoolingConnectionProvider#DB_MAX_CONNECTIONS}
+     */
+    @Deprecated
+    public static final String PROP_DATASOURCE_MAX_CONNECTIONS = &quot;maxConnections&quot;;
+
+    /**
+     * @deprecated Replaced with {@link PoolingConnectionProvider#DB_VALIDATION_QUERY}
+     */
+    @Deprecated
+    public static final String PROP_DATASOURCE_VALIDATION_QUERY = &quot;validationQuery&quot;;
+
+    public static final String PROP_DATASOURCE_JNDI_URL = &quot;jndiURL&quot;;
+
+    public static final String PROP_DATASOURCE_JNDI_ALWAYS_LOOKUP = &quot;jndiAlwaysLookup&quot;;
+
+    public static final String PROP_DATASOURCE_JNDI_INITIAL = &quot;java.naming.factory.initial&quot;;
+
+    public static final String PROP_DATASOURCE_JNDI_PROVDER = &quot;java.naming.provider.url&quot;;
+
+    public static final String PROP_DATASOURCE_JNDI_PRINCIPAL = &quot;java.naming.security.principal&quot;;
+
+    public static final String PROP_DATASOURCE_JNDI_CREDENTIALS = &quot;java.naming.security.credentials&quot;;
+
+    public static final String PROP_PLUGIN_PREFIX = &quot;org.quartz.plugin&quot;;
+
+    public static final String PROP_PLUGIN_CLASS = &quot;class&quot;;
+
+    public static final String PROP_JOB_LISTENER_PREFIX = &quot;org.quartz.jobListener&quot;;
+
+    public static final String PROP_TRIGGER_LISTENER_PREFIX = &quot;org.quartz.triggerListener&quot;;
+
+    public static final String PROP_LISTENER_CLASS = &quot;class&quot;;
+
+    public static final String DEFAULT_INSTANCE_ID = &quot;NON_CLUSTERED&quot;;
+
+    public static final String AUTO_GENERATE_INSTANCE_ID = &quot;AUTO&quot;;
+
+    public static final String PROP_THREAD_EXECUTOR = &quot;org.quartz.threadExecutor&quot;;
+
+    public static final String PROP_THREAD_EXECUTOR_CLASS = &quot;org.quartz.threadExecutor.class&quot;;
+
+    public static final String SYSTEM_PROPERTY_AS_INSTANCE_ID = &quot;SYS_PROP&quot;;
+    
+    public static final String MANAGEMENT_REST_SERVICE_ENABLED = &quot;org.quartz.managementRESTService.enabled&quot;;
+
+    public static final String MANAGEMENT_REST_SERVICE_HOST_PORT = &quot;org.quartz.managementRESTService.bind&quot;;
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Data members.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+<span class="fc" id="L296">    private SchedulerException initException = null;</span>
+
+<span class="fc" id="L298">    private String propSrc = null;</span>
+
+    private PropertiesParser cfg;
+
+<span class="fc" id="L302">    private final Logger log = LoggerFactory.getLogger(getClass());</span>
+
+    //  private Scheduler scheduler;
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Constructors.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * Create an uninitialized StdSchedulerFactory.
+     */
+<span class="fc" id="L317">    public StdSchedulerFactory() {</span>
+<span class="fc" id="L318">    }</span>
+
+    /**
+     * Create a StdSchedulerFactory that has been initialized via
+     * &lt;code&gt;{@link #initialize(Properties)}&lt;/code&gt;.
+     *
+     * @see #initialize(Properties)
+     */
+<span class="fc" id="L326">    public StdSchedulerFactory(Properties props) throws SchedulerException {</span>
+<span class="fc" id="L327">        initialize(props);</span>
+<span class="fc" id="L328">    }</span>
+
+    /**
+     * Create a StdSchedulerFactory that has been initialized via
+     * &lt;code&gt;{@link #initialize(String)}&lt;/code&gt;.
+     *
+     * @see #initialize(String)
+     */
+<span class="fc" id="L336">    public StdSchedulerFactory(String fileName) throws SchedulerException {</span>
+<span class="fc" id="L337">        initialize(fileName);</span>
+<span class="fc" id="L338">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Interface.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public Logger getLog() {
+<span class="fc" id="L349">        return log;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Initialize the &lt;code&gt;{@link org.quartz.SchedulerFactory}&lt;/code&gt; with
+     * the contents of a &lt;code&gt;Properties&lt;/code&gt; file and overriding System
+     * properties.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * By default a properties file named &quot;quartz.properties&quot; is loaded from
+     * the 'current working directory'. If that fails, then the
+     * &quot;quartz.properties&quot; file located (as a resource) in the org/quartz
+     * package is loaded. If you wish to use a file other than these defaults,
+     * you must define the system property 'org.quartz.properties' to point to
+     * the file you want.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * System properties (environment variables, and -D definitions on the
+     * command-line when running the JVM) override any properties in the
+     * loaded file.  For this reason, you may want to use a different initialize()
+     * method if your application security policy prohibits access to
+     * &lt;code&gt;{@link java.lang.System#getProperties()}&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void initialize() throws SchedulerException {
+        // short-circuit if already initialized
+<span class="pc bpc" id="L378" title="1 of 2 branches missed.">        if (cfg != null) {</span>
+<span class="nc" id="L379">            return;</span>
+        }
+<span class="pc bpc" id="L381" title="1 of 2 branches missed.">        if (initException != null) {</span>
+<span class="nc" id="L382">            throw initException;</span>
+        }
+
+<span class="fc" id="L385">        String requestedFile = System.getProperty(PROPERTIES_FILE);</span>
+<span class="pc bpc" id="L386" title="1 of 2 branches missed.">        String propFileName = requestedFile != null ? requestedFile</span>
+                : &quot;quartz.properties&quot;;
+<span class="fc" id="L388">        File propFile = new File(propFileName);</span>
+
+<span class="fc" id="L390">        Properties props = new Properties();</span>
+
+<span class="fc" id="L392">        InputStream in = null;</span>
+
+        try {
+<span class="pc bpc" id="L395" title="1 of 2 branches missed.">            if (propFile.exists()) {</span>
+                try {
+<span class="nc bnc" id="L397" title="All 2 branches missed.">                    if (requestedFile != null) {</span>
+<span class="nc" id="L398">                        propSrc = &quot;specified file: '&quot; + requestedFile + &quot;'&quot;;</span>
+                    } else {
+<span class="nc" id="L400">                        propSrc = &quot;default file in current working dir: 'quartz.properties'&quot;;</span>
+                    }
+
+<span class="nc" id="L403">                    in = new BufferedInputStream(new FileInputStream(propFileName));</span>
+<span class="nc" id="L404">                    props.load(in);</span>
+
+<span class="nc" id="L406">                } catch (IOException ioe) {</span>
+<span class="nc" id="L407">                    initException = new SchedulerException(&quot;Properties file: '&quot;</span>
+                            + propFileName + &quot;' could not be read.&quot;, ioe);
+<span class="nc" id="L409">                    throw initException;</span>
+<span class="nc" id="L410">                }</span>
+<span class="pc bpc" id="L411" title="1 of 2 branches missed.">            } else if (requestedFile != null) {</span>
+                in =
+<span class="nc" id="L413">                    Thread.currentThread().getContextClassLoader().getResourceAsStream(requestedFile);</span>
+
+<span class="nc bnc" id="L415" title="All 2 branches missed.">                if(in == null) {</span>
+<span class="nc" id="L416">                    initException = new SchedulerException(&quot;Properties file: '&quot;</span>
+                        + requestedFile + &quot;' could not be found.&quot;);
+<span class="nc" id="L418">                    throw initException;</span>
+                }
+
+<span class="nc" id="L421">                propSrc = &quot;specified file: '&quot; + requestedFile + &quot;' in the class resource path.&quot;;</span>
+
+<span class="nc" id="L423">                in = new BufferedInputStream(in);</span>
+                try {
+<span class="nc" id="L425">                    props.load(in);</span>
+<span class="nc" id="L426">                } catch (IOException ioe) {</span>
+<span class="nc" id="L427">                    initException = new SchedulerException(&quot;Properties file: '&quot;</span>
+                            + requestedFile + &quot;' could not be read.&quot;, ioe);
+<span class="nc" id="L429">                    throw initException;</span>
+<span class="nc" id="L430">                }</span>
+
+            } else {
+<span class="fc" id="L433">                propSrc = &quot;default resource file in Quartz package: 'quartz.properties'&quot;;</span>
+
+<span class="fc" id="L435">                ClassLoader cl = getClass().getClassLoader();</span>
+<span class="pc bpc" id="L436" title="1 of 2 branches missed.">                if(cl == null)</span>
+<span class="nc" id="L437">                    cl = findClassloader();</span>
+<span class="pc bpc" id="L438" title="1 of 2 branches missed.">                if(cl == null)</span>
+<span class="nc" id="L439">                    throw new SchedulerConfigException(&quot;Unable to find a class loader on the current thread or class.&quot;);</span>
+
+<span class="fc" id="L441">                in = cl.getResourceAsStream(</span>
+                        &quot;quartz.properties&quot;);
+
+<span class="pc bpc" id="L444" title="1 of 2 branches missed.">                if (in == null) {</span>
+<span class="fc" id="L445">                    in = cl.getResourceAsStream(</span>
+                            &quot;/quartz.properties&quot;);
+                }
+<span class="pc bpc" id="L448" title="1 of 2 branches missed.">                if (in == null) {</span>
+<span class="fc" id="L449">                    in = cl.getResourceAsStream(</span>
+                            &quot;org/quartz/quartz.properties&quot;);
+                }
+<span class="pc bpc" id="L452" title="1 of 2 branches missed.">                if (in == null) {</span>
+<span class="nc" id="L453">                    initException = new SchedulerException(</span>
+                            &quot;Default quartz.properties not found in class path&quot;);
+<span class="nc" id="L455">                    throw initException;</span>
+                }
+                try {
+<span class="fc" id="L458">                    props.load(in);</span>
+<span class="nc" id="L459">                } catch (IOException ioe) {</span>
+<span class="nc" id="L460">                    initException = new SchedulerException(</span>
+                            &quot;Resource properties file: 'org/quartz/quartz.properties' &quot;
+                                    + &quot;could not be read from the classpath.&quot;, ioe);
+<span class="nc" id="L463">                    throw initException;</span>
+<span class="fc" id="L464">                }</span>
+            }
+        } finally {
+<span class="pc bpc" id="L467" title="1 of 2 branches missed.">            if(in != null) {</span>
+<span class="pc" id="L468">                try { in.close(); } catch(IOException ignore) { /* ignore */ }</span>
+            }
+        }
+
+<span class="fc" id="L472">        initialize(overrideWithSysProps(props));</span>
+<span class="fc" id="L473">    }</span>
+
+    /**
+     * Add all System properties to the given &lt;code&gt;props&lt;/code&gt;.  Will override
+     * any properties that already exist in the given &lt;code&gt;props&lt;/code&gt;.
+     */
+    private Properties overrideWithSysProps(Properties props) {
+<span class="fc" id="L480">        Properties sysProps = null;</span>
+        try {
+<span class="fc" id="L482">            sysProps = System.getProperties();</span>
+<span class="nc" id="L483">        } catch (AccessControlException e) {</span>
+<span class="nc" id="L484">            getLog().warn(</span>
+                &quot;Skipping overriding quartz properties with System properties &quot; +
+                &quot;during initialization because of an AccessControlException.  &quot; +
+                &quot;This is likely due to not having read/write access for &quot; +
+                &quot;java.util.PropertyPermission as required by java.lang.System.getProperties().  &quot; +
+                &quot;To resolve this warning, either add this permission to your policy file or &quot; +
+                &quot;use a non-default version of initialize().&quot;,
+                e);
+<span class="fc" id="L492">        }</span>
+
+<span class="pc bpc" id="L494" title="1 of 2 branches missed.">        if (sysProps != null) {</span>
+<span class="fc" id="L495">            props.putAll(sysProps);</span>
+        }
+
+<span class="fc" id="L498">        return props;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Initialize the &lt;code&gt;{@link org.quartz.SchedulerFactory}&lt;/code&gt; with
+     * the contents of the &lt;code&gt;Properties&lt;/code&gt; file with the given
+     * name.
+     * &lt;/p&gt;
+     */
+    public void initialize(String filename) throws SchedulerException {
+        // short-circuit if already initialized
+<span class="pc bpc" id="L510" title="1 of 2 branches missed.">        if (cfg != null) {</span>
+<span class="nc" id="L511">            return;</span>
+        }
+
+<span class="pc bpc" id="L514" title="1 of 2 branches missed.">        if (initException != null) {</span>
+<span class="nc" id="L515">            throw initException;</span>
+        }
+
+<span class="fc" id="L518">        InputStream is = null;</span>
+<span class="fc" id="L519">        Properties props = new Properties();</span>
+
+<span class="fc" id="L521">        is = Thread.currentThread().getContextClassLoader().getResourceAsStream(filename);</span>
+
+        try {
+<span class="pc bpc" id="L524" title="1 of 2 branches missed.">            if(is != null) {</span>
+<span class="fc" id="L525">                is = new BufferedInputStream(is);</span>
+<span class="fc" id="L526">                propSrc = &quot;the specified file : '&quot; + filename + &quot;' from the class resource path.&quot;;</span>
+            } else {
+<span class="nc" id="L528">                is = new BufferedInputStream(new FileInputStream(filename));</span>
+<span class="nc" id="L529">                propSrc = &quot;the specified file : '&quot; + filename + &quot;'&quot;;</span>
+            }
+<span class="fc" id="L531">            props.load(is);</span>
+<span class="nc" id="L532">        } catch (IOException ioe) {</span>
+<span class="nc" id="L533">            initException = new SchedulerException(&quot;Properties file: '&quot;</span>
+                    + filename + &quot;' could not be read.&quot;, ioe);
+<span class="nc" id="L535">            throw initException;</span>
+        }
+        finally {
+<span class="pc bpc" id="L538" title="1 of 2 branches missed.">            if(is != null)</span>
+<span class="pc" id="L539">                try { is.close(); } catch(IOException ignore) {}</span>
+        }
+
+<span class="fc" id="L542">        initialize(props);</span>
+<span class="fc" id="L543">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Initialize the &lt;code&gt;{@link org.quartz.SchedulerFactory}&lt;/code&gt; with
+     * the contents of the &lt;code&gt;Properties&lt;/code&gt; file opened with the
+     * given &lt;code&gt;InputStream&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void initialize(InputStream propertiesStream)
+        throws SchedulerException {
+        // short-circuit if already initialized
+<span class="nc bnc" id="L555" title="All 2 branches missed.">        if (cfg != null) {</span>
+<span class="nc" id="L556">            return;</span>
+        }
+
+<span class="nc bnc" id="L559" title="All 2 branches missed.">        if (initException != null) {</span>
+<span class="nc" id="L560">            throw initException;</span>
+        }
+
+<span class="nc" id="L563">        Properties props = new Properties();</span>
+
+<span class="nc bnc" id="L565" title="All 2 branches missed.">        if (propertiesStream != null) {</span>
+            try {
+<span class="nc" id="L567">                props.load(propertiesStream);</span>
+<span class="nc" id="L568">                propSrc = &quot;an externally opened InputStream.&quot;;</span>
+<span class="nc" id="L569">            } catch (IOException e) {</span>
+<span class="nc" id="L570">                initException = new SchedulerException(</span>
+                        &quot;Error loading property data from InputStream&quot;, e);
+<span class="nc" id="L572">                throw initException;</span>
+<span class="nc" id="L573">            }</span>
+        } else {
+<span class="nc" id="L575">            initException = new SchedulerException(</span>
+                    &quot;Error loading property data from InputStream - InputStream is null.&quot;);
+<span class="nc" id="L577">            throw initException;</span>
+        }
+
+<span class="nc" id="L580">        initialize(props);</span>
+<span class="nc" id="L581">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Initialize the &lt;code&gt;{@link org.quartz.SchedulerFactory}&lt;/code&gt; with
+     * the contents of the given &lt;code&gt;Properties&lt;/code&gt; object.
+     * &lt;/p&gt;
+     */
+    public void initialize(Properties props) throws SchedulerException {
+<span class="fc bfc" id="L590" title="All 2 branches covered.">        if (propSrc == null) {</span>
+<span class="fc" id="L591">            propSrc = &quot;an externally provided properties instance.&quot;;</span>
+        }
+
+<span class="fc" id="L594">        this.cfg = new PropertiesParser(props);</span>
+<span class="fc" id="L595">    }</span>
+
+    private Scheduler instantiate() throws SchedulerException {
+<span class="pc bpc" id="L598" title="1 of 2 branches missed.">        if (cfg == null) {</span>
+<span class="nc" id="L599">            initialize();</span>
+        }
+
+<span class="pc bpc" id="L602" title="1 of 2 branches missed.">        if (initException != null) {</span>
+<span class="nc" id="L603">            throw initException;</span>
+        }
+
+<span class="fc" id="L606">        JobStore js = null;</span>
+<span class="fc" id="L607">        ThreadPool tp = null;</span>
+<span class="fc" id="L608">        QuartzScheduler qs = null;</span>
+<span class="fc" id="L609">        DBConnectionManager dbMgr = null;</span>
+<span class="fc" id="L610">        String instanceIdGeneratorClass = null;</span>
+<span class="fc" id="L611">        Properties tProps = null;</span>
+<span class="fc" id="L612">        String userTXLocation = null;</span>
+<span class="fc" id="L613">        boolean wrapJobInTx = false;</span>
+<span class="fc" id="L614">        boolean autoId = false;</span>
+<span class="fc" id="L615">        long idleWaitTime = -1;</span>
+<span class="fc" id="L616">        long dbFailureRetry = 15000L; // 15 secs</span>
+        String classLoadHelperClass;
+        String jobFactoryClass;
+        ThreadExecutor threadExecutor;
+
+
+<span class="fc" id="L622">        SchedulerRepository schedRep = SchedulerRepository.getInstance();</span>
+
+        // Get Scheduler Properties
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+<span class="fc" id="L627">        String schedName = cfg.getStringProperty(PROP_SCHED_INSTANCE_NAME,</span>
+                &quot;QuartzScheduler&quot;);
+
+<span class="fc" id="L630">        String threadName = cfg.getStringProperty(PROP_SCHED_THREAD_NAME,</span>
+                schedName + &quot;_QuartzSchedulerThread&quot;);
+
+<span class="fc" id="L633">        String schedInstId = cfg.getStringProperty(PROP_SCHED_INSTANCE_ID,</span>
+                DEFAULT_INSTANCE_ID);
+
+<span class="fc bfc" id="L636" title="All 2 branches covered.">        if (schedInstId.equals(AUTO_GENERATE_INSTANCE_ID)) {</span>
+<span class="fc" id="L637">            autoId = true;</span>
+<span class="fc" id="L638">            instanceIdGeneratorClass = cfg.getStringProperty(</span>
+                    PROP_SCHED_INSTANCE_ID_GENERATOR_CLASS,
+                    &quot;org.quartz.simpl.SimpleInstanceIdGenerator&quot;);
+        }
+<span class="pc bpc" id="L642" title="1 of 2 branches missed.">        else if (schedInstId.equals(SYSTEM_PROPERTY_AS_INSTANCE_ID)) {</span>
+<span class="nc" id="L643">            autoId = true;</span>
+<span class="nc" id="L644">            instanceIdGeneratorClass = </span>
+                    &quot;org.quartz.simpl.SystemPropertyInstanceIdGenerator&quot;;
+        }
+
+<span class="fc" id="L648">        userTXLocation = cfg.getStringProperty(PROP_SCHED_USER_TX_URL,</span>
+                userTXLocation);
+<span class="pc bpc" id="L650" title="3 of 4 branches missed.">        if (userTXLocation != null &amp;&amp; userTXLocation.trim().length() == 0) {</span>
+<span class="nc" id="L651">            userTXLocation = null;</span>
+        }
+
+<span class="fc" id="L654">        classLoadHelperClass = cfg.getStringProperty(</span>
+                PROP_SCHED_CLASS_LOAD_HELPER_CLASS,
+                &quot;org.quartz.simpl.CascadingClassLoadHelper&quot;);
+<span class="fc" id="L657">        wrapJobInTx = cfg.getBooleanProperty(PROP_SCHED_WRAP_JOB_IN_USER_TX,</span>
+                wrapJobInTx);
+
+<span class="fc" id="L660">        jobFactoryClass = cfg.getStringProperty(</span>
+                PROP_SCHED_JOB_FACTORY_CLASS, null);
+
+<span class="fc" id="L663">        idleWaitTime = cfg.getLongProperty(PROP_SCHED_IDLE_WAIT_TIME,</span>
+                idleWaitTime);
+<span class="pc bpc" id="L665" title="1 of 4 branches missed.">        if(idleWaitTime &gt; -1 &amp;&amp; idleWaitTime &lt; 1000) {</span>
+<span class="nc" id="L666">            throw new SchedulerException(&quot;org.quartz.scheduler.idleWaitTime of less than 1000ms is not legal.&quot;);</span>
+        }
+        
+<span class="fc" id="L669">        dbFailureRetry = cfg.getLongProperty(PROP_SCHED_DB_FAILURE_RETRY_INTERVAL, dbFailureRetry);</span>
+<span class="pc bpc" id="L670" title="1 of 2 branches missed.">        if (dbFailureRetry &lt; 0) {</span>
+<span class="nc" id="L671">            throw new SchedulerException(PROP_SCHED_DB_FAILURE_RETRY_INTERVAL + &quot; of less than 0 ms is not legal.&quot;);</span>
+        }
+
+<span class="fc" id="L674">        boolean makeSchedulerThreadDaemon =</span>
+<span class="fc" id="L675">            cfg.getBooleanProperty(PROP_SCHED_MAKE_SCHEDULER_THREAD_DAEMON);</span>
+
+<span class="fc" id="L677">        boolean threadsInheritInitalizersClassLoader =</span>
+<span class="fc" id="L678">            cfg.getBooleanProperty(PROP_SCHED_SCHEDULER_THREADS_INHERIT_CONTEXT_CLASS_LOADER_OF_INITIALIZING_THREAD);</span>
+
+<span class="fc" id="L680">        long batchTimeWindow = cfg.getLongProperty(PROP_SCHED_BATCH_TIME_WINDOW, 0L);</span>
+<span class="fc" id="L681">        int maxBatchSize = cfg.getIntProperty(PROP_SCHED_MAX_BATCH_SIZE, 1);</span>
+
+<span class="fc" id="L683">        boolean interruptJobsOnShutdown = cfg.getBooleanProperty(PROP_SCHED_INTERRUPT_JOBS_ON_SHUTDOWN, false);</span>
+<span class="fc" id="L684">        boolean interruptJobsOnShutdownWithWait = cfg.getBooleanProperty(PROP_SCHED_INTERRUPT_JOBS_ON_SHUTDOWN_WITH_WAIT, false);</span>
+
+<span class="fc" id="L686">        boolean jmxExport = cfg.getBooleanProperty(PROP_SCHED_JMX_EXPORT);</span>
+<span class="fc" id="L687">        String jmxObjectName = cfg.getStringProperty(PROP_SCHED_JMX_OBJECT_NAME);</span>
+        
+<span class="fc" id="L689">        boolean jmxProxy = cfg.getBooleanProperty(PROP_SCHED_JMX_PROXY);</span>
+<span class="fc" id="L690">        String jmxProxyClass = cfg.getStringProperty(PROP_SCHED_JMX_PROXY_CLASS);</span>
+
+<span class="fc" id="L692">        boolean rmiExport = cfg.getBooleanProperty(PROP_SCHED_RMI_EXPORT, false);</span>
+<span class="fc" id="L693">        boolean rmiProxy = cfg.getBooleanProperty(PROP_SCHED_RMI_PROXY, false);</span>
+<span class="fc" id="L694">        String rmiHost = cfg.getStringProperty(PROP_SCHED_RMI_HOST, &quot;localhost&quot;);</span>
+<span class="fc" id="L695">        int rmiPort = cfg.getIntProperty(PROP_SCHED_RMI_PORT, 1099);</span>
+<span class="fc" id="L696">        int rmiServerPort = cfg.getIntProperty(PROP_SCHED_RMI_SERVER_PORT, -1);</span>
+<span class="fc" id="L697">        String rmiCreateRegistry = cfg.getStringProperty(</span>
+                PROP_SCHED_RMI_CREATE_REGISTRY,
+                QuartzSchedulerResources.CREATE_REGISTRY_NEVER);
+<span class="fc" id="L700">        String rmiBindName = cfg.getStringProperty(PROP_SCHED_RMI_BIND_NAME);</span>
+
+<span class="pc bpc" id="L702" title="3 of 4 branches missed.">        if (jmxProxy &amp;&amp; rmiProxy) {</span>
+<span class="nc" id="L703">            throw new SchedulerConfigException(&quot;Cannot proxy both RMI and JMX.&quot;);</span>
+        }
+        
+<span class="fc" id="L706">        boolean managementRESTServiceEnabled = cfg.getBooleanProperty(MANAGEMENT_REST_SERVICE_ENABLED, false);</span>
+<span class="fc" id="L707">        String managementRESTServiceHostAndPort = cfg.getStringProperty(MANAGEMENT_REST_SERVICE_HOST_PORT, &quot;0.0.0.0:9889&quot;);</span>
+
+<span class="fc" id="L709">        Properties schedCtxtProps = cfg.getPropertyGroup(PROP_SCHED_CONTEXT_PREFIX, true);</span>
+
+        // If Proxying to remote scheduler, short-circuit here...
+        // ~~~~~~~~~~~~~~~~~~
+<span class="pc bpc" id="L713" title="1 of 2 branches missed.">        if (rmiProxy) {</span>
+
+<span class="nc bnc" id="L715" title="All 2 branches missed.">            if (autoId) {</span>
+<span class="nc" id="L716">                schedInstId = DEFAULT_INSTANCE_ID;</span>
+            }
+
+<span class="nc bnc" id="L719" title="All 2 branches missed.">            String uid = (rmiBindName == null) ? QuartzSchedulerResources.getUniqueIdentifier(</span>
+                    schedName, schedInstId) : rmiBindName;
+
+<span class="nc" id="L722">            RemoteScheduler remoteScheduler = new RemoteScheduler(uid, rmiHost, rmiPort);</span>
+
+<span class="nc" id="L724">            schedRep.bind(remoteScheduler);</span>
+
+<span class="nc" id="L726">            return remoteScheduler;</span>
+        }
+
+
+        // Create class load helper
+<span class="fc" id="L731">        ClassLoadHelper loadHelper = null;</span>
+        try {
+<span class="fc" id="L733">            loadHelper = (ClassLoadHelper) loadClass(classLoadHelperClass)</span>
+<span class="fc" id="L734">                    .newInstance();</span>
+<span class="nc" id="L735">        } catch (Exception e) {</span>
+<span class="nc" id="L736">            throw new SchedulerConfigException(</span>
+                    &quot;Unable to instantiate class load helper class: &quot;
+<span class="nc" id="L738">                            + e.getMessage(), e);</span>
+<span class="fc" id="L739">        }</span>
+<span class="fc" id="L740">        loadHelper.initialize();</span>
+
+        // If Proxying to remote JMX scheduler, short-circuit here...
+        // ~~~~~~~~~~~~~~~~~~
+<span class="pc bpc" id="L744" title="1 of 2 branches missed.">        if (jmxProxy) {</span>
+<span class="nc bnc" id="L745" title="All 2 branches missed.">            if (autoId) {</span>
+<span class="nc" id="L746">                schedInstId = DEFAULT_INSTANCE_ID;</span>
+            }
+
+<span class="nc bnc" id="L749" title="All 2 branches missed.">            if (jmxProxyClass == null) {</span>
+<span class="nc" id="L750">                throw new SchedulerConfigException(&quot;No JMX Proxy Scheduler class provided&quot;);</span>
+            }
+
+<span class="nc" id="L753">            RemoteMBeanScheduler jmxScheduler = null;</span>
+            try {
+<span class="nc" id="L755">                jmxScheduler = (RemoteMBeanScheduler)loadHelper.loadClass(jmxProxyClass)</span>
+<span class="nc" id="L756">                        .newInstance();</span>
+<span class="nc" id="L757">            } catch (Exception e) {</span>
+<span class="nc" id="L758">                throw new SchedulerConfigException(</span>
+                        &quot;Unable to instantiate RemoteMBeanScheduler class.&quot;, e);
+<span class="nc" id="L760">            }</span>
+
+<span class="nc bnc" id="L762" title="All 2 branches missed.">            if (jmxObjectName == null) {</span>
+<span class="nc" id="L763">                jmxObjectName = QuartzSchedulerResources.generateJMXObjectName(schedName, schedInstId);</span>
+            }
+
+<span class="nc" id="L766">            jmxScheduler.setSchedulerObjectName(jmxObjectName);</span>
+
+<span class="nc" id="L768">            tProps = cfg.getPropertyGroup(PROP_SCHED_JMX_PROXY, true);</span>
+            try {
+<span class="nc" id="L770">                setBeanProps(jmxScheduler, tProps);</span>
+<span class="nc" id="L771">            } catch (Exception e) {</span>
+<span class="nc" id="L772">                initException = new SchedulerException(&quot;RemoteMBeanScheduler class '&quot;</span>
+                        + jmxProxyClass + &quot;' props could not be configured.&quot;, e);
+<span class="nc" id="L774">                throw initException;</span>
+<span class="nc" id="L775">            }</span>
+
+<span class="nc" id="L777">            jmxScheduler.initialize();</span>
+
+<span class="nc" id="L779">            schedRep.bind(jmxScheduler);</span>
+
+<span class="nc" id="L781">            return jmxScheduler;</span>
+        }
+
+        
+<span class="fc" id="L785">        JobFactory jobFactory = null;</span>
+<span class="fc bfc" id="L786" title="All 2 branches covered.">        if(jobFactoryClass != null) {</span>
+            try {
+<span class="fc" id="L788">                jobFactory = (JobFactory) loadHelper.loadClass(jobFactoryClass)</span>
+<span class="fc" id="L789">                        .newInstance();</span>
+<span class="nc" id="L790">            } catch (Exception e) {</span>
+<span class="nc" id="L791">                throw new SchedulerConfigException(</span>
+                        &quot;Unable to instantiate JobFactory class: &quot;
+<span class="nc" id="L793">                                + e.getMessage(), e);</span>
+<span class="fc" id="L794">            }</span>
+
+<span class="fc" id="L796">            tProps = cfg.getPropertyGroup(PROP_SCHED_JOB_FACTORY_PREFIX, true);</span>
+            try {
+<span class="fc" id="L798">                setBeanProps(jobFactory, tProps);</span>
+<span class="nc" id="L799">            } catch (Exception e) {</span>
+<span class="nc" id="L800">                initException = new SchedulerException(&quot;JobFactory class '&quot;</span>
+                        + jobFactoryClass + &quot;' props could not be configured.&quot;, e);
+<span class="nc" id="L802">                throw initException;</span>
+<span class="fc" id="L803">            }</span>
+        }
+
+<span class="fc" id="L806">        InstanceIdGenerator instanceIdGenerator = null;</span>
+<span class="fc bfc" id="L807" title="All 2 branches covered.">        if(instanceIdGeneratorClass != null) {</span>
+            try {
+<span class="fc" id="L809">                instanceIdGenerator = (InstanceIdGenerator) loadHelper.loadClass(instanceIdGeneratorClass)</span>
+<span class="fc" id="L810">                    .newInstance();</span>
+<span class="nc" id="L811">            } catch (Exception e) {</span>
+<span class="nc" id="L812">                throw new SchedulerConfigException(</span>
+                        &quot;Unable to instantiate InstanceIdGenerator class: &quot;
+<span class="nc" id="L814">                        + e.getMessage(), e);</span>
+<span class="fc" id="L815">            }</span>
+
+<span class="fc" id="L817">            tProps = cfg.getPropertyGroup(PROP_SCHED_INSTANCE_ID_GENERATOR_PREFIX, true);</span>
+            try {
+<span class="fc" id="L819">                setBeanProps(instanceIdGenerator, tProps);</span>
+<span class="nc" id="L820">            } catch (Exception e) {</span>
+<span class="nc" id="L821">                initException = new SchedulerException(&quot;InstanceIdGenerator class '&quot;</span>
+                        + instanceIdGeneratorClass + &quot;' props could not be configured.&quot;, e);
+<span class="nc" id="L823">                throw initException;</span>
+<span class="fc" id="L824">            }</span>
+        }
+
+        // Get ThreadPool Properties
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+<span class="fc" id="L830">        String tpClass = cfg.getStringProperty(PROP_THREAD_POOL_CLASS, SimpleThreadPool.class.getName());</span>
+
+<span class="pc bpc" id="L832" title="1 of 2 branches missed.">        if (tpClass == null) {</span>
+<span class="nc" id="L833">            initException = new SchedulerException(</span>
+                    &quot;ThreadPool class not specified. &quot;);
+<span class="nc" id="L835">            throw initException;</span>
+        }
+
+        try {
+<span class="fc" id="L839">            tp = (ThreadPool) loadHelper.loadClass(tpClass).newInstance();</span>
+<span class="nc" id="L840">        } catch (Exception e) {</span>
+<span class="nc" id="L841">            initException = new SchedulerException(&quot;ThreadPool class '&quot;</span>
+                    + tpClass + &quot;' could not be instantiated.&quot;, e);
+<span class="nc" id="L843">            throw initException;</span>
+<span class="fc" id="L844">        }</span>
+<span class="fc" id="L845">        tProps = cfg.getPropertyGroup(PROP_THREAD_POOL_PREFIX, true);</span>
+        try {
+<span class="fc" id="L847">            setBeanProps(tp, tProps);</span>
+<span class="nc" id="L848">        } catch (Exception e) {</span>
+<span class="nc" id="L849">            initException = new SchedulerException(&quot;ThreadPool class '&quot;</span>
+                    + tpClass + &quot;' props could not be configured.&quot;, e);
+<span class="nc" id="L851">            throw initException;</span>
+<span class="fc" id="L852">        }</span>
+
+        // Get JobStore Properties
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+<span class="fc" id="L857">        String jsClass = cfg.getStringProperty(PROP_JOB_STORE_CLASS,</span>
+<span class="fc" id="L858">                RAMJobStore.class.getName());</span>
+
+<span class="pc bpc" id="L860" title="1 of 2 branches missed.">        if (jsClass == null) {</span>
+<span class="nc" id="L861">            initException = new SchedulerException(</span>
+                    &quot;JobStore class not specified. &quot;);
+<span class="nc" id="L863">            throw initException;</span>
+        }
+
+        try {
+<span class="fc" id="L867">            js = (JobStore) loadHelper.loadClass(jsClass).newInstance();</span>
+<span class="nc" id="L868">        } catch (Exception e) {</span>
+<span class="nc" id="L869">            initException = new SchedulerException(&quot;JobStore class '&quot; + jsClass</span>
+                    + &quot;' could not be instantiated.&quot;, e);
+<span class="nc" id="L871">            throw initException;</span>
+<span class="fc" id="L872">        }</span>
+
+<span class="fc" id="L874">        SchedulerDetailsSetter.setDetails(js, schedName, schedInstId);</span>
+
+<span class="fc" id="L876">        tProps = cfg.getPropertyGroup(PROP_JOB_STORE_PREFIX, true, new String[] {PROP_JOB_STORE_LOCK_HANDLER_PREFIX});</span>
+        try {
+<span class="fc" id="L878">            setBeanProps(js, tProps);</span>
+<span class="nc" id="L879">        } catch (Exception e) {</span>
+<span class="nc" id="L880">            initException = new SchedulerException(&quot;JobStore class '&quot; + jsClass</span>
+                    + &quot;' props could not be configured.&quot;, e);
+<span class="nc" id="L882">            throw initException;</span>
+<span class="fc" id="L883">        }</span>
+
+<span class="fc bfc" id="L885" title="All 2 branches covered.">        if (js instanceof JobStoreSupport) {</span>
+            // Install custom lock handler (Semaphore)
+<span class="fc" id="L887">            String lockHandlerClass = cfg.getStringProperty(PROP_JOB_STORE_LOCK_HANDLER_CLASS);</span>
+<span class="fc bfc" id="L888" title="All 2 branches covered.">            if (lockHandlerClass != null) {</span>
+                try {
+<span class="fc" id="L890">                    Semaphore lockHandler = (Semaphore)loadHelper.loadClass(lockHandlerClass).newInstance();</span>
+
+<span class="fc" id="L892">                    tProps = cfg.getPropertyGroup(PROP_JOB_STORE_LOCK_HANDLER_PREFIX, true);</span>
+
+                    // If this lock handler requires the table prefix, add it to its properties.
+<span class="pc bpc" id="L895" title="1 of 2 branches missed.">                    if (lockHandler instanceof TablePrefixAware) {</span>
+<span class="fc" id="L896">                        tProps.setProperty(</span>
+<span class="fc" id="L897">                                PROP_TABLE_PREFIX, ((JobStoreSupport)js).getTablePrefix());</span>
+<span class="fc" id="L898">                        tProps.setProperty(</span>
+                                PROP_SCHED_NAME, schedName);
+                    }
+
+                    try {
+<span class="fc" id="L903">                        setBeanProps(lockHandler, tProps);</span>
+<span class="nc" id="L904">                    } catch (Exception e) {</span>
+<span class="nc" id="L905">                        initException = new SchedulerException(&quot;JobStore LockHandler class '&quot; + lockHandlerClass</span>
+                                + &quot;' props could not be configured.&quot;, e);
+<span class="nc" id="L907">                        throw initException;</span>
+<span class="fc" id="L908">                    }</span>
+
+<span class="fc" id="L910">                    ((JobStoreSupport)js).setLockHandler(lockHandler);</span>
+<span class="fc" id="L911">                    getLog().info(&quot;Using custom data access locking (synchronization): &quot; + lockHandlerClass);</span>
+<span class="nc" id="L912">                } catch (Exception e) {</span>
+<span class="nc" id="L913">                    initException = new SchedulerException(&quot;JobStore LockHandler class '&quot; + lockHandlerClass</span>
+                            + &quot;' could not be instantiated.&quot;, e);
+<span class="nc" id="L915">                    throw initException;</span>
+<span class="fc" id="L916">                }</span>
+            }
+        }
+
+        // Set up any DataSources
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+<span class="fc" id="L923">        String[] dsNames = cfg.getPropertyGroups(PROP_DATASOURCE_PREFIX);</span>
+<span class="fc bfc" id="L924" title="All 2 branches covered.">        for (int i = 0; i &lt; dsNames.length; i++) {</span>
+<span class="fc" id="L925">            PropertiesParser pp = new PropertiesParser(cfg.getPropertyGroup(</span>
+                    PROP_DATASOURCE_PREFIX + &quot;.&quot; + dsNames[i], true));
+
+<span class="fc" id="L928">            String cpClass = pp.getStringProperty(PROP_CONNECTION_PROVIDER_CLASS, null);</span>
+
+            // custom connectionProvider...
+<span class="fc bfc" id="L931" title="All 2 branches covered.">            if(cpClass != null) {</span>
+<span class="fc" id="L932">                ConnectionProvider cp = null;</span>
+                try {
+<span class="fc" id="L934">                    cp = (ConnectionProvider) loadHelper.loadClass(cpClass).newInstance();</span>
+<span class="nc" id="L935">                } catch (Exception e) {</span>
+<span class="nc" id="L936">                    initException = new SchedulerException(&quot;ConnectionProvider class '&quot; + cpClass</span>
+                            + &quot;' could not be instantiated.&quot;, e);
+<span class="nc" id="L938">                    throw initException;</span>
+<span class="fc" id="L939">                }</span>
+
+                try {
+                    // remove the class name, so it isn't attempted to be set
+<span class="fc" id="L943">                    pp.getUnderlyingProperties().remove(</span>
+                            PROP_CONNECTION_PROVIDER_CLASS);
+
+<span class="pc bpc" id="L946" title="1 of 2 branches missed.">                    if (cp instanceof PoolingConnectionProvider) {</span>
+<span class="nc" id="L947">                        populateProviderWithExtraProps((PoolingConnectionProvider)cp, pp.getUnderlyingProperties());</span>
+                    } else {
+<span class="fc" id="L949">                        setBeanProps(cp, pp.getUnderlyingProperties());</span>
+                    }
+<span class="fc" id="L951">                    cp.initialize();</span>
+<span class="nc" id="L952">                } catch (Exception e) {</span>
+<span class="nc" id="L953">                    initException = new SchedulerException(&quot;ConnectionProvider class '&quot; + cpClass</span>
+                            + &quot;' props could not be configured.&quot;, e);
+<span class="nc" id="L955">                    throw initException;</span>
+<span class="fc" id="L956">                }</span>
+
+<span class="fc" id="L958">                dbMgr = DBConnectionManager.getInstance();</span>
+<span class="fc" id="L959">                dbMgr.addConnectionProvider(dsNames[i], cp);</span>
+<span class="fc" id="L960">            } else {</span>
+<span class="fc" id="L961">                String dsJndi = pp.getStringProperty(PROP_DATASOURCE_JNDI_URL, null);</span>
+
+<span class="pc bpc" id="L963" title="1 of 2 branches missed.">                if (dsJndi != null) {</span>
+<span class="nc" id="L964">                    boolean dsAlwaysLookup = pp.getBooleanProperty(</span>
+                            PROP_DATASOURCE_JNDI_ALWAYS_LOOKUP);
+<span class="nc" id="L966">                    String dsJndiInitial = pp.getStringProperty(</span>
+                            PROP_DATASOURCE_JNDI_INITIAL);
+<span class="nc" id="L968">                    String dsJndiProvider = pp.getStringProperty(</span>
+                            PROP_DATASOURCE_JNDI_PROVDER);
+<span class="nc" id="L970">                    String dsJndiPrincipal = pp.getStringProperty(</span>
+                            PROP_DATASOURCE_JNDI_PRINCIPAL);
+<span class="nc" id="L972">                    String dsJndiCredentials = pp.getStringProperty(</span>
+                            PROP_DATASOURCE_JNDI_CREDENTIALS);
+<span class="nc" id="L974">                    Properties props = null;</span>
+<span class="nc bnc" id="L975" title="All 8 branches missed.">                    if (null != dsJndiInitial || null != dsJndiProvider</span>
+                            || null != dsJndiPrincipal || null != dsJndiCredentials) {
+<span class="nc" id="L977">                        props = new Properties();</span>
+<span class="nc bnc" id="L978" title="All 2 branches missed.">                        if (dsJndiInitial != null) {</span>
+<span class="nc" id="L979">                            props.put(PROP_DATASOURCE_JNDI_INITIAL,</span>
+                                    dsJndiInitial);
+                        }
+<span class="nc bnc" id="L982" title="All 2 branches missed.">                        if (dsJndiProvider != null) {</span>
+<span class="nc" id="L983">                            props.put(PROP_DATASOURCE_JNDI_PROVDER,</span>
+                                    dsJndiProvider);
+                        }
+<span class="nc bnc" id="L986" title="All 2 branches missed.">                        if (dsJndiPrincipal != null) {</span>
+<span class="nc" id="L987">                            props.put(PROP_DATASOURCE_JNDI_PRINCIPAL,</span>
+                                    dsJndiPrincipal);
+                        }
+<span class="nc bnc" id="L990" title="All 2 branches missed.">                        if (dsJndiCredentials != null) {</span>
+<span class="nc" id="L991">                            props.put(PROP_DATASOURCE_JNDI_CREDENTIALS,</span>
+                                    dsJndiCredentials);
+                        }
+                    }
+<span class="nc" id="L995">                    JNDIConnectionProvider cp = new JNDIConnectionProvider(dsJndi,</span>
+                            props, dsAlwaysLookup);
+<span class="nc" id="L997">                    dbMgr = DBConnectionManager.getInstance();</span>
+<span class="nc" id="L998">                    dbMgr.addConnectionProvider(dsNames[i], cp);</span>
+<span class="nc" id="L999">                } else {</span>
+<span class="fc" id="L1000">                    String poolingProvider = pp.getStringProperty(PoolingConnectionProvider.POOLING_PROVIDER);</span>
+<span class="fc" id="L1001">                    String dsDriver = pp.getStringProperty(PoolingConnectionProvider.DB_DRIVER);</span>
+<span class="fc" id="L1002">                    String dsURL = pp.getStringProperty(PoolingConnectionProvider.DB_URL);</span>
+
+<span class="pc bpc" id="L1004" title="1 of 2 branches missed.">                    if (dsDriver == null) {</span>
+<span class="nc" id="L1005">                        initException = new SchedulerException(</span>
+                                &quot;Driver not specified for DataSource: &quot;
+                                        + dsNames[i]);
+<span class="nc" id="L1008">                        throw initException;</span>
+                    }
+<span class="pc bpc" id="L1010" title="1 of 2 branches missed.">                    if (dsURL == null) {</span>
+<span class="nc" id="L1011">                        initException = new SchedulerException(</span>
+                                &quot;DB URL not specified for DataSource: &quot;
+                                        + dsNames[i]);
+<span class="nc" id="L1014">                        throw initException;</span>
+                    }
+                    // we load even these &quot;core&quot; providers by class name in order to avoid a static dependency on
+                    // the c3p0 and hikaricp libraries
+<span class="fc bfc" id="L1018" title="All 4 branches covered.">                    if(poolingProvider != null &amp;&amp; poolingProvider.equals(PoolingConnectionProvider.POOLING_PROVIDER_HIKARICP)) {</span>
+<span class="fc" id="L1019">                        cpClass = &quot;org.quartz.utils.HikariCpPoolingConnectionProvider&quot;;</span>
+                    }
+                    else {
+<span class="fc" id="L1022">                        cpClass = &quot;org.quartz.utils.C3p0PoolingConnectionProvider&quot;;</span>
+                    }
+<span class="fc" id="L1024">                    log.info(&quot;Using ConnectionProvider class '&quot; + cpClass + &quot;' for data source '&quot; + dsNames[i] + &quot;'&quot;);</span>
+
+                    try {
+<span class="fc" id="L1027">                        ConnectionProvider cp = null;</span>
+                        try {
+<span class="fc" id="L1029">                            Constructor constructor = loadHelper.loadClass(cpClass).getConstructor(Properties.class);</span>
+<span class="fc" id="L1030">                            cp = (ConnectionProvider) constructor.newInstance(pp.getUnderlyingProperties());</span>
+<span class="nc" id="L1031">                        } catch (Exception e) {</span>
+<span class="nc" id="L1032">                            initException = new SchedulerException(&quot;ConnectionProvider class '&quot; + cpClass</span>
+                                    + &quot;' could not be instantiated.&quot;, e);
+<span class="nc" id="L1034">                            throw initException;</span>
+<span class="fc" id="L1035">                        }</span>
+<span class="fc" id="L1036">                        dbMgr = DBConnectionManager.getInstance();</span>
+<span class="fc" id="L1037">                        dbMgr.addConnectionProvider(dsNames[i], cp);</span>
+
+                        // Populate the underlying C3P0/HikariCP data source pool properties
+<span class="fc" id="L1040">                        populateProviderWithExtraProps((PoolingConnectionProvider)cp, pp.getUnderlyingProperties());</span>
+<span class="nc" id="L1041">                    } catch (Exception sqle) {</span>
+<span class="nc" id="L1042">                        initException = new SchedulerException(</span>
+                                &quot;Could not initialize DataSource: &quot; + dsNames[i],
+                                sqle);
+<span class="nc" id="L1045">                        throw initException;</span>
+<span class="fc" id="L1046">                    }</span>
+                }
+
+            }
+
+        }
+
+        // Set up any SchedulerPlugins
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+<span class="fc" id="L1056">        String[] pluginNames = cfg.getPropertyGroups(PROP_PLUGIN_PREFIX);</span>
+<span class="fc" id="L1057">        SchedulerPlugin[] plugins = new SchedulerPlugin[pluginNames.length];</span>
+<span class="pc bpc" id="L1058" title="1 of 2 branches missed.">        for (int i = 0; i &lt; pluginNames.length; i++) {</span>
+<span class="nc" id="L1059">            Properties pp = cfg.getPropertyGroup(PROP_PLUGIN_PREFIX + &quot;.&quot;</span>
+                    + pluginNames[i], true);
+
+<span class="nc" id="L1062">            String plugInClass = pp.getProperty(PROP_PLUGIN_CLASS, null);</span>
+
+<span class="nc bnc" id="L1064" title="All 2 branches missed.">            if (plugInClass == null) {</span>
+<span class="nc" id="L1065">                initException = new SchedulerException(</span>
+                        &quot;SchedulerPlugin class not specified for plugin '&quot;
+                                + pluginNames[i] + &quot;'&quot;);
+<span class="nc" id="L1068">                throw initException;</span>
+            }
+<span class="nc" id="L1070">            SchedulerPlugin plugin = null;</span>
+            try {
+<span class="nc" id="L1072">                plugin = (SchedulerPlugin)</span>
+<span class="nc" id="L1073">                        loadHelper.loadClass(plugInClass).newInstance();</span>
+<span class="nc" id="L1074">            } catch (Exception e) {</span>
+<span class="nc" id="L1075">                initException = new SchedulerException(</span>
+                        &quot;SchedulerPlugin class '&quot; + plugInClass
+                                + &quot;' could not be instantiated.&quot;, e);
+<span class="nc" id="L1078">                throw initException;</span>
+<span class="nc" id="L1079">            }</span>
+            try {
+<span class="nc" id="L1081">                setBeanProps(plugin, pp);</span>
+<span class="nc" id="L1082">            } catch (Exception e) {</span>
+<span class="nc" id="L1083">                initException = new SchedulerException(</span>
+                        &quot;JobStore SchedulerPlugin '&quot; + plugInClass
+                                + &quot;' props could not be configured.&quot;, e);
+<span class="nc" id="L1086">                throw initException;</span>
+<span class="nc" id="L1087">            }</span>
+
+<span class="nc" id="L1089">            plugins[i] = plugin;</span>
+        }
+
+        // Set up any JobListeners
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+<span class="fc" id="L1095">        Class&lt;?&gt;[] strArg = new Class[] { String.class };</span>
+<span class="fc" id="L1096">        String[] jobListenerNames = cfg.getPropertyGroups(PROP_JOB_LISTENER_PREFIX);</span>
+<span class="fc" id="L1097">        JobListener[] jobListeners = new JobListener[jobListenerNames.length];</span>
+<span class="pc bpc" id="L1098" title="1 of 2 branches missed.">        for (int i = 0; i &lt; jobListenerNames.length; i++) {</span>
+<span class="nc" id="L1099">            Properties lp = cfg.getPropertyGroup(PROP_JOB_LISTENER_PREFIX + &quot;.&quot;</span>
+                    + jobListenerNames[i], true);
+
+<span class="nc" id="L1102">            String listenerClass = lp.getProperty(PROP_LISTENER_CLASS, null);</span>
+
+<span class="nc bnc" id="L1104" title="All 2 branches missed.">            if (listenerClass == null) {</span>
+<span class="nc" id="L1105">                initException = new SchedulerException(</span>
+                        &quot;JobListener class not specified for listener '&quot;
+                                + jobListenerNames[i] + &quot;'&quot;);
+<span class="nc" id="L1108">                throw initException;</span>
+            }
+<span class="nc" id="L1110">            JobListener listener = null;</span>
+            try {
+<span class="nc" id="L1112">                listener = (JobListener)</span>
+<span class="nc" id="L1113">                       loadHelper.loadClass(listenerClass).newInstance();</span>
+<span class="nc" id="L1114">            } catch (Exception e) {</span>
+<span class="nc" id="L1115">                initException = new SchedulerException(</span>
+                        &quot;JobListener class '&quot; + listenerClass
+                                + &quot;' could not be instantiated.&quot;, e);
+<span class="nc" id="L1118">                throw initException;</span>
+<span class="nc" id="L1119">            }</span>
+            try {
+<span class="nc" id="L1121">                Method nameSetter = null;</span>
+                try { 
+<span class="nc" id="L1123">                    nameSetter = listener.getClass().getMethod(&quot;setName&quot;, strArg);</span>
+                }
+<span class="nc" id="L1125">                catch(NoSuchMethodException ignore) { </span>
+                    /* do nothing */ 
+<span class="nc" id="L1127">                }</span>
+<span class="nc bnc" id="L1128" title="All 2 branches missed.">                if(nameSetter != null) {</span>
+<span class="nc" id="L1129">                    nameSetter.invoke(listener, new Object[] {jobListenerNames[i] } );</span>
+                }
+<span class="nc" id="L1131">                setBeanProps(listener, lp);</span>
+<span class="nc" id="L1132">            } catch (Exception e) {</span>
+<span class="nc" id="L1133">                initException = new SchedulerException(</span>
+                        &quot;JobListener '&quot; + listenerClass
+                                + &quot;' props could not be configured.&quot;, e);
+<span class="nc" id="L1136">                throw initException;</span>
+<span class="nc" id="L1137">            }</span>
+<span class="nc" id="L1138">            jobListeners[i] = listener;</span>
+        }
+
+        // Set up any TriggerListeners
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+<span class="fc" id="L1144">        String[] triggerListenerNames = cfg.getPropertyGroups(PROP_TRIGGER_LISTENER_PREFIX);</span>
+<span class="fc" id="L1145">        TriggerListener[] triggerListeners = new TriggerListener[triggerListenerNames.length];</span>
+<span class="pc bpc" id="L1146" title="1 of 2 branches missed.">        for (int i = 0; i &lt; triggerListenerNames.length; i++) {</span>
+<span class="nc" id="L1147">            Properties lp = cfg.getPropertyGroup(PROP_TRIGGER_LISTENER_PREFIX + &quot;.&quot;</span>
+                    + triggerListenerNames[i], true);
+
+<span class="nc" id="L1150">            String listenerClass = lp.getProperty(PROP_LISTENER_CLASS, null);</span>
+
+<span class="nc bnc" id="L1152" title="All 2 branches missed.">            if (listenerClass == null) {</span>
+<span class="nc" id="L1153">                initException = new SchedulerException(</span>
+                        &quot;TriggerListener class not specified for listener '&quot;
+                                + triggerListenerNames[i] + &quot;'&quot;);
+<span class="nc" id="L1156">                throw initException;</span>
+            }
+<span class="nc" id="L1158">            TriggerListener listener = null;</span>
+            try {
+<span class="nc" id="L1160">                listener = (TriggerListener)</span>
+<span class="nc" id="L1161">                       loadHelper.loadClass(listenerClass).newInstance();</span>
+<span class="nc" id="L1162">            } catch (Exception e) {</span>
+<span class="nc" id="L1163">                initException = new SchedulerException(</span>
+                        &quot;TriggerListener class '&quot; + listenerClass
+                                + &quot;' could not be instantiated.&quot;, e);
+<span class="nc" id="L1166">                throw initException;</span>
+<span class="nc" id="L1167">            }</span>
+            try {
+<span class="nc" id="L1169">                Method nameSetter = null;</span>
+                try { 
+<span class="nc" id="L1171">                    nameSetter = listener.getClass().getMethod(&quot;setName&quot;, strArg);</span>
+                }
+<span class="nc" id="L1173">                catch(NoSuchMethodException ignore) { /* do nothing */ }</span>
+<span class="nc bnc" id="L1174" title="All 2 branches missed.">                if(nameSetter != null) {</span>
+<span class="nc" id="L1175">                    nameSetter.invoke(listener, new Object[] {triggerListenerNames[i] } );</span>
+                }
+<span class="nc" id="L1177">                setBeanProps(listener, lp);</span>
+<span class="nc" id="L1178">            } catch (Exception e) {</span>
+<span class="nc" id="L1179">                initException = new SchedulerException(</span>
+                        &quot;TriggerListener '&quot; + listenerClass
+                                + &quot;' props could not be configured.&quot;, e);
+<span class="nc" id="L1182">                throw initException;</span>
+<span class="nc" id="L1183">            }</span>
+<span class="nc" id="L1184">            triggerListeners[i] = listener;</span>
+        }
+
+<span class="fc" id="L1187">        boolean tpInited = false;</span>
+<span class="fc" id="L1188">        boolean qsInited = false;</span>
+
+
+        // Get ThreadExecutor Properties
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+<span class="fc" id="L1194">        String threadExecutorClass = cfg.getStringProperty(PROP_THREAD_EXECUTOR_CLASS);</span>
+<span class="pc bpc" id="L1195" title="1 of 2 branches missed.">        if (threadExecutorClass != null) {</span>
+<span class="nc" id="L1196">            tProps = cfg.getPropertyGroup(PROP_THREAD_EXECUTOR, true);</span>
+            try {
+<span class="nc" id="L1198">                threadExecutor = (ThreadExecutor) loadHelper.loadClass(threadExecutorClass).newInstance();</span>
+<span class="nc" id="L1199">                log.info(&quot;Using custom implementation for ThreadExecutor: &quot; + threadExecutorClass);</span>
+
+<span class="nc" id="L1201">                setBeanProps(threadExecutor, tProps);</span>
+<span class="nc" id="L1202">            } catch (Exception e) {</span>
+<span class="nc" id="L1203">                initException = new SchedulerException(</span>
+                        &quot;ThreadExecutor class '&quot; + threadExecutorClass + &quot;' could not be instantiated.&quot;, e);
+<span class="nc" id="L1205">                throw initException;</span>
+<span class="nc" id="L1206">            }</span>
+        } else {
+<span class="fc" id="L1208">            log.info(&quot;Using default implementation for ThreadExecutor&quot;);</span>
+<span class="fc" id="L1209">            threadExecutor = new DefaultThreadExecutor();</span>
+        }
+
+
+
+        // Fire everything up
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        try {
+                
+    
+<span class="fc" id="L1219">            JobRunShellFactory jrsf = null; // Create correct run-shell factory...</span>
+    
+<span class="pc bpc" id="L1221" title="1 of 2 branches missed.">            if (userTXLocation != null) {</span>
+<span class="nc" id="L1222">                UserTransactionHelper.setUserTxLocation(userTXLocation);</span>
+            }
+    
+<span class="pc bpc" id="L1225" title="1 of 2 branches missed.">            if (wrapJobInTx) {</span>
+<span class="nc" id="L1226">                jrsf = new JTAJobRunShellFactory();</span>
+            } else {
+<span class="fc" id="L1228">                jrsf = new JTAAnnotationAwareJobRunShellFactory();</span>
+            }
+    
+<span class="fc bfc" id="L1231" title="All 2 branches covered.">            if (autoId) {</span>
+                try {
+<span class="fc" id="L1233">                  schedInstId = DEFAULT_INSTANCE_ID;</span>
+<span class="fc bfc" id="L1234" title="All 2 branches covered.">                  if (js.isClustered()) {</span>
+<span class="fc" id="L1235">                      schedInstId = instanceIdGenerator.generateInstanceId();</span>
+                  }
+<span class="nc" id="L1237">                } catch (Exception e) {</span>
+<span class="nc" id="L1238">                    getLog().error(&quot;Couldn't generate instance Id!&quot;, e);</span>
+<span class="nc" id="L1239">                    throw new IllegalStateException(&quot;Cannot run without an instance id.&quot;);</span>
+<span class="fc" id="L1240">                }</span>
+            }
+
+<span class="pc bpc" id="L1243" title="1 of 2 branches missed.">            if (js.getClass().getName().startsWith(&quot;org.terracotta.quartz&quot;)) {</span>
+                try {
+<span class="nc" id="L1245">                    String uuid = (String) js.getClass().getMethod(&quot;getUUID&quot;).invoke(js);</span>
+<span class="nc bnc" id="L1246" title="All 2 branches missed.">                    if(schedInstId.equals(DEFAULT_INSTANCE_ID)) {</span>
+<span class="nc" id="L1247">                        schedInstId = &quot;TERRACOTTA_CLUSTERED,node=&quot; + uuid;</span>
+<span class="nc bnc" id="L1248" title="All 2 branches missed.">                        if (jmxObjectName == null) {</span>
+<span class="nc" id="L1249">                            jmxObjectName = QuartzSchedulerResources.generateJMXObjectName(schedName, schedInstId);</span>
+                        }
+<span class="nc bnc" id="L1251" title="All 2 branches missed.">                    } else if(jmxObjectName == null) {</span>
+<span class="nc" id="L1252">                        jmxObjectName = QuartzSchedulerResources.generateJMXObjectName(schedName, schedInstId + &quot;,node=&quot; + uuid);</span>
+                    }
+<span class="nc" id="L1254">                } catch(Exception e) {</span>
+<span class="nc" id="L1255">                    throw new RuntimeException(&quot;Problem obtaining node id from TerracottaJobStore.&quot;, e);</span>
+<span class="nc" id="L1256">                }</span>
+
+<span class="nc bnc" id="L1258" title="All 2 branches missed.">                if(null == cfg.getStringProperty(PROP_SCHED_JMX_EXPORT)) {</span>
+<span class="nc" id="L1259">                    jmxExport = true;</span>
+                }
+            }
+            
+<span class="fc bfc" id="L1263" title="All 2 branches covered.">            if (js instanceof JobStoreSupport) {</span>
+<span class="fc" id="L1264">                JobStoreSupport jjs = (JobStoreSupport)js;</span>
+<span class="fc" id="L1265">                jjs.setDbRetryInterval(dbFailureRetry);</span>
+<span class="pc bpc" id="L1266" title="1 of 2 branches missed.">                if(threadsInheritInitalizersClassLoader)</span>
+<span class="nc" id="L1267">                    jjs.setThreadsInheritInitializersClassLoadContext(threadsInheritInitalizersClassLoader);</span>
+                
+<span class="fc" id="L1269">                jjs.setThreadExecutor(threadExecutor);</span>
+            }
+    
+<span class="fc" id="L1272">            QuartzSchedulerResources rsrcs = new QuartzSchedulerResources();</span>
+<span class="fc" id="L1273">            rsrcs.setName(schedName);</span>
+<span class="fc" id="L1274">            rsrcs.setThreadName(threadName);</span>
+<span class="fc" id="L1275">            rsrcs.setInstanceId(schedInstId);</span>
+<span class="fc" id="L1276">            rsrcs.setJobRunShellFactory(jrsf);</span>
+<span class="fc" id="L1277">            rsrcs.setMakeSchedulerThreadDaemon(makeSchedulerThreadDaemon);</span>
+<span class="fc" id="L1278">            rsrcs.setThreadsInheritInitializersClassLoadContext(threadsInheritInitalizersClassLoader);</span>
+<span class="fc" id="L1279">            rsrcs.setBatchTimeWindow(batchTimeWindow);</span>
+<span class="fc" id="L1280">            rsrcs.setMaxBatchSize(maxBatchSize);</span>
+<span class="fc" id="L1281">            rsrcs.setInterruptJobsOnShutdown(interruptJobsOnShutdown);</span>
+<span class="fc" id="L1282">            rsrcs.setInterruptJobsOnShutdownWithWait(interruptJobsOnShutdownWithWait);</span>
+<span class="fc" id="L1283">            rsrcs.setJMXExport(jmxExport);</span>
+<span class="fc" id="L1284">            rsrcs.setJMXObjectName(jmxObjectName);</span>
+
+<span class="pc bpc" id="L1286" title="1 of 2 branches missed.">            if (managementRESTServiceEnabled) {</span>
+<span class="nc" id="L1287">                ManagementRESTServiceConfiguration managementRESTServiceConfiguration = new ManagementRESTServiceConfiguration();</span>
+<span class="nc" id="L1288">                managementRESTServiceConfiguration.setBind(managementRESTServiceHostAndPort);</span>
+<span class="nc" id="L1289">                managementRESTServiceConfiguration.setEnabled(managementRESTServiceEnabled);</span>
+<span class="nc" id="L1290">                rsrcs.setManagementRESTServiceConfiguration(managementRESTServiceConfiguration);</span>
+            }
+    
+<span class="pc bpc" id="L1293" title="1 of 2 branches missed.">            if (rmiExport) {</span>
+<span class="nc" id="L1294">                rsrcs.setRMIRegistryHost(rmiHost);</span>
+<span class="nc" id="L1295">                rsrcs.setRMIRegistryPort(rmiPort);</span>
+<span class="nc" id="L1296">                rsrcs.setRMIServerPort(rmiServerPort);</span>
+<span class="nc" id="L1297">                rsrcs.setRMICreateRegistryStrategy(rmiCreateRegistry);</span>
+<span class="nc" id="L1298">                rsrcs.setRMIBindName(rmiBindName);</span>
+            }
+    
+<span class="fc" id="L1301">            SchedulerDetailsSetter.setDetails(tp, schedName, schedInstId);</span>
+
+<span class="fc" id="L1303">            rsrcs.setThreadExecutor(threadExecutor);</span>
+<span class="fc" id="L1304">            threadExecutor.initialize();</span>
+
+<span class="fc" id="L1306">            rsrcs.setThreadPool(tp);</span>
+<span class="pc bpc" id="L1307" title="1 of 2 branches missed.">            if(tp instanceof SimpleThreadPool) {</span>
+<span class="pc bpc" id="L1308" title="1 of 2 branches missed.">                if(threadsInheritInitalizersClassLoader)</span>
+<span class="nc" id="L1309">                    ((SimpleThreadPool)tp).setThreadsInheritContextClassLoaderOfInitializingThread(threadsInheritInitalizersClassLoader);</span>
+            }
+<span class="fc" id="L1311">            tp.initialize();</span>
+<span class="fc" id="L1312">            tpInited = true;</span>
+    
+<span class="fc" id="L1314">            rsrcs.setJobStore(js);</span>
+    
+            // add plugins
+<span class="pc bpc" id="L1317" title="1 of 2 branches missed.">            for (int i = 0; i &lt; plugins.length; i++) {</span>
+<span class="nc" id="L1318">                rsrcs.addSchedulerPlugin(plugins[i]);</span>
+            }
+    
+<span class="fc" id="L1321">            qs = new QuartzScheduler(rsrcs, idleWaitTime, dbFailureRetry);</span>
+<span class="fc" id="L1322">            qsInited = true;</span>
+    
+            // Create Scheduler ref...
+<span class="fc" id="L1325">            Scheduler scheduler = instantiate(rsrcs, qs);</span>
+    
+            // set job factory if specified
+<span class="fc bfc" id="L1328" title="All 2 branches covered.">            if(jobFactory != null) {</span>
+<span class="fc" id="L1329">                qs.setJobFactory(jobFactory);</span>
+            }
+    
+            // Initialize plugins now that we have a Scheduler instance.
+<span class="pc bpc" id="L1333" title="1 of 2 branches missed.">            for (int i = 0; i &lt; plugins.length; i++) {</span>
+<span class="nc" id="L1334">                plugins[i].initialize(pluginNames[i], scheduler, loadHelper);</span>
+            }
+    
+            // add listeners
+<span class="pc bpc" id="L1338" title="1 of 2 branches missed.">            for (int i = 0; i &lt; jobListeners.length; i++) {</span>
+<span class="nc" id="L1339">                qs.getListenerManager().addJobListener(jobListeners[i], EverythingMatcher.allJobs());</span>
+            }
+<span class="pc bpc" id="L1341" title="1 of 2 branches missed.">            for (int i = 0; i &lt; triggerListeners.length; i++) {</span>
+<span class="nc" id="L1342">                qs.getListenerManager().addTriggerListener(triggerListeners[i], EverythingMatcher.allTriggers());</span>
+            }
+    
+            // set scheduler context data...
+<span class="pc bpc" id="L1346" title="1 of 2 branches missed.">            for(Object key: schedCtxtProps.keySet()) {</span>
+<span class="nc" id="L1347">                String val = schedCtxtProps.getProperty((String) key);    </span>
+<span class="nc" id="L1348">                scheduler.getContext().put((String)key, val);</span>
+<span class="nc" id="L1349">            }</span>
+    
+            // fire up job store, and runshell factory
+    
+<span class="fc" id="L1353">            js.setInstanceId(schedInstId);</span>
+<span class="fc" id="L1354">            js.setInstanceName(schedName);</span>
+<span class="fc" id="L1355">            js.setThreadPoolSize(tp.getPoolSize());</span>
+<span class="fc" id="L1356">            js.initialize(loadHelper, qs.getSchedulerSignaler());</span>
+
+<span class="fc" id="L1358">            jrsf.initialize(scheduler);</span>
+            
+<span class="fc" id="L1360">            qs.initialize();</span>
+    
+<span class="fc" id="L1362">            getLog().info(</span>
+<span class="fc" id="L1363">                    &quot;Quartz scheduler '&quot; + scheduler.getSchedulerName()</span>
+                            + &quot;' initialized from &quot; + propSrc);
+    
+<span class="fc" id="L1366">            getLog().info(&quot;Quartz scheduler version: &quot; + qs.getVersion());</span>
+    
+            // prevents the repository from being garbage collected
+<span class="fc" id="L1369">            qs.addNoGCObject(schedRep);</span>
+            // prevents the db manager from being garbage collected
+<span class="fc bfc" id="L1371" title="All 2 branches covered.">            if (dbMgr != null) {</span>
+<span class="fc" id="L1372">                qs.addNoGCObject(dbMgr);</span>
+            }
+    
+<span class="fc" id="L1375">            schedRep.bind(scheduler);</span>
+<span class="fc" id="L1376">            return scheduler;</span>
+        }
+<span class="nc" id="L1378">        catch(SchedulerException e) {</span>
+<span class="nc" id="L1379">            shutdownFromInstantiateException(tp, qs, tpInited, qsInited);</span>
+<span class="nc" id="L1380">            throw e;</span>
+        }
+<span class="nc" id="L1382">        catch(RuntimeException re) {</span>
+<span class="nc" id="L1383">            shutdownFromInstantiateException(tp, qs, tpInited, qsInited);</span>
+<span class="nc" id="L1384">            throw re;</span>
+        }
+<span class="nc" id="L1386">        catch(Error re) {</span>
+<span class="nc" id="L1387">            shutdownFromInstantiateException(tp, qs, tpInited, qsInited);</span>
+<span class="nc" id="L1388">            throw re;</span>
+        }
+    }
+
+    private void populateProviderWithExtraProps(PoolingConnectionProvider cp, Properties props) throws Exception {
+<span class="fc" id="L1393">        Properties copyProps = new Properties();</span>
+<span class="fc" id="L1394">        copyProps.putAll(props);</span>
+
+        // Remove all the default properties first (they don't always match to setter name, and they are already
+        // been set!)
+<span class="fc" id="L1398">        copyProps.remove(PoolingConnectionProvider.DB_DRIVER);</span>
+<span class="fc" id="L1399">        copyProps.remove(PoolingConnectionProvider.DB_URL);</span>
+<span class="fc" id="L1400">        copyProps.remove(PoolingConnectionProvider.DB_USER);</span>
+<span class="fc" id="L1401">        copyProps.remove(PoolingConnectionProvider.DB_PASSWORD);</span>
+<span class="fc" id="L1402">        copyProps.remove(PoolingConnectionProvider.DB_MAX_CONNECTIONS);</span>
+<span class="fc" id="L1403">        copyProps.remove(PoolingConnectionProvider.DB_VALIDATION_QUERY);</span>
+<span class="fc" id="L1404">        copyProps.remove(PoolingConnectionProvider.POOLING_PROVIDER);</span>
+
+<span class="fc bfc" id="L1406" title="All 2 branches covered.">        if (cp instanceof C3p0PoolingConnectionProvider) {</span>
+<span class="fc" id="L1407">            copyProps.remove(C3p0PoolingConnectionProvider.DB_MAX_CACHED_STATEMENTS_PER_CONNECTION);</span>
+<span class="fc" id="L1408">            copyProps.remove(C3p0PoolingConnectionProvider.DB_VALIDATE_ON_CHECKOUT);</span>
+<span class="fc" id="L1409">            copyProps.remove(C3p0PoolingConnectionProvider.DB_IDLE_VALIDATION_SECONDS);</span>
+<span class="fc" id="L1410">            copyProps.remove(C3p0PoolingConnectionProvider.DB_DISCARD_IDLE_CONNECTIONS_SECONDS);</span>
+        }
+
+<span class="fc" id="L1413">        setBeanProps(cp.getDataSource(), copyProps);</span>
+<span class="fc" id="L1414">    }</span>
+
+    private void shutdownFromInstantiateException(ThreadPool tp, QuartzScheduler qs, boolean tpInited, boolean qsInited) {
+        try {
+<span class="nc bnc" id="L1418" title="All 2 branches missed.">            if(qsInited)</span>
+<span class="nc" id="L1419">                qs.shutdown(false);</span>
+<span class="nc bnc" id="L1420" title="All 2 branches missed.">            else if(tpInited)</span>
+<span class="nc" id="L1421">                tp.shutdown(false);</span>
+<span class="nc" id="L1422">        } catch (Exception e) {</span>
+<span class="nc" id="L1423">            getLog().error(&quot;Got another exception while shutting down after instantiation exception&quot;, e);</span>
+<span class="nc" id="L1424">        }</span>
+<span class="nc" id="L1425">    }</span>
+
+    protected Scheduler instantiate(QuartzSchedulerResources rsrcs, QuartzScheduler qs) {
+
+<span class="fc" id="L1429">        Scheduler scheduler = new StdScheduler(qs);</span>
+<span class="fc" id="L1430">        return scheduler;</span>
+    }
+
+
+    private void setBeanProps(Object obj, Properties props)
+        throws NoSuchMethodException, IllegalAccessException,
+            java.lang.reflect.InvocationTargetException,
+            IntrospectionException, SchedulerConfigException {
+<span class="fc" id="L1438">        props.remove(&quot;class&quot;);</span>
+<span class="fc" id="L1439">        props.remove(PoolingConnectionProvider.POOLING_PROVIDER);</span>
+
+<span class="fc" id="L1441">        BeanInfo bi = Introspector.getBeanInfo(obj.getClass());</span>
+<span class="fc" id="L1442">        PropertyDescriptor[] propDescs = bi.getPropertyDescriptors();</span>
+<span class="fc" id="L1443">        PropertiesParser pp = new PropertiesParser(props);</span>
+
+<span class="fc" id="L1445">        java.util.Enumeration&lt;Object&gt; keys = props.keys();</span>
+<span class="fc bfc" id="L1446" title="All 2 branches covered.">        while (keys.hasMoreElements()) {</span>
+<span class="fc" id="L1447">            String name = (String) keys.nextElement();</span>
+<span class="fc" id="L1448">            String c = name.substring(0, 1).toUpperCase(Locale.US);</span>
+<span class="fc" id="L1449">            String methName = &quot;set&quot; + c + name.substring(1);</span>
+
+<span class="fc" id="L1451">            java.lang.reflect.Method setMeth = getSetMethod(methName, propDescs);</span>
+
+            try {
+<span class="pc bpc" id="L1454" title="1 of 2 branches missed.">                if (setMeth == null) {</span>
+<span class="nc" id="L1455">                    throw new NoSuchMethodException(</span>
+                            &quot;No setter for property '&quot; + name + &quot;'&quot;);
+                }
+
+<span class="fc" id="L1459">                Class&lt;?&gt;[] params = setMeth.getParameterTypes();</span>
+<span class="pc bpc" id="L1460" title="1 of 2 branches missed.">                if (params.length != 1) {</span>
+<span class="nc" id="L1461">                    throw new NoSuchMethodException(</span>
+                        &quot;No 1-argument setter for property '&quot; + name + &quot;'&quot;);
+                }
+                
+                // does the property value reference another property's value? If so, swap to look at its value
+<span class="fc" id="L1466">                PropertiesParser refProps = pp;</span>
+<span class="fc" id="L1467">                String refName = pp.getStringProperty(name);</span>
+<span class="pc bpc" id="L1468" title="2 of 4 branches missed.">                if(refName != null &amp;&amp; refName.startsWith(&quot;$@&quot;)) {</span>
+<span class="nc" id="L1469">                    refName =  refName.substring(2);</span>
+<span class="nc" id="L1470">                    refProps = cfg;</span>
+                }
+                else
+<span class="fc" id="L1473">                    refName = name;</span>
+                
+<span class="fc bfc" id="L1475" title="All 2 branches covered.">                if (params[0].equals(int.class)) {</span>
+<span class="fc" id="L1476">                    setMeth.invoke(obj, new Object[]{Integer.valueOf(refProps.getIntProperty(refName))});</span>
+<span class="fc bfc" id="L1477" title="All 2 branches covered.">                } else if (params[0].equals(long.class)) {</span>
+<span class="fc" id="L1478">                    setMeth.invoke(obj, new Object[]{Long.valueOf(refProps.getLongProperty(refName))});</span>
+<span class="pc bpc" id="L1479" title="1 of 2 branches missed.">                } else if (params[0].equals(float.class)) {</span>
+<span class="nc" id="L1480">                    setMeth.invoke(obj, new Object[]{Float.valueOf(refProps.getFloatProperty(refName))});</span>
+<span class="pc bpc" id="L1481" title="1 of 2 branches missed.">                } else if (params[0].equals(double.class)) {</span>
+<span class="nc" id="L1482">                    setMeth.invoke(obj, new Object[]{Double.valueOf(refProps.getDoubleProperty(refName))});</span>
+<span class="fc bfc" id="L1483" title="All 2 branches covered.">                } else if (params[0].equals(boolean.class)) {</span>
+<span class="fc" id="L1484">                    setMeth.invoke(obj, new Object[]{Boolean.valueOf(refProps.getBooleanProperty(refName))});</span>
+<span class="pc bpc" id="L1485" title="1 of 2 branches missed.">                } else if (params[0].equals(String.class)) {</span>
+<span class="fc" id="L1486">                    setMeth.invoke(obj, new Object[]{refProps.getStringProperty(refName)});</span>
+                } else {
+<span class="nc" id="L1488">                    throw new NoSuchMethodException(</span>
+                            &quot;No primitive-type setter for property '&quot; + name
+                                    + &quot;'&quot;);
+                }
+<span class="nc" id="L1492">            } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L1493">                throw new SchedulerConfigException(&quot;Could not parse property '&quot;</span>
+<span class="nc" id="L1494">                        + name + &quot;' into correct data type: &quot; + nfe.toString());</span>
+<span class="fc" id="L1495">            }</span>
+<span class="fc" id="L1496">        }</span>
+<span class="fc" id="L1497">    }</span>
+
+    private java.lang.reflect.Method getSetMethod(String name,
+            PropertyDescriptor[] props) {
+<span class="pc bpc" id="L1501" title="1 of 2 branches missed.">        for (int i = 0; i &lt; props.length; i++) {</span>
+<span class="fc" id="L1502">            java.lang.reflect.Method wMeth = props[i].getWriteMethod();</span>
+
+<span class="fc bfc" id="L1504" title="All 4 branches covered.">            if (wMeth != null &amp;&amp; wMeth.getName().equals(name)) {</span>
+<span class="fc" id="L1505">                return wMeth;</span>
+            }
+        }
+
+<span class="nc" id="L1509">        return null;</span>
+    }
+
+    private Class&lt;?&gt; loadClass(String className) throws ClassNotFoundException, SchedulerConfigException {
+
+        try {
+<span class="fc" id="L1515">            ClassLoader cl = findClassloader();</span>
+<span class="pc bpc" id="L1516" title="1 of 2 branches missed.">            if(cl != null)</span>
+<span class="fc" id="L1517">                return cl.loadClass(className);</span>
+<span class="nc" id="L1518">            throw new SchedulerConfigException(&quot;Unable to find a class loader on the current thread or class.&quot;);</span>
+<span class="nc" id="L1519">        } catch (ClassNotFoundException e) {</span>
+<span class="nc bnc" id="L1520" title="All 2 branches missed.">            if(getClass().getClassLoader() != null)</span>
+<span class="nc" id="L1521">                return getClass().getClassLoader().loadClass(className);</span>
+<span class="nc" id="L1522">            throw e;</span>
+        }
+    }
+
+    private ClassLoader findClassloader() {
+        // work-around set context loader for windows-service started jvms (QUARTZ-748)
+<span class="pc bpc" id="L1528" title="3 of 4 branches missed.">        if(Thread.currentThread().getContextClassLoader() == null &amp;&amp; getClass().getClassLoader() != null) {</span>
+<span class="nc" id="L1529">            Thread.currentThread().setContextClassLoader(getClass().getClassLoader());</span>
+        }
+<span class="fc" id="L1531">        return Thread.currentThread().getContextClassLoader();</span>
+    }
+
+    private String getSchedulerName() {
+<span class="fc" id="L1535">        return cfg.getStringProperty(PROP_SCHED_INSTANCE_NAME,</span>
+                &quot;QuartzScheduler&quot;);
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns a handle to the Scheduler produced by this factory.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * If one of the &lt;code&gt;initialize&lt;/code&gt; methods has not be previously
+     * called, then the default (no-arg) &lt;code&gt;initialize()&lt;/code&gt; method
+     * will be called by this method.
+     * &lt;/p&gt;
+     */
+    public Scheduler getScheduler() throws SchedulerException {
+<span class="fc bfc" id="L1551" title="All 2 branches covered.">        if (cfg == null) {</span>
+<span class="fc" id="L1552">            initialize();</span>
+        }
+
+<span class="fc" id="L1555">        SchedulerRepository schedRep = SchedulerRepository.getInstance();</span>
+
+<span class="fc" id="L1557">        Scheduler sched = schedRep.lookup(getSchedulerName());</span>
+
+<span class="pc bpc" id="L1559" title="1 of 2 branches missed.">        if (sched != null) {</span>
+<span class="nc bnc" id="L1560" title="All 2 branches missed.">            if (sched.isShutdown()) {</span>
+<span class="nc" id="L1561">                schedRep.remove(getSchedulerName());</span>
+            } else {
+<span class="nc" id="L1563">                return sched;</span>
+            }
+        }
+
+<span class="fc" id="L1567">        sched = instantiate();</span>
+
+<span class="fc" id="L1569">        return sched;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns a handle to the default Scheduler, creating it if it does not
+     * yet exist.
+     * &lt;/p&gt;
+     *
+     * @see #initialize()
+     */
+    public static Scheduler getDefaultScheduler() throws SchedulerException {
+<span class="fc" id="L1581">        StdSchedulerFactory fact = new StdSchedulerFactory();</span>
+
+<span class="fc" id="L1583">        return fact.getScheduler();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns a handle to the Scheduler with the given name, if it exists (if
+     * it has already been instantiated).
+     * &lt;/p&gt;
+     */
+    public Scheduler getScheduler(String schedName) throws SchedulerException {
+<span class="nc" id="L1593">        return SchedulerRepository.getInstance().lookup(schedName);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns a handle to all known Schedulers (made by any
+     * StdSchedulerFactory instance.).
+     * &lt;/p&gt;
+     */
+    public Collection&lt;Scheduler&gt; getAllSchedulers() throws SchedulerException {
+<span class="nc" id="L1603">        return SchedulerRepository.getInstance().lookupAll();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

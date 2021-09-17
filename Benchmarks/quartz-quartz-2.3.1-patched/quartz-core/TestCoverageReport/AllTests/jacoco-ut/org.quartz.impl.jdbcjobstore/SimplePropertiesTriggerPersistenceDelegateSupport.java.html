@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SimplePropertiesTriggerPersistenceDelegateSupport.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.jdbcjobstore</a> &gt; <span class="el_source">SimplePropertiesTriggerPersistenceDelegateSupport.java</span></div><h1>SimplePropertiesTriggerPersistenceDelegateSupport.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.quartz.impl.jdbcjobstore;
+
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.quartz.JobDetail;
+import org.quartz.ScheduleBuilder;
+import org.quartz.TriggerKey;
+import org.quartz.spi.OperableTrigger;
+
+/**
+ * A base implementation of {@link TriggerPersistenceDelegate} that persists 
+ * trigger fields in the &quot;QRTZ_SIMPROP_TRIGGERS&quot; table.  This allows extending
+ * concrete classes to simply implement a couple methods that do the work of
+ * getting/setting the trigger's fields, and creating the {@link ScheduleBuilder}
+ * for the particular type of trigger. 
+ * 
+ * @see CalendarIntervalTriggerPersistenceDelegate for an example extension
+ * 
+ * @author jhouse
+ */
+<span class="fc" id="L40">public abstract class SimplePropertiesTriggerPersistenceDelegateSupport implements TriggerPersistenceDelegate, StdJDBCConstants {</span>
+
+    protected static final String TABLE_SIMPLE_PROPERTIES_TRIGGERS = &quot;SIMPROP_TRIGGERS&quot;;
+    
+    protected static final String COL_STR_PROP_1 = &quot;STR_PROP_1&quot;;
+    protected static final String COL_STR_PROP_2 = &quot;STR_PROP_2&quot;;
+    protected static final String COL_STR_PROP_3 = &quot;STR_PROP_3&quot;;
+    protected static final String COL_INT_PROP_1 = &quot;INT_PROP_1&quot;;
+    protected static final String COL_INT_PROP_2 = &quot;INT_PROP_2&quot;;
+    protected static final String COL_LONG_PROP_1 = &quot;LONG_PROP_1&quot;;
+    protected static final String COL_LONG_PROP_2 = &quot;LONG_PROP_2&quot;;
+    protected static final String COL_DEC_PROP_1 = &quot;DEC_PROP_1&quot;;
+    protected static final String COL_DEC_PROP_2 = &quot;DEC_PROP_2&quot;;
+    protected static final String COL_BOOL_PROP_1 = &quot;BOOL_PROP_1&quot;;
+    protected static final String COL_BOOL_PROP_2 = &quot;BOOL_PROP_2&quot;;
+    
+    protected static final String SELECT_SIMPLE_PROPS_TRIGGER = &quot;SELECT *&quot; + &quot; FROM &quot;
+        + TABLE_PREFIX_SUBST + TABLE_SIMPLE_PROPERTIES_TRIGGERS + &quot; WHERE &quot;
+        + COL_SCHEDULER_NAME + &quot; = &quot; + SCHED_NAME_SUBST
+        + &quot; AND &quot; + COL_TRIGGER_NAME + &quot; = ? AND &quot; + COL_TRIGGER_GROUP + &quot; = ?&quot;;
+
+    protected static final String DELETE_SIMPLE_PROPS_TRIGGER = &quot;DELETE FROM &quot;
+        + TABLE_PREFIX_SUBST + TABLE_SIMPLE_PROPERTIES_TRIGGERS + &quot; WHERE &quot;
+        + COL_SCHEDULER_NAME + &quot; = &quot; + SCHED_NAME_SUBST
+        + &quot; AND &quot; + COL_TRIGGER_NAME + &quot; = ? AND &quot; + COL_TRIGGER_GROUP + &quot; = ?&quot;;
+
+    protected static final String INSERT_SIMPLE_PROPS_TRIGGER = &quot;INSERT INTO &quot;
+        + TABLE_PREFIX_SUBST + TABLE_SIMPLE_PROPERTIES_TRIGGERS + &quot; (&quot;
+        + COL_SCHEDULER_NAME + &quot;, &quot;
+        + COL_TRIGGER_NAME + &quot;, &quot; + COL_TRIGGER_GROUP + &quot;, &quot;
+        + COL_STR_PROP_1 + &quot;, &quot; + COL_STR_PROP_2 + &quot;, &quot; + COL_STR_PROP_3 + &quot;, &quot;
+        + COL_INT_PROP_1 + &quot;, &quot; + COL_INT_PROP_2 + &quot;, &quot;
+        + COL_LONG_PROP_1 + &quot;, &quot; + COL_LONG_PROP_2 + &quot;, &quot;
+        + COL_DEC_PROP_1 + &quot;, &quot; + COL_DEC_PROP_2 + &quot;, &quot;
+        + COL_BOOL_PROP_1 + &quot;, &quot; + COL_BOOL_PROP_2 
+        + &quot;) &quot; + &quot; VALUES(&quot; + SCHED_NAME_SUBST + &quot;, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)&quot;;
+
+    protected static final String UPDATE_SIMPLE_PROPS_TRIGGER = &quot;UPDATE &quot;
+        + TABLE_PREFIX_SUBST + TABLE_SIMPLE_PROPERTIES_TRIGGERS + &quot; SET &quot;
+        + COL_STR_PROP_1 + &quot; = ?, &quot; + COL_STR_PROP_2 + &quot; = ?, &quot; + COL_STR_PROP_3 + &quot; = ?, &quot;
+        + COL_INT_PROP_1 + &quot; = ?, &quot; + COL_INT_PROP_2 + &quot; = ?, &quot;
+        + COL_LONG_PROP_1 + &quot; = ?, &quot; + COL_LONG_PROP_2 + &quot; = ?, &quot;
+        + COL_DEC_PROP_1 + &quot; = ?, &quot; + COL_DEC_PROP_2 + &quot; = ?, &quot;
+        + COL_BOOL_PROP_1 + &quot; = ?, &quot; + COL_BOOL_PROP_2 
+        + &quot; = ? WHERE &quot; + COL_SCHEDULER_NAME + &quot; = &quot; + SCHED_NAME_SUBST
+        + &quot; AND &quot; + COL_TRIGGER_NAME
+        + &quot; = ? AND &quot; + COL_TRIGGER_GROUP + &quot; = ?&quot;;
+    
+    protected String tablePrefix;
+
+    protected String schedNameLiteral;
+
+    public void initialize(String theTablePrefix, String schedName) {
+<span class="fc" id="L93">        this.tablePrefix = theTablePrefix;</span>
+<span class="fc" id="L94">        this.schedNameLiteral = &quot;'&quot; + schedName + &quot;'&quot;;</span>
+<span class="fc" id="L95">    }</span>
+
+    protected abstract SimplePropertiesTriggerProperties getTriggerProperties(OperableTrigger trigger);
+    
+    protected abstract TriggerPropertyBundle getTriggerPropertyBundle(SimplePropertiesTriggerProperties properties);
+    
+    public int deleteExtendedTriggerProperties(Connection conn, TriggerKey triggerKey) throws SQLException {
+<span class="fc" id="L102">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="fc" id="L105">            ps = conn.prepareStatement(Util.rtp(DELETE_SIMPLE_PROPS_TRIGGER, tablePrefix, schedNameLiteral));</span>
+<span class="fc" id="L106">            ps.setString(1, triggerKey.getName());</span>
+<span class="fc" id="L107">            ps.setString(2, triggerKey.getGroup());</span>
+
+<span class="fc" id="L109">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L111">            Util.closeStatement(ps);</span>
+        }
+    }
+
+    public int insertExtendedTriggerProperties(Connection conn, OperableTrigger trigger, String state, JobDetail jobDetail) throws SQLException, IOException {
+
+<span class="nc" id="L117">        SimplePropertiesTriggerProperties properties = getTriggerProperties(trigger);</span>
+        
+<span class="nc" id="L119">        PreparedStatement ps = null;</span>
+        
+        try {
+<span class="nc" id="L122">            ps = conn.prepareStatement(Util.rtp(INSERT_SIMPLE_PROPS_TRIGGER, tablePrefix, schedNameLiteral));</span>
+<span class="nc" id="L123">            ps.setString(1, trigger.getKey().getName());</span>
+<span class="nc" id="L124">            ps.setString(2, trigger.getKey().getGroup());</span>
+<span class="nc" id="L125">            ps.setString(3, properties.getString1());</span>
+<span class="nc" id="L126">            ps.setString(4, properties.getString2());</span>
+<span class="nc" id="L127">            ps.setString(5, properties.getString3());</span>
+<span class="nc" id="L128">            ps.setInt(6, properties.getInt1());</span>
+<span class="nc" id="L129">            ps.setInt(7, properties.getInt2());</span>
+<span class="nc" id="L130">            ps.setLong(8, properties.getLong1());</span>
+<span class="nc" id="L131">            ps.setLong(9, properties.getLong2());</span>
+<span class="nc" id="L132">            ps.setBigDecimal(10, properties.getDecimal1());</span>
+<span class="nc" id="L133">            ps.setBigDecimal(11, properties.getDecimal2());</span>
+<span class="nc" id="L134">            ps.setBoolean(12, properties.isBoolean1());</span>
+<span class="nc" id="L135">            ps.setBoolean(13, properties.isBoolean2());</span>
+
+<span class="nc" id="L137">            return ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L139">            Util.closeStatement(ps);</span>
+        }
+    }
+
+    public TriggerPropertyBundle loadExtendedTriggerProperties(Connection conn, TriggerKey triggerKey) throws SQLException {
+
+<span class="nc" id="L145">        PreparedStatement ps = null;</span>
+<span class="nc" id="L146">        ResultSet rs = null;</span>
+        
+        try {
+<span class="nc" id="L149">            ps = conn.prepareStatement(Util.rtp(SELECT_SIMPLE_PROPS_TRIGGER, tablePrefix, schedNameLiteral));</span>
+<span class="nc" id="L150">            ps.setString(1, triggerKey.getName());</span>
+<span class="nc" id="L151">            ps.setString(2, triggerKey.getGroup());</span>
+<span class="nc" id="L152">            rs = ps.executeQuery();</span>
+    
+<span class="nc bnc" id="L154" title="All 2 branches missed.">            if (rs.next()) {</span>
+<span class="nc" id="L155">                SimplePropertiesTriggerProperties properties = new SimplePropertiesTriggerProperties();</span>
+                    
+<span class="nc" id="L157">                properties.setString1(rs.getString(COL_STR_PROP_1));</span>
+<span class="nc" id="L158">                properties.setString2(rs.getString(COL_STR_PROP_2));</span>
+<span class="nc" id="L159">                properties.setString3(rs.getString(COL_STR_PROP_3));</span>
+<span class="nc" id="L160">                properties.setInt1(rs.getInt(COL_INT_PROP_1));</span>
+<span class="nc" id="L161">                properties.setInt2(rs.getInt(COL_INT_PROP_2));</span>
+<span class="nc" id="L162">                properties.setLong1(rs.getInt(COL_LONG_PROP_1));</span>
+<span class="nc" id="L163">                properties.setLong2(rs.getInt(COL_LONG_PROP_2));</span>
+<span class="nc" id="L164">                properties.setDecimal1(rs.getBigDecimal(COL_DEC_PROP_1));</span>
+<span class="nc" id="L165">                properties.setDecimal2(rs.getBigDecimal(COL_DEC_PROP_2));</span>
+<span class="nc" id="L166">                properties.setBoolean1(rs.getBoolean(COL_BOOL_PROP_1));</span>
+<span class="nc" id="L167">                properties.setBoolean2(rs.getBoolean(COL_BOOL_PROP_2));</span>
+                
+<span class="nc" id="L169">                return getTriggerPropertyBundle(properties);</span>
+            }
+            
+<span class="nc" id="L172">            throw new IllegalStateException(&quot;No record found for selection of Trigger with key: '&quot; + triggerKey + &quot;' and statement: &quot; + Util.rtp(SELECT_SIMPLE_TRIGGER, tablePrefix, schedNameLiteral));</span>
+        } finally {
+<span class="nc" id="L174">            Util.closeResultSet(rs);</span>
+<span class="nc" id="L175">            Util.closeStatement(ps);</span>
+        }
+    }
+
+    public int updateExtendedTriggerProperties(Connection conn, OperableTrigger trigger, String state, JobDetail jobDetail) throws SQLException, IOException {
+
+<span class="nc" id="L181">        SimplePropertiesTriggerProperties properties = getTriggerProperties(trigger);</span>
+        
+<span class="nc" id="L183">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="nc" id="L186">            ps = conn.prepareStatement(Util.rtp(UPDATE_SIMPLE_PROPS_TRIGGER, tablePrefix, schedNameLiteral));</span>
+<span class="nc" id="L187">            ps.setString(1, properties.getString1());</span>
+<span class="nc" id="L188">            ps.setString(2, properties.getString2());</span>
+<span class="nc" id="L189">            ps.setString(3, properties.getString3());</span>
+<span class="nc" id="L190">            ps.setInt(4, properties.getInt1());</span>
+<span class="nc" id="L191">            ps.setInt(5, properties.getInt2());</span>
+<span class="nc" id="L192">            ps.setLong(6, properties.getLong1());</span>
+<span class="nc" id="L193">            ps.setLong(7, properties.getLong2());</span>
+<span class="nc" id="L194">            ps.setBigDecimal(8, properties.getDecimal1());</span>
+<span class="nc" id="L195">            ps.setBigDecimal(9, properties.getDecimal2());</span>
+<span class="nc" id="L196">            ps.setBoolean(10, properties.isBoolean1());</span>
+<span class="nc" id="L197">            ps.setBoolean(11, properties.isBoolean2());</span>
+<span class="nc" id="L198">            ps.setString(12, trigger.getKey().getName());</span>
+<span class="nc" id="L199">            ps.setString(13, trigger.getKey().getGroup());</span>
+
+<span class="nc" id="L201">            return ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L203">            Util.closeStatement(ps);</span>
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

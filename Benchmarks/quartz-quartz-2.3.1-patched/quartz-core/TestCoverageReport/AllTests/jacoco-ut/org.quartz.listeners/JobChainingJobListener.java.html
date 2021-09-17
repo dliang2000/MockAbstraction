@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobChainingJobListener.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.listeners</a> &gt; <span class="el_source">JobChainingJobListener.java</span></div><h1>JobChainingJobListener.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy
+ * of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ */
+package org.quartz.listeners;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.quartz.JobKey;
+import org.quartz.SchedulerException;
+
+/**
+ * Keeps a collection of mappings of which Job to trigger after the completion
+ * of a given job.  If this listener is notified of a job completing that has a
+ * mapping, then it will then attempt to trigger the follow-up job.  This
+ * achieves &quot;job chaining&quot;, or a &quot;poor man's workflow&quot;.
+ *
+ * &lt;p&gt;Generally an instance of this listener would be registered as a global
+ * job listener, rather than being registered directly to a given job.&lt;/p&gt;
+ *
+ * &lt;p&gt;If for some reason there is a failure creating the trigger for the
+ * follow-up job (which would generally only be caused by a rare serious
+ * failure in the system, or the non-existence of the follow-up job), an error
+ * messsage is logged, but no other action is taken. If you need more rigorous
+ * handling of the error, consider scheduling the triggering of the flow-up
+ * job within your job itself.&lt;/p&gt;
+ *
+ * @author James House (jhouse AT revolition DOT net)
+ */
+public class JobChainingJobListener extends JobListenerSupport {
+
+    private String name;
+    private Map&lt;JobKey, JobKey&gt; chainLinks;
+
+
+    /**
+     * Construct an instance with the given name.
+     *
+     * @param name the name of this instance
+     */
+<span class="nc" id="L55">    public JobChainingJobListener(String name) {</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        if(name == null) {</span>
+<span class="nc" id="L57">            throw new IllegalArgumentException(&quot;Listener name cannot be null!&quot;);</span>
+        }
+<span class="nc" id="L59">        this.name = name;</span>
+<span class="nc" id="L60">        chainLinks = new HashMap&lt;JobKey, JobKey&gt;();</span>
+<span class="nc" id="L61">    }</span>
+
+    public String getName() {
+<span class="nc" id="L64">        return name;</span>
+    }
+
+    /**
+     * Add a chain mapping - when the Job identified by the first key completes
+     * the job identified by the second key will be triggered.
+     *
+     * @param firstJob a JobKey with the name and group of the first job
+     * @param secondJob a JobKey with the name and group of the follow-up job
+     */
+    public void addJobChainLink(JobKey firstJob, JobKey secondJob) {
+
+<span class="nc bnc" id="L76" title="All 4 branches missed.">        if(firstJob == null || secondJob == null) {</span>
+<span class="nc" id="L77">            throw new IllegalArgumentException(&quot;Key cannot be null!&quot;);</span>
+        }
+
+<span class="nc bnc" id="L80" title="All 4 branches missed.">        if(firstJob.getName() == null || secondJob.getName() == null) {</span>
+<span class="nc" id="L81">            throw new IllegalArgumentException(&quot;Key cannot have a null name!&quot;);</span>
+        }
+
+<span class="nc" id="L84">        chainLinks.put(firstJob, secondJob);</span>
+<span class="nc" id="L85">    }</span>
+
+    @Override
+    public void jobWasExecuted(JobExecutionContext context, JobExecutionException jobException) {
+
+<span class="nc" id="L90">        JobKey sj = chainLinks.get(context.getJobDetail().getKey());</span>
+
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        if(sj == null) {</span>
+<span class="nc" id="L93">            return;</span>
+        }
+
+<span class="nc" id="L96">        getLog().info(&quot;Job '&quot; + context.getJobDetail().getKey() + &quot;' will now chain to Job '&quot; + sj + &quot;'&quot;);</span>
+
+        try {
+<span class="nc" id="L99">             context.getScheduler().triggerJob(sj);</span>
+<span class="nc" id="L100">        } catch(SchedulerException se) {</span>
+<span class="nc" id="L101">            getLog().error(&quot;Error encountered during chaining to Job '&quot; + sj + &quot;'&quot;, se);</span>
+<span class="nc" id="L102">        }</span>
+<span class="nc" id="L103">    }</span>
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

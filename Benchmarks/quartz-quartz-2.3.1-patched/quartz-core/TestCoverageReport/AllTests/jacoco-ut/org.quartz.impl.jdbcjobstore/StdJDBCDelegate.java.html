@@ -1,0 +1,3340 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StdJDBCDelegate.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.jdbcjobstore</a> &gt; <span class="el_source">StdJDBCDelegate.java</span></div><h1>StdJDBCDelegate.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.impl.jdbcjobstore;
+
+import static org.quartz.JobKey.jobKey;
+import static org.quartz.TriggerBuilder.newTrigger;
+import static org.quartz.TriggerKey.triggerKey;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.NotSerializableException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.math.BigDecimal;
+import java.sql.Blob;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+
+import org.quartz.Calendar;
+import org.quartz.Job;
+import org.quartz.JobDataMap;
+import org.quartz.JobDetail;
+import org.quartz.JobKey;
+import org.quartz.JobPersistenceException;
+import org.quartz.Scheduler;
+import org.quartz.SimpleTrigger;
+import org.quartz.Trigger;
+import org.quartz.TriggerBuilder;
+import org.quartz.TriggerKey;
+import org.quartz.impl.JobDetailImpl;
+import org.quartz.impl.jdbcjobstore.TriggerPersistenceDelegate.TriggerPropertyBundle;
+import org.quartz.impl.matchers.GroupMatcher;
+import org.quartz.impl.matchers.StringMatcher;
+import org.quartz.impl.triggers.SimpleTriggerImpl;
+import org.quartz.spi.ClassLoadHelper;
+import org.quartz.spi.OperableTrigger;
+import org.slf4j.Logger;
+
+/**
+ * &lt;p&gt;
+ * This is meant to be an abstract base class for most, if not all, &lt;code&gt;{@link org.quartz.impl.jdbcjobstore.DriverDelegate}&lt;/code&gt;
+ * implementations. Subclasses should override only those methods that need
+ * special handling for the DBMS driver in question.
+ * &lt;/p&gt;
+ * 
+ * @author &lt;a href=&quot;mailto:jeff@binaryfeed.org&quot;&gt;Jeffrey Wescott&lt;/a&gt;
+ * @author James House
+ * @author Eric Mueller
+ */
+public class StdJDBCDelegate implements DriverDelegate, StdJDBCConstants {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+<span class="fc" id="L89">    protected Logger logger = null;</span>
+
+<span class="fc" id="L91">    protected String tablePrefix = DEFAULT_TABLE_PREFIX;</span>
+
+    protected String instanceId;
+
+    protected String schedName;
+
+    protected boolean useProperties;
+    
+    protected ClassLoadHelper classLoadHelper;
+
+<span class="fc" id="L101">    protected List&lt;TriggerPersistenceDelegate&gt; triggerPersistenceDelegates = new LinkedList&lt;TriggerPersistenceDelegate&gt;();</span>
+
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Create new StdJDBCDelegate instance.
+     * &lt;/p&gt;
+     */
+<span class="fc" id="L117">    public StdJDBCDelegate() {</span>
+<span class="fc" id="L118">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+    
+    /**
+     * @param initString of the format: settingName=settingValue|otherSettingName=otherSettingValue|...
+     * @throws NoSuchDelegateException 
+     */
+    public void initialize(Logger logger, String tablePrefix, String schedName, String instanceId, ClassLoadHelper classLoadHelper, boolean useProperties, String initString) throws NoSuchDelegateException {
+
+<span class="fc" id="L134">        this.logger = logger;</span>
+<span class="fc" id="L135">        this.tablePrefix = tablePrefix;</span>
+<span class="fc" id="L136">        this.schedName = schedName;</span>
+<span class="fc" id="L137">        this.instanceId = instanceId;</span>
+<span class="fc" id="L138">        this.useProperties = useProperties;</span>
+<span class="fc" id="L139">        this.classLoadHelper = classLoadHelper;</span>
+<span class="fc" id="L140">        addDefaultTriggerPersistenceDelegates();</span>
+
+<span class="fc bfc" id="L142" title="All 2 branches covered.">        if(initString == null)</span>
+<span class="fc" id="L143">            return;</span>
+
+<span class="fc" id="L145">        String[] settings = initString.split(&quot;\\|&quot;);</span>
+        
+<span class="fc bfc" id="L147" title="All 2 branches covered.">        for(String setting: settings) {</span>
+<span class="fc" id="L148">            String[] parts = setting.split(&quot;=&quot;);</span>
+<span class="fc" id="L149">            String name = parts[0];</span>
+<span class="pc bpc" id="L150" title="5 of 6 branches missed.">            if(parts.length == 1 || parts[1] == null || parts[1].equals(&quot;&quot;))</span>
+<span class="nc" id="L151">                continue;</span>
+
+<span class="nc bnc" id="L153" title="All 2 branches missed.">            if(name.equals(&quot;triggerPersistenceDelegateClasses&quot;)) {</span>
+                
+<span class="nc" id="L155">                String[] trigDelegates = parts[1].split(&quot;,&quot;);</span>
+                
+<span class="nc bnc" id="L157" title="All 2 branches missed.">                for(String trigDelClassName: trigDelegates) {</span>
+                    try {
+<span class="nc" id="L159">                        Class&lt;?&gt; trigDelClass = classLoadHelper.loadClass(trigDelClassName);</span>
+<span class="nc" id="L160">                        addTriggerPersistenceDelegate((TriggerPersistenceDelegate) trigDelClass.newInstance());</span>
+<span class="nc" id="L161">                    } catch (Exception e) {</span>
+<span class="nc" id="L162">                        throw new NoSuchDelegateException(&quot;Error instantiating TriggerPersistenceDelegate of type: &quot; + trigDelClassName, e);</span>
+<span class="nc" id="L163">                    } </span>
+                }
+<span class="nc" id="L165">            }</span>
+            else
+<span class="nc" id="L167">                throw new NoSuchDelegateException(&quot;Unknown setting: '&quot; + name + &quot;'&quot;);</span>
+        }
+<span class="fc" id="L169">    }</span>
+
+    protected void addDefaultTriggerPersistenceDelegates() {
+<span class="fc" id="L172">        addTriggerPersistenceDelegate(new SimpleTriggerPersistenceDelegate());</span>
+<span class="fc" id="L173">        addTriggerPersistenceDelegate(new CronTriggerPersistenceDelegate());</span>
+<span class="fc" id="L174">        addTriggerPersistenceDelegate(new CalendarIntervalTriggerPersistenceDelegate());</span>
+<span class="fc" id="L175">        addTriggerPersistenceDelegate(new DailyTimeIntervalTriggerPersistenceDelegate());</span>
+<span class="fc" id="L176">    }</span>
+
+    protected boolean canUseProperties() {
+<span class="fc" id="L179">        return useProperties;</span>
+    }
+    
+    public void addTriggerPersistenceDelegate(TriggerPersistenceDelegate delegate) {
+<span class="fc" id="L183">        logger.debug(&quot;Adding TriggerPersistenceDelegate of type: &quot; + delegate.getClass().getCanonicalName());</span>
+<span class="fc" id="L184">        delegate.initialize(tablePrefix, schedName);</span>
+<span class="fc" id="L185">        this.triggerPersistenceDelegates.add(delegate);</span>
+<span class="fc" id="L186">    }</span>
+    
+    public TriggerPersistenceDelegate findTriggerPersistenceDelegate(OperableTrigger trigger)  {
+<span class="pc bpc" id="L189" title="1 of 2 branches missed.">        for(TriggerPersistenceDelegate delegate: triggerPersistenceDelegates) {</span>
+<span class="fc bfc" id="L190" title="All 2 branches covered.">            if(delegate.canHandleTriggerType(trigger))</span>
+<span class="fc" id="L191">                return delegate;</span>
+<span class="fc" id="L192">        }</span>
+        
+<span class="nc" id="L194">        return null;</span>
+    }
+
+    public TriggerPersistenceDelegate findTriggerPersistenceDelegate(String discriminator)  {
+<span class="pc bpc" id="L198" title="1 of 2 branches missed.">        for(TriggerPersistenceDelegate delegate: triggerPersistenceDelegates) {</span>
+<span class="fc bfc" id="L199" title="All 2 branches covered.">            if(delegate.getHandledTriggerTypeDiscriminator().equals(discriminator))</span>
+<span class="fc" id="L200">                return delegate;</span>
+<span class="fc" id="L201">        }</span>
+        
+<span class="nc" id="L203">        return null;</span>
+    }
+
+    //---------------------------------------------------------------------------
+    // startup / recovery
+    //---------------------------------------------------------------------------
+
+    /**
+     * &lt;p&gt;
+     * Insert the job detail record.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param newState
+     *          the new state for the triggers
+     * @param oldState1
+     *          the first old state to update
+     * @param oldState2
+     *          the second old state to update
+     * @return number of rows updated
+     */
+    public int updateTriggerStatesFromOtherStates(Connection conn,
+            String newState, String oldState1, String oldState2)
+        throws SQLException {
+<span class="fc" id="L228">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="fc" id="L231">            ps = conn</span>
+<span class="fc" id="L232">                    .prepareStatement(rtp(UPDATE_TRIGGER_STATES_FROM_OTHER_STATES));</span>
+<span class="fc" id="L233">            ps.setString(1, newState);</span>
+<span class="fc" id="L234">            ps.setString(2, oldState1);</span>
+<span class="fc" id="L235">            ps.setString(3, oldState2);</span>
+<span class="fc" id="L236">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L238">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the names of all of the triggers that have misfired.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return an array of &lt;code&gt;{@link
+     * org.quartz.utils.Key}&lt;/code&gt; objects
+     */
+    public List&lt;TriggerKey&gt; selectMisfiredTriggers(Connection conn, long ts)
+        throws SQLException {
+<span class="nc" id="L254">        PreparedStatement ps = null;</span>
+<span class="nc" id="L255">        ResultSet rs = null;</span>
+
+        try {
+<span class="nc" id="L258">            ps = conn.prepareStatement(rtp(SELECT_MISFIRED_TRIGGERS));</span>
+<span class="nc" id="L259">            ps.setBigDecimal(1, new BigDecimal(String.valueOf(ts)));</span>
+<span class="nc" id="L260">            rs = ps.executeQuery();</span>
+
+<span class="nc" id="L262">            LinkedList&lt;TriggerKey&gt; list = new LinkedList&lt;TriggerKey&gt;();</span>
+<span class="nc bnc" id="L263" title="All 2 branches missed.">            while (rs.next()) {</span>
+<span class="nc" id="L264">                String triggerName = rs.getString(COL_TRIGGER_NAME);</span>
+<span class="nc" id="L265">                String groupName = rs.getString(COL_TRIGGER_GROUP);</span>
+<span class="nc" id="L266">                list.add(triggerKey(triggerName, groupName));</span>
+<span class="nc" id="L267">            }</span>
+<span class="nc" id="L268">            return list;</span>
+        } finally {
+<span class="nc" id="L270">            closeResultSet(rs);</span>
+<span class="nc" id="L271">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select all of the triggers in a given state.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param state
+     *          the state the triggers must be in
+     * @return an array of trigger &lt;code&gt;Key&lt;/code&gt; s
+     */
+    public List&lt;TriggerKey&gt; selectTriggersInState(Connection conn, String state)
+        throws SQLException {
+<span class="fc" id="L288">        PreparedStatement ps = null;</span>
+<span class="fc" id="L289">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L292">            ps = conn.prepareStatement(rtp(SELECT_TRIGGERS_IN_STATE));</span>
+<span class="fc" id="L293">            ps.setString(1, state);</span>
+<span class="fc" id="L294">            rs = ps.executeQuery();</span>
+
+<span class="fc" id="L296">            LinkedList&lt;TriggerKey&gt; list = new LinkedList&lt;TriggerKey&gt;();</span>
+<span class="pc bpc" id="L297" title="1 of 2 branches missed.">            while (rs.next()) {</span>
+<span class="nc" id="L298">                list.add(triggerKey(rs.getString(1), rs.getString(2)));</span>
+            }
+
+<span class="fc" id="L301">            return list;</span>
+        } finally {
+<span class="fc" id="L303">            closeResultSet(rs);</span>
+<span class="fc" id="L304">            closeStatement(ps);</span>
+        }
+    }
+
+    public List&lt;TriggerKey&gt; selectMisfiredTriggersInState(Connection conn, String state,
+            long ts) throws SQLException {
+<span class="nc" id="L310">        PreparedStatement ps = null;</span>
+<span class="nc" id="L311">        ResultSet rs = null;</span>
+
+        try {
+<span class="nc" id="L314">            ps = conn.prepareStatement(rtp(SELECT_MISFIRED_TRIGGERS_IN_STATE));</span>
+<span class="nc" id="L315">            ps.setBigDecimal(1, new BigDecimal(String.valueOf(ts)));</span>
+<span class="nc" id="L316">            ps.setString(2, state);</span>
+<span class="nc" id="L317">            rs = ps.executeQuery();</span>
+
+<span class="nc" id="L319">            LinkedList&lt;TriggerKey&gt; list = new LinkedList&lt;TriggerKey&gt;();</span>
+<span class="nc bnc" id="L320" title="All 2 branches missed.">            while (rs.next()) {</span>
+<span class="nc" id="L321">                String triggerName = rs.getString(COL_TRIGGER_NAME);</span>
+<span class="nc" id="L322">                String groupName = rs.getString(COL_TRIGGER_GROUP);</span>
+<span class="nc" id="L323">                list.add(triggerKey(triggerName, groupName));</span>
+<span class="nc" id="L324">            }</span>
+<span class="nc" id="L325">            return list;</span>
+        } finally {
+<span class="nc" id="L327">            closeResultSet(rs);</span>
+<span class="nc" id="L328">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the names of all of the triggers in the given state that have
+     * misfired - according to the given timestamp.  No more than count will
+     * be returned.
+     * &lt;/p&gt;
+     * 
+     * @param conn The DB Connection
+     * @param count The most misfired triggers to return, negative for all
+     * @param resultList Output parameter.  A List of 
+     *      &lt;code&gt;{@link org.quartz.utils.Key}&lt;/code&gt; objects.  Must not be null.
+     *          
+     * @return Whether there are more misfired triggers left to find beyond
+     *         the given count.
+     */
+    public boolean hasMisfiredTriggersInState(Connection conn, String state1, 
+        long ts, int count, List&lt;TriggerKey&gt; resultList) throws SQLException {
+<span class="fc" id="L349">        PreparedStatement ps = null;</span>
+<span class="fc" id="L350">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L353">            ps = conn.prepareStatement(rtp(SELECT_HAS_MISFIRED_TRIGGERS_IN_STATE));</span>
+<span class="fc" id="L354">            ps.setBigDecimal(1, new BigDecimal(String.valueOf(ts)));</span>
+<span class="fc" id="L355">            ps.setString(2, state1);</span>
+<span class="fc" id="L356">            rs = ps.executeQuery();</span>
+
+<span class="fc" id="L358">            boolean hasReachedLimit = false;</span>
+<span class="pc bpc" id="L359" title="1 of 4 branches missed.">            while (rs.next() &amp;&amp; (hasReachedLimit == false)) {</span>
+<span class="pc bpc" id="L360" title="1 of 2 branches missed.">                if (resultList.size() == count) {</span>
+<span class="nc" id="L361">                    hasReachedLimit = true;</span>
+                } else {
+<span class="fc" id="L363">                    String triggerName = rs.getString(COL_TRIGGER_NAME);</span>
+<span class="fc" id="L364">                    String groupName = rs.getString(COL_TRIGGER_GROUP);</span>
+<span class="fc" id="L365">                    resultList.add(triggerKey(triggerName, groupName));</span>
+<span class="fc" id="L366">                }</span>
+            }
+            
+<span class="fc" id="L369">            return hasReachedLimit;</span>
+        } finally {
+<span class="fc" id="L371">            closeResultSet(rs);</span>
+<span class="fc" id="L372">            closeStatement(ps);</span>
+        }
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Get the number of triggers in the given states that have
+     * misfired - according to the given timestamp.
+     * &lt;/p&gt;
+     * 
+     * @param conn the DB Connection
+     */
+    public int countMisfiredTriggersInState(
+            Connection conn, String state1, long ts) throws SQLException {
+<span class="fc" id="L386">        PreparedStatement ps = null;</span>
+<span class="fc" id="L387">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L390">            ps = conn.prepareStatement(rtp(COUNT_MISFIRED_TRIGGERS_IN_STATE));</span>
+<span class="fc" id="L391">            ps.setBigDecimal(1, new BigDecimal(String.valueOf(ts)));</span>
+<span class="fc" id="L392">            ps.setString(2, state1);</span>
+<span class="fc" id="L393">            rs = ps.executeQuery();</span>
+
+<span class="pc bpc" id="L395" title="1 of 2 branches missed.">            if (rs.next()) {</span>
+<span class="fc" id="L396">                return rs.getInt(1);</span>
+            }
+
+<span class="nc" id="L399">            throw new SQLException(&quot;No misfired trigger count returned.&quot;);</span>
+        } finally {
+<span class="fc" id="L401">            closeResultSet(rs);</span>
+<span class="fc" id="L402">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the names of all of the triggers in the given group and state that
+     * have misfired.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return an array of &lt;code&gt;{@link
+     * org.quartz.utils.Key}&lt;/code&gt; objects
+     */
+    public List&lt;TriggerKey&gt; selectMisfiredTriggersInGroupInState(Connection conn,
+            String groupName, String state, long ts) throws SQLException {
+<span class="nc" id="L419">        PreparedStatement ps = null;</span>
+<span class="nc" id="L420">        ResultSet rs = null;</span>
+
+        try {
+<span class="nc" id="L423">            ps = conn</span>
+<span class="nc" id="L424">                    .prepareStatement(rtp(SELECT_MISFIRED_TRIGGERS_IN_GROUP_IN_STATE));</span>
+<span class="nc" id="L425">            ps.setBigDecimal(1, new BigDecimal(String.valueOf(ts)));</span>
+<span class="nc" id="L426">            ps.setString(2, groupName);</span>
+<span class="nc" id="L427">            ps.setString(3, state);</span>
+<span class="nc" id="L428">            rs = ps.executeQuery();</span>
+
+<span class="nc" id="L430">            LinkedList&lt;TriggerKey&gt; list = new LinkedList&lt;TriggerKey&gt;();</span>
+<span class="nc bnc" id="L431" title="All 2 branches missed.">            while (rs.next()) {</span>
+<span class="nc" id="L432">                String triggerName = rs.getString(COL_TRIGGER_NAME);</span>
+<span class="nc" id="L433">                list.add(triggerKey(triggerName, groupName));</span>
+<span class="nc" id="L434">            }</span>
+<span class="nc" id="L435">            return list;</span>
+        } finally {
+<span class="nc" id="L437">            closeResultSet(rs);</span>
+<span class="nc" id="L438">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select all of the triggers for jobs that are requesting recovery. The
+     * returned trigger objects will have unique &quot;recoverXXX&quot; trigger names and
+     * will be in the &lt;code&gt;{@link
+     * org.quartz.Scheduler}.DEFAULT_RECOVERY_GROUP&lt;/code&gt;
+     * trigger group.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * In order to preserve the ordering of the triggers, the fire time will be
+     * set from the &lt;code&gt;COL_FIRED_TIME&lt;/code&gt; column in the &lt;code&gt;TABLE_FIRED_TRIGGERS&lt;/code&gt;
+     * table. The caller is responsible for calling &lt;code&gt;computeFirstFireTime&lt;/code&gt;
+     * on each returned trigger. It is also up to the caller to insert the
+     * returned triggers to ensure that they are fired.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return an array of &lt;code&gt;{@link org.quartz.Trigger}&lt;/code&gt; objects
+     */
+    public List&lt;OperableTrigger&gt; selectTriggersForRecoveringJobs(Connection conn)
+        throws SQLException, IOException, ClassNotFoundException {
+<span class="fc" id="L465">        PreparedStatement ps = null;</span>
+<span class="fc" id="L466">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L469">            ps = conn</span>
+<span class="fc" id="L470">                    .prepareStatement(rtp(SELECT_INSTANCES_RECOVERABLE_FIRED_TRIGGERS));</span>
+<span class="fc" id="L471">            ps.setString(1, instanceId);</span>
+<span class="fc" id="L472">            setBoolean(ps, 2, true);</span>
+<span class="fc" id="L473">            rs = ps.executeQuery();</span>
+
+<span class="fc" id="L475">            long dumId = System.currentTimeMillis();</span>
+<span class="fc" id="L476">            LinkedList&lt;OperableTrigger&gt; list = new LinkedList&lt;OperableTrigger&gt;();</span>
+<span class="pc bpc" id="L477" title="1 of 2 branches missed.">            while (rs.next()) {</span>
+<span class="nc" id="L478">                String jobName = rs.getString(COL_JOB_NAME);</span>
+<span class="nc" id="L479">                String jobGroup = rs.getString(COL_JOB_GROUP);</span>
+<span class="nc" id="L480">                String trigName = rs.getString(COL_TRIGGER_NAME);</span>
+<span class="nc" id="L481">                String trigGroup = rs.getString(COL_TRIGGER_GROUP);</span>
+<span class="nc" id="L482">                long firedTime = rs.getLong(COL_FIRED_TIME);</span>
+<span class="nc" id="L483">                long scheduledTime = rs.getLong(COL_SCHED_TIME);</span>
+<span class="nc" id="L484">                int priority = rs.getInt(COL_PRIORITY);</span>
+                @SuppressWarnings(&quot;deprecation&quot;)
+<span class="nc" id="L486">                SimpleTriggerImpl rcvryTrig = new SimpleTriggerImpl(&quot;recover_&quot;</span>
+<span class="nc" id="L487">                        + instanceId + &quot;_&quot; + String.valueOf(dumId++),</span>
+                        Scheduler.DEFAULT_RECOVERY_GROUP, new Date(scheduledTime));
+<span class="nc" id="L489">                rcvryTrig.setJobName(jobName);</span>
+<span class="nc" id="L490">                rcvryTrig.setJobGroup(jobGroup);</span>
+<span class="nc" id="L491">                rcvryTrig.setPriority(priority);</span>
+<span class="nc" id="L492">                rcvryTrig.setMisfireInstruction(SimpleTrigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY);</span>
+
+<span class="nc" id="L494">                JobDataMap jd = selectTriggerJobDataMap(conn, trigName, trigGroup);</span>
+<span class="nc" id="L495">                jd.put(Scheduler.FAILED_JOB_ORIGINAL_TRIGGER_NAME, trigName);</span>
+<span class="nc" id="L496">                jd.put(Scheduler.FAILED_JOB_ORIGINAL_TRIGGER_GROUP, trigGroup);</span>
+<span class="nc" id="L497">                jd.put(Scheduler.FAILED_JOB_ORIGINAL_TRIGGER_FIRETIME_IN_MILLISECONDS, String.valueOf(firedTime));</span>
+<span class="nc" id="L498">                jd.put(Scheduler.FAILED_JOB_ORIGINAL_TRIGGER_SCHEDULED_FIRETIME_IN_MILLISECONDS, String.valueOf(scheduledTime));</span>
+<span class="nc" id="L499">                rcvryTrig.setJobDataMap(jd);</span>
+                
+<span class="nc" id="L501">                list.add(rcvryTrig);</span>
+<span class="nc" id="L502">            }</span>
+<span class="fc" id="L503">            return list;</span>
+        } finally {
+<span class="fc" id="L505">            closeResultSet(rs);</span>
+<span class="fc" id="L506">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Delete all fired triggers.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return the number of rows deleted
+     */
+    public int deleteFiredTriggers(Connection conn) throws SQLException {
+<span class="fc" id="L520">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="fc" id="L523">            ps = conn.prepareStatement(rtp(DELETE_FIRED_TRIGGERS));</span>
+
+<span class="fc" id="L525">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L527">            closeStatement(ps);</span>
+        }
+    }
+
+    public int deleteFiredTriggers(Connection conn, String theInstanceId)
+        throws SQLException {
+<span class="nc" id="L533">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="nc" id="L536">            ps = conn.prepareStatement(rtp(DELETE_INSTANCES_FIRED_TRIGGERS));</span>
+<span class="nc" id="L537">            ps.setString(1, theInstanceId);</span>
+
+<span class="nc" id="L539">            return ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L541">            closeStatement(ps);</span>
+        }
+    }
+
+    
+    /**
+     * Clear (delete!) all scheduling data - all {@link Job}s, {@link Trigger}s
+     * {@link Calendar}s.
+     * 
+     * @throws JobPersistenceException
+     */
+    public void clearData(Connection conn)
+        throws SQLException {
+        
+<span class="nc" id="L555">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="nc" id="L558">            ps = conn.prepareStatement(rtp(DELETE_ALL_SIMPLE_TRIGGERS));</span>
+<span class="nc" id="L559">            ps.executeUpdate();</span>
+<span class="nc" id="L560">            ps.close();</span>
+<span class="nc" id="L561">            ps = conn.prepareStatement(rtp(DELETE_ALL_SIMPROP_TRIGGERS));</span>
+<span class="nc" id="L562">            ps.executeUpdate();</span>
+<span class="nc" id="L563">            ps.close();</span>
+<span class="nc" id="L564">            ps = conn.prepareStatement(rtp(DELETE_ALL_CRON_TRIGGERS));</span>
+<span class="nc" id="L565">            ps.executeUpdate();</span>
+<span class="nc" id="L566">            ps.close();</span>
+<span class="nc" id="L567">            ps = conn.prepareStatement(rtp(DELETE_ALL_BLOB_TRIGGERS));</span>
+<span class="nc" id="L568">            ps.executeUpdate();</span>
+<span class="nc" id="L569">            ps.close();</span>
+<span class="nc" id="L570">            ps = conn.prepareStatement(rtp(DELETE_ALL_TRIGGERS));</span>
+<span class="nc" id="L571">            ps.executeUpdate();</span>
+<span class="nc" id="L572">            ps.close();</span>
+<span class="nc" id="L573">            ps = conn.prepareStatement(rtp(DELETE_ALL_JOB_DETAILS));</span>
+<span class="nc" id="L574">            ps.executeUpdate();</span>
+<span class="nc" id="L575">            ps.close();</span>
+<span class="nc" id="L576">            ps = conn.prepareStatement(rtp(DELETE_ALL_CALENDARS));</span>
+<span class="nc" id="L577">            ps.executeUpdate();</span>
+<span class="nc" id="L578">            ps.close();</span>
+<span class="nc" id="L579">            ps = conn.prepareStatement(rtp(DELETE_ALL_PAUSED_TRIGGER_GRPS));</span>
+<span class="nc" id="L580">            ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L582">            closeStatement(ps);</span>
+        }
+<span class="nc" id="L584">    }</span>
+ 
+    
+    //---------------------------------------------------------------------------
+    // jobs
+    //---------------------------------------------------------------------------
+
+    /**
+     * &lt;p&gt;
+     * Insert the job detail record.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param job
+     *          the job to insert
+     * @return number of rows inserted
+     * @throws IOException
+     *           if there were problems serializing the JobDataMap
+     */
+    public int insertJobDetail(Connection conn, JobDetail job)
+        throws IOException, SQLException {
+<span class="fc" id="L606">        ByteArrayOutputStream baos = serializeJobData(job.getJobDataMap());</span>
+
+<span class="fc" id="L608">        PreparedStatement ps = null;</span>
+
+<span class="fc" id="L610">        int insertResult = 0;</span>
+
+        try {
+<span class="fc" id="L613">            ps = conn.prepareStatement(rtp(INSERT_JOB_DETAIL));</span>
+<span class="fc" id="L614">            ps.setString(1, job.getKey().getName());</span>
+<span class="fc" id="L615">            ps.setString(2, job.getKey().getGroup());</span>
+<span class="fc" id="L616">            ps.setString(3, job.getDescription());</span>
+<span class="fc" id="L617">            ps.setString(4, job.getJobClass().getName());</span>
+<span class="fc" id="L618">            setBoolean(ps, 5, job.isDurable());</span>
+<span class="fc" id="L619">            setBoolean(ps, 6, job.isConcurrentExectionDisallowed());</span>
+<span class="fc" id="L620">            setBoolean(ps, 7, job.isPersistJobDataAfterExecution());</span>
+<span class="fc" id="L621">            setBoolean(ps, 8, job.requestsRecovery());</span>
+<span class="fc" id="L622">            setBytes(ps, 9, baos);</span>
+
+<span class="fc" id="L624">            insertResult = ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L626">            closeStatement(ps);</span>
+        }
+
+<span class="fc" id="L629">        return insertResult;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Update the job detail record.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param job
+     *          the job to update
+     * @return number of rows updated
+     * @throws IOException
+     *           if there were problems serializing the JobDataMap
+     */
+    public int updateJobDetail(Connection conn, JobDetail job)
+        throws IOException, SQLException {
+<span class="fc" id="L647">        ByteArrayOutputStream baos = serializeJobData(job.getJobDataMap());</span>
+
+<span class="fc" id="L649">        PreparedStatement ps = null;</span>
+
+<span class="fc" id="L651">        int insertResult = 0;</span>
+
+        try {
+<span class="fc" id="L654">            ps = conn.prepareStatement(rtp(UPDATE_JOB_DETAIL));</span>
+<span class="fc" id="L655">            ps.setString(1, job.getDescription());</span>
+<span class="fc" id="L656">            ps.setString(2, job.getJobClass().getName());</span>
+<span class="fc" id="L657">            setBoolean(ps, 3, job.isDurable());</span>
+<span class="fc" id="L658">            setBoolean(ps, 4, job.isConcurrentExectionDisallowed());</span>
+<span class="fc" id="L659">            setBoolean(ps, 5, job.isPersistJobDataAfterExecution());</span>
+<span class="fc" id="L660">            setBoolean(ps, 6, job.requestsRecovery());</span>
+<span class="fc" id="L661">            setBytes(ps, 7, baos);</span>
+<span class="fc" id="L662">            ps.setString(8, job.getKey().getName());</span>
+<span class="fc" id="L663">            ps.setString(9, job.getKey().getGroup());</span>
+
+<span class="fc" id="L665">            insertResult = ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L667">            closeStatement(ps);</span>
+        }
+
+<span class="fc" id="L670">        return insertResult;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the names of all of the triggers associated with the given job.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return an array of &lt;code&gt;{@link
+     * org.quartz.utils.Key}&lt;/code&gt; objects
+     */
+    public List&lt;TriggerKey&gt; selectTriggerKeysForJob(Connection conn, JobKey jobKey) throws SQLException {
+<span class="fc" id="L684">        PreparedStatement ps = null;</span>
+<span class="fc" id="L685">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L688">            ps = conn.prepareStatement(rtp(SELECT_TRIGGERS_FOR_JOB));</span>
+<span class="fc" id="L689">            ps.setString(1, jobKey.getName());</span>
+<span class="fc" id="L690">            ps.setString(2, jobKey.getGroup());</span>
+<span class="fc" id="L691">            rs = ps.executeQuery();</span>
+
+<span class="fc" id="L693">            LinkedList&lt;TriggerKey&gt; list = new LinkedList&lt;TriggerKey&gt;();</span>
+<span class="fc bfc" id="L694" title="All 2 branches covered.">            while (rs.next()) {</span>
+<span class="fc" id="L695">                String trigName = rs.getString(COL_TRIGGER_NAME);</span>
+<span class="fc" id="L696">                String trigGroup = rs.getString(COL_TRIGGER_GROUP);</span>
+<span class="fc" id="L697">                list.add(triggerKey(trigName, trigGroup));</span>
+<span class="fc" id="L698">            }</span>
+<span class="fc" id="L699">            return list;</span>
+        } finally {
+<span class="fc" id="L701">            closeResultSet(rs);</span>
+<span class="fc" id="L702">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Delete the job detail record for the given job.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return the number of rows deleted
+     */
+    public int deleteJobDetail(Connection conn, JobKey jobKey)
+        throws SQLException {
+<span class="fc" id="L717">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="pc bpc" id="L720" title="1 of 2 branches missed.">            if (logger.isDebugEnabled()) {</span>
+<span class="nc" id="L721">                logger.debug(&quot;Deleting job: &quot; + jobKey);</span>
+            }
+<span class="fc" id="L723">            ps = conn.prepareStatement(rtp(DELETE_JOB_DETAIL));</span>
+<span class="fc" id="L724">            ps.setString(1, jobKey.getName());</span>
+<span class="fc" id="L725">            ps.setString(2, jobKey.getGroup());</span>
+<span class="fc" id="L726">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L728">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Check whether or not the given job is stateful.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return true if the job exists and is stateful, false otherwise
+     */
+    public boolean isJobNonConcurrent(Connection conn, JobKey jobKey) throws SQLException {
+<span class="nc" id="L742">        PreparedStatement ps = null;</span>
+<span class="nc" id="L743">        ResultSet rs = null;</span>
+
+        try {
+<span class="nc" id="L746">            ps = conn.prepareStatement(rtp(SELECT_JOB_NONCONCURRENT));</span>
+<span class="nc" id="L747">            ps.setString(1, jobKey.getName());</span>
+<span class="nc" id="L748">            ps.setString(2, jobKey.getGroup());</span>
+<span class="nc" id="L749">            rs = ps.executeQuery();</span>
+<span class="nc bnc" id="L750" title="All 2 branches missed.">            if (!rs.next()) { return false; }</span>
+<span class="nc" id="L751">            return getBoolean(rs, COL_IS_NONCONCURRENT);</span>
+        } finally {
+<span class="nc" id="L753">            closeResultSet(rs);</span>
+<span class="nc" id="L754">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Check whether or not the given job exists.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return true if the job exists, false otherwise
+     */
+    public boolean jobExists(Connection conn, JobKey jobKey)
+        throws SQLException {
+<span class="fc" id="L769">        PreparedStatement ps = null;</span>
+<span class="fc" id="L770">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L773">            ps = conn.prepareStatement(rtp(SELECT_JOB_EXISTENCE));</span>
+<span class="fc" id="L774">            ps.setString(1, jobKey.getName());</span>
+<span class="fc" id="L775">            ps.setString(2, jobKey.getGroup());</span>
+<span class="fc" id="L776">            rs = ps.executeQuery();</span>
+<span class="fc bfc" id="L777" title="All 2 branches covered.">            if (rs.next()) {</span>
+<span class="fc" id="L778">                return true;</span>
+            } else {
+<span class="fc" id="L780">                return false;</span>
+            }
+        } finally {
+<span class="fc" id="L783">            closeResultSet(rs);</span>
+<span class="fc" id="L784">            closeStatement(ps);</span>
+        }
+
+    }
+
+    /**
+     * &lt;p&gt;
+     * Update the job data map for the given job.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param job
+     *          the job to update
+     * @return the number of rows updated
+     */
+    public int updateJobData(Connection conn, JobDetail job)
+        throws IOException, SQLException {
+<span class="fc" id="L802">        ByteArrayOutputStream baos = serializeJobData(job.getJobDataMap());</span>
+
+<span class="fc" id="L804">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="fc" id="L807">            ps = conn.prepareStatement(rtp(UPDATE_JOB_DATA));</span>
+<span class="fc" id="L808">            setBytes(ps, 1, baos);</span>
+<span class="fc" id="L809">            ps.setString(2, job.getKey().getName());</span>
+<span class="fc" id="L810">            ps.setString(3, job.getKey().getGroup());</span>
+
+<span class="fc" id="L812">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L814">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select the JobDetail object for a given job name / group name.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return the populated JobDetail object
+     * @throws ClassNotFoundException
+     *           if a class found during deserialization cannot be found or if
+     *           the job class could not be found
+     * @throws IOException
+     *           if deserialization causes an error
+     */
+    public JobDetail selectJobDetail(Connection conn, JobKey jobKey,
+            ClassLoadHelper loadHelper)
+        throws ClassNotFoundException, IOException, SQLException {
+<span class="fc" id="L835">        PreparedStatement ps = null;</span>
+<span class="fc" id="L836">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L839">            ps = conn.prepareStatement(rtp(SELECT_JOB_DETAIL));</span>
+<span class="fc" id="L840">            ps.setString(1, jobKey.getName());</span>
+<span class="fc" id="L841">            ps.setString(2, jobKey.getGroup());</span>
+<span class="fc" id="L842">            rs = ps.executeQuery();</span>
+
+<span class="fc" id="L844">            JobDetailImpl job = null;</span>
+
+<span class="fc bfc" id="L846" title="All 2 branches covered.">            if (rs.next()) {</span>
+<span class="fc" id="L847">                job = new JobDetailImpl();</span>
+
+<span class="fc" id="L849">                job.setName(rs.getString(COL_JOB_NAME));</span>
+<span class="fc" id="L850">                job.setGroup(rs.getString(COL_JOB_GROUP));</span>
+<span class="fc" id="L851">                job.setDescription(rs.getString(COL_DESCRIPTION));</span>
+<span class="fc" id="L852">                job.setJobClass( loadHelper.loadClass(rs.getString(COL_JOB_CLASS), Job.class));</span>
+<span class="fc" id="L853">                job.setDurability(getBoolean(rs, COL_IS_DURABLE));</span>
+<span class="fc" id="L854">                job.setRequestsRecovery(getBoolean(rs, COL_REQUESTS_RECOVERY));</span>
+
+<span class="fc" id="L856">                Map&lt;?, ?&gt; map = null;</span>
+<span class="fc bfc" id="L857" title="All 2 branches covered.">                if (canUseProperties()) {</span>
+<span class="fc" id="L858">                    map = getMapFromProperties(rs);</span>
+                } else {
+<span class="fc" id="L860">                    map = (Map&lt;?, ?&gt;) getObjectFromBlob(rs, COL_JOB_DATAMAP);</span>
+                }
+
+<span class="pc bpc" id="L863" title="1 of 2 branches missed.">                if (null != map) {</span>
+<span class="fc" id="L864">                    job.setJobDataMap(new JobDataMap(map));</span>
+                }
+            }
+
+<span class="fc" id="L868">            return job;</span>
+        } finally {
+<span class="fc" id="L870">            closeResultSet(rs);</span>
+<span class="fc" id="L871">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * build Map from java.util.Properties encoding.
+     */
+    private Map&lt;?, ?&gt; getMapFromProperties(ResultSet rs)
+        throws ClassNotFoundException, IOException, SQLException {
+        Map&lt;?, ?&gt; map;
+<span class="fc" id="L881">        InputStream is = (InputStream) getJobDataFromBlob(rs, COL_JOB_DATAMAP);</span>
+<span class="pc bpc" id="L882" title="1 of 2 branches missed.">        if(is == null) {</span>
+<span class="nc" id="L883">            return null;</span>
+        }
+<span class="fc" id="L885">        Properties properties = new Properties();</span>
+<span class="pc bpc" id="L886" title="1 of 2 branches missed.">        if (is != null) {</span>
+            try {
+<span class="fc" id="L888">                properties.load(is);</span>
+            } finally {
+<span class="fc" id="L890">                is.close();</span>
+            }
+        }
+<span class="fc" id="L893">        map = convertFromProperty(properties);</span>
+<span class="fc" id="L894">        return map;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select the total number of jobs stored.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return the total number of jobs stored
+     */
+    public int selectNumJobs(Connection conn) throws SQLException {
+<span class="nc" id="L907">        PreparedStatement ps = null;</span>
+<span class="nc" id="L908">        ResultSet rs = null;</span>
+
+        try {
+<span class="nc" id="L911">            int count = 0;</span>
+<span class="nc" id="L912">            ps = conn.prepareStatement(rtp(SELECT_NUM_JOBS));</span>
+<span class="nc" id="L913">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L915" title="All 2 branches missed.">            if (rs.next()) {</span>
+<span class="nc" id="L916">                count = rs.getInt(1);</span>
+            }
+
+<span class="nc" id="L919">            return count;</span>
+        } finally {
+<span class="nc" id="L921">            closeResultSet(rs);</span>
+<span class="nc" id="L922">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select all of the job group names that are stored.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return an array of &lt;code&gt;String&lt;/code&gt; group names
+     */
+    public List&lt;String&gt; selectJobGroups(Connection conn) throws SQLException {
+<span class="fc" id="L936">        PreparedStatement ps = null;</span>
+<span class="fc" id="L937">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L940">            ps = conn.prepareStatement(rtp(SELECT_JOB_GROUPS));</span>
+<span class="fc" id="L941">            rs = ps.executeQuery();</span>
+
+<span class="fc" id="L943">            LinkedList&lt;String&gt; list = new LinkedList&lt;String&gt;();</span>
+<span class="fc bfc" id="L944" title="All 2 branches covered.">            while (rs.next()) {</span>
+<span class="fc" id="L945">                list.add(rs.getString(1));</span>
+            }
+
+<span class="fc" id="L948">            return list;</span>
+        } finally {
+<span class="fc" id="L950">            closeResultSet(rs);</span>
+<span class="fc" id="L951">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select all of the jobs contained in a given group.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param matcher
+     *          the groupMatcher to evaluate the jobs against
+     * @return an array of &lt;code&gt;String&lt;/code&gt; job names
+     */
+    public Set&lt;JobKey&gt; selectJobsInGroup(Connection conn, GroupMatcher&lt;JobKey&gt; matcher)
+        throws SQLException {
+<span class="fc" id="L968">        PreparedStatement ps = null;</span>
+<span class="fc" id="L969">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc bfc" id="L972" title="All 2 branches covered.">            if(isMatcherEquals(matcher)) {</span>
+<span class="fc" id="L973">                ps = conn.prepareStatement(rtp(SELECT_JOBS_IN_GROUP));</span>
+<span class="fc" id="L974">                ps.setString(1, toSqlEqualsClause(matcher));</span>
+            }
+            else {
+<span class="fc" id="L977">                ps = conn.prepareStatement(rtp(SELECT_JOBS_IN_GROUP_LIKE));</span>
+<span class="fc" id="L978">                ps.setString(1, toSqlLikeClause(matcher));</span>
+            }
+<span class="fc" id="L980">            rs = ps.executeQuery();</span>
+
+<span class="fc" id="L982">            LinkedList&lt;JobKey&gt; list = new LinkedList&lt;JobKey&gt;();</span>
+<span class="fc bfc" id="L983" title="All 2 branches covered.">            while (rs.next()) {</span>
+<span class="fc" id="L984">                list.add(jobKey(rs.getString(1), rs.getString(2)));</span>
+            }
+
+<span class="fc" id="L987">            return new HashSet&lt;JobKey&gt;(list);</span>
+        } finally {
+<span class="fc" id="L989">            closeResultSet(rs);</span>
+<span class="fc" id="L990">            closeStatement(ps);</span>
+        }
+    }
+
+    protected boolean isMatcherEquals(final GroupMatcher&lt;?&gt; matcher) {
+<span class="fc" id="L995">        return matcher.getCompareWithOperator().equals(StringMatcher.StringOperatorName.EQUALS);</span>
+    }
+
+    protected String toSqlEqualsClause(final GroupMatcher&lt;?&gt; matcher) {
+<span class="fc" id="L999">        return matcher.getCompareToValue();</span>
+    }
+
+    protected String toSqlLikeClause(final GroupMatcher&lt;?&gt; matcher) {
+        String groupName;
+<span class="pc bpc" id="L1004" title="1 of 6 branches missed.">        switch(matcher.getCompareWithOperator()) {</span>
+            case EQUALS:
+<span class="fc" id="L1006">                groupName = matcher.getCompareToValue();</span>
+<span class="fc" id="L1007">                break;</span>
+            case CONTAINS:
+<span class="fc" id="L1009">                groupName = &quot;%&quot; + matcher.getCompareToValue() + &quot;%&quot;;</span>
+<span class="fc" id="L1010">                break;</span>
+            case ENDS_WITH:
+<span class="fc" id="L1012">                groupName = &quot;%&quot; + matcher.getCompareToValue();</span>
+<span class="fc" id="L1013">                break;</span>
+            case STARTS_WITH:
+<span class="fc" id="L1015">                groupName = matcher.getCompareToValue() + &quot;%&quot;;</span>
+<span class="fc" id="L1016">                break;</span>
+            case ANYTHING:
+<span class="fc" id="L1018">                groupName = &quot;%&quot;;</span>
+<span class="fc" id="L1019">                break;</span>
+            default:
+<span class="nc" id="L1021">                throw new UnsupportedOperationException(&quot;Don't know how to translate &quot; + matcher.getCompareWithOperator() + &quot; into SQL&quot;);</span>
+        }
+<span class="fc" id="L1023">        return groupName;</span>
+    }
+
+    //---------------------------------------------------------------------------
+    // triggers
+    //---------------------------------------------------------------------------
+
+    /**
+     * &lt;p&gt;
+     * Insert the base trigger data.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param trigger
+     *          the trigger to insert
+     * @param state
+     *          the state that the trigger should be stored in
+     * @return the number of rows inserted
+     */
+    public int insertTrigger(Connection conn, OperableTrigger trigger, String state,
+            JobDetail jobDetail) throws SQLException, IOException {
+
+<span class="fc" id="L1046">        ByteArrayOutputStream baos = null;</span>
+<span class="fc bfc" id="L1047" title="All 2 branches covered.">        if(trigger.getJobDataMap().size() &gt; 0) {</span>
+<span class="fc" id="L1048">            baos = serializeJobData(trigger.getJobDataMap());</span>
+        }
+        
+<span class="fc" id="L1051">        PreparedStatement ps = null;</span>
+
+<span class="fc" id="L1053">        int insertResult = 0;</span>
+
+        try {
+<span class="fc" id="L1056">            ps = conn.prepareStatement(rtp(INSERT_TRIGGER));</span>
+<span class="fc" id="L1057">            ps.setString(1, trigger.getKey().getName());</span>
+<span class="fc" id="L1058">            ps.setString(2, trigger.getKey().getGroup());</span>
+<span class="fc" id="L1059">            ps.setString(3, trigger.getJobKey().getName());</span>
+<span class="fc" id="L1060">            ps.setString(4, trigger.getJobKey().getGroup());</span>
+<span class="fc" id="L1061">            ps.setString(5, trigger.getDescription());</span>
+<span class="fc bfc" id="L1062" title="All 2 branches covered.">            if(trigger.getNextFireTime() != null)</span>
+<span class="fc" id="L1063">                ps.setBigDecimal(6, new BigDecimal(String.valueOf(trigger</span>
+<span class="fc" id="L1064">                        .getNextFireTime().getTime())));</span>
+            else
+<span class="fc" id="L1066">                ps.setBigDecimal(6, null);</span>
+<span class="fc" id="L1067">            long prevFireTime = -1;</span>
+<span class="pc bpc" id="L1068" title="1 of 2 branches missed.">            if (trigger.getPreviousFireTime() != null) {</span>
+<span class="nc" id="L1069">                prevFireTime = trigger.getPreviousFireTime().getTime();</span>
+            }
+<span class="fc" id="L1071">            ps.setBigDecimal(7, new BigDecimal(String.valueOf(prevFireTime)));</span>
+<span class="fc" id="L1072">            ps.setString(8, state);</span>
+            
+<span class="fc" id="L1074">            TriggerPersistenceDelegate tDel = findTriggerPersistenceDelegate(trigger);</span>
+            
+<span class="fc" id="L1076">            String type = TTYPE_BLOB;</span>
+<span class="pc bpc" id="L1077" title="1 of 2 branches missed.">            if(tDel != null)</span>
+<span class="fc" id="L1078">                type = tDel.getHandledTriggerTypeDiscriminator();</span>
+<span class="fc" id="L1079">            ps.setString(9, type);</span>
+            
+<span class="fc" id="L1081">            ps.setBigDecimal(10, new BigDecimal(String.valueOf(trigger</span>
+<span class="fc" id="L1082">                    .getStartTime().getTime())));</span>
+<span class="fc" id="L1083">            long endTime = 0;</span>
+<span class="fc bfc" id="L1084" title="All 2 branches covered.">            if (trigger.getEndTime() != null) {</span>
+<span class="fc" id="L1085">                endTime = trigger.getEndTime().getTime();</span>
+            }
+<span class="fc" id="L1087">            ps.setBigDecimal(11, new BigDecimal(String.valueOf(endTime)));</span>
+<span class="fc" id="L1088">            ps.setString(12, trigger.getCalendarName());</span>
+<span class="fc" id="L1089">            ps.setInt(13, trigger.getMisfireInstruction());</span>
+<span class="fc" id="L1090">            setBytes(ps, 14, baos);</span>
+<span class="fc" id="L1091">            ps.setInt(15, trigger.getPriority());</span>
+            
+<span class="fc" id="L1093">            insertResult = ps.executeUpdate();</span>
+            
+<span class="pc bpc" id="L1095" title="1 of 2 branches missed.">            if(tDel == null)</span>
+<span class="nc" id="L1096">                insertBlobTrigger(conn, trigger);</span>
+            else
+<span class="fc" id="L1098">                tDel.insertExtendedTriggerProperties(conn, trigger, state, jobDetail);</span>
+            
+        } finally {
+<span class="fc" id="L1101">            closeStatement(ps);</span>
+        }
+
+<span class="fc" id="L1104">        return insertResult;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Insert the blob trigger data.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param trigger
+     *          the trigger to insert
+     * @return the number of rows inserted
+     */
+    public int insertBlobTrigger(Connection conn, OperableTrigger trigger)
+        throws SQLException, IOException {
+<span class="nc" id="L1120">        PreparedStatement ps = null;</span>
+<span class="nc" id="L1121">        ByteArrayOutputStream os = null;</span>
+
+        try {
+            // update the blob
+<span class="nc" id="L1125">            os = new ByteArrayOutputStream();</span>
+<span class="nc" id="L1126">            ObjectOutputStream oos = new ObjectOutputStream(os);</span>
+<span class="nc" id="L1127">            oos.writeObject(trigger);</span>
+<span class="nc" id="L1128">            oos.close();</span>
+
+<span class="nc" id="L1130">            byte[] buf = os.toByteArray();</span>
+<span class="nc" id="L1131">            ByteArrayInputStream is = new ByteArrayInputStream(buf);</span>
+
+<span class="nc" id="L1133">            ps = conn.prepareStatement(rtp(INSERT_BLOB_TRIGGER));</span>
+<span class="nc" id="L1134">            ps.setString(1, trigger.getKey().getName());</span>
+<span class="nc" id="L1135">            ps.setString(2, trigger.getKey().getGroup());</span>
+<span class="nc" id="L1136">            ps.setBinaryStream(3, is, buf.length);</span>
+
+<span class="nc" id="L1138">            return ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L1140">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Update the base trigger data.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param trigger
+     *          the trigger to insert
+     * @param state
+     *          the state that the trigger should be stored in
+     * @return the number of rows updated
+     */
+    public int updateTrigger(Connection conn, OperableTrigger trigger, String state,
+            JobDetail jobDetail) throws SQLException, IOException {
+
+        // save some clock cycles by unnecessarily writing job data blob ...
+<span class="fc" id="L1161">        boolean updateJobData = trigger.getJobDataMap().isDirty();</span>
+<span class="fc" id="L1162">        ByteArrayOutputStream baos = null;</span>
+<span class="pc bpc" id="L1163" title="1 of 2 branches missed.">        if(updateJobData) {</span>
+<span class="nc" id="L1164">            baos = serializeJobData(trigger.getJobDataMap());</span>
+        }
+                
+<span class="fc" id="L1167">        PreparedStatement ps = null;</span>
+
+<span class="fc" id="L1169">        int insertResult = 0;</span>
+
+
+        try {
+<span class="pc bpc" id="L1173" title="1 of 2 branches missed.">            if(updateJobData) {</span>
+<span class="nc" id="L1174">                ps = conn.prepareStatement(rtp(UPDATE_TRIGGER));</span>
+            } else {
+<span class="fc" id="L1176">                ps = conn.prepareStatement(rtp(UPDATE_TRIGGER_SKIP_DATA));</span>
+            }
+                
+<span class="fc" id="L1179">            ps.setString(1, trigger.getJobKey().getName());</span>
+<span class="fc" id="L1180">            ps.setString(2, trigger.getJobKey().getGroup());</span>
+<span class="fc" id="L1181">            ps.setString(3, trigger.getDescription());</span>
+<span class="fc" id="L1182">            long nextFireTime = -1;</span>
+<span class="fc bfc" id="L1183" title="All 2 branches covered.">            if (trigger.getNextFireTime() != null) {</span>
+<span class="fc" id="L1184">                nextFireTime = trigger.getNextFireTime().getTime();</span>
+            }
+<span class="fc" id="L1186">            ps.setBigDecimal(4, new BigDecimal(String.valueOf(nextFireTime)));</span>
+<span class="fc" id="L1187">            long prevFireTime = -1;</span>
+<span class="fc bfc" id="L1188" title="All 2 branches covered.">            if (trigger.getPreviousFireTime() != null) {</span>
+<span class="fc" id="L1189">                prevFireTime = trigger.getPreviousFireTime().getTime();</span>
+            }
+<span class="fc" id="L1191">            ps.setBigDecimal(5, new BigDecimal(String.valueOf(prevFireTime)));</span>
+<span class="fc" id="L1192">            ps.setString(6, state);</span>
+            
+<span class="fc" id="L1194">            TriggerPersistenceDelegate tDel = findTriggerPersistenceDelegate(trigger);</span>
+            
+<span class="fc" id="L1196">            String type = TTYPE_BLOB;</span>
+<span class="pc bpc" id="L1197" title="1 of 2 branches missed.">            if(tDel != null)</span>
+<span class="fc" id="L1198">                type = tDel.getHandledTriggerTypeDiscriminator();</span>
+
+<span class="fc" id="L1200">            ps.setString(7, type);</span>
+            
+<span class="fc" id="L1202">            ps.setBigDecimal(8, new BigDecimal(String.valueOf(trigger</span>
+<span class="fc" id="L1203">                    .getStartTime().getTime())));</span>
+<span class="fc" id="L1204">            long endTime = 0;</span>
+<span class="fc bfc" id="L1205" title="All 2 branches covered.">            if (trigger.getEndTime() != null) {</span>
+<span class="fc" id="L1206">                endTime = trigger.getEndTime().getTime();</span>
+            }
+<span class="fc" id="L1208">            ps.setBigDecimal(9, new BigDecimal(String.valueOf(endTime)));</span>
+<span class="fc" id="L1209">            ps.setString(10, trigger.getCalendarName());</span>
+<span class="fc" id="L1210">            ps.setInt(11, trigger.getMisfireInstruction());</span>
+<span class="fc" id="L1211">            ps.setInt(12, trigger.getPriority());</span>
+
+<span class="pc bpc" id="L1213" title="1 of 2 branches missed.">            if(updateJobData) {</span>
+<span class="nc" id="L1214">                setBytes(ps, 13, baos);</span>
+<span class="nc" id="L1215">                ps.setString(14, trigger.getKey().getName());</span>
+<span class="nc" id="L1216">                ps.setString(15, trigger.getKey().getGroup());</span>
+            } else {
+<span class="fc" id="L1218">                ps.setString(13, trigger.getKey().getName());</span>
+<span class="fc" id="L1219">                ps.setString(14, trigger.getKey().getGroup());</span>
+            }
+
+<span class="fc" id="L1222">            insertResult = ps.executeUpdate();</span>
+            
+<span class="pc bpc" id="L1224" title="1 of 2 branches missed.">            if(tDel == null)</span>
+<span class="nc" id="L1225">                updateBlobTrigger(conn, trigger);</span>
+            else
+<span class="fc" id="L1227">                tDel.updateExtendedTriggerProperties(conn, trigger, state, jobDetail);</span>
+            
+        } finally {
+<span class="fc" id="L1230">            closeStatement(ps);</span>
+        }
+
+<span class="fc" id="L1233">        return insertResult;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Update the blob trigger data.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param trigger
+     *          the trigger to insert
+     * @return the number of rows updated
+     */
+    public int updateBlobTrigger(Connection conn, OperableTrigger trigger)
+        throws SQLException, IOException {
+<span class="nc" id="L1249">        PreparedStatement ps = null;</span>
+<span class="nc" id="L1250">        ByteArrayOutputStream os = null;</span>
+
+        try {
+            // update the blob
+<span class="nc" id="L1254">            os = new ByteArrayOutputStream();</span>
+<span class="nc" id="L1255">            ObjectOutputStream oos = new ObjectOutputStream(os);</span>
+<span class="nc" id="L1256">            oos.writeObject(trigger);</span>
+<span class="nc" id="L1257">            oos.close();</span>
+
+<span class="nc" id="L1259">            byte[] buf = os.toByteArray();</span>
+<span class="nc" id="L1260">            ByteArrayInputStream is = new ByteArrayInputStream(buf);</span>
+
+<span class="nc" id="L1262">            ps = conn.prepareStatement(rtp(UPDATE_BLOB_TRIGGER));</span>
+<span class="nc" id="L1263">            ps.setBinaryStream(1, is, buf.length);</span>
+<span class="nc" id="L1264">            ps.setString(2, trigger.getKey().getName());</span>
+<span class="nc" id="L1265">            ps.setString(3, trigger.getKey().getGroup());</span>
+
+<span class="nc" id="L1267">            return ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L1269">            closeStatement(ps);</span>
+<span class="nc bnc" id="L1270" title="All 2 branches missed.">            if (os != null) {</span>
+<span class="nc" id="L1271">                os.close();</span>
+            }
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Check whether or not a trigger exists.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return true if the trigger exists, false otherwise
+     */
+    public boolean triggerExists(Connection conn, TriggerKey triggerKey) throws SQLException {
+<span class="fc" id="L1286">        PreparedStatement ps = null;</span>
+<span class="fc" id="L1287">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L1290">            ps = conn.prepareStatement(rtp(SELECT_TRIGGER_EXISTENCE));</span>
+<span class="fc" id="L1291">            ps.setString(1, triggerKey.getName());</span>
+<span class="fc" id="L1292">            ps.setString(2, triggerKey.getGroup());</span>
+<span class="fc" id="L1293">            rs = ps.executeQuery();</span>
+
+<span class="fc bfc" id="L1295" title="All 2 branches covered.">            if (rs.next()) {</span>
+<span class="fc" id="L1296">                return true;</span>
+            } else {
+<span class="fc" id="L1298">                return false;</span>
+            }
+        } finally {
+<span class="fc" id="L1301">            closeResultSet(rs);</span>
+<span class="fc" id="L1302">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Update the state for a given trigger.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param state
+     *          the new state for the trigger
+     * @return the number of rows updated
+     */
+    public int updateTriggerState(Connection conn, TriggerKey triggerKey,
+            String state) throws SQLException {
+<span class="fc" id="L1319">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="fc" id="L1322">            ps = conn.prepareStatement(rtp(UPDATE_TRIGGER_STATE));</span>
+<span class="fc" id="L1323">            ps.setString(1, state);</span>
+<span class="fc" id="L1324">            ps.setString(2, triggerKey.getName());</span>
+<span class="fc" id="L1325">            ps.setString(3, triggerKey.getGroup());</span>
+<span class="fc" id="L1326">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L1328">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Update the given trigger to the given new state, if it is one of the
+     * given old states.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB connection
+     * @param newState
+     *          the new state for the trigger
+     * @param oldState1
+     *          one of the old state the trigger must be in
+     * @param oldState2
+     *          one of the old state the trigger must be in
+     * @param oldState3
+     *          one of the old state the trigger must be in
+     * @return int the number of rows updated
+     * @throws SQLException
+     */
+    public int updateTriggerStateFromOtherStates(Connection conn,
+            TriggerKey triggerKey, String newState, String oldState1,
+            String oldState2, String oldState3)
+        throws SQLException {
+<span class="nc" id="L1355">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="nc" id="L1358">            ps = conn.prepareStatement(rtp(UPDATE_TRIGGER_STATE_FROM_STATES));</span>
+<span class="nc" id="L1359">            ps.setString(1, newState);</span>
+<span class="nc" id="L1360">            ps.setString(2, triggerKey.getName());</span>
+<span class="nc" id="L1361">            ps.setString(3, triggerKey.getGroup());</span>
+<span class="nc" id="L1362">            ps.setString(4, oldState1);</span>
+<span class="nc" id="L1363">            ps.setString(5, oldState2);</span>
+<span class="nc" id="L1364">            ps.setString(6, oldState3);</span>
+
+<span class="nc" id="L1366">            return ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L1368">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Update all triggers in the given group to the given new state, if they
+     * are in one of the given old states.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB connection
+     * @param matcher
+     *          the groupMatcher to evaluate the triggers against
+     * @param newState
+     *          the new state for the trigger
+     * @param oldState1
+     *          one of the old state the trigger must be in
+     * @param oldState2
+     *          one of the old state the trigger must be in
+     * @param oldState3
+     *          one of the old state the trigger must be in
+     * @return int the number of rows updated
+     * @throws SQLException
+     */
+    public int updateTriggerGroupStateFromOtherStates(Connection conn,
+            GroupMatcher&lt;TriggerKey&gt; matcher, String newState, String oldState1,
+            String oldState2, String oldState3) throws SQLException {
+<span class="fc" id="L1396">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="fc" id="L1399">            ps = conn</span>
+<span class="fc" id="L1400">                    .prepareStatement(rtp(UPDATE_TRIGGER_GROUP_STATE_FROM_STATES));</span>
+<span class="fc" id="L1401">            ps.setString(1, newState);</span>
+<span class="fc" id="L1402">            ps.setString(2, toSqlLikeClause(matcher));</span>
+<span class="fc" id="L1403">            ps.setString(3, oldState1);</span>
+<span class="fc" id="L1404">            ps.setString(4, oldState2);</span>
+<span class="fc" id="L1405">            ps.setString(5, oldState3);</span>
+
+<span class="fc" id="L1407">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L1409">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Update the given trigger to the given new state, if it is in the given
+     * old state.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB connection
+     * @param newState
+     *          the new state for the trigger
+     * @param oldState
+     *          the old state the trigger must be in
+     * @return int the number of rows updated
+     * @throws SQLException
+     */
+    public int updateTriggerStateFromOtherState(Connection conn,
+            TriggerKey triggerKey, String newState, String oldState) throws SQLException {
+<span class="fc" id="L1430">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="fc" id="L1433">            ps = conn.prepareStatement(rtp(UPDATE_TRIGGER_STATE_FROM_STATE));</span>
+<span class="fc" id="L1434">            ps.setString(1, newState);</span>
+<span class="fc" id="L1435">            ps.setString(2, triggerKey.getName());</span>
+<span class="fc" id="L1436">            ps.setString(3, triggerKey.getGroup());</span>
+<span class="fc" id="L1437">            ps.setString(4, oldState);</span>
+
+<span class="fc" id="L1439">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L1441">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Update all of the triggers of the given group to the given new state, if
+     * they are in the given old state.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB connection
+     * @param matcher
+     *          the groupMatcher to evaluate the triggers against
+     * @param newState
+     *          the new state for the trigger group
+     * @param oldState
+     *          the old state the triggers must be in
+     * @return int the number of rows updated
+     * @throws SQLException
+     */
+    public int updateTriggerGroupStateFromOtherState(Connection conn,
+            GroupMatcher&lt;TriggerKey&gt; matcher, String newState, String oldState)
+        throws SQLException {
+<span class="fc" id="L1465">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="fc" id="L1468">            ps = conn</span>
+<span class="fc" id="L1469">                    .prepareStatement(rtp(UPDATE_TRIGGER_GROUP_STATE_FROM_STATE));</span>
+<span class="fc" id="L1470">            ps.setString(1, newState);</span>
+<span class="fc" id="L1471">            ps.setString(2, toSqlLikeClause(matcher));</span>
+<span class="fc" id="L1472">            ps.setString(3, oldState);</span>
+
+<span class="fc" id="L1474">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L1476">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Update the states of all triggers associated with the given job.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param state
+     *          the new state for the triggers
+     * @return the number of rows updated
+     */
+    public int updateTriggerStatesForJob(Connection conn, JobKey jobKey,
+            String state) throws SQLException {
+<span class="nc" id="L1493">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="nc" id="L1496">            ps = conn.prepareStatement(rtp(UPDATE_JOB_TRIGGER_STATES));</span>
+<span class="nc" id="L1497">            ps.setString(1, state);</span>
+<span class="nc" id="L1498">            ps.setString(2, jobKey.getName());</span>
+<span class="nc" id="L1499">            ps.setString(3, jobKey.getGroup());</span>
+
+<span class="nc" id="L1501">            return ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L1503">            closeStatement(ps);</span>
+        }
+    }
+
+    public int updateTriggerStatesForJobFromOtherState(Connection conn,
+            JobKey jobKey, String state, String oldState)
+        throws SQLException {
+<span class="fc" id="L1510">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="fc" id="L1513">            ps = conn</span>
+<span class="fc" id="L1514">                    .prepareStatement(rtp(UPDATE_JOB_TRIGGER_STATES_FROM_OTHER_STATE));</span>
+<span class="fc" id="L1515">            ps.setString(1, state);</span>
+<span class="fc" id="L1516">            ps.setString(2, jobKey.getName());</span>
+<span class="fc" id="L1517">            ps.setString(3, jobKey.getGroup());</span>
+<span class="fc" id="L1518">            ps.setString(4, oldState);</span>
+
+<span class="fc" id="L1520">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L1522">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Delete the cron trigger data for a trigger.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return the number of rows deleted
+     */
+    public int deleteBlobTrigger(Connection conn, TriggerKey triggerKey) throws SQLException {
+<span class="fc" id="L1536">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="fc" id="L1539">            ps = conn.prepareStatement(rtp(DELETE_BLOB_TRIGGER));</span>
+<span class="fc" id="L1540">            ps.setString(1, triggerKey.getName());</span>
+<span class="fc" id="L1541">            ps.setString(2, triggerKey.getGroup());</span>
+
+<span class="fc" id="L1543">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L1545">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Delete the base trigger data for a trigger.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return the number of rows deleted
+     */
+    public int deleteTrigger(Connection conn, TriggerKey triggerKey) throws SQLException {
+<span class="fc" id="L1559">        PreparedStatement ps = null;</span>
+
+<span class="fc" id="L1561">        deleteTriggerExtension(conn, triggerKey);</span>
+        
+        try {
+<span class="fc" id="L1564">            ps = conn.prepareStatement(rtp(DELETE_TRIGGER));</span>
+<span class="fc" id="L1565">            ps.setString(1, triggerKey.getName());</span>
+<span class="fc" id="L1566">            ps.setString(2, triggerKey.getGroup());</span>
+
+<span class="fc" id="L1568">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L1570">            closeStatement(ps);</span>
+        }
+    }
+    
+    protected void deleteTriggerExtension(Connection conn, TriggerKey triggerKey) throws SQLException {
+
+<span class="fc bfc" id="L1576" title="All 2 branches covered.">        for(TriggerPersistenceDelegate tDel: triggerPersistenceDelegates) {</span>
+<span class="fc bfc" id="L1577" title="All 2 branches covered.">            if(tDel.deleteExtendedTriggerProperties(conn, triggerKey) &gt; 0)</span>
+<span class="fc" id="L1578">                return; // as soon as one affects a row, we're done.</span>
+<span class="fc" id="L1579">        }</span>
+        
+<span class="fc" id="L1581">        deleteBlobTrigger(conn, triggerKey); </span>
+<span class="fc" id="L1582">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Select the number of triggers associated with a given job.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return the number of triggers for the given job
+     */
+    public int selectNumTriggersForJob(Connection conn, JobKey jobKey) throws SQLException {
+<span class="fc" id="L1594">        PreparedStatement ps = null;</span>
+<span class="fc" id="L1595">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L1598">            ps = conn.prepareStatement(rtp(SELECT_NUM_TRIGGERS_FOR_JOB));</span>
+<span class="fc" id="L1599">            ps.setString(1, jobKey.getName());</span>
+<span class="fc" id="L1600">            ps.setString(2, jobKey.getGroup());</span>
+<span class="fc" id="L1601">            rs = ps.executeQuery();</span>
+
+<span class="pc bpc" id="L1603" title="1 of 2 branches missed.">            if (rs.next()) {</span>
+<span class="fc" id="L1604">                return rs.getInt(1);</span>
+            } else {
+<span class="nc" id="L1606">                return 0;</span>
+            }
+        } finally {
+<span class="fc" id="L1609">            closeResultSet(rs);</span>
+<span class="fc" id="L1610">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select the job to which the trigger is associated.
+     * &lt;/p&gt;
+     *
+     * @param conn
+     *          the DB Connection
+     * @return the &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt; object
+     *         associated with the given trigger
+     * @throws SQLException
+     * @throws ClassNotFoundException
+     */
+    public JobDetail selectJobForTrigger(Connection conn, ClassLoadHelper loadHelper,
+        TriggerKey triggerKey) throws ClassNotFoundException, SQLException {
+<span class="nc" id="L1628">        return selectJobForTrigger(conn, loadHelper, triggerKey, true);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select the job to which the trigger is associated. Allow option to load actual job class or not. When case of
+     * remove, we do not need to load the class, which in many cases, it's no longer exists.
+     *
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return the &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt; object
+     *         associated with the given trigger
+     * @throws SQLException
+     * @throws ClassNotFoundException
+     */
+    public JobDetail selectJobForTrigger(Connection conn, ClassLoadHelper loadHelper,
+            TriggerKey triggerKey, boolean loadJobClass) throws ClassNotFoundException, SQLException {
+<span class="fc" id="L1647">        PreparedStatement ps = null;</span>
+<span class="fc" id="L1648">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L1651">            ps = conn.prepareStatement(rtp(SELECT_JOB_FOR_TRIGGER));</span>
+<span class="fc" id="L1652">            ps.setString(1, triggerKey.getName());</span>
+<span class="fc" id="L1653">            ps.setString(2, triggerKey.getGroup());</span>
+<span class="fc" id="L1654">            rs = ps.executeQuery();</span>
+
+<span class="fc bfc" id="L1656" title="All 2 branches covered.">            if (rs.next()) {</span>
+<span class="fc" id="L1657">                JobDetailImpl job = new JobDetailImpl();</span>
+<span class="fc" id="L1658">                job.setName(rs.getString(1));</span>
+<span class="fc" id="L1659">                job.setGroup(rs.getString(2));</span>
+<span class="fc" id="L1660">                job.setDurability(getBoolean(rs, 3));</span>
+<span class="pc bpc" id="L1661" title="1 of 2 branches missed.">                if (loadJobClass)</span>
+<span class="nc" id="L1662">                    job.setJobClass(loadHelper.loadClass(rs.getString(4), Job.class));</span>
+<span class="fc" id="L1663">                job.setRequestsRecovery(getBoolean(rs, 5));</span>
+                
+<span class="fc" id="L1665">                return job;</span>
+            } else {
+<span class="pc bpc" id="L1667" title="1 of 2 branches missed.">                if (logger.isDebugEnabled()) {</span>
+<span class="nc" id="L1668">                    logger.debug(&quot;No job for trigger '&quot; + triggerKey + &quot;'.&quot;);</span>
+                }
+<span class="fc" id="L1670">                return null;</span>
+            }
+        } finally {
+<span class="fc" id="L1673">            closeResultSet(rs);</span>
+<span class="fc" id="L1674">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select the triggers for a job
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return an array of &lt;code&gt;(@link org.quartz.Trigger)&lt;/code&gt; objects
+     *         associated with a given job.
+     * @throws SQLException
+     * @throws JobPersistenceException 
+     */
+    public List&lt;OperableTrigger&gt; selectTriggersForJob(Connection conn, JobKey jobKey) throws SQLException, ClassNotFoundException,
+            IOException, JobPersistenceException {
+
+<span class="fc" id="L1693">        LinkedList&lt;OperableTrigger&gt; trigList = new LinkedList&lt;OperableTrigger&gt;();</span>
+<span class="fc" id="L1694">        PreparedStatement ps = null;</span>
+<span class="fc" id="L1695">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L1698">            ps = conn.prepareStatement(rtp(SELECT_TRIGGERS_FOR_JOB));</span>
+<span class="fc" id="L1699">            ps.setString(1, jobKey.getName());</span>
+<span class="fc" id="L1700">            ps.setString(2, jobKey.getGroup());</span>
+<span class="fc" id="L1701">            rs = ps.executeQuery();</span>
+
+<span class="fc bfc" id="L1703" title="All 2 branches covered.">            while (rs.next()) {</span>
+<span class="fc" id="L1704">                OperableTrigger t = selectTrigger(conn, triggerKey(rs.getString(COL_TRIGGER_NAME), rs.getString(COL_TRIGGER_GROUP)));</span>
+<span class="pc bpc" id="L1705" title="1 of 2 branches missed.">                if(t != null) {</span>
+<span class="fc" id="L1706">                    trigList.add(t);</span>
+                }
+<span class="fc" id="L1708">            }</span>
+        } finally {
+<span class="fc" id="L1710">            closeResultSet(rs);</span>
+<span class="fc" id="L1711">            closeStatement(ps);</span>
+        }
+
+<span class="fc" id="L1714">        return trigList;</span>
+    }
+
+    public List&lt;OperableTrigger&gt; selectTriggersForCalendar(Connection conn, String calName)
+        throws SQLException, ClassNotFoundException, IOException, JobPersistenceException {
+
+<span class="nc" id="L1720">        LinkedList&lt;OperableTrigger&gt; trigList = new LinkedList&lt;OperableTrigger&gt;();</span>
+<span class="nc" id="L1721">        PreparedStatement ps = null;</span>
+<span class="nc" id="L1722">        ResultSet rs = null;</span>
+
+        try {
+<span class="nc" id="L1725">            ps = conn.prepareStatement(rtp(SELECT_TRIGGERS_FOR_CALENDAR));</span>
+<span class="nc" id="L1726">            ps.setString(1, calName);</span>
+<span class="nc" id="L1727">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L1729" title="All 2 branches missed.">            while (rs.next()) {</span>
+<span class="nc" id="L1730">                trigList.add(selectTrigger(conn, triggerKey(rs.getString(COL_TRIGGER_NAME), rs.getString(COL_TRIGGER_GROUP))));</span>
+            }
+        } finally {
+<span class="nc" id="L1733">            closeResultSet(rs);</span>
+<span class="nc" id="L1734">            closeStatement(ps);</span>
+        }
+
+<span class="nc" id="L1737">        return trigList;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select a trigger.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return the &lt;code&gt;{@link org.quartz.Trigger}&lt;/code&gt; object
+     * @throws JobPersistenceException 
+     */
+    public OperableTrigger selectTrigger(Connection conn, TriggerKey triggerKey) throws SQLException, ClassNotFoundException,
+            IOException, JobPersistenceException {
+<span class="fc" id="L1752">        PreparedStatement ps = null;</span>
+<span class="fc" id="L1753">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L1756">            OperableTrigger trigger = null;</span>
+
+<span class="fc" id="L1758">            ps = conn.prepareStatement(rtp(SELECT_TRIGGER));</span>
+<span class="fc" id="L1759">            ps.setString(1, triggerKey.getName());</span>
+<span class="fc" id="L1760">            ps.setString(2, triggerKey.getGroup());</span>
+<span class="fc" id="L1761">            rs = ps.executeQuery();</span>
+
+<span class="fc bfc" id="L1763" title="All 2 branches covered.">            if (rs.next()) {</span>
+<span class="fc" id="L1764">                String jobName = rs.getString(COL_JOB_NAME);</span>
+<span class="fc" id="L1765">                String jobGroup = rs.getString(COL_JOB_GROUP);</span>
+<span class="fc" id="L1766">                String description = rs.getString(COL_DESCRIPTION);</span>
+<span class="fc" id="L1767">                long nextFireTime = rs.getLong(COL_NEXT_FIRE_TIME);</span>
+<span class="fc" id="L1768">                long prevFireTime = rs.getLong(COL_PREV_FIRE_TIME);</span>
+<span class="fc" id="L1769">                String triggerType = rs.getString(COL_TRIGGER_TYPE);</span>
+<span class="fc" id="L1770">                long startTime = rs.getLong(COL_START_TIME);</span>
+<span class="fc" id="L1771">                long endTime = rs.getLong(COL_END_TIME);</span>
+<span class="fc" id="L1772">                String calendarName = rs.getString(COL_CALENDAR_NAME);</span>
+<span class="fc" id="L1773">                int misFireInstr = rs.getInt(COL_MISFIRE_INSTRUCTION);</span>
+<span class="fc" id="L1774">                int priority = rs.getInt(COL_PRIORITY);</span>
+
+<span class="fc" id="L1776">                Map&lt;?, ?&gt; map = null;</span>
+<span class="fc bfc" id="L1777" title="All 2 branches covered.">                if (canUseProperties()) {</span>
+<span class="fc" id="L1778">                    map = getMapFromProperties(rs);</span>
+                } else {
+<span class="fc" id="L1780">                    map = (Map&lt;?, ?&gt;) getObjectFromBlob(rs, COL_JOB_DATAMAP);</span>
+                }
+                
+<span class="fc" id="L1783">                Date nft = null;</span>
+<span class="fc bfc" id="L1784" title="All 2 branches covered.">                if (nextFireTime &gt; 0) {</span>
+<span class="fc" id="L1785">                    nft = new Date(nextFireTime);</span>
+                }
+
+<span class="fc" id="L1788">                Date pft = null;</span>
+<span class="fc bfc" id="L1789" title="All 2 branches covered.">                if (prevFireTime &gt; 0) {</span>
+<span class="fc" id="L1790">                    pft = new Date(prevFireTime);</span>
+                }
+<span class="fc" id="L1792">                Date startTimeD = new Date(startTime);</span>
+<span class="fc" id="L1793">                Date endTimeD = null;</span>
+<span class="fc bfc" id="L1794" title="All 2 branches covered.">                if (endTime &gt; 0) {</span>
+<span class="fc" id="L1795">                    endTimeD = new Date(endTime);</span>
+                }
+
+<span class="fc bfc" id="L1798" title="All 2 branches covered.">                if (triggerType.equals(TTYPE_BLOB)) {</span>
+<span class="fc" id="L1799">                    rs.close(); rs = null;</span>
+<span class="fc" id="L1800">                    ps.close(); ps = null;</span>
+
+<span class="fc" id="L1802">                    ps = conn.prepareStatement(rtp(SELECT_BLOB_TRIGGER));</span>
+<span class="fc" id="L1803">                    ps.setString(1, triggerKey.getName());</span>
+<span class="fc" id="L1804">                    ps.setString(2, triggerKey.getGroup());</span>
+<span class="fc" id="L1805">                    rs = ps.executeQuery();</span>
+
+<span class="pc bpc" id="L1807" title="1 of 2 branches missed.">                    if (rs.next()) {</span>
+<span class="nc" id="L1808">                        trigger = (OperableTrigger) getObjectFromBlob(rs, COL_BLOB);</span>
+                    }
+                }
+                else {
+<span class="fc" id="L1812">                    TriggerPersistenceDelegate tDel = findTriggerPersistenceDelegate(triggerType);</span>
+                    
+<span class="pc bpc" id="L1814" title="1 of 2 branches missed.">                    if(tDel == null)</span>
+<span class="nc" id="L1815">                        throw new JobPersistenceException(&quot;No TriggerPersistenceDelegate for trigger discriminator type: &quot; + triggerType);</span>
+
+<span class="fc" id="L1817">                    TriggerPropertyBundle triggerProps = null;</span>
+                    try {
+<span class="fc" id="L1819">                        triggerProps = tDel.loadExtendedTriggerProperties(conn, triggerKey);</span>
+<span class="fc" id="L1820">                    } catch (IllegalStateException isex) {</span>
+<span class="fc bfc" id="L1821" title="All 2 branches covered.">                        if (isTriggerStillPresent(ps)) {</span>
+<span class="fc" id="L1822">                            throw isex;</span>
+                        } else {
+                            // QTZ-386 Trigger has been deleted
+<span class="fc" id="L1825">                            return null;</span>
+                        }
+<span class="fc" id="L1827">                    }</span>
+
+<span class="fc" id="L1829">                    TriggerBuilder&lt;?&gt; tb = newTrigger()</span>
+<span class="fc" id="L1830">                        .withDescription(description)</span>
+<span class="fc" id="L1831">                        .withPriority(priority)</span>
+<span class="fc" id="L1832">                        .startAt(startTimeD)</span>
+<span class="fc" id="L1833">                        .endAt(endTimeD)</span>
+<span class="fc" id="L1834">                        .withIdentity(triggerKey)</span>
+<span class="fc" id="L1835">                        .modifiedByCalendar(calendarName)</span>
+<span class="fc" id="L1836">                        .withSchedule(triggerProps.getScheduleBuilder())</span>
+<span class="fc" id="L1837">                        .forJob(jobKey(jobName, jobGroup));</span>
+    
+<span class="fc bfc" id="L1839" title="All 2 branches covered.">                    if (null != map) {</span>
+<span class="fc" id="L1840">                        tb.usingJobData(new JobDataMap(map));</span>
+                    }
+    
+<span class="fc" id="L1843">                    trigger = (OperableTrigger) tb.build();</span>
+                    
+<span class="fc" id="L1845">                    trigger.setMisfireInstruction(misFireInstr);</span>
+<span class="fc" id="L1846">                    trigger.setNextFireTime(nft);</span>
+<span class="fc" id="L1847">                    trigger.setPreviousFireTime(pft);</span>
+                    
+<span class="fc" id="L1849">                    setTriggerStateProperties(trigger, triggerProps);</span>
+                }                
+            }
+
+<span class="fc" id="L1853">            return trigger;</span>
+        } finally {
+<span class="fc" id="L1855">            closeResultSet(rs);</span>
+<span class="fc" id="L1856">            closeStatement(ps);</span>
+        }
+    }
+
+    private boolean isTriggerStillPresent(PreparedStatement ps) throws SQLException {
+<span class="fc" id="L1861">        ResultSet rs = null;</span>
+        try {
+<span class="fc" id="L1863">            rs = ps.executeQuery();</span>
+<span class="fc" id="L1864">            return rs.next();</span>
+        } finally {
+<span class="fc" id="L1866">            closeResultSet(rs);</span>
+        }
+    }
+
+    private void setTriggerStateProperties(OperableTrigger trigger, TriggerPropertyBundle props) throws JobPersistenceException {
+        
+<span class="fc bfc" id="L1872" title="All 2 branches covered.">        if(props.getStatePropertyNames() == null)</span>
+<span class="fc" id="L1873">            return;</span>
+        
+<span class="fc" id="L1875">        Util.setBeanProps(trigger, props.getStatePropertyNames(), props.getStatePropertyValues());</span>
+<span class="fc" id="L1876">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Select a trigger's JobDataMap.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param triggerName
+     *          the name of the trigger
+     * @param groupName
+     *          the group containing the trigger
+     * @return the &lt;code&gt;{@link org.quartz.JobDataMap}&lt;/code&gt; of the Trigger,
+     * never null, but possibly empty.
+     */
+    public JobDataMap selectTriggerJobDataMap(Connection conn, String triggerName,
+            String groupName) throws SQLException, ClassNotFoundException,
+            IOException {
+        
+<span class="nc" id="L1896">        PreparedStatement ps = null;</span>
+<span class="nc" id="L1897">        ResultSet rs = null;</span>
+
+        try {
+<span class="nc" id="L1900">            ps = conn.prepareStatement(rtp(SELECT_TRIGGER_DATA));</span>
+<span class="nc" id="L1901">            ps.setString(1, triggerName);</span>
+<span class="nc" id="L1902">            ps.setString(2, groupName);</span>
+<span class="nc" id="L1903">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L1905" title="All 2 branches missed.">            if (rs.next()) {</span>
+
+<span class="nc" id="L1907">                Map&lt;?, ?&gt; map = null;</span>
+<span class="nc bnc" id="L1908" title="All 2 branches missed.">                if (canUseProperties()) { </span>
+<span class="nc" id="L1909">                    map = getMapFromProperties(rs);</span>
+                } else {
+<span class="nc" id="L1911">                    map = (Map&lt;?, ?&gt;) getObjectFromBlob(rs, COL_JOB_DATAMAP);</span>
+                }
+                
+<span class="nc" id="L1914">                rs.close();</span>
+<span class="nc" id="L1915">                ps.close();</span>
+
+<span class="nc bnc" id="L1917" title="All 2 branches missed.">                if (null != map) {</span>
+<span class="nc" id="L1918">                    return new JobDataMap(map);</span>
+                }
+            }
+        } finally {
+<span class="nc" id="L1922">            closeResultSet(rs);</span>
+<span class="nc" id="L1923">            closeStatement(ps);</span>
+        }
+        
+<span class="nc" id="L1926">        return new JobDataMap();</span>
+    }
+            
+
+    /**
+     * &lt;p&gt;
+     * Select a trigger' state value.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return the &lt;code&gt;{@link org.quartz.Trigger}&lt;/code&gt; object
+     */
+    public String selectTriggerState(Connection conn, TriggerKey triggerKey) throws SQLException {
+<span class="fc" id="L1940">        PreparedStatement ps = null;</span>
+<span class="fc" id="L1941">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L1944">            String state = null;</span>
+
+<span class="fc" id="L1946">            ps = conn.prepareStatement(rtp(SELECT_TRIGGER_STATE));</span>
+<span class="fc" id="L1947">            ps.setString(1, triggerKey.getName());</span>
+<span class="fc" id="L1948">            ps.setString(2, triggerKey.getGroup());</span>
+<span class="fc" id="L1949">            rs = ps.executeQuery();</span>
+
+<span class="fc bfc" id="L1951" title="All 2 branches covered.">            if (rs.next()) {</span>
+<span class="fc" id="L1952">                state = rs.getString(COL_TRIGGER_STATE);</span>
+            } else {
+<span class="fc" id="L1954">                state = STATE_DELETED;</span>
+            }
+
+<span class="fc" id="L1957">            return state.intern();</span>
+        } finally {
+<span class="fc" id="L1959">            closeResultSet(rs);</span>
+<span class="fc" id="L1960">            closeStatement(ps);</span>
+        }
+
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select a trigger' status (state &amp; next fire time).
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return a &lt;code&gt;TriggerStatus&lt;/code&gt; object, or null
+     */
+    public TriggerStatus selectTriggerStatus(Connection conn,
+            TriggerKey triggerKey) throws SQLException {
+<span class="fc" id="L1976">        PreparedStatement ps = null;</span>
+<span class="fc" id="L1977">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L1980">            TriggerStatus status = null;</span>
+
+<span class="fc" id="L1982">            ps = conn.prepareStatement(rtp(SELECT_TRIGGER_STATUS));</span>
+<span class="fc" id="L1983">            ps.setString(1, triggerKey.getName());</span>
+<span class="fc" id="L1984">            ps.setString(2, triggerKey.getGroup());</span>
+<span class="fc" id="L1985">            rs = ps.executeQuery();</span>
+
+<span class="fc bfc" id="L1987" title="All 2 branches covered.">            if (rs.next()) {</span>
+<span class="fc" id="L1988">                String state = rs.getString(COL_TRIGGER_STATE);</span>
+<span class="fc" id="L1989">                long nextFireTime = rs.getLong(COL_NEXT_FIRE_TIME);</span>
+<span class="fc" id="L1990">                String jobName = rs.getString(COL_JOB_NAME);</span>
+<span class="fc" id="L1991">                String jobGroup = rs.getString(COL_JOB_GROUP);</span>
+
+<span class="fc" id="L1993">                Date nft = null;</span>
+<span class="fc bfc" id="L1994" title="All 2 branches covered.">                if (nextFireTime &gt; 0) {</span>
+<span class="fc" id="L1995">                    nft = new Date(nextFireTime);</span>
+                }
+
+<span class="fc" id="L1998">                status = new TriggerStatus(state, nft);</span>
+<span class="fc" id="L1999">                status.setKey(triggerKey);</span>
+<span class="fc" id="L2000">                status.setJobKey(jobKey(jobName, jobGroup));</span>
+            }
+
+<span class="fc" id="L2003">            return status;</span>
+        } finally {
+<span class="fc" id="L2005">            closeResultSet(rs);</span>
+<span class="fc" id="L2006">            closeStatement(ps);</span>
+        }
+
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select the total number of triggers stored.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return the total number of triggers stored
+     */
+    public int selectNumTriggers(Connection conn) throws SQLException {
+<span class="nc" id="L2021">        PreparedStatement ps = null;</span>
+<span class="nc" id="L2022">        ResultSet rs = null;</span>
+
+        try {
+<span class="nc" id="L2025">            int count = 0;</span>
+<span class="nc" id="L2026">            ps = conn.prepareStatement(rtp(SELECT_NUM_TRIGGERS));</span>
+<span class="nc" id="L2027">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L2029" title="All 2 branches missed.">            if (rs.next()) {</span>
+<span class="nc" id="L2030">                count = rs.getInt(1);</span>
+            }
+
+<span class="nc" id="L2033">            return count;</span>
+        } finally {
+<span class="nc" id="L2035">            closeResultSet(rs);</span>
+<span class="nc" id="L2036">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select all of the trigger group names that are stored.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return an array of &lt;code&gt;String&lt;/code&gt; group names
+     */
+    public List&lt;String&gt; selectTriggerGroups(Connection conn) throws SQLException {
+<span class="fc" id="L2050">        PreparedStatement ps = null;</span>
+<span class="fc" id="L2051">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L2054">            ps = conn.prepareStatement(rtp(SELECT_TRIGGER_GROUPS));</span>
+<span class="fc" id="L2055">            rs = ps.executeQuery();</span>
+
+<span class="fc" id="L2057">            LinkedList&lt;String&gt; list = new LinkedList&lt;String&gt;();</span>
+<span class="fc bfc" id="L2058" title="All 2 branches covered.">            while (rs.next()) {</span>
+<span class="fc" id="L2059">                list.add(rs.getString(1));</span>
+            }
+
+<span class="fc" id="L2062">            return list;</span>
+        } finally {
+<span class="fc" id="L2064">            closeResultSet(rs);</span>
+<span class="fc" id="L2065">            closeStatement(ps);</span>
+        }
+    }
+
+    public List&lt;String&gt; selectTriggerGroups(Connection conn, GroupMatcher&lt;TriggerKey&gt; matcher) throws SQLException {
+<span class="fc" id="L2070">        PreparedStatement ps = null;</span>
+<span class="fc" id="L2071">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L2074">            ps = conn.prepareStatement(rtp(SELECT_TRIGGER_GROUPS_FILTERED));</span>
+<span class="fc" id="L2075">            ps.setString(1, toSqlLikeClause(matcher));</span>
+<span class="fc" id="L2076">            rs = ps.executeQuery();</span>
+
+<span class="fc" id="L2078">            LinkedList&lt;String&gt; list = new LinkedList&lt;String&gt;();</span>
+<span class="fc bfc" id="L2079" title="All 2 branches covered.">            while (rs.next()) {</span>
+<span class="fc" id="L2080">                list.add(rs.getString(1));</span>
+            }
+
+<span class="fc" id="L2083">            return list;</span>
+        } finally {
+<span class="fc" id="L2085">            closeResultSet(rs);</span>
+<span class="fc" id="L2086">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select all of the triggers contained in a given group.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param matcher
+     *          to evaluate against known triggers
+     * @return a Set of &lt;code&gt;TriggerKey&lt;/code&gt;s
+     */
+    public Set&lt;TriggerKey&gt; selectTriggersInGroup(Connection conn, GroupMatcher&lt;TriggerKey&gt; matcher)
+        throws SQLException {
+<span class="fc" id="L2103">        PreparedStatement ps = null;</span>
+<span class="fc" id="L2104">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc bfc" id="L2107" title="All 2 branches covered.">            if(isMatcherEquals(matcher)) {</span>
+<span class="fc" id="L2108">                ps = conn.prepareStatement(rtp(SELECT_TRIGGERS_IN_GROUP));</span>
+<span class="fc" id="L2109">                ps.setString(1, toSqlEqualsClause(matcher));</span>
+            }
+            else {
+<span class="fc" id="L2112">                ps = conn.prepareStatement(rtp(SELECT_TRIGGERS_IN_GROUP_LIKE));</span>
+<span class="fc" id="L2113">                ps.setString(1, toSqlLikeClause(matcher));</span>
+            }
+<span class="fc" id="L2115">            rs = ps.executeQuery();</span>
+
+<span class="fc" id="L2117">            Set&lt;TriggerKey&gt; keys = new HashSet&lt;TriggerKey&gt;();</span>
+<span class="fc bfc" id="L2118" title="All 2 branches covered.">            while (rs.next()) {</span>
+<span class="fc" id="L2119">                keys.add(triggerKey(rs.getString(1), rs.getString(2)));</span>
+            }
+
+<span class="fc" id="L2122">            return keys;</span>
+        } finally {
+<span class="fc" id="L2124">            closeResultSet(rs);</span>
+<span class="fc" id="L2125">            closeStatement(ps);</span>
+        }
+    }
+
+    public int insertPausedTriggerGroup(Connection conn, String groupName)
+        throws SQLException {
+<span class="fc" id="L2131">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="fc" id="L2134">            ps = conn.prepareStatement(rtp(INSERT_PAUSED_TRIGGER_GROUP));</span>
+<span class="fc" id="L2135">            ps.setString(1, groupName);</span>
+<span class="fc" id="L2136">            int rows = ps.executeUpdate();</span>
+
+<span class="fc" id="L2138">            return rows;</span>
+        } finally {
+<span class="fc" id="L2140">            closeStatement(ps);</span>
+        }
+    }
+
+    public int deletePausedTriggerGroup(Connection conn, String groupName)
+        throws SQLException {
+<span class="nc" id="L2146">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="nc" id="L2149">            ps = conn.prepareStatement(rtp(DELETE_PAUSED_TRIGGER_GROUP));</span>
+<span class="nc" id="L2150">            ps.setString(1, groupName);</span>
+<span class="nc" id="L2151">            int rows = ps.executeUpdate();</span>
+
+<span class="nc" id="L2153">            return rows;</span>
+        } finally {
+<span class="nc" id="L2155">            closeStatement(ps);</span>
+        }
+    }
+
+    public int deletePausedTriggerGroup(Connection conn, GroupMatcher&lt;TriggerKey&gt; matcher)
+        throws SQLException {
+<span class="fc" id="L2161">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="fc" id="L2164">            ps = conn.prepareStatement(rtp(DELETE_PAUSED_TRIGGER_GROUP));</span>
+<span class="fc" id="L2165">            ps.setString(1, toSqlLikeClause(matcher));</span>
+<span class="fc" id="L2166">            int rows = ps.executeUpdate();</span>
+
+<span class="fc" id="L2168">            return rows;</span>
+        } finally {
+<span class="fc" id="L2170">            closeStatement(ps);</span>
+        }
+    }
+
+    public int deleteAllPausedTriggerGroups(Connection conn)
+        throws SQLException {
+<span class="nc" id="L2176">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="nc" id="L2179">            ps = conn.prepareStatement(rtp(DELETE_PAUSED_TRIGGER_GROUPS));</span>
+<span class="nc" id="L2180">            int rows = ps.executeUpdate();</span>
+
+<span class="nc" id="L2182">            return rows;</span>
+        } finally {
+<span class="nc" id="L2184">            closeStatement(ps);</span>
+        }
+    }
+
+    public boolean isTriggerGroupPaused(Connection conn, String groupName)
+        throws SQLException {
+<span class="fc" id="L2190">        PreparedStatement ps = null;</span>
+<span class="fc" id="L2191">        ResultSet rs = null;</span>
+
+        try {
+<span class="fc" id="L2194">            ps = conn.prepareStatement(rtp(SELECT_PAUSED_TRIGGER_GROUP));</span>
+<span class="fc" id="L2195">            ps.setString(1, groupName);</span>
+<span class="fc" id="L2196">            rs = ps.executeQuery();</span>
+
+<span class="fc" id="L2198">            return rs.next();</span>
+        } finally {
+<span class="fc" id="L2200">            closeResultSet(rs);</span>
+<span class="fc" id="L2201">            closeStatement(ps);</span>
+        }
+    }
+
+    public boolean isExistingTriggerGroup(Connection conn, String groupName)
+        throws SQLException {
+<span class="nc" id="L2207">        PreparedStatement ps = null;</span>
+<span class="nc" id="L2208">        ResultSet rs = null;</span>
+
+        try {
+<span class="nc" id="L2211">            ps = conn.prepareStatement(rtp(SELECT_NUM_TRIGGERS_IN_GROUP));</span>
+<span class="nc" id="L2212">            ps.setString(1, groupName);</span>
+<span class="nc" id="L2213">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L2215" title="All 2 branches missed.">            if (!rs.next()) {</span>
+<span class="nc" id="L2216">                return false;</span>
+            }
+
+<span class="nc bnc" id="L2219" title="All 2 branches missed.">            return (rs.getInt(1) &gt; 0);</span>
+        } finally {
+<span class="nc" id="L2221">            closeResultSet(rs);</span>
+<span class="nc" id="L2222">            closeStatement(ps);</span>
+        }
+    }
+
+    //---------------------------------------------------------------------------
+    // calendars
+    //---------------------------------------------------------------------------
+
+    /**
+     * &lt;p&gt;
+     * Insert a new calendar.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param calendarName
+     *          the name for the new calendar
+     * @param calendar
+     *          the calendar
+     * @return the number of rows inserted
+     * @throws IOException
+     *           if there were problems serializing the calendar
+     */
+    public int insertCalendar(Connection conn, String calendarName,
+            Calendar calendar) throws IOException, SQLException {
+<span class="nc" id="L2247">        ByteArrayOutputStream baos = serializeObject(calendar);</span>
+
+<span class="nc" id="L2249">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="nc" id="L2252">            ps = conn.prepareStatement(rtp(INSERT_CALENDAR));</span>
+<span class="nc" id="L2253">            ps.setString(1, calendarName);</span>
+<span class="nc" id="L2254">            setBytes(ps, 2, baos);</span>
+
+<span class="nc" id="L2256">            return ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L2258">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Update a calendar.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param calendarName
+     *          the name for the new calendar
+     * @param calendar
+     *          the calendar
+     * @return the number of rows updated
+     * @throws IOException
+     *           if there were problems serializing the calendar
+     */
+    public int updateCalendar(Connection conn, String calendarName,
+            Calendar calendar) throws IOException, SQLException {
+<span class="nc" id="L2279">        ByteArrayOutputStream baos = serializeObject(calendar);</span>
+
+<span class="nc" id="L2281">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="nc" id="L2284">            ps = conn.prepareStatement(rtp(UPDATE_CALENDAR));</span>
+<span class="nc" id="L2285">            setBytes(ps, 1, baos);</span>
+<span class="nc" id="L2286">            ps.setString(2, calendarName);</span>
+
+<span class="nc" id="L2288">            return ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L2290">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Check whether or not a calendar exists.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param calendarName
+     *          the name of the calendar
+     * @return true if the trigger exists, false otherwise
+     */
+    public boolean calendarExists(Connection conn, String calendarName)
+        throws SQLException {
+<span class="nc" id="L2307">        PreparedStatement ps = null;</span>
+<span class="nc" id="L2308">        ResultSet rs = null;</span>
+
+        try {
+<span class="nc" id="L2311">            ps = conn.prepareStatement(rtp(SELECT_CALENDAR_EXISTENCE));</span>
+<span class="nc" id="L2312">            ps.setString(1, calendarName);</span>
+<span class="nc" id="L2313">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L2315" title="All 2 branches missed.">            if (rs.next()) {</span>
+<span class="nc" id="L2316">                return true;</span>
+            } else {
+<span class="nc" id="L2318">                return false;</span>
+            }
+        } finally {
+<span class="nc" id="L2321">            closeResultSet(rs);</span>
+<span class="nc" id="L2322">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select a calendar.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param calendarName
+     *          the name of the calendar
+     * @return the Calendar
+     * @throws ClassNotFoundException
+     *           if a class found during deserialization cannot be found be
+     *           found
+     * @throws IOException
+     *           if there were problems deserializing the calendar
+     */
+    public Calendar selectCalendar(Connection conn, String calendarName)
+        throws ClassNotFoundException, IOException, SQLException {
+<span class="nc" id="L2344">        PreparedStatement ps = null;</span>
+<span class="nc" id="L2345">        ResultSet rs = null;</span>
+        try {
+<span class="nc" id="L2347">            String selCal = rtp(SELECT_CALENDAR);</span>
+<span class="nc" id="L2348">            ps = conn.prepareStatement(selCal);</span>
+<span class="nc" id="L2349">            ps.setString(1, calendarName);</span>
+<span class="nc" id="L2350">            rs = ps.executeQuery();</span>
+
+<span class="nc" id="L2352">            Calendar cal = null;</span>
+<span class="nc bnc" id="L2353" title="All 2 branches missed.">            if (rs.next()) {</span>
+<span class="nc" id="L2354">                cal = (Calendar) getObjectFromBlob(rs, COL_CALENDAR);</span>
+            }
+<span class="nc bnc" id="L2356" title="All 2 branches missed.">            if (null == cal) {</span>
+<span class="nc" id="L2357">                logger.warn(&quot;Couldn't find calendar with name '&quot; + calendarName</span>
+                        + &quot;'.&quot;);
+            }
+<span class="nc" id="L2360">            return cal;</span>
+        } finally {
+<span class="nc" id="L2362">            closeResultSet(rs);</span>
+<span class="nc" id="L2363">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Check whether or not a calendar is referenced by any triggers.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param calendarName
+     *          the name of the calendar
+     * @return true if any triggers reference the calendar, false otherwise
+     */
+    public boolean calendarIsReferenced(Connection conn, String calendarName)
+        throws SQLException {
+<span class="nc" id="L2380">        PreparedStatement ps = null;</span>
+<span class="nc" id="L2381">        ResultSet rs = null;</span>
+        try {
+<span class="nc" id="L2383">            ps = conn.prepareStatement(rtp(SELECT_REFERENCED_CALENDAR));</span>
+<span class="nc" id="L2384">            ps.setString(1, calendarName);</span>
+<span class="nc" id="L2385">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L2387" title="All 2 branches missed.">            if (rs.next()) {</span>
+<span class="nc" id="L2388">                return true;</span>
+            } else {
+<span class="nc" id="L2390">                return false;</span>
+            }
+        } finally {
+<span class="nc" id="L2393">            closeResultSet(rs);</span>
+<span class="nc" id="L2394">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Delete a calendar.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param calendarName
+     *          the name of the trigger
+     * @return the number of rows deleted
+     */
+    public int deleteCalendar(Connection conn, String calendarName)
+        throws SQLException {
+<span class="nc" id="L2411">        PreparedStatement ps = null;</span>
+
+        try {
+<span class="nc" id="L2414">            ps = conn.prepareStatement(rtp(DELETE_CALENDAR));</span>
+<span class="nc" id="L2415">            ps.setString(1, calendarName);</span>
+
+<span class="nc" id="L2417">            return ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L2419">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select the total number of calendars stored.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return the total number of calendars stored
+     */
+    public int selectNumCalendars(Connection conn) throws SQLException {
+<span class="nc" id="L2433">        PreparedStatement ps = null;</span>
+<span class="nc" id="L2434">        ResultSet rs = null;</span>
+
+        try {
+<span class="nc" id="L2437">            int count = 0;</span>
+<span class="nc" id="L2438">            ps = conn.prepareStatement(rtp(SELECT_NUM_CALENDARS));</span>
+
+<span class="nc" id="L2440">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L2442" title="All 2 branches missed.">            if (rs.next()) {</span>
+<span class="nc" id="L2443">                count = rs.getInt(1);</span>
+            }
+
+<span class="nc" id="L2446">            return count;</span>
+        } finally {
+<span class="nc" id="L2448">            closeResultSet(rs);</span>
+<span class="nc" id="L2449">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select all of the stored calendars.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return an array of &lt;code&gt;String&lt;/code&gt; calendar names
+     */
+    public List&lt;String&gt; selectCalendars(Connection conn) throws SQLException {
+<span class="nc" id="L2463">        PreparedStatement ps = null;</span>
+<span class="nc" id="L2464">        ResultSet rs = null;</span>
+
+        try {
+<span class="nc" id="L2467">            ps = conn.prepareStatement(rtp(SELECT_CALENDARS));</span>
+<span class="nc" id="L2468">            rs = ps.executeQuery();</span>
+
+<span class="nc" id="L2470">            LinkedList&lt;String&gt; list = new LinkedList&lt;String&gt;();</span>
+<span class="nc bnc" id="L2471" title="All 2 branches missed.">            while (rs.next()) {</span>
+<span class="nc" id="L2472">                list.add(rs.getString(1));</span>
+            }
+
+<span class="nc" id="L2475">            return list;</span>
+        } finally {
+<span class="nc" id="L2477">            closeResultSet(rs);</span>
+<span class="nc" id="L2478">            closeStatement(ps);</span>
+        }
+    }
+
+    //---------------------------------------------------------------------------
+    // trigger firing
+    //---------------------------------------------------------------------------
+
+    /**
+     * &lt;p&gt;
+     * Select the next time that a trigger will be fired.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @return the next fire time, or 0 if no trigger will be fired
+     * 
+     * @deprecated Does not account for misfires.
+     */
+    public long selectNextFireTime(Connection conn) throws SQLException {
+<span class="nc" id="L2498">        PreparedStatement ps = null;</span>
+<span class="nc" id="L2499">        ResultSet rs = null;</span>
+        try {
+<span class="nc" id="L2501">            ps = conn.prepareStatement(rtp(SELECT_NEXT_FIRE_TIME));</span>
+<span class="nc" id="L2502">            ps.setString(1, STATE_WAITING);</span>
+<span class="nc" id="L2503">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L2505" title="All 2 branches missed.">            if (rs.next()) {</span>
+<span class="nc" id="L2506">                return rs.getLong(ALIAS_COL_NEXT_FIRE_TIME);</span>
+            } else {
+<span class="nc" id="L2508">                return 0l;</span>
+            }
+        } finally {
+<span class="nc" id="L2511">            closeResultSet(rs);</span>
+<span class="nc" id="L2512">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select the trigger that will be fired at the given fire time.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param fireTime
+     *          the time that the trigger will be fired
+     * @return a &lt;code&gt;{@link org.quartz.utils.Key}&lt;/code&gt; representing the
+     *         trigger that will be fired at the given fire time, or null if no
+     *         trigger will be fired at that time
+     */
+    public TriggerKey selectTriggerForFireTime(Connection conn, long fireTime)
+        throws SQLException {
+<span class="nc" id="L2531">        PreparedStatement ps = null;</span>
+<span class="nc" id="L2532">        ResultSet rs = null;</span>
+        try {
+<span class="nc" id="L2534">            ps = conn.prepareStatement(rtp(SELECT_TRIGGER_FOR_FIRE_TIME));</span>
+<span class="nc" id="L2535">            ps.setString(1, STATE_WAITING);</span>
+<span class="nc" id="L2536">            ps.setBigDecimal(2, new BigDecimal(String.valueOf(fireTime)));</span>
+<span class="nc" id="L2537">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L2539" title="All 2 branches missed.">            if (rs.next()) {</span>
+<span class="nc" id="L2540">                return new TriggerKey(rs.getString(COL_TRIGGER_NAME), rs</span>
+<span class="nc" id="L2541">                        .getString(COL_TRIGGER_GROUP));</span>
+            } else {
+<span class="nc" id="L2543">                return null;</span>
+            }
+        } finally {
+<span class="nc" id="L2546">            closeResultSet(rs);</span>
+<span class="nc" id="L2547">            closeStatement(ps);</span>
+        }
+    }
+
+
+    
+    /**
+     * &lt;p&gt;
+     * Select the next trigger which will fire to fire between the two given timestamps 
+     * in ascending order of fire time, and then descending by priority.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param noLaterThan
+     *          highest value of &lt;code&gt;getNextFireTime()&lt;/code&gt; of the triggers (exclusive)
+     * @param noEarlierThan 
+     *          highest value of &lt;code&gt;getNextFireTime()&lt;/code&gt; of the triggers (inclusive)
+     *          
+     * @return A (never null, possibly empty) list of the identifiers (Key objects) of the next triggers to be fired.
+     * 
+     * @deprecated - This remained for compatibility reason. Use {@link #selectTriggerToAcquire(Connection, long, long, int)} instead. 
+     */
+    public List&lt;TriggerKey&gt; selectTriggerToAcquire(Connection conn, long noLaterThan, long noEarlierThan)
+            throws SQLException {
+        // This old API used to always return 1 trigger.
+<span class="nc" id="L2573">        return selectTriggerToAcquire(conn, noLaterThan, noEarlierThan, 1);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select the next trigger which will fire to fire between the two given timestamps 
+     * in ascending order of fire time, and then descending by priority.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param noLaterThan
+     *          highest value of &lt;code&gt;getNextFireTime()&lt;/code&gt; of the triggers (exclusive)
+     * @param noEarlierThan 
+     *          highest value of &lt;code&gt;getNextFireTime()&lt;/code&gt; of the triggers (inclusive)
+     * @param maxCount 
+     *          maximum number of trigger keys allow to acquired in the returning list.
+     *          
+     * @return A (never null, possibly empty) list of the identifiers (Key objects) of the next triggers to be fired.
+     */
+    public List&lt;TriggerKey&gt; selectTriggerToAcquire(Connection conn, long noLaterThan, long noEarlierThan, int maxCount)
+        throws SQLException {
+<span class="fc" id="L2595">        PreparedStatement ps = null;</span>
+<span class="fc" id="L2596">        ResultSet rs = null;</span>
+<span class="fc" id="L2597">        List&lt;TriggerKey&gt; nextTriggers = new LinkedList&lt;TriggerKey&gt;();</span>
+        try {
+<span class="fc" id="L2599">            ps = conn.prepareStatement(rtp(SELECT_NEXT_TRIGGER_TO_ACQUIRE));</span>
+            
+            // Set max rows to retrieve
+<span class="pc bpc" id="L2602" title="1 of 2 branches missed.">            if (maxCount &lt; 1)</span>
+<span class="nc" id="L2603">                maxCount = 1; // we want at least one trigger back.</span>
+<span class="fc" id="L2604">            ps.setMaxRows(maxCount);</span>
+            
+            // Try to give jdbc driver a hint to hopefully not pull over more than the few rows we actually need.
+            // Note: in some jdbc drivers, such as MySQL, you must set maxRows before fetchSize, or you get exception!
+<span class="fc" id="L2608">            ps.setFetchSize(maxCount);</span>
+            
+<span class="fc" id="L2610">            ps.setString(1, STATE_WAITING);</span>
+<span class="fc" id="L2611">            ps.setBigDecimal(2, new BigDecimal(String.valueOf(noLaterThan)));</span>
+<span class="fc" id="L2612">            ps.setBigDecimal(3, new BigDecimal(String.valueOf(noEarlierThan)));</span>
+<span class="fc" id="L2613">            rs = ps.executeQuery();</span>
+            
+<span class="pc bpc" id="L2615" title="1 of 4 branches missed.">            while (rs.next() &amp;&amp; nextTriggers.size() &lt;= maxCount) {</span>
+<span class="fc" id="L2616">                nextTriggers.add(triggerKey(</span>
+<span class="fc" id="L2617">                        rs.getString(COL_TRIGGER_NAME),</span>
+<span class="fc" id="L2618">                        rs.getString(COL_TRIGGER_GROUP)));</span>
+            }
+            
+<span class="fc" id="L2621">            return nextTriggers;</span>
+        } finally {
+<span class="fc" id="L2623">            closeResultSet(rs);</span>
+<span class="fc" id="L2624">            closeStatement(ps);</span>
+        }      
+    }
+
+    /**
+     * &lt;p&gt;
+     * Insert a fired trigger.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param trigger
+     *          the trigger
+     * @param state
+     *          the state that the trigger should be stored in
+     * @return the number of rows inserted
+     */
+    public int insertFiredTrigger(Connection conn, OperableTrigger trigger,
+            String state, JobDetail job) throws SQLException {
+<span class="fc" id="L2643">        PreparedStatement ps = null;</span>
+        try {
+<span class="fc" id="L2645">            ps = conn.prepareStatement(rtp(INSERT_FIRED_TRIGGER));</span>
+<span class="fc" id="L2646">            ps.setString(1, trigger.getFireInstanceId());</span>
+<span class="fc" id="L2647">            ps.setString(2, trigger.getKey().getName());</span>
+<span class="fc" id="L2648">            ps.setString(3, trigger.getKey().getGroup());</span>
+<span class="fc" id="L2649">            ps.setString(4, instanceId);</span>
+<span class="fc" id="L2650">            ps.setBigDecimal(5, new BigDecimal(String.valueOf(System.currentTimeMillis())));</span>
+<span class="fc" id="L2651">            ps.setBigDecimal(6, new BigDecimal(String.valueOf(trigger.getNextFireTime().getTime())));</span>
+<span class="fc" id="L2652">            ps.setString(7, state);</span>
+<span class="pc bpc" id="L2653" title="1 of 2 branches missed.">            if (job != null) {</span>
+<span class="nc" id="L2654">                ps.setString(8, trigger.getJobKey().getName());</span>
+<span class="nc" id="L2655">                ps.setString(9, trigger.getJobKey().getGroup());</span>
+<span class="nc" id="L2656">                setBoolean(ps, 10, job.isConcurrentExectionDisallowed());</span>
+<span class="nc" id="L2657">                setBoolean(ps, 11, job.requestsRecovery());</span>
+            } else {
+<span class="fc" id="L2659">                ps.setString(8, null);</span>
+<span class="fc" id="L2660">                ps.setString(9, null);</span>
+<span class="fc" id="L2661">                setBoolean(ps, 10, false);</span>
+<span class="fc" id="L2662">                setBoolean(ps, 11, false);</span>
+            }
+<span class="fc" id="L2664">            ps.setInt(12, trigger.getPriority());</span>
+
+<span class="fc" id="L2666">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L2668">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Update a fired trigger.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param trigger
+     *          the trigger
+     * @param state
+     *          the state that the trigger should be stored in
+     * @return the number of rows inserted
+     */
+    public int updateFiredTrigger(Connection conn, OperableTrigger trigger,
+            String state, JobDetail job) throws SQLException {
+<span class="fc" id="L2687">        PreparedStatement ps = null;</span>
+        try {
+<span class="fc" id="L2689">            ps = conn.prepareStatement(rtp(UPDATE_FIRED_TRIGGER));</span>
+            
+<span class="fc" id="L2691">            ps.setString(1, instanceId);</span>
+
+<span class="fc" id="L2693">            ps.setBigDecimal(2, new BigDecimal(String.valueOf(System.currentTimeMillis())));</span>
+<span class="fc" id="L2694">            ps.setBigDecimal(3, new BigDecimal(String.valueOf(trigger.getNextFireTime().getTime())));</span>
+<span class="fc" id="L2695">            ps.setString(4, state);</span>
+
+<span class="pc bpc" id="L2697" title="1 of 2 branches missed.">            if (job != null) {</span>
+<span class="fc" id="L2698">                ps.setString(5, trigger.getJobKey().getName());</span>
+<span class="fc" id="L2699">                ps.setString(6, trigger.getJobKey().getGroup());</span>
+<span class="fc" id="L2700">                setBoolean(ps, 7, job.isConcurrentExectionDisallowed());</span>
+<span class="fc" id="L2701">                setBoolean(ps, 8, job.requestsRecovery());</span>
+            } else {
+<span class="nc" id="L2703">                ps.setString(5, null);</span>
+<span class="nc" id="L2704">                ps.setString(6, null);</span>
+<span class="nc" id="L2705">                setBoolean(ps, 7, false);</span>
+<span class="nc" id="L2706">                setBoolean(ps, 8, false);</span>
+            }
+
+<span class="fc" id="L2709">            ps.setString(9, trigger.getFireInstanceId());</span>
+
+
+<span class="fc" id="L2712">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L2714">            closeStatement(ps);</span>
+        }
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Select the states of all fired-trigger records for a given trigger, or
+     * trigger group if trigger name is &lt;code&gt;null&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @return a List of FiredTriggerRecord objects.
+     */
+    public List&lt;FiredTriggerRecord&gt; selectFiredTriggerRecords(Connection conn, String triggerName, String groupName) throws SQLException {
+<span class="nc" id="L2727">        PreparedStatement ps = null;</span>
+<span class="nc" id="L2728">        ResultSet rs = null;</span>
+        try {
+<span class="nc" id="L2730">            List&lt;FiredTriggerRecord&gt; lst = new LinkedList&lt;FiredTriggerRecord&gt;();</span>
+
+<span class="nc bnc" id="L2732" title="All 2 branches missed.">            if (triggerName != null) {</span>
+<span class="nc" id="L2733">                ps = conn.prepareStatement(rtp(SELECT_FIRED_TRIGGER));</span>
+<span class="nc" id="L2734">                ps.setString(1, triggerName);</span>
+<span class="nc" id="L2735">                ps.setString(2, groupName);</span>
+            } else {
+<span class="nc" id="L2737">                ps = conn.prepareStatement(rtp(SELECT_FIRED_TRIGGER_GROUP));</span>
+<span class="nc" id="L2738">                ps.setString(1, groupName);</span>
+            }
+<span class="nc" id="L2740">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L2742" title="All 2 branches missed.">            while (rs.next()) {</span>
+<span class="nc" id="L2743">                FiredTriggerRecord rec = new FiredTriggerRecord();</span>
+
+<span class="nc" id="L2745">                rec.setFireInstanceId(rs.getString(COL_ENTRY_ID));</span>
+<span class="nc" id="L2746">                rec.setFireInstanceState(rs.getString(COL_ENTRY_STATE));</span>
+<span class="nc" id="L2747">                rec.setFireTimestamp(rs.getLong(COL_FIRED_TIME));</span>
+<span class="nc" id="L2748">                rec.setScheduleTimestamp(rs.getLong(COL_SCHED_TIME));</span>
+<span class="nc" id="L2749">                rec.setPriority(rs.getInt(COL_PRIORITY));</span>
+<span class="nc" id="L2750">                rec.setSchedulerInstanceId(rs.getString(COL_INSTANCE_NAME));</span>
+<span class="nc" id="L2751">                rec.setTriggerKey(triggerKey(rs.getString(COL_TRIGGER_NAME), rs</span>
+<span class="nc" id="L2752">                        .getString(COL_TRIGGER_GROUP)));</span>
+<span class="nc bnc" id="L2753" title="All 2 branches missed.">                if (!rec.getFireInstanceState().equals(STATE_ACQUIRED)) {</span>
+<span class="nc" id="L2754">                    rec.setJobDisallowsConcurrentExecution(getBoolean(rs, COL_IS_NONCONCURRENT));</span>
+<span class="nc" id="L2755">                    rec.setJobRequestsRecovery(rs</span>
+<span class="nc" id="L2756">                            .getBoolean(COL_REQUESTS_RECOVERY));</span>
+<span class="nc" id="L2757">                    rec.setJobKey(jobKey(rs.getString(COL_JOB_NAME), rs</span>
+<span class="nc" id="L2758">                            .getString(COL_JOB_GROUP)));</span>
+                }
+<span class="nc" id="L2760">                lst.add(rec);</span>
+<span class="nc" id="L2761">            }</span>
+
+<span class="nc" id="L2763">            return lst;</span>
+        } finally {
+<span class="nc" id="L2765">            closeResultSet(rs);</span>
+<span class="nc" id="L2766">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select the states of all fired-trigger records for a given job, or job
+     * group if job name is &lt;code&gt;null&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @return a List of FiredTriggerRecord objects.
+     */
+    public List&lt;FiredTriggerRecord&gt; selectFiredTriggerRecordsByJob(Connection conn, String jobName, String groupName) throws SQLException {
+<span class="fc" id="L2779">        PreparedStatement ps = null;</span>
+<span class="fc" id="L2780">        ResultSet rs = null;</span>
+        try {
+<span class="fc" id="L2782">            List&lt;FiredTriggerRecord&gt; lst = new LinkedList&lt;FiredTriggerRecord&gt;();</span>
+
+<span class="pc bpc" id="L2784" title="1 of 2 branches missed.">            if (jobName != null) {</span>
+<span class="fc" id="L2785">                ps = conn.prepareStatement(rtp(SELECT_FIRED_TRIGGERS_OF_JOB));</span>
+<span class="fc" id="L2786">                ps.setString(1, jobName);</span>
+<span class="fc" id="L2787">                ps.setString(2, groupName);</span>
+            } else {
+<span class="nc" id="L2789">                ps = conn</span>
+<span class="nc" id="L2790">                        .prepareStatement(rtp(SELECT_FIRED_TRIGGERS_OF_JOB_GROUP));</span>
+<span class="nc" id="L2791">                ps.setString(1, groupName);</span>
+            }
+<span class="fc" id="L2793">            rs = ps.executeQuery();</span>
+
+<span class="fc bfc" id="L2795" title="All 2 branches covered.">            while (rs.next()) {</span>
+<span class="fc" id="L2796">                FiredTriggerRecord rec = new FiredTriggerRecord();</span>
+
+<span class="fc" id="L2798">                rec.setFireInstanceId(rs.getString(COL_ENTRY_ID));</span>
+<span class="fc" id="L2799">                rec.setFireInstanceState(rs.getString(COL_ENTRY_STATE));</span>
+<span class="fc" id="L2800">                rec.setFireTimestamp(rs.getLong(COL_FIRED_TIME));</span>
+<span class="fc" id="L2801">                rec.setScheduleTimestamp(rs.getLong(COL_SCHED_TIME));</span>
+<span class="fc" id="L2802">                rec.setPriority(rs.getInt(COL_PRIORITY));</span>
+<span class="fc" id="L2803">                rec.setSchedulerInstanceId(rs.getString(COL_INSTANCE_NAME));</span>
+<span class="fc" id="L2804">                rec.setTriggerKey(triggerKey(rs.getString(COL_TRIGGER_NAME), rs</span>
+<span class="fc" id="L2805">                        .getString(COL_TRIGGER_GROUP)));</span>
+<span class="pc bpc" id="L2806" title="1 of 2 branches missed.">                if (!rec.getFireInstanceState().equals(STATE_ACQUIRED)) {</span>
+<span class="fc" id="L2807">                    rec.setJobDisallowsConcurrentExecution(getBoolean(rs, COL_IS_NONCONCURRENT));</span>
+<span class="fc" id="L2808">                    rec.setJobRequestsRecovery(rs</span>
+<span class="fc" id="L2809">                            .getBoolean(COL_REQUESTS_RECOVERY));</span>
+<span class="fc" id="L2810">                    rec.setJobKey(jobKey(rs.getString(COL_JOB_NAME), rs</span>
+<span class="fc" id="L2811">                            .getString(COL_JOB_GROUP)));</span>
+                }
+<span class="fc" id="L2813">                lst.add(rec);</span>
+<span class="fc" id="L2814">            }</span>
+
+<span class="fc" id="L2816">            return lst;</span>
+        } finally {
+<span class="fc" id="L2818">            closeResultSet(rs);</span>
+<span class="fc" id="L2819">            closeStatement(ps);</span>
+        }
+
+    }
+
+    public List&lt;FiredTriggerRecord&gt; selectInstancesFiredTriggerRecords(Connection conn,
+            String instanceName) throws SQLException {
+<span class="fc" id="L2826">        PreparedStatement ps = null;</span>
+<span class="fc" id="L2827">        ResultSet rs = null;</span>
+        try {
+<span class="fc" id="L2829">            List&lt;FiredTriggerRecord&gt; lst = new LinkedList&lt;FiredTriggerRecord&gt;();</span>
+
+<span class="fc" id="L2831">            ps = conn.prepareStatement(rtp(SELECT_INSTANCES_FIRED_TRIGGERS));</span>
+<span class="fc" id="L2832">            ps.setString(1, instanceName);</span>
+<span class="fc" id="L2833">            rs = ps.executeQuery();</span>
+
+<span class="fc bfc" id="L2835" title="All 2 branches covered.">            while (rs.next()) {</span>
+<span class="fc" id="L2836">                FiredTriggerRecord rec = new FiredTriggerRecord();</span>
+
+<span class="fc" id="L2838">                rec.setFireInstanceId(rs.getString(COL_ENTRY_ID));</span>
+<span class="fc" id="L2839">                rec.setFireInstanceState(rs.getString(COL_ENTRY_STATE));</span>
+<span class="fc" id="L2840">                rec.setFireTimestamp(rs.getLong(COL_FIRED_TIME));</span>
+<span class="fc" id="L2841">                rec.setScheduleTimestamp(rs.getLong(COL_SCHED_TIME));</span>
+<span class="fc" id="L2842">                rec.setSchedulerInstanceId(rs.getString(COL_INSTANCE_NAME));</span>
+<span class="fc" id="L2843">                rec.setTriggerKey(triggerKey(rs.getString(COL_TRIGGER_NAME), rs</span>
+<span class="fc" id="L2844">                        .getString(COL_TRIGGER_GROUP)));</span>
+<span class="fc bfc" id="L2845" title="All 2 branches covered.">                if (!rec.getFireInstanceState().equals(STATE_ACQUIRED)) {</span>
+<span class="fc" id="L2846">                    rec.setJobDisallowsConcurrentExecution(getBoolean(rs, COL_IS_NONCONCURRENT));</span>
+<span class="fc" id="L2847">                    rec.setJobRequestsRecovery(rs</span>
+<span class="fc" id="L2848">                            .getBoolean(COL_REQUESTS_RECOVERY));</span>
+<span class="fc" id="L2849">                    rec.setJobKey(jobKey(rs.getString(COL_JOB_NAME), rs</span>
+<span class="fc" id="L2850">                            .getString(COL_JOB_GROUP)));</span>
+                }
+<span class="fc" id="L2852">                rec.setPriority(rs.getInt(COL_PRIORITY));</span>
+<span class="fc" id="L2853">                lst.add(rec);</span>
+<span class="fc" id="L2854">            }</span>
+
+<span class="fc" id="L2856">            return lst;</span>
+        } finally {
+<span class="fc" id="L2858">            closeResultSet(rs);</span>
+<span class="fc" id="L2859">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Select the distinct instance names of all fired-trigger records.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * This is useful when trying to identify orphaned fired triggers (a 
+     * fired trigger without a scheduler state record.) 
+     * &lt;/p&gt;
+     * 
+     * @return a Set of String objects.
+     */
+    public Set&lt;String&gt; selectFiredTriggerInstanceNames(Connection conn) 
+        throws SQLException {
+<span class="nc" id="L2877">        PreparedStatement ps = null;</span>
+<span class="nc" id="L2878">        ResultSet rs = null;</span>
+        try {
+<span class="nc" id="L2880">            Set&lt;String&gt; instanceNames = new HashSet&lt;String&gt;();</span>
+
+<span class="nc" id="L2882">            ps = conn.prepareStatement(rtp(SELECT_FIRED_TRIGGER_INSTANCE_NAMES));</span>
+<span class="nc" id="L2883">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L2885" title="All 2 branches missed.">            while (rs.next()) {</span>
+<span class="nc" id="L2886">                instanceNames.add(rs.getString(COL_INSTANCE_NAME));</span>
+            }
+
+<span class="nc" id="L2889">            return instanceNames;</span>
+        } finally {
+<span class="nc" id="L2891">            closeResultSet(rs);</span>
+<span class="nc" id="L2892">            closeStatement(ps);</span>
+        }
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Delete a fired trigger.
+     * &lt;/p&gt;
+     * 
+     * @param conn
+     *          the DB Connection
+     * @param entryId
+     *          the fired trigger entry to delete
+     * @return the number of rows deleted
+     */
+    public int deleteFiredTrigger(Connection conn, String entryId)
+        throws SQLException {
+<span class="fc" id="L2909">        PreparedStatement ps = null;</span>
+        try {
+<span class="fc" id="L2911">            ps = conn.prepareStatement(rtp(DELETE_FIRED_TRIGGER));</span>
+<span class="fc" id="L2912">            ps.setString(1, entryId);</span>
+
+<span class="fc" id="L2914">            return ps.executeUpdate();</span>
+        } finally {
+<span class="fc" id="L2916">            closeStatement(ps);</span>
+        }
+    }
+
+    public int selectJobExecutionCount(Connection conn, JobKey jobKey) throws SQLException {
+<span class="nc" id="L2921">        PreparedStatement ps = null;</span>
+<span class="nc" id="L2922">        ResultSet rs = null;</span>
+
+        try {
+<span class="nc" id="L2925">            ps = conn.prepareStatement(rtp(SELECT_JOB_EXECUTION_COUNT));</span>
+<span class="nc" id="L2926">            ps.setString(1, jobKey.getName());</span>
+<span class="nc" id="L2927">            ps.setString(2, jobKey.getGroup());</span>
+
+<span class="nc" id="L2929">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L2931" title="All 2 branches missed.">            return (rs.next()) ? rs.getInt(1) : 0;</span>
+        } finally {
+<span class="nc" id="L2933">            closeResultSet(rs);</span>
+<span class="nc" id="L2934">            closeStatement(ps);</span>
+        }
+    }
+    
+    public int insertSchedulerState(Connection conn, String theInstanceId,
+            long checkInTime, long interval)
+        throws SQLException {
+<span class="nc" id="L2941">        PreparedStatement ps = null;</span>
+        try {
+<span class="nc" id="L2943">            ps = conn.prepareStatement(rtp(INSERT_SCHEDULER_STATE));</span>
+<span class="nc" id="L2944">            ps.setString(1, theInstanceId);</span>
+<span class="nc" id="L2945">            ps.setLong(2, checkInTime);</span>
+<span class="nc" id="L2946">            ps.setLong(3, interval);</span>
+
+<span class="nc" id="L2948">            return ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L2950">            closeStatement(ps);</span>
+        }
+    }
+
+    public int deleteSchedulerState(Connection conn, String theInstanceId)
+        throws SQLException {
+<span class="nc" id="L2956">        PreparedStatement ps = null;</span>
+        try {
+<span class="nc" id="L2958">            ps = conn.prepareStatement(rtp(DELETE_SCHEDULER_STATE));</span>
+<span class="nc" id="L2959">            ps.setString(1, theInstanceId);</span>
+
+<span class="nc" id="L2961">            return ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L2963">            closeStatement(ps);</span>
+        }
+    }
+
+    public int updateSchedulerState(Connection conn, String theInstanceId, long checkInTime)
+        throws SQLException {
+<span class="nc" id="L2969">        PreparedStatement ps = null;</span>
+        try {
+<span class="nc" id="L2971">            ps = conn.prepareStatement(rtp(UPDATE_SCHEDULER_STATE));</span>
+<span class="nc" id="L2972">            ps.setLong(1, checkInTime);</span>
+<span class="nc" id="L2973">            ps.setString(2, theInstanceId);</span>
+        
+<span class="nc" id="L2975">            return ps.executeUpdate();</span>
+        } finally {
+<span class="nc" id="L2977">            closeStatement(ps);</span>
+        }
+    }
+        
+    public List&lt;SchedulerStateRecord&gt; selectSchedulerStateRecords(Connection conn, String theInstanceId)
+        throws SQLException {
+<span class="nc" id="L2983">        PreparedStatement ps = null;</span>
+<span class="nc" id="L2984">        ResultSet rs = null;</span>
+        try {
+<span class="nc" id="L2986">            List&lt;SchedulerStateRecord&gt; lst = new LinkedList&lt;SchedulerStateRecord&gt;();</span>
+
+<span class="nc bnc" id="L2988" title="All 2 branches missed.">            if (theInstanceId != null) {</span>
+<span class="nc" id="L2989">                ps = conn.prepareStatement(rtp(SELECT_SCHEDULER_STATE));</span>
+<span class="nc" id="L2990">                ps.setString(1, theInstanceId);</span>
+            } else {
+<span class="nc" id="L2992">                ps = conn.prepareStatement(rtp(SELECT_SCHEDULER_STATES));</span>
+            }
+<span class="nc" id="L2994">            rs = ps.executeQuery();</span>
+
+<span class="nc bnc" id="L2996" title="All 2 branches missed.">            while (rs.next()) {</span>
+<span class="nc" id="L2997">                SchedulerStateRecord rec = new SchedulerStateRecord();</span>
+
+<span class="nc" id="L2999">                rec.setSchedulerInstanceId(rs.getString(COL_INSTANCE_NAME));</span>
+<span class="nc" id="L3000">                rec.setCheckinTimestamp(rs.getLong(COL_LAST_CHECKIN_TIME));</span>
+<span class="nc" id="L3001">                rec.setCheckinInterval(rs.getLong(COL_CHECKIN_INTERVAL));</span>
+
+<span class="nc" id="L3003">                lst.add(rec);</span>
+<span class="nc" id="L3004">            }</span>
+
+<span class="nc" id="L3006">            return lst;</span>
+        } finally {
+<span class="nc" id="L3008">            closeResultSet(rs);</span>
+<span class="nc" id="L3009">            closeStatement(ps);</span>
+        }
+
+    }
+
+    //---------------------------------------------------------------------------
+    // protected methods that can be overridden by subclasses
+    //---------------------------------------------------------------------------
+
+    /**
+     * &lt;p&gt;
+     * Replace the table prefix in a query by replacing any occurrences of
+     * &quot;{0}&quot; with the table prefix.
+     * &lt;/p&gt;
+     * 
+     * @param query
+     *          the unsubstitued query
+     * @return the query, with proper table prefix substituted
+     */
+    protected final String rtp(String query) {
+<span class="fc" id="L3029">        return Util.rtp(query, tablePrefix, getSchedulerNameLiteral());</span>
+    }
+
+<span class="fc" id="L3032">    private String schedNameLiteral = null;</span>
+    protected String getSchedulerNameLiteral() {
+<span class="fc bfc" id="L3034" title="All 2 branches covered.">        if(schedNameLiteral == null)</span>
+<span class="fc" id="L3035">            schedNameLiteral = &quot;'&quot; + schedName + &quot;'&quot;;</span>
+<span class="fc" id="L3036">        return schedNameLiteral;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Create a serialized &lt;code&gt;java.util.ByteArrayOutputStream&lt;/code&gt;
+     * version of an Object.
+     * &lt;/p&gt;
+     * 
+     * @param obj
+     *          the object to serialize
+     * @return the serialized ByteArrayOutputStream
+     * @throws IOException
+     *           if serialization causes an error
+     */
+    protected ByteArrayOutputStream serializeObject(Object obj)
+        throws IOException {
+<span class="fc" id="L3053">        ByteArrayOutputStream baos = new ByteArrayOutputStream();</span>
+<span class="fc bfc" id="L3054" title="All 2 branches covered.">        if (null != obj) {</span>
+<span class="fc" id="L3055">            ObjectOutputStream out = new ObjectOutputStream(baos);</span>
+<span class="fc" id="L3056">            out.writeObject(obj);</span>
+<span class="fc" id="L3057">            out.flush();</span>
+        }
+<span class="fc" id="L3059">        return baos;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Remove the transient data from and then create a serialized &lt;code&gt;java.util.ByteArrayOutputStream&lt;/code&gt;
+     * version of a &lt;code&gt;{@link org.quartz.JobDataMap}&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @param data
+     *          the JobDataMap to serialize
+     * @return the serialized ByteArrayOutputStream
+     * @throws IOException
+     *           if serialization causes an error
+     */
+    protected ByteArrayOutputStream serializeJobData(JobDataMap data)
+        throws IOException {
+<span class="fc bfc" id="L3076" title="All 2 branches covered.">        if (canUseProperties()) {</span>
+<span class="fc" id="L3077">            return serializeProperties(data);</span>
+        }
+
+        try {
+<span class="fc" id="L3081">            return serializeObject(data);</span>
+<span class="fc" id="L3082">        } catch (NotSerializableException e) {</span>
+<span class="fc" id="L3083">            throw new NotSerializableException(</span>
+                &quot;Unable to serialize JobDataMap for insertion into &quot; + 
+                &quot;database because the value of property '&quot; + 
+<span class="fc" id="L3086">                getKeyOfNonSerializableValue(data) + </span>
+<span class="fc" id="L3087">                &quot;' is not serializable: &quot; + e.getMessage());</span>
+        }
+    }
+
+    /**
+     * Find the key of the first non-serializable value in the given Map.
+     * 
+     * @return The key of the first non-serializable value in the given Map or 
+     * null if all values are serializable.
+     */
+    protected Object getKeyOfNonSerializableValue(Map&lt;?, ?&gt; data) {
+<span class="pc bpc" id="L3098" title="1 of 2 branches missed.">        for (Iterator&lt;?&gt; entryIter = data.entrySet().iterator(); entryIter.hasNext();) {</span>
+<span class="fc" id="L3099">            Map.Entry&lt;?, ?&gt; entry = (Map.Entry&lt;?, ?&gt;)entryIter.next();</span>
+            
+<span class="fc" id="L3101">            ByteArrayOutputStream baos = null;</span>
+            try {
+<span class="fc" id="L3103">                baos = serializeObject(entry.getValue());</span>
+<span class="fc" id="L3104">            } catch (IOException e) {</span>
+<span class="fc" id="L3105">                return entry.getKey();</span>
+            } finally {
+<span class="fc bfc" id="L3107" title="All 2 branches covered.">                if (baos != null) {</span>
+<span class="pc" id="L3108">                    try { baos.close(); } catch (IOException ignore) {}</span>
+                }
+            }
+<span class="fc" id="L3111">        }</span>
+        
+        // As long as it is true that the Map was not serializable, we should
+        // not hit this case.
+<span class="nc" id="L3115">        return null;   </span>
+    }
+    
+    /**
+     * serialize the java.util.Properties
+     */
+    private ByteArrayOutputStream serializeProperties(JobDataMap data)
+        throws IOException {
+<span class="fc" id="L3123">        ByteArrayOutputStream ba = new ByteArrayOutputStream();</span>
+<span class="pc bpc" id="L3124" title="1 of 2 branches missed.">        if (null != data) {</span>
+<span class="fc" id="L3125">            Properties properties = convertToProperty(data.getWrappedMap());</span>
+<span class="fc" id="L3126">            properties.store(ba, &quot;&quot;);</span>
+        }
+
+<span class="fc" id="L3129">        return ba;</span>
+    }
+
+    /**
+     * convert the JobDataMap into a list of properties
+     */
+    protected Map&lt;?, ?&gt; convertFromProperty(Properties properties) throws IOException {
+<span class="fc" id="L3136">        return new HashMap&lt;Object, Object&gt;(properties);</span>
+    }
+
+    /**
+     * convert the JobDataMap into a list of properties
+     */
+    protected Properties convertToProperty(Map&lt;?, ?&gt; data) throws IOException {
+<span class="fc" id="L3143">        Properties properties = new Properties();</span>
+        
+<span class="fc bfc" id="L3145" title="All 2 branches covered.">        for (Iterator&lt;?&gt; entryIter = data.entrySet().iterator(); entryIter.hasNext();) {</span>
+<span class="fc" id="L3146">            Map.Entry&lt;?, ?&gt; entry = (Map.Entry&lt;?, ?&gt;)entryIter.next();</span>
+            
+<span class="fc" id="L3148">            Object key = entry.getKey();</span>
+<span class="pc bpc" id="L3149" title="1 of 2 branches missed.">            Object val = (entry.getValue() == null) ? &quot;&quot; : entry.getValue();</span>
+            
+<span class="pc bpc" id="L3151" title="1 of 2 branches missed.">            if(!(key instanceof String)) {</span>
+<span class="nc" id="L3152">                throw new IOException(&quot;JobDataMap keys/values must be Strings &quot; </span>
+                        + &quot;when the 'useProperties' property is set. &quot; 
+                        + &quot; offending Key: &quot; + key);
+            }
+            
+<span class="pc bpc" id="L3157" title="1 of 2 branches missed.">            if(!(val instanceof String)) {</span>
+<span class="nc" id="L3158">                throw new IOException(&quot;JobDataMap values must be Strings &quot; </span>
+                        + &quot;when the 'useProperties' property is set. &quot; 
+                        + &quot; Key of offending value: &quot; + key);
+            }
+            
+<span class="fc" id="L3163">            properties.put(key, val);</span>
+<span class="fc" id="L3164">        }</span>
+        
+<span class="fc" id="L3166">        return properties;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * This method should be overridden by any delegate subclasses that need
+     * special handling for BLOBs. The default implementation uses standard
+     * JDBC &lt;code&gt;java.sql.Blob&lt;/code&gt; operations.
+     * &lt;/p&gt;
+     * 
+     * @param rs
+     *          the result set, already queued to the correct row
+     * @param colName
+     *          the column name for the BLOB
+     * @return the deserialized Object from the ResultSet BLOB
+     * @throws ClassNotFoundException
+     *           if a class found during deserialization cannot be found
+     * @throws IOException
+     *           if deserialization causes an error
+     */
+    protected Object getObjectFromBlob(ResultSet rs, String colName)
+        throws ClassNotFoundException, IOException, SQLException {
+<span class="fc" id="L3188">        Object obj = null;</span>
+
+<span class="fc" id="L3190">        Blob blobLocator = rs.getBlob(colName);</span>
+<span class="fc bfc" id="L3191" title="All 4 branches covered.">        if (blobLocator != null &amp;&amp; blobLocator.length() != 0) {</span>
+<span class="fc" id="L3192">            InputStream binaryInput = blobLocator.getBinaryStream();</span>
+
+<span class="pc bpc" id="L3194" title="1 of 2 branches missed.">            if (null != binaryInput) {</span>
+<span class="pc bpc" id="L3195" title="1 of 2 branches missed.">                if (binaryInput instanceof ByteArrayInputStream</span>
+<span class="nc bnc" id="L3196" title="All 2 branches missed.">                    &amp;&amp; ((ByteArrayInputStream) binaryInput).available() == 0 ) {</span>
+                    //do nothing
+                } else {
+<span class="fc" id="L3199">                    ObjectInputStream in = new ObjectInputStream(binaryInput);</span>
+                    try {
+<span class="fc" id="L3201">                        obj = in.readObject();</span>
+                    } finally {
+<span class="fc" id="L3203">                        in.close();</span>
+                    }
+                }
+            }
+
+        }
+<span class="fc" id="L3209">        return obj;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * This method should be overridden by any delegate subclasses that need
+     * special handling for BLOBs for job details. The default implementation
+     * uses standard JDBC &lt;code&gt;java.sql.Blob&lt;/code&gt; operations.
+     * &lt;/p&gt;
+     * 
+     * @param rs
+     *          the result set, already queued to the correct row
+     * @param colName
+     *          the column name for the BLOB
+     * @return the deserialized Object from the ResultSet BLOB
+     * @throws ClassNotFoundException
+     *           if a class found during deserialization cannot be found
+     * @throws IOException
+     *           if deserialization causes an error
+     */
+    protected Object getJobDataFromBlob(ResultSet rs, String colName)
+        throws ClassNotFoundException, IOException, SQLException {
+<span class="pc bpc" id="L3231" title="1 of 2 branches missed.">        if (canUseProperties()) {</span>
+<span class="fc" id="L3232">            Blob blobLocator = rs.getBlob(colName);</span>
+<span class="pc bpc" id="L3233" title="1 of 2 branches missed.">            if (blobLocator != null) {</span>
+<span class="fc" id="L3234">                InputStream binaryInput = blobLocator.getBinaryStream();</span>
+<span class="fc" id="L3235">                return binaryInput;</span>
+            } else {
+<span class="nc" id="L3237">                return null;</span>
+            }
+        }
+
+<span class="nc" id="L3241">        return getObjectFromBlob(rs, colName);</span>
+    }
+
+    /** 
+     * @see org.quartz.impl.jdbcjobstore.DriverDelegate#selectPausedTriggerGroups(java.sql.Connection)
+     */
+    public Set&lt;String&gt; selectPausedTriggerGroups(Connection conn) throws SQLException {
+<span class="fc" id="L3248">        PreparedStatement ps = null;</span>
+<span class="fc" id="L3249">        ResultSet rs = null;</span>
+
+<span class="fc" id="L3251">        HashSet&lt;String&gt; set = new HashSet&lt;String&gt;();</span>
+        try {
+<span class="fc" id="L3253">            ps = conn.prepareStatement(rtp(SELECT_PAUSED_TRIGGER_GROUPS));</span>
+<span class="fc" id="L3254">            rs = ps.executeQuery();</span>
+
+<span class="fc bfc" id="L3256" title="All 2 branches covered.">            while (rs.next()) {</span>
+<span class="fc" id="L3257">                String groupName = rs.getString(COL_TRIGGER_GROUP);</span>
+<span class="fc" id="L3258">                set.add(groupName);</span>
+<span class="fc" id="L3259">            }</span>
+<span class="fc" id="L3260">            return set;</span>
+        } finally {
+<span class="fc" id="L3262">            closeResultSet(rs);</span>
+<span class="fc" id="L3263">            closeStatement(ps);</span>
+        }
+    }
+
+    /**
+     * Cleanup helper method that closes the given &lt;code&gt;ResultSet&lt;/code&gt;
+     * while ignoring any errors.
+     */
+    protected static void closeResultSet(ResultSet rs) {
+<span class="fc bfc" id="L3272" title="All 2 branches covered.">        if (null != rs) {</span>
+            try {
+<span class="fc" id="L3274">                rs.close();</span>
+<span class="nc" id="L3275">            } catch (SQLException ignore) {</span>
+<span class="fc" id="L3276">            }</span>
+        }
+<span class="fc" id="L3278">    }</span>
+
+    /**
+     * Cleanup helper method that closes the given &lt;code&gt;Statement&lt;/code&gt;
+     * while ignoring any errors.
+     */
+    protected static void closeStatement(Statement statement) {
+<span class="fc bfc" id="L3285" title="All 2 branches covered.">        if (null != statement) {</span>
+            try {
+<span class="fc" id="L3287">                statement.close();</span>
+<span class="nc" id="L3288">            } catch (SQLException ignore) {</span>
+<span class="fc" id="L3289">            }</span>
+        }
+<span class="fc" id="L3291">    }</span>
+    
+
+    /**
+     * Sets the designated parameter to the given Java &lt;code&gt;boolean&lt;/code&gt; value.
+     * This just wraps &lt;code&gt;{@link PreparedStatement#setBoolean(int, boolean)}&lt;/code&gt;
+     * by default, but it can be overloaded by subclass delegates for databases that
+     * don't explicitly support the boolean type.
+     */
+    protected void setBoolean(PreparedStatement ps, int index, boolean val) throws SQLException {
+<span class="fc" id="L3301">        ps.setBoolean(index, val);</span>
+<span class="fc" id="L3302">    }</span>
+
+    /**
+     * Retrieves the value of the designated column in the current row as
+     * a &lt;code&gt;boolean&lt;/code&gt;.
+     * This just wraps &lt;code&gt;{@link ResultSet#getBoolean(java.lang.String)}&lt;/code&gt;
+     * by default, but it can be overloaded by subclass delegates for databases that
+     * don't explicitly support the boolean type.
+     */
+    protected boolean getBoolean(ResultSet rs, String columnName) throws SQLException {
+<span class="fc" id="L3312">        return rs.getBoolean(columnName);</span>
+    }
+    
+    /**
+     * Retrieves the value of the designated column index in the current row as
+     * a &lt;code&gt;boolean&lt;/code&gt;.
+     * This just wraps &lt;code&gt;{@link ResultSet#getBoolean(java.lang.String)}&lt;/code&gt;
+     * by default, but it can be overloaded by subclass delegates for databases that
+     * don't explicitly support the boolean type.
+     */
+    protected boolean getBoolean(ResultSet rs, int columnIndex) throws SQLException {
+<span class="fc" id="L3323">        return rs.getBoolean(columnIndex);</span>
+    }
+    
+    /**
+     * Sets the designated parameter to the byte array of the given
+     * &lt;code&gt;ByteArrayOutputStream&lt;/code&gt;.  Will set parameter value to null if the 
+     * &lt;code&gt;ByteArrayOutputStream&lt;/code&gt; is null.
+     * This just wraps &lt;code&gt;{@link PreparedStatement#setBytes(int, byte[])}&lt;/code&gt;
+     * by default, but it can be overloaded by subclass delegates for databases that
+     * don't explicitly support storing bytes in this way.
+     */
+    protected void setBytes(PreparedStatement ps, int index, ByteArrayOutputStream baos) throws SQLException {
+<span class="fc bfc" id="L3335" title="All 2 branches covered.">        ps.setBytes(index, (baos == null) ? new byte[0] : baos.toByteArray());</span>
+<span class="fc" id="L3336">    }</span>
+}
+
+// EOF
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

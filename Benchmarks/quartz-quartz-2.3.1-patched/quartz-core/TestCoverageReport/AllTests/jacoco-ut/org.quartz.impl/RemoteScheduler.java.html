@@ -1,0 +1,951 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RemoteScheduler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl</a> &gt; <span class="el_source">RemoteScheduler.java</span></div><h1>RemoteScheduler.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.impl;
+
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.quartz.Calendar;
+import org.quartz.JobDataMap;
+import org.quartz.JobDetail;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobKey;
+import org.quartz.ListenerManager;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerContext;
+import org.quartz.SchedulerException;
+import org.quartz.SchedulerMetaData;
+import org.quartz.Trigger;
+import org.quartz.TriggerKey;
+import org.quartz.UnableToInterruptJobException;
+import org.quartz.Trigger.TriggerState;
+import org.quartz.core.RemotableQuartzScheduler;
+import org.quartz.impl.matchers.GroupMatcher;
+import org.quartz.spi.JobFactory;
+
+/**
+ * &lt;p&gt;
+ * An implementation of the &lt;code&gt;Scheduler&lt;/code&gt; interface that remotely
+ * proxies all method calls to the equivalent call on a given &lt;code&gt;QuartzScheduler&lt;/code&gt;
+ * instance, via RMI.
+ * &lt;/p&gt;
+ * 
+ * @see org.quartz.Scheduler
+ * @see org.quartz.core.QuartzScheduler
+ * 
+ * @author James House
+ */
+public class RemoteScheduler implements Scheduler {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    private RemotableQuartzScheduler rsched;
+
+    private String schedId;
+
+    private String rmiHost;
+
+    private int rmiPort;
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Construct a &lt;code&gt;RemoteScheduler&lt;/code&gt; instance to proxy the given
+     * &lt;code&gt;RemoteableQuartzScheduler&lt;/code&gt; instance, and with the given
+     * &lt;code&gt;SchedulingContext&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+<span class="nc" id="L91">    public RemoteScheduler(String schedId, String host, int port) {</span>
+<span class="nc" id="L92">        this.schedId = schedId;</span>
+<span class="nc" id="L93">        this.rmiHost = host;</span>
+<span class="nc" id="L94">        this.rmiPort = port;</span>
+<span class="nc" id="L95">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    protected RemotableQuartzScheduler getRemoteScheduler()
+        throws SchedulerException {
+<span class="nc bnc" id="L107" title="All 2 branches missed.">        if (rsched != null) {</span>
+<span class="nc" id="L108">            return rsched;</span>
+        }
+
+        try {
+<span class="nc" id="L112">            Registry registry = LocateRegistry.getRegistry(rmiHost, rmiPort);</span>
+
+<span class="nc" id="L114">            rsched = (RemotableQuartzScheduler) registry.lookup(schedId);</span>
+
+<span class="nc" id="L116">        } catch (Exception e) {</span>
+<span class="nc" id="L117">            SchedulerException initException = new SchedulerException(</span>
+                    &quot;Could not get handle to remote scheduler: &quot;
+<span class="nc" id="L119">                            + e.getMessage(), e);</span>
+<span class="nc" id="L120">            throw initException;</span>
+<span class="nc" id="L121">        }</span>
+
+<span class="nc" id="L123">        return rsched;</span>
+    }
+
+    protected SchedulerException invalidateHandleCreateException(String msg,
+            Exception cause) {
+<span class="nc" id="L128">        rsched = null;</span>
+<span class="nc" id="L129">        SchedulerException ex = new SchedulerException(msg, cause);</span>
+<span class="nc" id="L130">        return ex;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns the name of the &lt;code&gt;Scheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public String getSchedulerName() throws SchedulerException {
+        try {
+<span class="nc" id="L140">            return getRemoteScheduler().getSchedulerName();</span>
+<span class="nc" id="L141">        } catch (RemoteException re) {</span>
+<span class="nc" id="L142">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns the instance Id of the &lt;code&gt;Scheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public String getSchedulerInstanceId() throws SchedulerException {
+        try {
+<span class="nc" id="L154">            return getRemoteScheduler().getSchedulerInstanceId();</span>
+<span class="nc" id="L155">        } catch (RemoteException re) {</span>
+<span class="nc" id="L156">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    public SchedulerMetaData getMetaData() throws SchedulerException {
+        try {
+<span class="nc" id="L163">            RemotableQuartzScheduler sched = getRemoteScheduler();</span>
+<span class="nc" id="L164">            return new SchedulerMetaData(getSchedulerName(),</span>
+<span class="nc" id="L165">                    getSchedulerInstanceId(), getClass(), true, isStarted(), </span>
+<span class="nc" id="L166">                    isInStandbyMode(), isShutdown(), sched.runningSince(), </span>
+<span class="nc" id="L167">                    sched.numJobsExecuted(), sched.getJobStoreClass(), </span>
+<span class="nc" id="L168">                    sched.supportsPersistence(), sched.isClustered(), sched.getThreadPoolClass(), </span>
+<span class="nc" id="L169">                    sched.getThreadPoolSize(), sched.getVersion());</span>
+
+<span class="nc" id="L171">        } catch (RemoteException re) {</span>
+<span class="nc" id="L172">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns the &lt;code&gt;SchedulerContext&lt;/code&gt; of the &lt;code&gt;Scheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public SchedulerContext getContext() throws SchedulerException {
+        try {
+<span class="nc" id="L185">            return getRemoteScheduler().getSchedulerContext();</span>
+<span class="nc" id="L186">        } catch (RemoteException re) {</span>
+<span class="nc" id="L187">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    ///
+    /// Schedululer State Management Methods
+    ///
+    ///////////////////////////////////////////////////////////////////////////
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void start() throws SchedulerException {
+        try {
+<span class="nc" id="L205">            getRemoteScheduler().start();</span>
+<span class="nc" id="L206">        } catch (RemoteException re) {</span>
+<span class="nc" id="L207">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L209">        }</span>
+<span class="nc" id="L210">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void startDelayed(int seconds) throws SchedulerException {
+        try {
+<span class="nc" id="L219">            getRemoteScheduler().startDelayed(seconds);</span>
+<span class="nc" id="L220">        } catch (RemoteException re) {</span>
+<span class="nc" id="L221">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L223">        }</span>
+<span class="nc" id="L224">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void standby() throws SchedulerException {
+        try {
+<span class="nc" id="L233">            getRemoteScheduler().standby();</span>
+<span class="nc" id="L234">        } catch (RemoteException re) {</span>
+<span class="nc" id="L235">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L237">        }</span>
+<span class="nc" id="L238">    }</span>
+
+    /**
+     * Whether the scheduler has been started.  
+     * 
+     * &lt;p&gt;
+     * Note: This only reflects whether &lt;code&gt;{@link #start()}&lt;/code&gt; has ever
+     * been called on this Scheduler, so it will return &lt;code&gt;true&lt;/code&gt; even 
+     * if the &lt;code&gt;Scheduler&lt;/code&gt; is currently in standby mode or has been 
+     * since shutdown.
+     * &lt;/p&gt;
+     * 
+     * @see #start()
+     * @see #isShutdown()
+     * @see #isInStandbyMode()
+     */    
+    public boolean isStarted() throws SchedulerException {
+        try {
+<span class="nc bnc" id="L256" title="All 2 branches missed.">            return (getRemoteScheduler().runningSince() != null);</span>
+<span class="nc" id="L257">        } catch (RemoteException re) {</span>
+<span class="nc" id="L258">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }   
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public boolean isInStandbyMode() throws SchedulerException {
+        try {
+<span class="nc" id="L270">            return getRemoteScheduler().isInStandbyMode();</span>
+<span class="nc" id="L271">        } catch (RemoteException re) {</span>
+<span class="nc" id="L272">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void shutdown() throws SchedulerException {
+        try {
+<span class="nc" id="L284">            String schedulerName = getSchedulerName();</span>
+            
+<span class="nc" id="L286">            getRemoteScheduler().shutdown();</span>
+            
+<span class="nc" id="L288">            SchedulerRepository.getInstance().remove(schedulerName);</span>
+<span class="nc" id="L289">        } catch (RemoteException re) {</span>
+<span class="nc" id="L290">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L292">        }</span>
+<span class="nc" id="L293">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void shutdown(boolean waitForJobsToComplete)
+        throws SchedulerException {
+        try {
+<span class="nc" id="L303">            String schedulerName = getSchedulerName();</span>
+            
+<span class="nc" id="L305">            getRemoteScheduler().shutdown(waitForJobsToComplete);</span>
+
+<span class="nc" id="L307">            SchedulerRepository.getInstance().remove(schedulerName);</span>
+<span class="nc" id="L308">        } catch (RemoteException re) {</span>
+<span class="nc" id="L309">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L311">        }</span>
+<span class="nc" id="L312">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public boolean isShutdown() throws SchedulerException {
+        try {
+<span class="nc" id="L321">            return getRemoteScheduler().isShutdown();</span>
+<span class="nc" id="L322">        } catch (RemoteException re) {</span>
+<span class="nc" id="L323">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public List&lt;JobExecutionContext&gt; getCurrentlyExecutingJobs() throws SchedulerException {
+        try {
+<span class="nc" id="L335">            return getRemoteScheduler().getCurrentlyExecutingJobs();</span>
+<span class="nc" id="L336">        } catch (RemoteException re) {</span>
+<span class="nc" id="L337">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    ///
+    /// Scheduling-related Methods
+    ///
+    ///////////////////////////////////////////////////////////////////////////
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public Date scheduleJob(JobDetail jobDetail, Trigger trigger)
+        throws SchedulerException {
+        try {
+<span class="nc" id="L356">            return getRemoteScheduler().scheduleJob(jobDetail,</span>
+                    trigger);
+<span class="nc" id="L358">        } catch (RemoteException re) {</span>
+<span class="nc" id="L359">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public Date scheduleJob(Trigger trigger) throws SchedulerException {
+        try {
+<span class="nc" id="L371">            return getRemoteScheduler().scheduleJob(trigger);</span>
+<span class="nc" id="L372">        } catch (RemoteException re) {</span>
+<span class="nc" id="L373">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void addJob(JobDetail jobDetail, boolean replace)
+        throws SchedulerException {
+        try {
+<span class="nc" id="L386">            getRemoteScheduler().addJob(jobDetail, replace);</span>
+<span class="nc" id="L387">        } catch (RemoteException re) {</span>
+<span class="nc" id="L388">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L390">        }</span>
+<span class="nc" id="L391">    }</span>
+
+    public void addJob(JobDetail jobDetail, boolean replace, boolean storeNonDurableWhileAwaitingScheduling)
+            throws SchedulerException {
+        try {
+<span class="nc" id="L396">            getRemoteScheduler().addJob(jobDetail, replace, storeNonDurableWhileAwaitingScheduling);</span>
+<span class="nc" id="L397">        } catch (RemoteException re) {</span>
+<span class="nc" id="L398">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L400">        }</span>
+<span class="nc" id="L401">    }</span>
+
+    public boolean deleteJobs(List&lt;JobKey&gt; jobKeys) throws SchedulerException {
+        try {
+<span class="nc" id="L405">            return getRemoteScheduler().deleteJobs(jobKeys);</span>
+<span class="nc" id="L406">        } catch (RemoteException re) {</span>
+<span class="nc" id="L407">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    public void scheduleJobs(Map&lt;JobDetail, Set&lt;? extends Trigger&gt;&gt; triggersAndJobs, boolean replace) throws SchedulerException {
+            try {
+<span class="nc" id="L414">                getRemoteScheduler().scheduleJobs(triggersAndJobs, replace);</span>
+<span class="nc" id="L415">            } catch (RemoteException re) {</span>
+<span class="nc" id="L416">                throw invalidateHandleCreateException(</span>
+                        &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L418">            }</span>
+<span class="nc" id="L419">    }</span>
+    
+    public void scheduleJob(JobDetail jobDetail, Set&lt;? extends Trigger&gt; triggersForJob, boolean replace) throws SchedulerException {
+        try {
+<span class="nc" id="L423">            getRemoteScheduler().scheduleJob(jobDetail, triggersForJob, replace);</span>
+<span class="nc" id="L424">        } catch (RemoteException re) {</span>
+<span class="nc" id="L425">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L427">        }</span>
+<span class="nc" id="L428">    }</span>
+
+    public boolean unscheduleJobs(List&lt;TriggerKey&gt; triggerKeys)
+            throws SchedulerException {
+        try {
+<span class="nc" id="L433">            return getRemoteScheduler().unscheduleJobs(triggerKeys);</span>
+<span class="nc" id="L434">        } catch (RemoteException re) {</span>
+<span class="nc" id="L435">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public boolean deleteJob(JobKey jobKey)
+        throws SchedulerException {
+        try {
+<span class="nc" id="L448">            return getRemoteScheduler()</span>
+<span class="nc" id="L449">                    .deleteJob(jobKey);</span>
+<span class="nc" id="L450">        } catch (RemoteException re) {</span>
+<span class="nc" id="L451">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public boolean unscheduleJob(TriggerKey triggerKey)
+        throws SchedulerException {
+        try {
+<span class="nc" id="L464">            return getRemoteScheduler().unscheduleJob(triggerKey);</span>
+<span class="nc" id="L465">        } catch (RemoteException re) {</span>
+<span class="nc" id="L466">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public Date rescheduleJob(TriggerKey triggerKey,
+            Trigger newTrigger) throws SchedulerException {
+        try {
+<span class="nc" id="L479">            return getRemoteScheduler().rescheduleJob(triggerKey,</span>
+                    newTrigger);
+<span class="nc" id="L481">        } catch (RemoteException re) {</span>
+<span class="nc" id="L482">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+    
+    
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void triggerJob(JobKey jobKey)
+        throws SchedulerException {
+<span class="nc" id="L495">        triggerJob(jobKey, null);</span>
+<span class="nc" id="L496">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void triggerJob(JobKey jobKey, JobDataMap data)
+        throws SchedulerException {
+        try {
+<span class="nc" id="L506">            getRemoteScheduler().triggerJob(jobKey, data);</span>
+<span class="nc" id="L507">        } catch (RemoteException re) {</span>
+<span class="nc" id="L508">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L510">        }</span>
+<span class="nc" id="L511">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void pauseTrigger(TriggerKey triggerKey)
+        throws SchedulerException {
+        try {
+<span class="nc" id="L521">            getRemoteScheduler()</span>
+<span class="nc" id="L522">                    .pauseTrigger(triggerKey);</span>
+<span class="nc" id="L523">        } catch (RemoteException re) {</span>
+<span class="nc" id="L524">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L526">        }</span>
+<span class="nc" id="L527">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void pauseTriggers(GroupMatcher&lt;TriggerKey&gt; matcher) throws SchedulerException {
+        try {
+<span class="nc" id="L536">            getRemoteScheduler().pauseTriggers(matcher);</span>
+<span class="nc" id="L537">        } catch (RemoteException re) {</span>
+<span class="nc" id="L538">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L540">        }</span>
+<span class="nc" id="L541">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void pauseJob(JobKey jobKey)
+        throws SchedulerException {
+        try {
+<span class="nc" id="L551">            getRemoteScheduler().pauseJob(jobKey);</span>
+<span class="nc" id="L552">        } catch (RemoteException re) {</span>
+<span class="nc" id="L553">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L555">        }</span>
+<span class="nc" id="L556">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void pauseJobs(GroupMatcher&lt;JobKey&gt; matcher) throws SchedulerException {
+        try {
+<span class="nc" id="L565">            getRemoteScheduler().pauseJobs(matcher);</span>
+<span class="nc" id="L566">        } catch (RemoteException re) {</span>
+<span class="nc" id="L567">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L569">        }</span>
+<span class="nc" id="L570">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void resumeTrigger(TriggerKey triggerKey)
+        throws SchedulerException {
+        try {
+<span class="nc" id="L580">            getRemoteScheduler().resumeTrigger(triggerKey);</span>
+<span class="nc" id="L581">        } catch (RemoteException re) {</span>
+<span class="nc" id="L582">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L584">        }</span>
+<span class="nc" id="L585">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void resumeTriggers(GroupMatcher&lt;TriggerKey&gt; matcher) throws SchedulerException {
+        try {
+<span class="nc" id="L594">            getRemoteScheduler().resumeTriggers(matcher);</span>
+<span class="nc" id="L595">        } catch (RemoteException re) {</span>
+<span class="nc" id="L596">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L598">        }</span>
+<span class="nc" id="L599">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void resumeJob(JobKey jobKey)
+        throws SchedulerException {
+        try {
+<span class="nc" id="L609">            getRemoteScheduler().resumeJob(jobKey);</span>
+<span class="nc" id="L610">        } catch (RemoteException re) {</span>
+<span class="nc" id="L611">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L613">        }</span>
+<span class="nc" id="L614">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void resumeJobs(GroupMatcher&lt;JobKey&gt; matcher) throws SchedulerException {
+        try {
+<span class="nc" id="L623">            getRemoteScheduler().resumeJobs(matcher);</span>
+<span class="nc" id="L624">        } catch (RemoteException re) {</span>
+<span class="nc" id="L625">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L627">        }</span>
+<span class="nc" id="L628">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void pauseAll() throws SchedulerException {
+        try {
+<span class="nc" id="L637">            getRemoteScheduler().pauseAll();</span>
+<span class="nc" id="L638">        } catch (RemoteException re) {</span>
+<span class="nc" id="L639">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L641">        }</span>
+<span class="nc" id="L642">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void resumeAll() throws SchedulerException {
+        try {
+<span class="nc" id="L651">            getRemoteScheduler().resumeAll();</span>
+<span class="nc" id="L652">        } catch (RemoteException re) {</span>
+<span class="nc" id="L653">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L655">        }</span>
+<span class="nc" id="L656">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public List&lt;String&gt; getJobGroupNames() throws SchedulerException {
+        try {
+<span class="nc" id="L665">            return getRemoteScheduler().getJobGroupNames();</span>
+<span class="nc" id="L666">        } catch (RemoteException re) {</span>
+<span class="nc" id="L667">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public Set&lt;JobKey&gt; getJobKeys(GroupMatcher&lt;JobKey&gt; matcher) throws SchedulerException {
+        try {
+<span class="nc" id="L679">            return getRemoteScheduler().getJobKeys(matcher);</span>
+<span class="nc" id="L680">        } catch (RemoteException re) {</span>
+<span class="nc" id="L681">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public List&lt;? extends Trigger&gt; getTriggersOfJob(JobKey jobKey)
+        throws SchedulerException {
+        try {
+<span class="nc" id="L694">            return getRemoteScheduler().getTriggersOfJob(jobKey);</span>
+<span class="nc" id="L695">        } catch (RemoteException re) {</span>
+<span class="nc" id="L696">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public List&lt;String&gt; getTriggerGroupNames() throws SchedulerException {
+        try {
+<span class="nc" id="L708">            return getRemoteScheduler().getTriggerGroupNames();</span>
+<span class="nc" id="L709">        } catch (RemoteException re) {</span>
+<span class="nc" id="L710">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public Set&lt;TriggerKey&gt; getTriggerKeys(GroupMatcher&lt;TriggerKey&gt; matcher) throws SchedulerException {
+        try {
+<span class="nc" id="L722">            return getRemoteScheduler().getTriggerKeys(matcher);</span>
+<span class="nc" id="L723">        } catch (RemoteException re) {</span>
+<span class="nc" id="L724">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public JobDetail getJobDetail(JobKey jobKey)
+        throws SchedulerException {
+        try {
+<span class="nc" id="L737">            return getRemoteScheduler().getJobDetail(jobKey);</span>
+<span class="nc" id="L738">        } catch (RemoteException re) {</span>
+<span class="nc" id="L739">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public boolean checkExists(JobKey jobKey) throws SchedulerException {
+        try {
+<span class="nc" id="L751">            return getRemoteScheduler().checkExists(jobKey);</span>
+<span class="nc" id="L752">        } catch (RemoteException re) {</span>
+<span class="nc" id="L753">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+   
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public boolean checkExists(TriggerKey triggerKey) throws SchedulerException {
+        try {
+<span class="nc" id="L765">            return getRemoteScheduler().checkExists(triggerKey);</span>
+<span class="nc" id="L766">        } catch (RemoteException re) {</span>
+<span class="nc" id="L767">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+  
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void clear() throws SchedulerException {
+        try {
+<span class="nc" id="L779">            getRemoteScheduler().clear();</span>
+<span class="nc" id="L780">        } catch (RemoteException re) {</span>
+<span class="nc" id="L781">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L783">        }</span>
+<span class="nc" id="L784">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public Trigger getTrigger(TriggerKey triggerKey)
+        throws SchedulerException {
+        try {
+<span class="nc" id="L794">            return getRemoteScheduler().getTrigger(triggerKey);</span>
+<span class="nc" id="L795">        } catch (RemoteException re) {</span>
+<span class="nc" id="L796">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public TriggerState getTriggerState(TriggerKey triggerKey)
+        throws SchedulerException {
+        try {
+<span class="nc" id="L809">            return getRemoteScheduler().getTriggerState(triggerKey);</span>
+<span class="nc" id="L810">        } catch (RemoteException re) {</span>
+<span class="nc" id="L811">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void resetTriggerFromErrorState(TriggerKey triggerKey)
+            throws SchedulerException {
+        try {
+<span class="nc" id="L824">            getRemoteScheduler().resetTriggerFromErrorState(triggerKey);</span>
+<span class="nc" id="L825">        } catch (RemoteException re) {</span>
+<span class="nc" id="L826">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L828">        }</span>
+<span class="nc" id="L829">    }</span>
+
+
+
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void addCalendar(String calName, Calendar calendar, boolean replace, boolean updateTriggers)
+        throws SchedulerException {
+        try {
+<span class="nc" id="L842">            getRemoteScheduler().addCalendar(calName, calendar,</span>
+                    replace, updateTriggers);
+<span class="nc" id="L844">        } catch (RemoteException re) {</span>
+<span class="nc" id="L845">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+<span class="nc" id="L847">        }</span>
+<span class="nc" id="L848">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public boolean deleteCalendar(String calName) throws SchedulerException {
+        try {
+<span class="nc" id="L857">            return getRemoteScheduler().deleteCalendar(calName);</span>
+<span class="nc" id="L858">        } catch (RemoteException re) {</span>
+<span class="nc" id="L859">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public Calendar getCalendar(String calName) throws SchedulerException {
+        try {
+<span class="nc" id="L871">            return getRemoteScheduler().getCalendar(calName);</span>
+<span class="nc" id="L872">        } catch (RemoteException re) {</span>
+<span class="nc" id="L873">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Calls the equivalent method on the 'proxied' &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public List&lt;String&gt; getCalendarNames() throws SchedulerException {
+        try {
+<span class="nc" id="L885">            return getRemoteScheduler().getCalendarNames();</span>
+<span class="nc" id="L886">        } catch (RemoteException re) {</span>
+<span class="nc" id="L887">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+    /** 
+     * @see org.quartz.Scheduler#getPausedTriggerGroups()
+     */
+    public Set&lt;String&gt; getPausedTriggerGroups() throws SchedulerException {
+        try {
+<span class="nc" id="L897">            return getRemoteScheduler().getPausedTriggerGroups();</span>
+<span class="nc" id="L898">        } catch (RemoteException re) {</span>
+<span class="nc" id="L899">            throw invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re);
+        }
+    }
+
+
+    ///////////////////////////////////////////////////////////////////////////
+    ///
+    /// Other Methods
+    ///
+    ///////////////////////////////////////////////////////////////////////////
+
+
+    public ListenerManager getListenerManager() throws SchedulerException {
+<span class="nc" id="L913">        throw new SchedulerException(</span>
+            &quot;Operation not supported for remote schedulers.&quot;);
+    }
+
+    /**
+     * @see org.quartz.Scheduler#interrupt(JobKey)
+     */
+    public boolean interrupt(JobKey jobKey) throws UnableToInterruptJobException  {
+        try {
+<span class="nc" id="L922">            return getRemoteScheduler().interrupt(jobKey);</span>
+<span class="nc" id="L923">        } catch (RemoteException re) {</span>
+<span class="nc" id="L924">            throw new UnableToInterruptJobException(invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re));
+<span class="nc" id="L926">        } catch (SchedulerException se) {</span>
+<span class="nc" id="L927">            throw new UnableToInterruptJobException(se);</span>
+        }
+    }
+
+    public boolean interrupt(String fireInstanceId) throws UnableToInterruptJobException {
+        try {
+<span class="nc" id="L933">            return getRemoteScheduler().interrupt(fireInstanceId);</span>
+<span class="nc" id="L934">        } catch (RemoteException re) {</span>
+<span class="nc" id="L935">            throw new UnableToInterruptJobException(invalidateHandleCreateException(</span>
+                    &quot;Error communicating with remote scheduler.&quot;, re));
+<span class="nc" id="L937">        } catch (SchedulerException se) {</span>
+<span class="nc" id="L938">            throw new UnableToInterruptJobException(se);</span>
+        }
+    }
+
+    /**
+     * @see org.quartz.Scheduler#setJobFactory(org.quartz.spi.JobFactory)
+     */
+    public void setJobFactory(JobFactory factory) throws SchedulerException {
+<span class="nc" id="L946">        throw new SchedulerException(</span>
+                &quot;Operation not supported for remote schedulers.&quot;);
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

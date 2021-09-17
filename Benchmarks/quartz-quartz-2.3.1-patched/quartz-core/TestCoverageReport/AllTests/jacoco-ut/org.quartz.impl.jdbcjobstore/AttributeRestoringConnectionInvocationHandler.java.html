@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AttributeRestoringConnectionInvocationHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.jdbcjobstore</a> &gt; <span class="el_source">AttributeRestoringConnectionInvocationHandler.java</span></div><h1>AttributeRestoringConnectionInvocationHandler.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ */
+package org.quartz.impl.jdbcjobstore;
+
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.sql.Connection;
+import java.sql.SQLException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * &lt;p&gt;
+ * Protects a &lt;code&gt;{@link java.sql.Connection}&lt;/code&gt;'s attributes from being permanently modfied.
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * Wraps a provided &lt;code&gt;{@link java.sql.Connection}&lt;/code&gt; such that its auto 
+ * commit and transaction isolation attributes can be overwritten, but 
+ * will automatically restored to their original values when the connection
+ * is actually closed (and potentially returned to a pool for reuse).
+ * &lt;/p&gt;
+ * 
+ * @see org.quartz.impl.jdbcjobstore.JobStoreSupport#getConnection()
+ * @see org.quartz.impl.jdbcjobstore.JobStoreCMT#getNonManagedTXConnection()
+ */
+public class AttributeRestoringConnectionInvocationHandler implements InvocationHandler {
+    private Connection conn;
+    
+    private boolean overwroteOriginalAutoCommitValue;
+    private boolean overwroteOriginalTxIsolationValue;
+
+    // Set if overwroteOriginalAutoCommitValue is true
+    private boolean originalAutoCommitValue; 
+
+    // Set if overwroteOriginalTxIsolationValue is true
+    private int originalTxIsolationValue;
+    
+    public AttributeRestoringConnectionInvocationHandler(
+<span class="fc" id="L55">        Connection conn) {</span>
+<span class="fc" id="L56">        this.conn = conn;</span>
+<span class="fc" id="L57">    }</span>
+
+    protected Logger getLog() {
+<span class="fc" id="L60">        return LoggerFactory.getLogger(getClass());</span>
+    }
+    
+    public Object invoke(Object proxy, Method method, Object[] args)
+        throws Throwable {
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        if (method.getName().equals(&quot;setAutoCommit&quot;)) {</span>
+<span class="fc" id="L66">            setAutoCommit(((Boolean)args[0]).booleanValue());</span>
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">        } else if (method.getName().equals(&quot;setTransactionIsolation&quot;)) {</span>
+<span class="nc" id="L68">            setTransactionIsolation(((Integer)args[0]).intValue());</span>
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">        } else if (method.getName().equals(&quot;close&quot;)) {</span>
+<span class="nc" id="L70">            close();</span>
+        } else {
+            try {
+<span class="fc" id="L73">                return method.invoke(conn, args);</span>
+            }
+<span class="fc" id="L75">            catch(InvocationTargetException ite) {</span>
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">                throw (ite.getCause() != null ? ite.getCause() : ite);</span>
+            }
+            
+        }
+        
+<span class="fc" id="L81">        return null;</span>
+    }
+     
+    /**
+     * Sets this connection's auto-commit mode to the given state, saving
+     * the original mode.  The connection's original auto commit mode is restored
+     * when the connection is closed.
+     */
+    public void setAutoCommit(boolean autoCommit) throws SQLException {
+<span class="fc" id="L90">        boolean currentAutoCommitValue = conn.getAutoCommit();</span>
+            
+<span class="fc bfc" id="L92" title="All 2 branches covered.">        if (autoCommit != currentAutoCommitValue) {</span>
+<span class="pc bpc" id="L93" title="1 of 2 branches missed.">            if (overwroteOriginalAutoCommitValue == false) {</span>
+<span class="fc" id="L94">                overwroteOriginalAutoCommitValue = true;</span>
+<span class="fc" id="L95">                originalAutoCommitValue = currentAutoCommitValue;</span>
+            }
+            
+<span class="fc" id="L98">            conn.setAutoCommit(autoCommit);</span>
+        }
+<span class="fc" id="L100">    }</span>
+
+    /**
+     * Attempts to change the transaction isolation level to the given level, saving
+     * the original level.  The connection's original transaction isolation level is 
+     * restored when the connection is closed.
+     */
+    public void setTransactionIsolation(int level) throws SQLException {
+<span class="nc" id="L108">        int currentLevel = conn.getTransactionIsolation();</span>
+        
+<span class="nc bnc" id="L110" title="All 2 branches missed.">        if (level != currentLevel) {</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">            if (overwroteOriginalTxIsolationValue == false) {</span>
+<span class="nc" id="L112">                overwroteOriginalTxIsolationValue = true;</span>
+<span class="nc" id="L113">                originalTxIsolationValue = currentLevel;</span>
+            }
+            
+<span class="nc" id="L116">            conn.setTransactionIsolation(level);</span>
+        }
+<span class="nc" id="L118">    }</span>
+    
+    /**
+     * Gets the underlying connection to which all operations ultimately 
+     * defer.  This is provided in case a user ever needs to punch through 
+     * the wrapper to access vendor specific methods outside of the 
+     * standard &lt;code&gt;java.sql.Connection&lt;/code&gt; interface.
+     * 
+     * @return The underlying connection to which all operations
+     * ultimately defer.
+     */
+    public Connection getWrappedConnection() {
+<span class="fc" id="L130">        return conn;</span>
+    }
+
+    /**
+     * Attempts to restore the auto commit and transaction isolation connection
+     * attributes of the wrapped connection to their original values (if they
+     * were overwritten).
+     */
+    public void restoreOriginalAtributes() {
+        try {
+<span class="fc bfc" id="L140" title="All 2 branches covered.">            if (overwroteOriginalAutoCommitValue) {</span>
+<span class="fc" id="L141">                conn.setAutoCommit(originalAutoCommitValue);</span>
+            }
+<span class="fc" id="L143">        } catch (Throwable t) {</span>
+<span class="fc" id="L144">            getLog().warn(&quot;Failed restore connection's original auto commit setting.&quot;, t);</span>
+<span class="fc" id="L145">        }</span>
+        
+        try {    
+<span class="pc bpc" id="L148" title="1 of 2 branches missed.">            if (overwroteOriginalTxIsolationValue) {</span>
+<span class="nc" id="L149">                conn.setTransactionIsolation(originalTxIsolationValue);</span>
+            }
+<span class="nc" id="L151">        } catch (Throwable t) {</span>
+<span class="nc" id="L152">            getLog().warn(&quot;Failed restore connection's original transaction isolation setting.&quot;, t);</span>
+<span class="fc" id="L153">        }</span>
+<span class="fc" id="L154">    }</span>
+    
+    /**
+     * Attempts to restore the auto commit and transaction isolation connection
+     * attributes of the wrapped connection to their original values (if they
+     * were overwritten), before finally actually closing the wrapped connection.
+     */
+    public void close() throws SQLException {
+<span class="nc" id="L162">        restoreOriginalAtributes();</span>
+        
+<span class="nc" id="L164">        conn.close();</span>
+<span class="nc" id="L165">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

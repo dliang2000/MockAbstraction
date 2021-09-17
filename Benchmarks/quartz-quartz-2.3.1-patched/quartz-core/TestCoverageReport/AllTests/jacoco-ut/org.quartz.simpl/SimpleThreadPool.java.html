@@ -1,0 +1,619 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SimpleThreadPool.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.simpl</a> &gt; <span class="el_source">SimpleThreadPool.java</span></div><h1>SimpleThreadPool.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.simpl;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.quartz.SchedulerConfigException;
+import org.quartz.spi.ThreadPool;
+
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/**
+ * &lt;p&gt;
+ * This is class is a simple implementation of a thread pool, based on the
+ * &lt;code&gt;{@link org.quartz.spi.ThreadPool}&lt;/code&gt; interface.
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * &lt;CODE&gt;Runnable&lt;/CODE&gt; objects are sent to the pool with the &lt;code&gt;{@link #runInThread(Runnable)}&lt;/code&gt;
+ * method, which blocks until a &lt;code&gt;Thread&lt;/code&gt; becomes available.
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * The pool has a fixed number of &lt;code&gt;Thread&lt;/code&gt;s, and does not grow or
+ * shrink based on demand.
+ * &lt;/p&gt;
+ * 
+ * @author James House
+ * @author Juergen Donnerstag
+ */
+public class SimpleThreadPool implements ThreadPool {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+<span class="fc" id="L59">    private int count = -1;</span>
+
+<span class="fc" id="L61">    private int prio = Thread.NORM_PRIORITY;</span>
+
+<span class="fc" id="L63">    private boolean isShutdown = false;</span>
+<span class="fc" id="L64">    private boolean handoffPending = false;</span>
+
+<span class="fc" id="L66">    private boolean inheritLoader = false;</span>
+
+<span class="fc" id="L68">    private boolean inheritGroup = true;</span>
+
+<span class="fc" id="L70">    private boolean makeThreadsDaemons = false;</span>
+
+    private ThreadGroup threadGroup;
+
+<span class="fc" id="L74">    private final Object nextRunnableLock = new Object();</span>
+
+    private List&lt;WorkerThread&gt; workers;
+<span class="fc" id="L77">    private LinkedList&lt;WorkerThread&gt; availWorkers = new LinkedList&lt;WorkerThread&gt;();</span>
+<span class="fc" id="L78">    private LinkedList&lt;WorkerThread&gt; busyWorkers = new LinkedList&lt;WorkerThread&gt;();</span>
+
+    private String threadNamePrefix;
+
+<span class="fc" id="L82">    private final Logger log = LoggerFactory.getLogger(getClass());</span>
+    
+    private String schedulerInstanceName;
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Create a new (unconfigured) &lt;code&gt;SimpleThreadPool&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @see #setThreadCount(int)
+     * @see #setThreadPriority(int)
+     */
+<span class="fc" id="L102">    public SimpleThreadPool() {</span>
+<span class="fc" id="L103">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a new &lt;code&gt;SimpleThreadPool&lt;/code&gt; with the specified number
+     * of &lt;code&gt;Thread&lt;/code&gt; s that have the given priority.
+     * &lt;/p&gt;
+     * 
+     * @param threadCount
+     *          the number of worker &lt;code&gt;Threads&lt;/code&gt; in the pool, must
+     *          be &gt; 0.
+     * @param threadPriority
+     *          the thread priority for the worker threads.
+     * 
+     * @see java.lang.Thread
+     */
+<span class="fc" id="L119">    public SimpleThreadPool(int threadCount, int threadPriority) {</span>
+<span class="fc" id="L120">        setThreadCount(threadCount);</span>
+<span class="fc" id="L121">        setThreadPriority(threadPriority);</span>
+<span class="fc" id="L122">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public Logger getLog() {
+<span class="fc" id="L133">        return log;</span>
+    }
+
+    public int getPoolSize() {
+<span class="fc" id="L137">        return getThreadCount();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the number of worker threads in the pool - has no effect after
+     * &lt;code&gt;initialize()&lt;/code&gt; has been called.
+     * &lt;/p&gt;
+     */
+    public void setThreadCount(int count) {
+<span class="fc" id="L147">        this.count = count;</span>
+<span class="fc" id="L148">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the number of worker threads in the pool.
+     * &lt;/p&gt;
+     */
+    public int getThreadCount() {
+<span class="fc" id="L156">        return count;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the thread priority of worker threads in the pool - has no effect
+     * after &lt;code&gt;initialize()&lt;/code&gt; has been called.
+     * &lt;/p&gt;
+     */
+    public void setThreadPriority(int prio) {
+<span class="fc" id="L166">        this.prio = prio;</span>
+<span class="fc" id="L167">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the thread priority of worker threads in the pool.
+     * &lt;/p&gt;
+     */
+    public int getThreadPriority() {
+<span class="fc" id="L175">        return prio;</span>
+    }
+
+    public void setThreadNamePrefix(String prfx) {
+<span class="nc" id="L179">        this.threadNamePrefix = prfx;</span>
+<span class="nc" id="L180">    }</span>
+
+    public String getThreadNamePrefix() {
+<span class="fc" id="L183">        return threadNamePrefix;</span>
+    }
+
+    /**
+     * @return Returns the
+     *         threadsInheritContextClassLoaderOfInitializingThread.
+     */
+    public boolean isThreadsInheritContextClassLoaderOfInitializingThread() {
+<span class="fc" id="L191">        return inheritLoader;</span>
+    }
+
+    /**
+     * @param inheritLoader
+     *          The threadsInheritContextClassLoaderOfInitializingThread to
+     *          set.
+     */
+    public void setThreadsInheritContextClassLoaderOfInitializingThread(
+            boolean inheritLoader) {
+<span class="fc" id="L201">        this.inheritLoader = inheritLoader;</span>
+<span class="fc" id="L202">    }</span>
+
+    public boolean isThreadsInheritGroupOfInitializingThread() {
+<span class="fc" id="L205">        return inheritGroup;</span>
+    }
+
+    public void setThreadsInheritGroupOfInitializingThread(
+            boolean inheritGroup) {
+<span class="nc" id="L210">        this.inheritGroup = inheritGroup;</span>
+<span class="nc" id="L211">    }</span>
+
+
+    /**
+     * @return Returns the value of makeThreadsDaemons.
+     */
+    public boolean isMakeThreadsDaemons() {
+<span class="fc" id="L218">        return makeThreadsDaemons;</span>
+    }
+
+    /**
+     * @param makeThreadsDaemons
+     *          The value of makeThreadsDaemons to set.
+     */
+    public void setMakeThreadsDaemons(boolean makeThreadsDaemons) {
+<span class="nc" id="L226">        this.makeThreadsDaemons = makeThreadsDaemons;</span>
+<span class="nc" id="L227">    }</span>
+    
+    public void setInstanceId(String schedInstId) {
+<span class="fc" id="L230">    }</span>
+
+    public void setInstanceName(String schedName) {
+<span class="fc" id="L233">        schedulerInstanceName = schedName;</span>
+<span class="fc" id="L234">    }</span>
+
+    public void initialize() throws SchedulerConfigException {
+
+<span class="pc bpc" id="L238" title="1 of 4 branches missed.">        if(workers != null &amp;&amp; workers.size() &gt; 0) // already initialized...</span>
+<span class="fc" id="L239">            return;</span>
+        
+<span class="pc bpc" id="L241" title="1 of 2 branches missed.">        if (count &lt;= 0) {</span>
+<span class="nc" id="L242">            throw new SchedulerConfigException(</span>
+                    &quot;Thread count must be &gt; 0&quot;);
+        }
+<span class="pc bpc" id="L245" title="2 of 4 branches missed.">        if (prio &lt;= 0 || prio &gt; 9) {</span>
+<span class="nc" id="L246">            throw new SchedulerConfigException(</span>
+                    &quot;Thread priority must be &gt; 0 and &lt;= 9&quot;);
+        }
+
+<span class="pc bpc" id="L250" title="1 of 2 branches missed.">        if(isThreadsInheritGroupOfInitializingThread()) {</span>
+<span class="fc" id="L251">            threadGroup = Thread.currentThread().getThreadGroup();</span>
+        } else {
+            // follow the threadGroup tree to the root thread group.
+<span class="nc" id="L254">            threadGroup = Thread.currentThread().getThreadGroup();</span>
+<span class="nc" id="L255">            ThreadGroup parent = threadGroup;</span>
+<span class="nc bnc" id="L256" title="All 2 branches missed.">            while ( !parent.getName().equals(&quot;main&quot;) ) {</span>
+<span class="nc" id="L257">                threadGroup = parent;</span>
+<span class="nc" id="L258">                parent = threadGroup.getParent();</span>
+            }
+<span class="nc" id="L260">            threadGroup = new ThreadGroup(parent, schedulerInstanceName + &quot;-SimpleThreadPool&quot;);</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">            if (isMakeThreadsDaemons()) {</span>
+<span class="nc" id="L262">                threadGroup.setDaemon(true);</span>
+            }
+        }
+
+
+<span class="fc bfc" id="L267" title="All 2 branches covered.">        if (isThreadsInheritContextClassLoaderOfInitializingThread()) {</span>
+<span class="fc" id="L268">            getLog().info(</span>
+                    &quot;Job execution threads will use class loader of thread: &quot;
+<span class="fc" id="L270">                            + Thread.currentThread().getName());</span>
+        }
+
+        // create the worker threads and start them
+<span class="fc" id="L274">        Iterator&lt;WorkerThread&gt; workerThreads = createWorkerThreads(count).iterator();</span>
+<span class="fc bfc" id="L275" title="All 2 branches covered.">        while(workerThreads.hasNext()) {</span>
+<span class="fc" id="L276">            WorkerThread wt = workerThreads.next();</span>
+<span class="fc" id="L277">            wt.start();</span>
+<span class="fc" id="L278">            availWorkers.add(wt);</span>
+<span class="fc" id="L279">        }</span>
+<span class="fc" id="L280">    }</span>
+
+    protected List&lt;WorkerThread&gt; createWorkerThreads(int createCount) {
+<span class="fc" id="L283">        workers = new LinkedList&lt;WorkerThread&gt;();</span>
+<span class="fc bfc" id="L284" title="All 2 branches covered.">        for (int i = 1; i&lt;= createCount; ++i) {</span>
+<span class="fc" id="L285">            String threadPrefix = getThreadNamePrefix();</span>
+<span class="pc bpc" id="L286" title="1 of 2 branches missed.">            if (threadPrefix == null) {</span>
+<span class="fc" id="L287">                threadPrefix = schedulerInstanceName + &quot;_Worker&quot;;</span>
+            }
+<span class="fc" id="L289">            WorkerThread wt = new WorkerThread(this, threadGroup,</span>
+                threadPrefix + &quot;-&quot; + i,
+<span class="fc" id="L291">                getThreadPriority(),</span>
+<span class="fc" id="L292">                isMakeThreadsDaemons());</span>
+<span class="fc bfc" id="L293" title="All 2 branches covered.">            if (isThreadsInheritContextClassLoaderOfInitializingThread()) {</span>
+<span class="fc" id="L294">                wt.setContextClassLoader(Thread.currentThread()</span>
+<span class="fc" id="L295">                        .getContextClassLoader());</span>
+            }
+<span class="fc" id="L297">            workers.add(wt);</span>
+        }
+
+<span class="fc" id="L300">        return workers;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Terminate any worker threads in this thread group.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Jobs currently in progress will complete.
+     * &lt;/p&gt;
+     */
+    public void shutdown() {
+<span class="nc" id="L313">        shutdown(true);</span>
+<span class="nc" id="L314">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Terminate any worker threads in this thread group.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Jobs currently in progress will complete.
+     * &lt;/p&gt;
+     */
+    public void shutdown(boolean waitForJobsToComplete) {
+
+<span class="fc" id="L327">        synchronized (nextRunnableLock) {</span>
+<span class="fc" id="L328">            getLog().debug(&quot;Shutting down threadpool...&quot;);</span>
+
+<span class="fc" id="L330">            isShutdown = true;</span>
+
+<span class="pc bpc" id="L332" title="1 of 2 branches missed.">            if(workers == null) // case where the pool wasn't even initialize()ed</span>
+<span class="nc" id="L333">                return;</span>
+
+            // signal each worker thread to shut down
+<span class="fc" id="L336">            Iterator&lt;WorkerThread&gt; workerThreads = workers.iterator();</span>
+<span class="fc bfc" id="L337" title="All 2 branches covered.">            while(workerThreads.hasNext()) {</span>
+<span class="fc" id="L338">                WorkerThread wt = workerThreads.next();</span>
+<span class="fc" id="L339">                wt.shutdown();</span>
+<span class="fc" id="L340">                availWorkers.remove(wt);</span>
+<span class="fc" id="L341">            }</span>
+
+            // Give waiting (wait(1000)) worker threads a chance to shut down.
+            // Active worker threads will shut down after finishing their
+            // current job.
+<span class="fc" id="L346">            nextRunnableLock.notifyAll();</span>
+
+<span class="fc bfc" id="L348" title="All 2 branches covered.">            if (waitForJobsToComplete == true) {</span>
+
+<span class="fc" id="L350">                boolean interrupted = false;</span>
+                try {
+                    // wait for hand-off in runInThread to complete...
+<span class="pc bpc" id="L353" title="1 of 2 branches missed.">                    while(handoffPending) {</span>
+                        try {
+<span class="nc" id="L355">                            nextRunnableLock.wait(100);</span>
+<span class="nc" id="L356">                        } catch(InterruptedException _) {</span>
+<span class="nc" id="L357">                            interrupted = true;</span>
+<span class="nc" id="L358">                        }</span>
+                    }
+
+                    // Wait until all worker threads are shut down
+<span class="fc bfc" id="L362" title="All 2 branches covered.">                    while (busyWorkers.size() &gt; 0) {</span>
+<span class="fc" id="L363">                        WorkerThread wt = (WorkerThread) busyWorkers.getFirst();</span>
+                        try {
+<span class="fc" id="L365">                            getLog().debug(</span>
+<span class="fc" id="L366">                                    &quot;Waiting for thread &quot; + wt.getName()</span>
+                                            + &quot; to shut down&quot;);
+
+                            // note: with waiting infinite time the
+                            // application may appear to 'hang'.
+<span class="fc" id="L371">                            nextRunnableLock.wait(2000);</span>
+<span class="nc" id="L372">                        } catch (InterruptedException _) {</span>
+<span class="nc" id="L373">                            interrupted = true;</span>
+<span class="fc" id="L374">                        }</span>
+<span class="fc" id="L375">                    }</span>
+
+<span class="fc" id="L377">                    workerThreads = workers.iterator();</span>
+<span class="fc bfc" id="L378" title="All 2 branches covered.">                    while(workerThreads.hasNext()) {</span>
+<span class="fc" id="L379">                        WorkerThread wt = (WorkerThread) workerThreads.next();</span>
+                        try {
+<span class="fc" id="L381">                            wt.join();</span>
+<span class="fc" id="L382">                            workerThreads.remove();</span>
+<span class="nc" id="L383">                        } catch (InterruptedException _) {</span>
+<span class="nc" id="L384">                            interrupted = true;</span>
+<span class="fc" id="L385">                        }</span>
+<span class="fc" id="L386">                    }</span>
+                } finally {
+<span class="pc bpc" id="L388" title="1 of 2 branches missed.">                    if (interrupted) {</span>
+<span class="nc" id="L389">                        Thread.currentThread().interrupt();</span>
+                    }
+                }
+
+<span class="fc" id="L393">                getLog().debug(&quot;No executing jobs remaining, all threads stopped.&quot;);</span>
+            }
+<span class="fc" id="L395">            getLog().debug(&quot;Shutdown of threadpool complete.&quot;);</span>
+<span class="fc" id="L396">        }</span>
+<span class="fc" id="L397">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Run the given &lt;code&gt;Runnable&lt;/code&gt; object in the next available
+     * &lt;code&gt;Thread&lt;/code&gt;. If while waiting the thread pool is asked to
+     * shut down, the Runnable is executed immediately within a new additional
+     * thread.
+     * &lt;/p&gt;
+     * 
+     * @param runnable
+     *          the &lt;code&gt;Runnable&lt;/code&gt; to be added.
+     */
+    public boolean runInThread(Runnable runnable) {
+<span class="pc bpc" id="L411" title="1 of 2 branches missed.">        if (runnable == null) {</span>
+<span class="nc" id="L412">            return false;</span>
+        }
+
+<span class="fc" id="L415">        synchronized (nextRunnableLock) {</span>
+
+<span class="fc" id="L417">            handoffPending = true;</span>
+
+            // Wait until a worker thread is available
+<span class="pc bpc" id="L420" title="3 of 4 branches missed.">            while ((availWorkers.size() &lt; 1) &amp;&amp; !isShutdown) {</span>
+                try {
+<span class="nc" id="L422">                    nextRunnableLock.wait(500);</span>
+<span class="nc" id="L423">                } catch (InterruptedException ignore) {</span>
+<span class="nc" id="L424">                }</span>
+            }
+
+<span class="pc bpc" id="L427" title="1 of 2 branches missed.">            if (!isShutdown) {</span>
+<span class="fc" id="L428">                WorkerThread wt = (WorkerThread)availWorkers.removeFirst();</span>
+<span class="fc" id="L429">                busyWorkers.add(wt);</span>
+<span class="fc" id="L430">                wt.run(runnable);</span>
+<span class="fc" id="L431">            } else {</span>
+                // If the thread pool is going down, execute the Runnable
+                // within a new additional worker thread (no thread from the pool).
+<span class="nc" id="L434">                WorkerThread wt = new WorkerThread(this, threadGroup,</span>
+<span class="nc" id="L435">                        &quot;WorkerThread-LastJob&quot;, prio, isMakeThreadsDaemons(), runnable);</span>
+<span class="nc" id="L436">                busyWorkers.add(wt);</span>
+<span class="nc" id="L437">                workers.add(wt);</span>
+<span class="nc" id="L438">                wt.start();</span>
+            }
+<span class="fc" id="L440">            nextRunnableLock.notifyAll();</span>
+<span class="fc" id="L441">            handoffPending = false;</span>
+<span class="fc" id="L442">        }</span>
+
+<span class="fc" id="L444">        return true;</span>
+    }
+
+    public int blockForAvailableThreads() {
+<span class="fc" id="L448">        synchronized(nextRunnableLock) {</span>
+
+<span class="pc bpc" id="L450" title="1 of 6 branches missed.">            while((availWorkers.size() &lt; 1 || handoffPending) &amp;&amp; !isShutdown) {</span>
+                try {
+<span class="fc" id="L452">                    nextRunnableLock.wait(500);</span>
+<span class="nc" id="L453">                } catch (InterruptedException ignore) {</span>
+<span class="pc" id="L454">                }</span>
+            }
+
+<span class="fc" id="L457">            return availWorkers.size();</span>
+        }
+    }
+
+    protected void makeAvailable(WorkerThread wt) {
+<span class="fc" id="L462">        synchronized(nextRunnableLock) {</span>
+<span class="fc bfc" id="L463" title="All 2 branches covered.">            if(!isShutdown) {</span>
+<span class="fc" id="L464">                availWorkers.add(wt);</span>
+            }
+<span class="fc" id="L466">            busyWorkers.remove(wt);</span>
+<span class="fc" id="L467">            nextRunnableLock.notifyAll();</span>
+<span class="fc" id="L468">        }</span>
+<span class="fc" id="L469">    }</span>
+
+    protected void clearFromBusyWorkersList(WorkerThread wt) {
+<span class="nc" id="L472">        synchronized(nextRunnableLock) {</span>
+<span class="nc" id="L473">            busyWorkers.remove(wt);</span>
+<span class="nc" id="L474">            nextRunnableLock.notifyAll();</span>
+<span class="nc" id="L475">        }</span>
+<span class="nc" id="L476">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * WorkerThread Class.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * A Worker loops, waiting to execute tasks.
+     * &lt;/p&gt;
+     */
+    class WorkerThread extends Thread {
+
+<span class="fc" id="L493">        private final Object lock = new Object();</span>
+
+        // A flag that signals the WorkerThread to terminate.
+<span class="fc" id="L496">        private AtomicBoolean run = new AtomicBoolean(true);</span>
+
+        private SimpleThreadPool tp;
+
+<span class="fc" id="L500">        private Runnable runnable = null;</span>
+        
+<span class="fc" id="L502">        private boolean runOnce = false;</span>
+
+        /**
+         * &lt;p&gt;
+         * Create a worker thread and start it. Waiting for the next Runnable,
+         * executing it, and waiting for the next Runnable, until the shutdown
+         * flag is set.
+         * &lt;/p&gt;
+         */
+        WorkerThread(SimpleThreadPool tp, ThreadGroup threadGroup, String name,
+                     int prio, boolean isDaemon) {
+
+<span class="fc" id="L514">            this(tp, threadGroup, name, prio, isDaemon, null);</span>
+<span class="fc" id="L515">        }</span>
+
+        /**
+         * &lt;p&gt;
+         * Create a worker thread, start it, execute the runnable and terminate
+         * the thread (one time execution).
+         * &lt;/p&gt;
+         */
+        WorkerThread(SimpleThreadPool tp, ThreadGroup threadGroup, String name,
+<span class="fc" id="L524">                     int prio, boolean isDaemon, Runnable runnable) {</span>
+
+<span class="fc" id="L526">            super(threadGroup, name);</span>
+<span class="fc" id="L527">            this.tp = tp;</span>
+<span class="fc" id="L528">            this.runnable = runnable;</span>
+<span class="pc bpc" id="L529" title="1 of 2 branches missed.">            if(runnable != null)</span>
+<span class="nc" id="L530">                runOnce = true;</span>
+<span class="fc" id="L531">            setPriority(prio);</span>
+<span class="fc" id="L532">            setDaemon(isDaemon);</span>
+<span class="fc" id="L533">        }</span>
+
+        /**
+         * &lt;p&gt;
+         * Signal the thread that it should terminate.
+         * &lt;/p&gt;
+         */
+        void shutdown() {
+<span class="fc" id="L541">            run.set(false);</span>
+<span class="fc" id="L542">        }</span>
+
+        public void run(Runnable newRunnable) {
+<span class="fc" id="L545">            synchronized(lock) {</span>
+<span class="pc bpc" id="L546" title="1 of 2 branches missed.">                if(runnable != null) {</span>
+<span class="nc" id="L547">                    throw new IllegalStateException(&quot;Already running a Runnable!&quot;);</span>
+                }
+
+<span class="fc" id="L550">                runnable = newRunnable;</span>
+<span class="fc" id="L551">                lock.notifyAll();</span>
+<span class="fc" id="L552">            }</span>
+<span class="fc" id="L553">        }</span>
+
+        /**
+         * &lt;p&gt;
+         * Loop, executing targets as they are received.
+         * &lt;/p&gt;
+         */
+        @Override
+        public void run() {
+<span class="fc" id="L562">            boolean ran = false;</span>
+            
+<span class="fc bfc" id="L564" title="All 2 branches covered.">            while (run.get()) {</span>
+                try {
+<span class="fc" id="L566">                    synchronized(lock) {</span>
+<span class="fc bfc" id="L567" title="All 4 branches covered.">                        while (runnable == null &amp;&amp; run.get()) {</span>
+<span class="fc" id="L568">                            lock.wait(500);</span>
+                        }
+
+<span class="fc bfc" id="L571" title="All 2 branches covered.">                        if (runnable != null) {</span>
+<span class="fc" id="L572">                            ran = true;</span>
+<span class="fc" id="L573">                            runnable.run();</span>
+                        }
+<span class="fc" id="L575">                    }</span>
+<span class="nc" id="L576">                } catch (InterruptedException unblock) {</span>
+                    // do nothing (loop will terminate if shutdown() was called
+                    try {
+<span class="nc" id="L579">                        getLog().error(&quot;Worker thread was interrupt()'ed.&quot;, unblock);</span>
+<span class="nc" id="L580">                    } catch(Exception e) {</span>
+                        // ignore to help with a tomcat glitch
+<span class="nc" id="L582">                    }</span>
+<span class="fc" id="L583">                } catch (Throwable exceptionInRunnable) {</span>
+                    try {
+<span class="fc" id="L585">                        getLog().error(&quot;Error while executing the Runnable: &quot;,</span>
+                            exceptionInRunnable);
+<span class="nc" id="L587">                    } catch(Exception e) {</span>
+                        // ignore to help with a tomcat glitch
+<span class="fc" id="L589">                    }</span>
+                } finally {
+<span class="fc" id="L591">                    synchronized(lock) {</span>
+<span class="fc" id="L592">                        runnable = null;</span>
+<span class="fc" id="L593">                    }</span>
+                    // repair the thread in case the runnable mucked it up...
+<span class="pc bpc" id="L595" title="1 of 2 branches missed.">                    if(getPriority() != tp.getThreadPriority()) {</span>
+<span class="nc" id="L596">                        setPriority(tp.getThreadPriority());</span>
+                    }
+
+<span class="pc bpc" id="L599" title="1 of 2 branches missed.">                    if (runOnce) {</span>
+<span class="nc" id="L600">                           run.set(false);</span>
+<span class="nc" id="L601">                        clearFromBusyWorkersList(this);</span>
+<span class="fc bfc" id="L602" title="All 2 branches covered.">                    } else if(ran) {</span>
+<span class="fc" id="L603">                        ran = false;</span>
+<span class="fc" id="L604">                        makeAvailable(this);</span>
+                    }
+
+<span class="fc" id="L607">                }</span>
+            }
+
+            //if (log.isDebugEnabled())
+            try {
+<span class="fc" id="L612">                getLog().debug(&quot;WorkerThread is shut down.&quot;);</span>
+<span class="nc" id="L613">            } catch(Exception e) {</span>
+                // ignore to help with a tomcat glitch
+<span class="fc" id="L615">            }</span>
+<span class="fc" id="L616">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

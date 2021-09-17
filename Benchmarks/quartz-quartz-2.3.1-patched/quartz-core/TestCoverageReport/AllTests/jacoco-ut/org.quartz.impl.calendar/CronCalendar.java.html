@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CronCalendar.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.calendar</a> &gt; <span class="el_source">CronCalendar.java</span></div><h1>CronCalendar.java</h1><pre class="source lang-java linenums">package org.quartz.impl.calendar;
+
+import java.text.ParseException;
+import java.util.Date;
+import java.util.TimeZone;
+
+import org.quartz.Calendar;
+import org.quartz.CronExpression;
+
+/**
+ * This implementation of the Calendar excludes the set of times expressed by a
+ * given {@link org.quartz.CronExpression CronExpression}. For example, you 
+ * could use this calendar to exclude all but business hours (8AM - 5PM) every 
+ * day using the expression &amp;quot;* * 0-7,18-23 ? * *&amp;quot;. 
+ * &lt;P&gt;
+ * It is important to remember that the cron expression here describes a set of
+ * times to be &lt;I&gt;excluded&lt;/I&gt; from firing. Whereas the cron expression in 
+ * {@link org.quartz.CronTrigger CronTrigger} describes a set of times that can
+ * be &lt;I&gt;included&lt;/I&gt; for firing. Thus, if a &lt;CODE&gt;CronTrigger&lt;/CODE&gt; has a 
+ * given cron expression and is associated with a &lt;CODE&gt;CronCalendar&lt;/CODE&gt; with
+ * the &lt;I&gt;same&lt;/I&gt; expression, the calendar will exclude all the times the 
+ * trigger includes, and they will cancel each other out. 
+ * 
+ * @author Aaron Craven
+ */
+public class CronCalendar extends BaseCalendar {
+    static final long serialVersionUID = -8172103999750856831L;
+
+    CronExpression cronExpression;
+
+    /**
+     * Create a &lt;CODE&gt;CronCalendar&lt;/CODE&gt; with the given cron expression and no
+     * &lt;CODE&gt;baseCalendar&lt;/CODE&gt;.
+     *  
+     * @param expression a String representation of the desired cron expression
+     */
+    public CronCalendar(String expression) 
+        throws ParseException {
+<span class="fc" id="L39">        this(null, expression, null);</span>
+<span class="fc" id="L40">    }</span>
+
+    /**
+     * Create a &lt;CODE&gt;CronCalendar&lt;/CODE&gt; with the given cron expression and 
+     * &lt;CODE&gt;baseCalendar&lt;/CODE&gt;. 
+     * 
+     * @param baseCalendar the base calendar for this calendar instance &amp;ndash;
+     *                     see {@link BaseCalendar} for more information on base
+     *                     calendar functionality
+     * @param expression   a String representation of the desired cron expression
+     */
+    public CronCalendar(Calendar baseCalendar,
+            String expression) throws ParseException {
+<span class="nc" id="L53">        this(baseCalendar, expression, null);</span>
+<span class="nc" id="L54">    }</span>
+
+    /**
+     * Create a &lt;CODE&gt;CronCalendar&lt;/CODE&gt; with the given cron exprssion, 
+     * &lt;CODE&gt;baseCalendar&lt;/CODE&gt;, and &lt;code&gt;TimeZone&lt;/code&gt;. 
+     * 
+     * @param baseCalendar the base calendar for this calendar instance &amp;ndash;
+     *                     see {@link BaseCalendar} for more information on base
+     *                     calendar functionality
+     * @param expression   a String representation of the desired cron expression
+     * @param timeZone
+     *          Specifies for which time zone the &lt;code&gt;expression&lt;/code&gt;
+     *          should be interpreted, i.e. the expression 0 0 10 * * ?, is
+     *          resolved to 10:00 am in this time zone.  If 
+     *          &lt;code&gt;timeZone&lt;/code&gt; is &lt;code&gt;null&lt;/code&gt; then 
+     *          &lt;code&gt;TimeZone.getDefault()&lt;/code&gt; will be used.
+     */
+    public CronCalendar(Calendar baseCalendar,
+            String expression, TimeZone timeZone) throws ParseException {
+<span class="fc" id="L73">        super(baseCalendar);</span>
+<span class="fc" id="L74">        this.cronExpression = new CronExpression(expression);</span>
+<span class="fc" id="L75">        this.cronExpression.setTimeZone(timeZone);</span>
+<span class="fc" id="L76">    }</span>
+    
+    @Override
+    public Object clone() {
+<span class="nc" id="L80">        CronCalendar clone = (CronCalendar) super.clone();</span>
+<span class="nc" id="L81">        clone.cronExpression = new CronExpression(cronExpression);</span>
+<span class="nc" id="L82">        return clone;</span>
+    }
+
+    /**
+     * Returns the time zone for which the &lt;code&gt;CronExpression&lt;/code&gt; of
+     * this &lt;code&gt;CronCalendar&lt;/code&gt; will be resolved.
+     * &lt;p&gt;
+     * Overrides &lt;code&gt;{@link BaseCalendar#getTimeZone()}&lt;/code&gt; to
+     * defer to its &lt;code&gt;CronExpression&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    @Override
+    public TimeZone getTimeZone() {
+<span class="nc" id="L95">        return cronExpression.getTimeZone();</span>
+    }
+
+    /**
+     * Sets the time zone for which the &lt;code&gt;CronExpression&lt;/code&gt; of this
+     * &lt;code&gt;CronCalendar&lt;/code&gt; will be resolved.  If &lt;code&gt;timeZone&lt;/code&gt; 
+     * is &lt;code&gt;null&lt;/code&gt; then &lt;code&gt;TimeZone.getDefault()&lt;/code&gt; will be 
+     * used.
+     * &lt;p&gt;
+     * Overrides &lt;code&gt;{@link BaseCalendar#setTimeZone(TimeZone)}&lt;/code&gt; to
+     * defer to its &lt;code&gt;CronExpression&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    @Override
+    public void setTimeZone(TimeZone timeZone) {
+<span class="nc" id="L110">        cronExpression.setTimeZone(timeZone);</span>
+<span class="nc" id="L111">    }</span>
+    
+    /**
+     * Determines whether the given time (in milliseconds) is 'included' by the
+     * &lt;CODE&gt;BaseCalendar&lt;/CODE&gt;
+     * 
+     * @param timeInMillis the date/time to test
+     * @return a boolean indicating whether the specified time is 'included' by
+     *         the &lt;CODE&gt;CronCalendar&lt;/CODE&gt;
+     */
+    @Override
+    public boolean isTimeIncluded(long timeInMillis) {        
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">        if ((getBaseCalendar() != null) &amp;&amp; </span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">                (getBaseCalendar().isTimeIncluded(timeInMillis) == false)) {</span>
+<span class="nc" id="L125">            return false;</span>
+        }
+        
+<span class="fc bfc" id="L128" title="All 2 branches covered.">        return (!(cronExpression.isSatisfiedBy(new Date(timeInMillis))));</span>
+    }
+
+    /**
+     * Determines the next time included by the &lt;CODE&gt;CronCalendar&lt;/CODE&gt;
+     * after the specified time.
+     * 
+     * @param timeInMillis the initial date/time after which to find an 
+     *                     included time
+     * @return the time in milliseconds representing the next time included
+     *         after the specified time.
+     */
+    @Override
+    public long getNextIncludedTime(long timeInMillis) {
+<span class="nc" id="L142">        long nextIncludedTime = timeInMillis + 1; //plus on millisecond</span>
+        
+<span class="nc bnc" id="L144" title="All 2 branches missed.">        while (!isTimeIncluded(nextIncludedTime)) {</span>
+
+            //If the time is in a range excluded by this calendar, we can
+            // move to the end of the excluded time range and continue testing
+            // from there. Otherwise, if nextIncludedTime is excluded by the
+            // baseCalendar, ask it the next time it includes and begin testing
+            // from there. Failing this, add one millisecond and continue
+            // testing.
+<span class="nc bnc" id="L152" title="All 2 branches missed.">            if (cronExpression.isSatisfiedBy(new Date(nextIncludedTime))) {</span>
+<span class="nc" id="L153">                nextIncludedTime = cronExpression.getNextInvalidTimeAfter(</span>
+<span class="nc" id="L154">                        new Date(nextIncludedTime)).getTime();</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">            } else if ((getBaseCalendar() != null) &amp;&amp; </span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">                    (!getBaseCalendar().isTimeIncluded(nextIncludedTime))){</span>
+<span class="nc" id="L157">                nextIncludedTime = </span>
+<span class="nc" id="L158">                    getBaseCalendar().getNextIncludedTime(nextIncludedTime);</span>
+            } else {
+<span class="nc" id="L160">                nextIncludedTime++;</span>
+            }
+        }
+        
+<span class="nc" id="L164">        return nextIncludedTime;</span>
+    }
+
+    /**
+     * Returns a string representing the properties of the 
+     * &lt;CODE&gt;CronCalendar&lt;/CODE&gt;
+     * 
+     * @return the properteis of the CronCalendar in a String format
+     */
+    @Override
+    public String toString() {
+<span class="nc" id="L175">        StringBuffer buffer = new StringBuffer();</span>
+<span class="nc" id="L176">        buffer.append(&quot;base calendar: [&quot;);</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">        if (getBaseCalendar() != null) {</span>
+<span class="nc" id="L178">            buffer.append(getBaseCalendar().toString());</span>
+        } else {
+<span class="nc" id="L180">            buffer.append(&quot;null&quot;);</span>
+        }
+<span class="nc" id="L182">        buffer.append(&quot;], excluded cron expression: '&quot;);</span>
+<span class="nc" id="L183">        buffer.append(cronExpression);</span>
+<span class="nc" id="L184">        buffer.append(&quot;'&quot;);</span>
+<span class="nc" id="L185">        return buffer.toString();</span>
+    }
+    
+    /**
+     * Returns the object representation of the cron expression that defines the
+     * dates and times this calendar excludes.
+     * 
+     * @return the cron expression
+     * @see org.quartz.CronExpression
+     */
+    public CronExpression getCronExpression() {
+<span class="nc" id="L196">        return cronExpression;</span>
+    }
+    
+    /**
+     * Sets the cron expression for the calendar to a new value
+     * 
+     * @param expression the new string value to build a cron expression from
+     * @throws ParseException
+     *         if the string expression cannot be parsed
+     */
+    public void setCronExpression(String expression) throws ParseException {
+<span class="nc" id="L207">        CronExpression newExp = new CronExpression(expression);</span>
+        
+<span class="nc" id="L209">        this.cronExpression = newExp;</span>
+<span class="nc" id="L210">    }</span>
+
+    /**
+     * Sets the cron expression for the calendar to a new value
+     * 
+     * @param expression the new cron expression
+     */
+    public void setCronExpression(CronExpression expression) {
+<span class="nc bnc" id="L218" title="All 2 branches missed.">        if (expression == null) {</span>
+<span class="nc" id="L219">            throw new IllegalArgumentException(&quot;expression cannot be null&quot;);</span>
+        }
+        
+<span class="nc" id="L222">        this.cronExpression = expression;</span>
+<span class="nc" id="L223">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

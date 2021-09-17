@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Util.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.jdbcjobstore</a> &gt; <span class="el_source">Util.java</span></div><h1>Util.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+
+package org.quartz.impl.jdbcjobstore;
+
+import java.beans.BeanInfo;
+import java.beans.Introspector;
+import java.beans.PropertyDescriptor;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.text.MessageFormat;
+import java.util.Locale;
+
+import org.quartz.JobPersistenceException;
+
+/**
+ * &lt;p&gt;
+ * This class contains utility functions for use in all delegate classes.
+ * &lt;/p&gt;
+ * 
+ * @author &lt;a href=&quot;mailto:jeff@binaryfeed.org&quot;&gt;Jeffrey Wescott&lt;/a&gt;
+ */
+public final class Util {
+
+    /**
+     * Private constructor because this is a pure utility class.
+     */
+    private Util() {
+    }
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Replace the table prefix in a query by replacing any occurrences of
+     * &quot;{0}&quot; with the table prefix.
+     * &lt;/p&gt;
+     * 
+     * @param query
+     *          the unsubstitued query
+     * @param tablePrefix
+     *          the table prefix
+     * @return the query, with proper table prefix substituted
+     */
+    public static String rtp(String query, String tablePrefix, String schedNameLiteral) {
+<span class="fc" id="L68">        return MessageFormat.format(query, new Object[]{tablePrefix, schedNameLiteral});</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Obtain a unique key for a given job.
+     * &lt;/p&gt;
+     * 
+     * @param jobName
+     *          the job name
+     * @param groupName
+     *          the group containing the job
+     * @return a unique &lt;code&gt;String&lt;/code&gt; key
+     */
+    static String getJobNameKey(String jobName, String groupName) {
+<span class="nc" id="L83">        return (groupName + &quot;_$x$x$_&quot; + jobName).intern();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Obtain a unique key for a given trigger.
+     * &lt;/p&gt;
+     * 
+     * @param triggerName
+     *          the trigger name
+     * @param groupName
+     *          the group containing the trigger
+     * @return a unique &lt;code&gt;String&lt;/code&gt; key
+     */
+    static String getTriggerNameKey(String triggerName, String groupName) {
+<span class="nc" id="L98">        return (groupName + &quot;_$x$x$_&quot; + triggerName).intern();</span>
+    }
+    
+    /**
+     * Cleanup helper method that closes the given &lt;code&gt;ResultSet&lt;/code&gt;
+     * while ignoring any errors.
+     */
+    public static void closeResultSet(ResultSet rs) {
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">        if (null != rs) {</span>
+            try {
+<span class="fc" id="L108">                rs.close();</span>
+<span class="nc" id="L109">            } catch (SQLException ignore) {</span>
+<span class="fc" id="L110">            }</span>
+        }
+<span class="fc" id="L112">    }</span>
+
+    /**
+     * Cleanup helper method that closes the given &lt;code&gt;Statement&lt;/code&gt;
+     * while ignoring any errors.
+     */
+    public static void closeStatement(Statement statement) {
+<span class="pc bpc" id="L119" title="1 of 2 branches missed.">        if (null != statement) {</span>
+            try {
+<span class="fc" id="L121">                statement.close();</span>
+<span class="nc" id="L122">            } catch (SQLException ignore) {</span>
+<span class="fc" id="L123">            }</span>
+        }
+<span class="fc" id="L125">    }</span>
+    
+    
+    public static void setBeanProps(Object obj, String[] propNames, Object[] propValues)  throws JobPersistenceException {
+        
+<span class="pc bpc" id="L130" title="2 of 4 branches missed.">        if(propNames == null || propNames.length == 0)</span>
+<span class="nc" id="L131">            return;</span>
+<span class="pc bpc" id="L132" title="1 of 2 branches missed.">        if(propNames.length != propValues.length)</span>
+<span class="nc" id="L133">            throw new IllegalArgumentException(&quot;propNames[].lenght != propValues[].length&quot;);</span>
+        
+<span class="fc" id="L135">        String name = null;</span>
+        
+        try {
+<span class="fc" id="L138">            BeanInfo bi = Introspector.getBeanInfo(obj.getClass());</span>
+<span class="fc" id="L139">            PropertyDescriptor[] propDescs = bi.getPropertyDescriptors();</span>
+        
+<span class="fc bfc" id="L141" title="All 2 branches covered.">            for(int i=0; i &lt; propNames.length; i++) {</span>
+<span class="fc" id="L142">                name = propNames[i];</span>
+<span class="fc" id="L143">                String c = name.substring(0, 1).toUpperCase(Locale.US);</span>
+<span class="fc" id="L144">                String methName = &quot;set&quot; + c + name.substring(1);</span>
+        
+<span class="fc" id="L146">                java.lang.reflect.Method setMeth = getSetMethod(methName, propDescs);</span>
+        
+<span class="pc bpc" id="L148" title="1 of 2 branches missed.">                if (setMeth == null) {</span>
+<span class="nc" id="L149">                    throw new NoSuchMethodException(</span>
+                            &quot;No setter for property '&quot; + name + &quot;'&quot;);
+                }
+    
+<span class="fc" id="L153">                Class&lt;?&gt;[] params = setMeth.getParameterTypes();</span>
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">                if (params.length != 1) {</span>
+<span class="nc" id="L155">                    throw new NoSuchMethodException(</span>
+                        &quot;No 1-argument setter for property '&quot; + name + &quot;'&quot;);
+                }
+                
+<span class="fc" id="L159">                setMeth.invoke(obj, new Object[]{ propValues[i] });</span>
+            }
+        }
+<span class="nc" id="L162">        catch(Exception e) {</span>
+<span class="nc" id="L163">            throw new JobPersistenceException(</span>
+<span class="nc" id="L164">                &quot;Unable to set property named: &quot; + name +&quot; of object of type: &quot; + obj.getClass().getCanonicalName(), </span>
+                e); 
+<span class="fc" id="L166">        }</span>
+<span class="fc" id="L167">    }</span>
+
+    private static java.lang.reflect.Method getSetMethod(String name, PropertyDescriptor[] props) {
+<span class="pc bpc" id="L170" title="1 of 2 branches missed.">        for (int i = 0; i &lt; props.length; i++) {</span>
+<span class="fc" id="L171">            java.lang.reflect.Method wMeth = props[i].getWriteMethod();</span>
+    
+<span class="fc bfc" id="L173" title="All 4 branches covered.">            if (wMeth != null &amp;&amp; wMeth.getName().equals(name)) {</span>
+<span class="fc" id="L174">                return wMeth;</span>
+            }
+        }
+    
+<span class="nc" id="L178">        return null;</span>
+    }
+
+}
+
+// EOF
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

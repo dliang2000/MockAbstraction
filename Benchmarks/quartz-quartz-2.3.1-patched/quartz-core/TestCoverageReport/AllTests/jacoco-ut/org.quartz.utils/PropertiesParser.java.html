@@ -1,0 +1,407 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PropertiesParser.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.utils</a> &gt; <span class="el_source">PropertiesParser.java</span></div><h1>PropertiesParser.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.utils;
+
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Properties;
+import java.util.StringTokenizer;
+
+/**
+ * &lt;p&gt;
+ * This is an utility calss used to parse the properties.
+ * &lt;/p&gt;
+ * 
+ * @author James House
+ */
+public class PropertiesParser {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+<span class="fc" id="L43">    Properties props = null;</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+<span class="fc" id="L53">    public PropertiesParser(Properties props) {</span>
+<span class="fc" id="L54">        this.props = props;</span>
+<span class="fc" id="L55">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public Properties getUnderlyingProperties() {
+<span class="fc" id="L66">        return props;</span>
+    }
+
+    /**
+     * Get the trimmed String value of the property with the given 
+     * &lt;code&gt;name&lt;/code&gt;.  If the value the empty String (after
+     * trimming), then it returns null.
+     */
+    public String getStringProperty(String name) {
+<span class="fc" id="L75">        return getStringProperty(name, null);</span>
+    }
+
+    /**
+     * Get the trimmed String value of the property with the given 
+     * &lt;code&gt;name&lt;/code&gt; or the given default value if the value is 
+     * null or empty after trimming.
+     */
+    public String getStringProperty(String name, String def) {
+<span class="fc" id="L84">        String val = props.getProperty(name, def);</span>
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        if (val == null) {</span>
+<span class="fc" id="L86">            return def;</span>
+        }
+        
+<span class="fc" id="L89">        val = val.trim();</span>
+        
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        return (val.length() == 0) ? def : val;</span>
+    }
+
+    public String[] getStringArrayProperty(String name) {
+<span class="nc" id="L95">        return getStringArrayProperty(name, null);</span>
+    }
+
+    public String[] getStringArrayProperty(String name, String[] def) {
+<span class="nc" id="L99">        String vals = getStringProperty(name);</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">        if (vals == null) {</span>
+<span class="nc" id="L101">            return def;</span>
+        }
+
+<span class="nc" id="L104">        StringTokenizer stok = new StringTokenizer(vals, &quot;,&quot;);</span>
+<span class="nc" id="L105">        ArrayList&lt;String&gt; strs = new ArrayList&lt;String&gt;();</span>
+        try {
+<span class="nc bnc" id="L107" title="All 2 branches missed.">            while (stok.hasMoreTokens()) {</span>
+<span class="nc" id="L108">                strs.add(stok.nextToken().trim());</span>
+            }
+            
+<span class="nc" id="L111">            return (String[])strs.toArray(new String[strs.size()]);</span>
+<span class="nc" id="L112">        } catch (Exception e) {</span>
+<span class="nc" id="L113">            return def;</span>
+        }
+    }
+
+    public boolean getBooleanProperty(String name) {
+<span class="fc" id="L118">        return getBooleanProperty(name, false);</span>
+    }
+
+    public boolean getBooleanProperty(String name, boolean def) {
+<span class="fc" id="L122">        String val = getStringProperty(name);</span>
+        
+<span class="fc bfc" id="L124" title="All 2 branches covered.">        return (val == null) ? def : Boolean.valueOf(val).booleanValue();</span>
+    }
+
+    public byte getByteProperty(String name) throws NumberFormatException {
+<span class="nc" id="L128">        String val = getStringProperty(name);</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">        if (val == null) {</span>
+<span class="nc" id="L130">            throw new NumberFormatException(&quot; null string&quot;);</span>
+        }
+
+        try {
+<span class="nc" id="L134">            return Byte.parseByte(val);</span>
+<span class="nc" id="L135">        } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L136">            throw new NumberFormatException(&quot; '&quot; + val + &quot;'&quot;);</span>
+        }
+    }
+
+    public byte getByteProperty(String name, byte def)
+        throws NumberFormatException {
+<span class="nc" id="L142">        String val = getStringProperty(name);</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        if (val == null) {</span>
+<span class="nc" id="L144">            return def;</span>
+        }
+
+        try {
+<span class="nc" id="L148">            return Byte.parseByte(val);</span>
+<span class="nc" id="L149">        } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L150">            throw new NumberFormatException(&quot; '&quot; + val + &quot;'&quot;);</span>
+        }
+    }
+
+    public char getCharProperty(String name) {
+<span class="nc" id="L155">        return getCharProperty(name, '\0');</span>
+    }
+
+    public char getCharProperty(String name, char def) {
+<span class="nc" id="L159">        String param = getStringProperty(name);</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">        return  (param == null) ? def : param.charAt(0);</span>
+    }
+
+    public double getDoubleProperty(String name) throws NumberFormatException {
+<span class="nc" id="L164">        String val = getStringProperty(name);</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">        if (val == null) {</span>
+<span class="nc" id="L166">            throw new NumberFormatException(&quot; null string&quot;);</span>
+        }
+
+        try {
+<span class="nc" id="L170">            return Double.parseDouble(val);</span>
+<span class="nc" id="L171">        } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L172">            throw new NumberFormatException(&quot; '&quot; + val + &quot;'&quot;);</span>
+        }
+    }
+
+    public double getDoubleProperty(String name, double def)
+        throws NumberFormatException {
+<span class="nc" id="L178">        String val = getStringProperty(name);</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">        if (val == null) {</span>
+<span class="nc" id="L180">            return def;</span>
+        }
+
+        try {
+<span class="nc" id="L184">            return Double.parseDouble(val);</span>
+<span class="nc" id="L185">        } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L186">            throw new NumberFormatException(&quot; '&quot; + val + &quot;'&quot;);</span>
+        }
+    }
+
+    public float getFloatProperty(String name) throws NumberFormatException {
+<span class="nc" id="L191">        String val = getStringProperty(name);</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">        if (val == null) {</span>
+<span class="nc" id="L193">            throw new NumberFormatException(&quot; null string&quot;);</span>
+        }
+
+        try {
+<span class="nc" id="L197">            return Float.parseFloat(val);</span>
+<span class="nc" id="L198">        } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L199">            throw new NumberFormatException(&quot; '&quot; + val + &quot;'&quot;);</span>
+        }
+    }
+
+    public float getFloatProperty(String name, float def)
+        throws NumberFormatException {
+<span class="nc" id="L205">        String val = getStringProperty(name);</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">        if (val == null) {</span>
+<span class="nc" id="L207">            return def;</span>
+        }
+
+        try {
+<span class="nc" id="L211">            return Float.parseFloat(val);</span>
+<span class="nc" id="L212">        } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L213">            throw new NumberFormatException(&quot; '&quot; + val + &quot;'&quot;);</span>
+        }
+    }
+
+    public int getIntProperty(String name) throws NumberFormatException {
+<span class="fc" id="L218">        String val = getStringProperty(name);</span>
+<span class="pc bpc" id="L219" title="1 of 2 branches missed.">        if (val == null) {</span>
+<span class="nc" id="L220">            throw new NumberFormatException(&quot; null string&quot;);</span>
+        }
+
+        try {
+<span class="fc" id="L224">            return Integer.parseInt(val);</span>
+<span class="nc" id="L225">        } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L226">            throw new NumberFormatException(&quot; '&quot; + val + &quot;'&quot;);</span>
+        }
+    }
+
+    public int getIntProperty(String name, int def)
+        throws NumberFormatException {
+<span class="fc" id="L232">        String val = getStringProperty(name);</span>
+<span class="fc bfc" id="L233" title="All 2 branches covered.">        if (val == null) {</span>
+<span class="fc" id="L234">            return def;</span>
+        }
+
+        try {
+<span class="fc" id="L238">            return Integer.parseInt(val);</span>
+<span class="nc" id="L239">        } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L240">            throw new NumberFormatException(&quot; '&quot; + val + &quot;'&quot;);</span>
+        }
+    }
+
+    public int[] getIntArrayProperty(String name) throws NumberFormatException {
+<span class="nc" id="L245">        return getIntArrayProperty(name, null);</span>
+    }
+
+    public int[] getIntArrayProperty(String name, int[] def)
+        throws NumberFormatException {
+<span class="nc" id="L250">        String vals = getStringProperty(name);</span>
+<span class="nc bnc" id="L251" title="All 2 branches missed.">        if (vals == null) {</span>
+<span class="nc" id="L252">            return def;</span>
+        }
+
+<span class="nc" id="L255">        StringTokenizer stok = new StringTokenizer(vals, &quot;,&quot;);</span>
+<span class="nc" id="L256">        ArrayList&lt;Integer&gt; ints = new ArrayList&lt;Integer&gt;();</span>
+        try {
+<span class="nc bnc" id="L258" title="All 2 branches missed.">            while (stok.hasMoreTokens()) {</span>
+                try {
+<span class="nc" id="L260">                    ints.add(new Integer(stok.nextToken().trim()));</span>
+<span class="nc" id="L261">                } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L262">                    throw new NumberFormatException(&quot; '&quot; + vals + &quot;'&quot;);</span>
+<span class="nc" id="L263">                }</span>
+            }
+                        
+<span class="nc" id="L266">            int[] outInts = new int[ints.size()];</span>
+<span class="nc bnc" id="L267" title="All 2 branches missed.">            for (int i = 0; i &lt; ints.size(); i++) {</span>
+<span class="nc" id="L268">                outInts[i] = ((Integer)ints.get(i)).intValue();</span>
+            }
+<span class="nc" id="L270">            return outInts;</span>
+<span class="nc" id="L271">        } catch (Exception e) {</span>
+<span class="nc" id="L272">            return def;</span>
+        }
+    }
+
+    public long getLongProperty(String name) throws NumberFormatException {
+<span class="fc" id="L277">        String val = getStringProperty(name);</span>
+<span class="pc bpc" id="L278" title="1 of 2 branches missed.">        if (val == null) {</span>
+<span class="nc" id="L279">            throw new NumberFormatException(&quot; null string&quot;);</span>
+        }
+
+        try {
+<span class="fc" id="L283">            return Long.parseLong(val);</span>
+<span class="nc" id="L284">        } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L285">            throw new NumberFormatException(&quot; '&quot; + val + &quot;'&quot;);</span>
+        }
+    }
+
+    public long getLongProperty(String name, long def)
+        throws NumberFormatException {
+<span class="fc" id="L291">        String val = getStringProperty(name);</span>
+<span class="fc bfc" id="L292" title="All 2 branches covered.">        if (val == null) {</span>
+<span class="fc" id="L293">            return def;</span>
+        }
+
+        try {
+<span class="fc" id="L297">            return Long.parseLong(val);</span>
+<span class="nc" id="L298">        } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L299">            throw new NumberFormatException(&quot; '&quot; + val + &quot;'&quot;);</span>
+        }
+    }
+
+    public short getShortProperty(String name) throws NumberFormatException {
+<span class="nc" id="L304">        String val = getStringProperty(name);</span>
+<span class="nc bnc" id="L305" title="All 2 branches missed.">        if (val == null) {</span>
+<span class="nc" id="L306">            throw new NumberFormatException(&quot; null string&quot;);</span>
+        }
+
+        try {
+<span class="nc" id="L310">            return Short.parseShort(val);</span>
+<span class="nc" id="L311">        } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L312">            throw new NumberFormatException(&quot; '&quot; + val + &quot;'&quot;);</span>
+        }
+    }
+
+    public short getShortProperty(String name, short def)
+        throws NumberFormatException {
+<span class="nc" id="L318">        String val = getStringProperty(name);</span>
+<span class="nc bnc" id="L319" title="All 2 branches missed.">        if (val == null) {</span>
+<span class="nc" id="L320">            return def;</span>
+        }
+
+        try {
+<span class="nc" id="L324">            return Short.parseShort(val);</span>
+<span class="nc" id="L325">        } catch (NumberFormatException nfe) {</span>
+<span class="nc" id="L326">            throw new NumberFormatException(&quot; '&quot; + val + &quot;'&quot;);</span>
+        }
+    }
+
+    public String[] getPropertyGroups(String prefix) {
+<span class="fc" id="L331">        Enumeration&lt;?&gt; keys = props.propertyNames();</span>
+<span class="fc" id="L332">        HashSet&lt;String&gt; groups = new HashSet&lt;String&gt;(10);</span>
+
+<span class="pc bpc" id="L334" title="1 of 2 branches missed.">        if (!prefix.endsWith(&quot;.&quot;)) {</span>
+<span class="fc" id="L335">            prefix += &quot;.&quot;;</span>
+        }
+
+<span class="fc bfc" id="L338" title="All 2 branches covered.">        while (keys.hasMoreElements()) {</span>
+<span class="fc" id="L339">            String key = (String) keys.nextElement();</span>
+<span class="fc bfc" id="L340" title="All 2 branches covered.">            if (key.startsWith(prefix)) {</span>
+<span class="fc" id="L341">                String groupName = key.substring(prefix.length(), key.indexOf(</span>
+<span class="fc" id="L342">                        '.', prefix.length()));</span>
+<span class="fc" id="L343">                groups.add(groupName);</span>
+            }
+<span class="fc" id="L345">        }</span>
+
+<span class="fc" id="L347">        return (String[]) groups.toArray(new String[groups.size()]);</span>
+    }
+
+    public Properties getPropertyGroup(String prefix) {
+<span class="nc" id="L351">        return getPropertyGroup(prefix, false, null);</span>
+    }
+
+    public Properties getPropertyGroup(String prefix, boolean stripPrefix) {
+<span class="fc" id="L355">        return getPropertyGroup(prefix, stripPrefix, null);</span>
+    }
+
+    /**
+     * Get all properties that start with the given prefix.  
+     * 
+     * @param prefix The prefix for which to search.  If it does not end in 
+     *      a &quot;.&quot; then one will be added to it for search purposes.
+     * @param stripPrefix Whether to strip off the given &lt;code&gt;prefix&lt;/code&gt;
+     *      in the result's keys.
+     * @param excludedPrefixes Optional array of fully qualified prefixes to
+     *      exclude.  For example if &lt;code&gt;prefix&lt;/code&gt; is &quot;a.b.c&quot;, then 
+     *      &lt;code&gt;excludedPrefixes&lt;/code&gt; might be &quot;a.b.c.ignore&quot;.
+     *      
+     * @return Group of &lt;code&gt;Properties&lt;/code&gt; that start with the given prefix, 
+     *      optionally have that prefix removed, and do not include properties 
+     *      that start with one of the given excluded prefixes.
+     */
+    public Properties getPropertyGroup(String prefix, boolean stripPrefix, String[] excludedPrefixes) {
+<span class="fc" id="L374">        Enumeration&lt;?&gt; keys = props.propertyNames();</span>
+<span class="fc" id="L375">        Properties group = new Properties();</span>
+
+<span class="pc bpc" id="L377" title="1 of 2 branches missed.">        if (!prefix.endsWith(&quot;.&quot;)) {</span>
+<span class="fc" id="L378">            prefix += &quot;.&quot;;</span>
+        }
+
+<span class="fc bfc" id="L381" title="All 2 branches covered.">        while (keys.hasMoreElements()) {</span>
+<span class="fc" id="L382">            String key = (String) keys.nextElement();</span>
+<span class="fc bfc" id="L383" title="All 2 branches covered.">            if (key.startsWith(prefix)) {</span>
+                
+<span class="fc" id="L385">                boolean exclude = false;</span>
+<span class="fc bfc" id="L386" title="All 2 branches covered.">                if (excludedPrefixes != null) {</span>
+<span class="pc bpc" id="L387" title="1 of 4 branches missed.">                    for (int i = 0; (i &lt; excludedPrefixes.length) &amp;&amp; (exclude == false); i++) {</span>
+<span class="fc" id="L388">                        exclude = key.startsWith(excludedPrefixes[i]);</span>
+                    }
+                }
+
+<span class="fc bfc" id="L392" title="All 2 branches covered.">                if (exclude == false) {</span>
+<span class="fc" id="L393">                    String value = getStringProperty(key, &quot;&quot;);</span>
+                    
+<span class="pc bpc" id="L395" title="1 of 2 branches missed.">                    if (stripPrefix) { </span>
+<span class="fc" id="L396">                        group.put(key.substring(prefix.length()), value);</span>
+                    } else {
+<span class="nc" id="L398">                        group.put(key, value);</span>
+                    }
+                }
+            }
+<span class="fc" id="L402">        }</span>
+
+<span class="fc" id="L404">        return group;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

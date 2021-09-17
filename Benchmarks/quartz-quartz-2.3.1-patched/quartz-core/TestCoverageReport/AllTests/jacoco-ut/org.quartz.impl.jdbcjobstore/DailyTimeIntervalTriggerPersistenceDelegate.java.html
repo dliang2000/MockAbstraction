@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DailyTimeIntervalTriggerPersistenceDelegate.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.jdbcjobstore</a> &gt; <span class="el_source">DailyTimeIntervalTriggerPersistenceDelegate.java</span></div><h1>DailyTimeIntervalTriggerPersistenceDelegate.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+package org.quartz.impl.jdbcjobstore;
+
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
+
+import org.quartz.DailyTimeIntervalScheduleBuilder;
+import org.quartz.DailyTimeIntervalTrigger;
+import org.quartz.TimeOfDay;
+import org.quartz.DateBuilder.IntervalUnit;
+import org.quartz.impl.triggers.DailyTimeIntervalTriggerImpl;
+import org.quartz.spi.OperableTrigger;
+
+/**
+ * Persist a DailyTimeIntervalTrigger by converting internal fields to and from
+ * SimplePropertiesTriggerProperties.
+ * 
+ * @see DailyTimeIntervalScheduleBuilder
+ * @see DailyTimeIntervalTrigger
+ * 
+ * @since 2.1.0
+ * 
+ * @author Zemian Deng &lt;saltnlight5@gmail.com&gt;
+ */
+<span class="fc" id="L41">public class DailyTimeIntervalTriggerPersistenceDelegate extends SimplePropertiesTriggerPersistenceDelegateSupport {</span>
+
+    public boolean canHandleTriggerType(OperableTrigger trigger) {
+<span class="nc bnc" id="L44" title="All 4 branches missed.">        return ((trigger instanceof DailyTimeIntervalTrigger) &amp;&amp; !((DailyTimeIntervalTriggerImpl)trigger).hasAdditionalProperties());</span>
+    }
+
+    public String getHandledTriggerTypeDiscriminator() {
+<span class="nc" id="L48">        return TTYPE_DAILY_TIME_INT;</span>
+    }
+
+    @Override
+    protected SimplePropertiesTriggerProperties getTriggerProperties(OperableTrigger trigger) {
+<span class="nc" id="L53">        DailyTimeIntervalTriggerImpl dailyTrigger = (DailyTimeIntervalTriggerImpl)trigger;</span>
+<span class="nc" id="L54">        SimplePropertiesTriggerProperties props = new SimplePropertiesTriggerProperties();</span>
+        
+<span class="nc" id="L56">        props.setInt1(dailyTrigger.getRepeatInterval());</span>
+<span class="nc" id="L57">        props.setString1(dailyTrigger.getRepeatIntervalUnit().name());</span>
+<span class="nc" id="L58">        props.setInt2(dailyTrigger.getTimesTriggered());</span>
+        
+<span class="nc" id="L60">        Set&lt;Integer&gt; days = dailyTrigger.getDaysOfWeek();</span>
+<span class="nc" id="L61">        String daysStr = join(days, &quot;,&quot;);</span>
+<span class="nc" id="L62">        props.setString2(daysStr);</span>
+
+<span class="nc" id="L64">        StringBuilder timeOfDayBuffer = new StringBuilder();</span>
+<span class="nc" id="L65">        TimeOfDay startTimeOfDay = dailyTrigger.getStartTimeOfDay();</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        if (startTimeOfDay != null) {</span>
+<span class="nc" id="L67">            timeOfDayBuffer.append(startTimeOfDay.getHour()).append(&quot;,&quot;);</span>
+<span class="nc" id="L68">            timeOfDayBuffer.append(startTimeOfDay.getMinute()).append(&quot;,&quot;);</span>
+<span class="nc" id="L69">            timeOfDayBuffer.append(startTimeOfDay.getSecond()).append(&quot;,&quot;);</span>
+        } else {
+<span class="nc" id="L71">            timeOfDayBuffer.append(&quot;,,,&quot;);</span>
+        }
+<span class="nc" id="L73">        TimeOfDay endTimeOfDay = dailyTrigger.getEndTimeOfDay();</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        if (endTimeOfDay != null) {</span>
+<span class="nc" id="L75">            timeOfDayBuffer.append(endTimeOfDay.getHour()).append(&quot;,&quot;);</span>
+<span class="nc" id="L76">            timeOfDayBuffer.append(endTimeOfDay.getMinute()).append(&quot;,&quot;);</span>
+<span class="nc" id="L77">            timeOfDayBuffer.append(endTimeOfDay.getSecond());</span>
+        } else {
+<span class="nc" id="L79">            timeOfDayBuffer.append(&quot;,,,&quot;);</span>
+        }
+<span class="nc" id="L81">        props.setString3(timeOfDayBuffer.toString());</span>
+        
+<span class="nc" id="L83">        props.setLong1(dailyTrigger.getRepeatCount());</span>
+        
+<span class="nc" id="L85">        return props;</span>
+    }
+
+    private String join(Set&lt;Integer&gt; days, String sep) {
+<span class="nc" id="L89">        StringBuilder sb = new StringBuilder();</span>
+<span class="nc bnc" id="L90" title="All 4 branches missed.">        if (days == null || days.size() &lt;= 0)</span>
+<span class="nc" id="L91">            return &quot;&quot;;</span>
+        
+<span class="nc" id="L93">        Iterator&lt;Integer&gt; itr = days.iterator();</span>
+<span class="nc" id="L94">        sb.append(itr.next());</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        while(itr.hasNext()) {</span>
+<span class="nc" id="L96">            sb.append(sep).append(itr.next());</span>
+        }
+<span class="nc" id="L98">        return sb.toString();</span>
+    }
+
+    @Override
+    protected TriggerPropertyBundle getTriggerPropertyBundle(SimplePropertiesTriggerProperties props) {
+<span class="nc" id="L103">        int repeatCount = (int)props.getLong1();</span>
+<span class="nc" id="L104">        int interval = props.getInt1();</span>
+<span class="nc" id="L105">        String intervalUnitStr = props.getString1();</span>
+<span class="nc" id="L106">        String daysOfWeekStr = props.getString2();</span>
+<span class="nc" id="L107">        String timeOfDayStr = props.getString3();</span>
+
+<span class="nc" id="L109">        IntervalUnit intervalUnit = IntervalUnit.valueOf(intervalUnitStr);</span>
+        DailyTimeIntervalScheduleBuilder scheduleBuilder = DailyTimeIntervalScheduleBuilder
+<span class="nc" id="L111">                .dailyTimeIntervalSchedule()</span>
+<span class="nc" id="L112">                .withInterval(interval, intervalUnit)</span>
+<span class="nc" id="L113">                .withRepeatCount(repeatCount);</span>
+                
+<span class="nc bnc" id="L115" title="All 2 branches missed.">        if (daysOfWeekStr != null) {</span>
+<span class="nc" id="L116">            Set&lt;Integer&gt; daysOfWeek = new HashSet&lt;Integer&gt;();</span>
+<span class="nc" id="L117">            String[] nums = daysOfWeekStr.split(&quot;,&quot;);</span>
+<span class="nc bnc" id="L118" title="All 2 branches missed.">            if (nums.length &gt; 0) {</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">                for (String num : nums) {</span>
+<span class="nc" id="L120">                    daysOfWeek.add(Integer.parseInt(num));</span>
+                }
+<span class="nc" id="L122">                scheduleBuilder.onDaysOfTheWeek(daysOfWeek);</span>
+            }
+<span class="nc" id="L124">        } else {</span>
+<span class="nc" id="L125">            scheduleBuilder.onDaysOfTheWeek(DailyTimeIntervalScheduleBuilder.ALL_DAYS_OF_THE_WEEK);</span>
+        }
+        
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        if (timeOfDayStr != null) {</span>
+<span class="nc" id="L129">            String[] nums = timeOfDayStr.split(&quot;,&quot;);</span>
+            TimeOfDay startTimeOfDay;
+<span class="nc bnc" id="L131" title="All 2 branches missed.">            if (nums.length &gt;= 3) {</span>
+<span class="nc" id="L132">                int hour = Integer.parseInt(nums[0]);</span>
+<span class="nc" id="L133">                int min = Integer.parseInt(nums[1]);</span>
+<span class="nc" id="L134">                int sec = Integer.parseInt(nums[2]);</span>
+<span class="nc" id="L135">                startTimeOfDay = new TimeOfDay(hour, min, sec);</span>
+<span class="nc" id="L136">            } else {</span>
+<span class="nc" id="L137">                startTimeOfDay = TimeOfDay.hourMinuteAndSecondOfDay(0, 0, 0);</span>
+            }
+<span class="nc" id="L139">            scheduleBuilder.startingDailyAt(startTimeOfDay);</span>
+
+            TimeOfDay endTimeOfDay;
+<span class="nc bnc" id="L142" title="All 2 branches missed.">            if (nums.length &gt;= 6) {</span>
+<span class="nc" id="L143">                int hour = Integer.parseInt(nums[3]);</span>
+<span class="nc" id="L144">                int min = Integer.parseInt(nums[4]);</span>
+<span class="nc" id="L145">                int sec = Integer.parseInt(nums[5]);</span>
+<span class="nc" id="L146">                endTimeOfDay = new TimeOfDay(hour, min, sec);</span>
+<span class="nc" id="L147">            } else {</span>
+<span class="nc" id="L148">                endTimeOfDay = TimeOfDay.hourMinuteAndSecondOfDay(23, 59, 59);</span>
+            }
+<span class="nc" id="L150">            scheduleBuilder.endingDailyAt(endTimeOfDay);</span>
+<span class="nc" id="L151">        } else {</span>
+<span class="nc" id="L152">            scheduleBuilder.startingDailyAt(TimeOfDay.hourMinuteAndSecondOfDay(0, 0, 0));</span>
+<span class="nc" id="L153">            scheduleBuilder.endingDailyAt(TimeOfDay.hourMinuteAndSecondOfDay(23, 59, 59));</span>
+        }
+        
+<span class="nc" id="L156">        int timesTriggered = props.getInt2();</span>
+<span class="nc" id="L157">        String[] statePropertyNames = { &quot;timesTriggered&quot; };</span>
+<span class="nc" id="L158">        Object[] statePropertyValues = { timesTriggered };</span>
+
+<span class="nc" id="L160">        return new TriggerPropertyBundle(scheduleBuilder, statePropertyNames, statePropertyValues);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

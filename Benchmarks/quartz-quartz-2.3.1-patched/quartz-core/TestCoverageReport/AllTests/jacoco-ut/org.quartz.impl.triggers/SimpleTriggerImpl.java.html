@@ -1,0 +1,913 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SimpleTriggerImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.triggers</a> &gt; <span class="el_source">SimpleTriggerImpl.java</span></div><h1>SimpleTriggerImpl.java</h1><pre class="source lang-java linenums">
+/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.impl.triggers;
+
+import java.util.Date;
+
+import org.quartz.Calendar;
+import org.quartz.CronTrigger;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.quartz.ScheduleBuilder;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.quartz.SimpleScheduleBuilder;
+import org.quartz.SimpleTrigger;
+import org.quartz.Trigger;
+import org.quartz.TriggerUtils;
+
+
+/**
+ * &lt;p&gt;
+ * A concrete &lt;code&gt;{@link Trigger}&lt;/code&gt; that is used to fire a &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt;
+ * at a given moment in time, and optionally repeated at a specified interval.
+ * &lt;/p&gt;
+ * 
+ * @see Trigger
+ * @see CronTrigger
+ * @see TriggerUtils
+ * 
+ * @author James House
+ * @author contributions by Lieven Govaerts of Ebitec Nv, Belgium.
+ */
+public class SimpleTriggerImpl extends AbstractTrigger&lt;SimpleTrigger&gt; implements SimpleTrigger, CoreTrigger {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constants.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * Required for serialization support. Introduced in Quartz 1.6.1 to 
+     * maintain compatibility after the introduction of hasAdditionalProperties
+     * method. 
+     * 
+     * @see java.io.Serializable
+     */
+    private static final long serialVersionUID = -3735980074222850397L;
+
+<span class="fc" id="L68">    private static final int YEAR_TO_GIVEUP_SCHEDULING_AT = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) + 100;</span>
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+    
+<span class="fc" id="L78">    private Date startTime = null;</span>
+
+<span class="fc" id="L80">    private Date endTime = null;</span>
+
+<span class="fc" id="L82">    private Date nextFireTime = null;</span>
+
+<span class="fc" id="L84">    private Date previousFireTime = null;</span>
+
+<span class="fc" id="L86">    private int repeatCount = 0;</span>
+
+<span class="fc" id="L88">    private long repeatInterval = 0;</span>
+
+<span class="fc" id="L90">    private int timesTriggered = 0;</span>
+
+<span class="fc" id="L92">    private boolean complete = false;</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;SimpleTrigger&lt;/code&gt; with no settings.
+     * &lt;/p&gt;
+     */
+    public SimpleTriggerImpl() {
+<span class="fc" id="L108">        super();</span>
+<span class="fc" id="L109">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;SimpleTrigger&lt;/code&gt; that will occur immediately, and
+     * not repeat.
+     * &lt;/p&gt;
+     * 
+     * @deprecated use a TriggerBuilder instead
+     */
+    @Deprecated
+    public SimpleTriggerImpl(String name) {
+<span class="nc" id="L121">        this(name, (String)null);</span>
+<span class="nc" id="L122">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;SimpleTrigger&lt;/code&gt; that will occur immediately, and
+     * not repeat.
+     * &lt;/p&gt;
+     * 
+     * @deprecated use a TriggerBuilder instead
+     */
+    @Deprecated
+    public SimpleTriggerImpl(String name, String group) {
+<span class="nc" id="L134">        this(name, group, new Date(), null, 0, 0);</span>
+<span class="nc" id="L135">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;SimpleTrigger&lt;/code&gt; that will occur immediately, and
+     * repeat at the the given interval the given number of times.
+     * &lt;/p&gt;
+     * 
+     * @deprecated use a TriggerBuilder instead
+     */
+    @Deprecated
+    public SimpleTriggerImpl(String name, int repeatCount, long repeatInterval) {
+<span class="nc" id="L147">        this(name, null, repeatCount, repeatInterval);</span>
+<span class="nc" id="L148">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;SimpleTrigger&lt;/code&gt; that will occur immediately, and
+     * repeat at the the given interval the given number of times.
+     * &lt;/p&gt;
+     * 
+     * @deprecated use a TriggerBuilder instead
+     */
+    @Deprecated
+    public SimpleTriggerImpl(String name, String group, int repeatCount,
+            long repeatInterval) {
+<span class="nc" id="L161">        this(name, group, new Date(), null, repeatCount, repeatInterval);</span>
+<span class="nc" id="L162">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;SimpleTrigger&lt;/code&gt; that will occur at the given time,
+     * and not repeat.
+     * &lt;/p&gt;
+     * 
+     * @deprecated use a TriggerBuilder instead
+     */
+    @Deprecated
+    public SimpleTriggerImpl(String name, Date startTime) {
+<span class="nc" id="L174">        this(name, null, startTime);</span>
+<span class="nc" id="L175">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;SimpleTrigger&lt;/code&gt; that will occur at the given time,
+     * and not repeat.
+     * &lt;/p&gt;
+     * 
+     * @deprecated use a TriggerBuilder instead
+     */
+    @Deprecated
+    public SimpleTriggerImpl(String name, String group, Date startTime) {
+<span class="fc" id="L187">        this(name, group, startTime, null, 0, 0);</span>
+<span class="fc" id="L188">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;SimpleTrigger&lt;/code&gt; that will occur at the given time,
+     * and repeat at the the given interval the given number of times, or until
+     * the given end time.
+     * &lt;/p&gt;
+     * 
+     * @param startTime
+     *          A &lt;code&gt;Date&lt;/code&gt; set to the time for the &lt;code&gt;Trigger&lt;/code&gt;
+     *          to fire.
+     * @param endTime
+     *          A &lt;code&gt;Date&lt;/code&gt; set to the time for the &lt;code&gt;Trigger&lt;/code&gt;
+     *          to quit repeat firing.
+     * @param repeatCount
+     *          The number of times for the &lt;code&gt;Trigger&lt;/code&gt; to repeat
+     *          firing, use {@link #REPEAT_INDEFINITELY} for unlimited times.
+     * @param repeatInterval
+     *          The number of milliseconds to pause between the repeat firing.
+     * 
+     * @deprecated use a TriggerBuilder instead
+     */
+    @Deprecated
+    public SimpleTriggerImpl(String name, Date startTime,
+            Date endTime, int repeatCount, long repeatInterval) {
+<span class="nc" id="L214">        this(name, null, startTime, endTime, repeatCount, repeatInterval);</span>
+<span class="nc" id="L215">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;SimpleTrigger&lt;/code&gt; that will occur at the given time,
+     * and repeat at the the given interval the given number of times, or until
+     * the given end time.
+     * &lt;/p&gt;
+     * 
+     * @param startTime
+     *          A &lt;code&gt;Date&lt;/code&gt; set to the time for the &lt;code&gt;Trigger&lt;/code&gt;
+     *          to fire.
+     * @param endTime
+     *          A &lt;code&gt;Date&lt;/code&gt; set to the time for the &lt;code&gt;Trigger&lt;/code&gt;
+     *          to quit repeat firing.
+     * @param repeatCount
+     *          The number of times for the &lt;code&gt;Trigger&lt;/code&gt; to repeat
+     *          firing, use {@link #REPEAT_INDEFINITELY} for unlimited times.
+     * @param repeatInterval
+     *          The number of milliseconds to pause between the repeat firing.
+     * 
+     * @deprecated use a TriggerBuilder instead
+     */
+    @Deprecated
+    public SimpleTriggerImpl(String name, String group, Date startTime,
+            Date endTime, int repeatCount, long repeatInterval) {
+<span class="fc" id="L241">        super(name, group);</span>
+
+<span class="fc" id="L243">        setStartTime(startTime);</span>
+<span class="fc" id="L244">        setEndTime(endTime);</span>
+<span class="fc" id="L245">        setRepeatCount(repeatCount);</span>
+<span class="fc" id="L246">        setRepeatInterval(repeatInterval);</span>
+<span class="fc" id="L247">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;SimpleTrigger&lt;/code&gt; that will occur at the given time,
+     * fire the identified &lt;code&gt;Job&lt;/code&gt; and repeat at the the given
+     * interval the given number of times, or until the given end time.
+     * &lt;/p&gt;
+     * 
+     * @param startTime
+     *          A &lt;code&gt;Date&lt;/code&gt; set to the time for the &lt;code&gt;Trigger&lt;/code&gt;
+     *          to fire.
+     * @param endTime
+     *          A &lt;code&gt;Date&lt;/code&gt; set to the time for the &lt;code&gt;Trigger&lt;/code&gt;
+     *          to quit repeat firing.
+     * @param repeatCount
+     *          The number of times for the &lt;code&gt;Trigger&lt;/code&gt; to repeat
+     *          firing, use {@link #REPEAT_INDEFINITELY}for unlimitted times.
+     * @param repeatInterval
+     *          The number of milliseconds to pause between the repeat firing.
+     * 
+     * @deprecated use a TriggerBuilder instead
+     */
+    @Deprecated
+    public SimpleTriggerImpl(String name, String group, String jobName,
+            String jobGroup, Date startTime, Date endTime, int repeatCount,
+            long repeatInterval) {
+<span class="fc" id="L274">        super(name, group, jobName, jobGroup);</span>
+
+<span class="fc" id="L276">        setStartTime(startTime);</span>
+<span class="fc" id="L277">        setEndTime(endTime);</span>
+<span class="fc" id="L278">        setRepeatCount(repeatCount);</span>
+<span class="fc" id="L279">        setRepeatInterval(repeatInterval);</span>
+<span class="fc" id="L280">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Get the time at which the &lt;code&gt;SimpleTrigger&lt;/code&gt; should occur.
+     * &lt;/p&gt;
+     */
+    @Override
+    public Date getStartTime() {
+<span class="fc" id="L297">        return startTime;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the time at which the &lt;code&gt;SimpleTrigger&lt;/code&gt; should occur.
+     * &lt;/p&gt;
+     * 
+     * @exception IllegalArgumentException
+     *              if startTime is &lt;code&gt;null&lt;/code&gt;.
+     */
+    @Override
+    public void setStartTime(Date startTime) {
+<span class="pc bpc" id="L310" title="1 of 2 branches missed.">        if (startTime == null) {</span>
+<span class="nc" id="L311">            throw new IllegalArgumentException(&quot;Start time cannot be null&quot;);</span>
+        }
+
+<span class="fc" id="L314">        Date eTime = getEndTime();</span>
+<span class="pc bpc" id="L315" title="5 of 6 branches missed.">        if (eTime != null &amp;&amp; startTime != null &amp;&amp; eTime.before(startTime)) {</span>
+<span class="nc" id="L316">            throw new IllegalArgumentException(</span>
+                &quot;End time cannot be before start time&quot;);    
+        }
+
+<span class="fc" id="L320">        this.startTime = startTime;</span>
+<span class="fc" id="L321">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the time at which the &lt;code&gt;SimpleTrigger&lt;/code&gt; should quit
+     * repeating - even if repeastCount isn't yet satisfied.
+     * &lt;/p&gt;
+     * 
+     * @see #getFinalFireTime()
+     */
+    @Override
+    public Date getEndTime() {
+<span class="fc" id="L333">        return endTime;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the time at which the &lt;code&gt;SimpleTrigger&lt;/code&gt; should quit
+     * repeating (and be automatically deleted).
+     * &lt;/p&gt;
+     * 
+     * @exception IllegalArgumentException
+     *              if endTime is before start time.
+     */
+    @Override
+    public void setEndTime(Date endTime) {
+<span class="fc" id="L347">        Date sTime = getStartTime();</span>
+<span class="pc bpc" id="L348" title="2 of 6 branches missed.">        if (sTime != null &amp;&amp; endTime != null &amp;&amp; sTime.after(endTime)) {</span>
+<span class="nc" id="L349">            throw new IllegalArgumentException(</span>
+                    &quot;End time cannot be before start time&quot;);
+        }
+
+<span class="fc" id="L353">        this.endTime = endTime;</span>
+<span class="fc" id="L354">    }</span>
+
+    /* (non-Javadoc)
+     * @see org.quartz.SimpleTriggerI#getRepeatCount()
+     */
+    public int getRepeatCount() {
+<span class="fc" id="L360">        return repeatCount;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the the number of time the &lt;code&gt;SimpleTrigger&lt;/code&gt; should
+     * repeat, after which it will be automatically deleted.
+     * &lt;/p&gt;
+     * 
+     * @see #REPEAT_INDEFINITELY
+     * @exception IllegalArgumentException
+     *              if repeatCount is &lt; 0
+     */
+    public void setRepeatCount(int repeatCount) {
+<span class="pc bpc" id="L374" title="1 of 4 branches missed.">        if (repeatCount &lt; 0 &amp;&amp; repeatCount != REPEAT_INDEFINITELY) {</span>
+<span class="nc" id="L375">            throw new IllegalArgumentException(</span>
+                    &quot;Repeat count must be &gt;= 0, use the &quot;
+                            + &quot;constant REPEAT_INDEFINITELY for infinite.&quot;);
+        }
+
+<span class="fc" id="L380">        this.repeatCount = repeatCount;</span>
+<span class="fc" id="L381">    }</span>
+
+    /* (non-Javadoc)
+     * @see org.quartz.SimpleTriggerI#getRepeatInterval()
+     */
+    public long getRepeatInterval() {
+<span class="fc" id="L387">        return repeatInterval;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the the time interval (in milliseconds) at which the &lt;code&gt;SimpleTrigger&lt;/code&gt;
+     * should repeat.
+     * &lt;/p&gt;
+     * 
+     * @exception IllegalArgumentException
+     *              if repeatInterval is &lt;= 0
+     */
+    public void setRepeatInterval(long repeatInterval) {
+<span class="pc bpc" id="L400" title="1 of 2 branches missed.">        if (repeatInterval &lt; 0) {</span>
+<span class="nc" id="L401">            throw new IllegalArgumentException(</span>
+                    &quot;Repeat interval must be &gt;= 0&quot;);
+        }
+
+<span class="fc" id="L405">        this.repeatInterval = repeatInterval;</span>
+<span class="fc" id="L406">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the number of times the &lt;code&gt;SimpleTrigger&lt;/code&gt; has already
+     * fired.
+     * &lt;/p&gt;
+     */
+    public int getTimesTriggered() {
+<span class="fc" id="L415">        return timesTriggered;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the number of times the &lt;code&gt;SimpleTrigger&lt;/code&gt; has already
+     * fired.
+     * &lt;/p&gt;
+     */
+    public void setTimesTriggered(int timesTriggered) {
+<span class="fc" id="L425">        this.timesTriggered = timesTriggered;</span>
+<span class="fc" id="L426">    }</span>
+
+    @Override
+    protected boolean validateMisfireInstruction(int misfireInstruction) {
+<span class="pc bpc" id="L430" title="1 of 2 branches missed.">        if (misfireInstruction &lt; MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY) {</span>
+<span class="nc" id="L431">            return false;</span>
+        }
+
+<span class="fc bfc" id="L434" title="All 2 branches covered.">        if (misfireInstruction &gt; MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_EXISTING_COUNT) {</span>
+<span class="fc" id="L435">            return false;</span>
+        }
+
+<span class="fc" id="L438">        return true;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Updates the &lt;code&gt;SimpleTrigger&lt;/code&gt;'s state based on the
+     * MISFIRE_INSTRUCTION_XXX that was selected when the &lt;code&gt;SimpleTrigger&lt;/code&gt;
+     * was created.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * If the misfire instruction is set to MISFIRE_INSTRUCTION_SMART_POLICY,
+     * then the following scheme will be used: &lt;br&gt;
+     * &lt;ul&gt;
+     * &lt;li&gt;If the Repeat Count is &lt;code&gt;0&lt;/code&gt;, then the instruction will
+     * be interpreted as &lt;code&gt;MISFIRE_INSTRUCTION_FIRE_NOW&lt;/code&gt;.&lt;/li&gt;
+     * &lt;li&gt;If the Repeat Count is &lt;code&gt;REPEAT_INDEFINITELY&lt;/code&gt;, then
+     * the instruction will be interpreted as &lt;code&gt;MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_REMAINING_COUNT&lt;/code&gt;.
+     * &lt;b&gt;WARNING:&lt;/b&gt; using MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_REMAINING_COUNT 
+     * with a trigger that has a non-null end-time may cause the trigger to 
+     * never fire again if the end-time arrived during the misfire time span. 
+     * &lt;/li&gt;
+     * &lt;li&gt;If the Repeat Count is &lt;code&gt;&amp;gt; 0&lt;/code&gt;, then the instruction
+     * will be interpreted as &lt;code&gt;MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_EXISTING_REPEAT_COUNT&lt;/code&gt;.
+     * &lt;/li&gt;
+     * &lt;/ul&gt;
+     * &lt;/p&gt;
+     */
+    @Override
+    public void updateAfterMisfire(Calendar cal) {
+<span class="fc" id="L468">        int instr = getMisfireInstruction();</span>
+        
+<span class="pc bpc" id="L470" title="1 of 2 branches missed.">        if(instr == Trigger.MISFIRE_INSTRUCTION_IGNORE_MISFIRE_POLICY)</span>
+<span class="nc" id="L471">            return;</span>
+        
+<span class="fc bfc" id="L473" title="All 2 branches covered.">        if (instr == Trigger.MISFIRE_INSTRUCTION_SMART_POLICY) {</span>
+<span class="pc bpc" id="L474" title="1 of 2 branches missed.">            if (getRepeatCount() == 0) {</span>
+<span class="nc" id="L475">                instr = MISFIRE_INSTRUCTION_FIRE_NOW;</span>
+<span class="pc bpc" id="L476" title="1 of 2 branches missed.">            } else if (getRepeatCount() == REPEAT_INDEFINITELY) {</span>
+<span class="fc" id="L477">                instr = MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_REMAINING_COUNT;</span>
+            } else {
+                // if (getRepeatCount() &gt; 0)
+<span class="nc" id="L480">                instr = MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_EXISTING_REPEAT_COUNT;</span>
+            }
+<span class="pc bpc" id="L482" title="3 of 4 branches missed.">        } else if (instr == MISFIRE_INSTRUCTION_FIRE_NOW &amp;&amp; getRepeatCount() != 0) {</span>
+<span class="nc" id="L483">            instr = MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_REMAINING_REPEAT_COUNT;</span>
+        }
+
+<span class="pc bpc" id="L486" title="1 of 2 branches missed.">        if (instr == MISFIRE_INSTRUCTION_FIRE_NOW) {</span>
+<span class="nc" id="L487">            setNextFireTime(new Date());</span>
+<span class="pc bpc" id="L488" title="1 of 2 branches missed.">        } else if (instr == MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_EXISTING_COUNT) {</span>
+<span class="nc" id="L489">            Date newFireTime = getFireTimeAfter(new Date());</span>
+<span class="nc bnc" id="L490" title="All 4 branches missed.">            while (newFireTime != null &amp;&amp; cal != null</span>
+<span class="nc bnc" id="L491" title="All 2 branches missed.">                    &amp;&amp; !cal.isTimeIncluded(newFireTime.getTime())) {</span>
+<span class="nc" id="L492">                newFireTime = getFireTimeAfter(newFireTime);</span>
+
+<span class="nc bnc" id="L494" title="All 2 branches missed.">                if(newFireTime == null)</span>
+<span class="nc" id="L495">                    break;</span>
+                
+                //avoid infinite loop
+<span class="nc" id="L498">                java.util.Calendar c = java.util.Calendar.getInstance();</span>
+<span class="nc" id="L499">                c.setTime(newFireTime);</span>
+<span class="nc bnc" id="L500" title="All 2 branches missed.">                if (c.get(java.util.Calendar.YEAR) &gt; YEAR_TO_GIVEUP_SCHEDULING_AT) {</span>
+<span class="nc" id="L501">                    newFireTime = null;</span>
+                }
+<span class="nc" id="L503">            }</span>
+<span class="nc" id="L504">            setNextFireTime(newFireTime);</span>
+<span class="pc bfc" id="L505" title="All 2 branches covered.">        } else if (instr == MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_REMAINING_COUNT) {</span>
+<span class="fc" id="L506">            Date newFireTime = getFireTimeAfter(new Date());</span>
+<span class="pc bpc" id="L507" title="2 of 4 branches missed.">            while (newFireTime != null &amp;&amp; cal != null</span>
+<span class="nc bnc" id="L508" title="All 2 branches missed.">                    &amp;&amp; !cal.isTimeIncluded(newFireTime.getTime())) {</span>
+<span class="nc" id="L509">                newFireTime = getFireTimeAfter(newFireTime);</span>
+
+<span class="nc bnc" id="L511" title="All 2 branches missed.">                if(newFireTime == null)</span>
+<span class="nc" id="L512">                    break;</span>
+                
+                //avoid infinite loop
+<span class="nc" id="L515">                java.util.Calendar c = java.util.Calendar.getInstance();</span>
+<span class="nc" id="L516">                c.setTime(newFireTime);</span>
+<span class="nc bnc" id="L517" title="All 2 branches missed.">                if (c.get(java.util.Calendar.YEAR) &gt; YEAR_TO_GIVEUP_SCHEDULING_AT) {</span>
+<span class="nc" id="L518">                    newFireTime = null;</span>
+                }
+<span class="nc" id="L520">            }</span>
+<span class="pc bpc" id="L521" title="1 of 2 branches missed.">            if (newFireTime != null) {</span>
+<span class="fc" id="L522">                int timesMissed = computeNumTimesFiredBetween(nextFireTime,</span>
+                        newFireTime);
+<span class="fc" id="L524">                setTimesTriggered(getTimesTriggered() + timesMissed);</span>
+            }
+
+<span class="fc" id="L527">            setNextFireTime(newFireTime);</span>
+<span class="pc bpc" id="L528" title="1 of 2 branches missed.">        } else if (instr == MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_EXISTING_REPEAT_COUNT) {</span>
+<span class="fc" id="L529">            Date newFireTime = new Date();</span>
+<span class="pc bpc" id="L530" title="2 of 4 branches missed.">            if (repeatCount != 0 &amp;&amp; repeatCount != REPEAT_INDEFINITELY) {</span>
+<span class="fc" id="L531">                setRepeatCount(getRepeatCount() - getTimesTriggered());</span>
+<span class="fc" id="L532">                setTimesTriggered(0);</span>
+            }
+            
+<span class="pc bpc" id="L535" title="2 of 4 branches missed.">            if (getEndTime() != null &amp;&amp; getEndTime().before(newFireTime)) {</span>
+<span class="fc" id="L536">                setNextFireTime(null); // We are past the end time</span>
+            } else {
+<span class="nc" id="L538">                setStartTime(newFireTime);</span>
+<span class="nc" id="L539">                setNextFireTime(newFireTime);</span>
+            } 
+<span class="pc bnc" id="L541" title="All 2 branches missed.">        } else if (instr == MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_REMAINING_REPEAT_COUNT) {</span>
+<span class="nc" id="L542">            Date newFireTime = new Date();</span>
+
+<span class="nc" id="L544">            int timesMissed = computeNumTimesFiredBetween(nextFireTime,</span>
+                    newFireTime);
+
+<span class="nc bnc" id="L547" title="All 4 branches missed.">            if (repeatCount != 0 &amp;&amp; repeatCount != REPEAT_INDEFINITELY) {</span>
+<span class="nc" id="L548">                int remainingCount = getRepeatCount()</span>
+<span class="nc" id="L549">                        - (getTimesTriggered() + timesMissed);</span>
+<span class="nc bnc" id="L550" title="All 2 branches missed.">                if (remainingCount &lt;= 0) { </span>
+<span class="nc" id="L551">                    remainingCount = 0;</span>
+                }
+<span class="nc" id="L553">                setRepeatCount(remainingCount);</span>
+<span class="nc" id="L554">                setTimesTriggered(0);</span>
+            }
+
+<span class="nc bnc" id="L557" title="All 4 branches missed.">            if (getEndTime() != null &amp;&amp; getEndTime().before(newFireTime)) {</span>
+<span class="nc" id="L558">                setNextFireTime(null); // We are past the end time</span>
+            } else {
+<span class="nc" id="L560">                setStartTime(newFireTime);</span>
+<span class="nc" id="L561">                setNextFireTime(newFireTime);</span>
+            } 
+        }
+
+<span class="fc" id="L565">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Called when the &lt;code&gt;{@link Scheduler}&lt;/code&gt; has decided to 'fire'
+     * the trigger (execute the associated &lt;code&gt;Job&lt;/code&gt;), in order to
+     * give the &lt;code&gt;Trigger&lt;/code&gt; a chance to update itself for its next
+     * triggering (if any).
+     * &lt;/p&gt;
+     * 
+     * @see #executionComplete(JobExecutionContext, JobExecutionException)
+     */
+    @Override
+    public void triggered(Calendar calendar) {
+<span class="fc" id="L579">        timesTriggered++;</span>
+<span class="fc" id="L580">        previousFireTime = nextFireTime;</span>
+<span class="fc" id="L581">        nextFireTime = getFireTimeAfter(nextFireTime);</span>
+
+<span class="pc bpc" id="L583" title="1 of 4 branches missed.">        while (nextFireTime != null &amp;&amp; calendar != null</span>
+<span class="nc bnc" id="L584" title="All 2 branches missed.">                &amp;&amp; !calendar.isTimeIncluded(nextFireTime.getTime())) {</span>
+            
+<span class="nc" id="L586">            nextFireTime = getFireTimeAfter(nextFireTime);</span>
+
+<span class="nc bnc" id="L588" title="All 2 branches missed.">            if(nextFireTime == null)</span>
+<span class="nc" id="L589">                break;</span>
+            
+            //avoid infinite loop
+<span class="nc" id="L592">            java.util.Calendar c = java.util.Calendar.getInstance();</span>
+<span class="nc" id="L593">            c.setTime(nextFireTime);</span>
+<span class="nc bnc" id="L594" title="All 2 branches missed.">            if (c.get(java.util.Calendar.YEAR) &gt; YEAR_TO_GIVEUP_SCHEDULING_AT) {</span>
+<span class="nc" id="L595">                nextFireTime = null;</span>
+            }
+<span class="nc" id="L597">        }</span>
+<span class="fc" id="L598">    }</span>
+
+    /**
+     * @see org.quartz.impl.triggers.AbstractTrigger#updateWithNewCalendar(org.quartz.Calendar, long)
+     */
+    @Override
+    public void updateWithNewCalendar(Calendar calendar, long misfireThreshold)
+    {
+<span class="nc" id="L606">        nextFireTime = getFireTimeAfter(previousFireTime);</span>
+
+<span class="nc bnc" id="L608" title="All 4 branches missed.">        if (nextFireTime == null || calendar == null) {</span>
+<span class="nc" id="L609">            return;</span>
+        }
+        
+<span class="nc" id="L612">        Date now = new Date();</span>
+<span class="nc bnc" id="L613" title="All 4 branches missed.">        while (nextFireTime != null &amp;&amp; !calendar.isTimeIncluded(nextFireTime.getTime())) {</span>
+
+<span class="nc" id="L615">            nextFireTime = getFireTimeAfter(nextFireTime);</span>
+
+<span class="nc bnc" id="L617" title="All 2 branches missed.">            if(nextFireTime == null)</span>
+<span class="nc" id="L618">                break;</span>
+            
+            //avoid infinite loop
+<span class="nc" id="L621">            java.util.Calendar c = java.util.Calendar.getInstance();</span>
+<span class="nc" id="L622">            c.setTime(nextFireTime);</span>
+<span class="nc bnc" id="L623" title="All 2 branches missed.">            if (c.get(java.util.Calendar.YEAR) &gt; YEAR_TO_GIVEUP_SCHEDULING_AT) {</span>
+<span class="nc" id="L624">                nextFireTime = null;</span>
+            }
+
+<span class="nc bnc" id="L627" title="All 4 branches missed.">            if(nextFireTime != null &amp;&amp; nextFireTime.before(now)) {</span>
+<span class="nc" id="L628">                long diff = now.getTime() - nextFireTime.getTime();</span>
+<span class="nc bnc" id="L629" title="All 2 branches missed.">                if(diff &gt;= misfireThreshold) {</span>
+<span class="nc" id="L630">                    nextFireTime = getFireTimeAfter(nextFireTime);</span>
+                }
+            }
+<span class="nc" id="L633">        }</span>
+<span class="nc" id="L634">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Called by the scheduler at the time a &lt;code&gt;Trigger&lt;/code&gt; is first
+     * added to the scheduler, in order to have the &lt;code&gt;Trigger&lt;/code&gt;
+     * compute its first fire time, based on any associated calendar.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * After this method has been called, &lt;code&gt;getNextFireTime()&lt;/code&gt;
+     * should return a valid answer.
+     * &lt;/p&gt;
+     * 
+     * @return the first time at which the &lt;code&gt;Trigger&lt;/code&gt; will be fired
+     *         by the scheduler, which is also the same value &lt;code&gt;getNextFireTime()&lt;/code&gt;
+     *         will return (until after the first firing of the &lt;code&gt;Trigger&lt;/code&gt;).
+     *         &lt;/p&gt;
+     */
+    @Override
+    public Date computeFirstFireTime(Calendar calendar) {
+<span class="fc" id="L655">        nextFireTime = getStartTime();</span>
+
+<span class="pc bpc" id="L657" title="2 of 4 branches missed.">        while (nextFireTime != null &amp;&amp; calendar != null</span>
+<span class="nc bnc" id="L658" title="All 2 branches missed.">                &amp;&amp; !calendar.isTimeIncluded(nextFireTime.getTime())) {</span>
+<span class="nc" id="L659">            nextFireTime = getFireTimeAfter(nextFireTime);</span>
+            
+<span class="nc bnc" id="L661" title="All 2 branches missed.">            if(nextFireTime == null)</span>
+<span class="nc" id="L662">                break;</span>
+            
+            //avoid infinite loop
+<span class="nc" id="L665">            java.util.Calendar c = java.util.Calendar.getInstance();</span>
+<span class="nc" id="L666">            c.setTime(nextFireTime);</span>
+<span class="nc bnc" id="L667" title="All 2 branches missed.">            if (c.get(java.util.Calendar.YEAR) &gt; YEAR_TO_GIVEUP_SCHEDULING_AT) {</span>
+<span class="nc" id="L668">                return null;</span>
+            }
+<span class="nc" id="L670">        }</span>
+        
+<span class="fc" id="L672">        return nextFireTime;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns the next time at which the &lt;code&gt;Trigger&lt;/code&gt; is scheduled to fire. If
+     * the trigger will not fire again, &lt;code&gt;null&lt;/code&gt; will be returned.  Note that
+     * the time returned can possibly be in the past, if the time that was computed
+     * for the trigger to next fire has already arrived, but the scheduler has not yet
+     * been able to fire the trigger (which would likely be due to lack of resources
+     * e.g. threads).
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;The value returned is not guaranteed to be valid until after the &lt;code&gt;Trigger&lt;/code&gt;
+     * has been added to the scheduler.
+     * &lt;/p&gt;
+     *
+     * @see TriggerUtils#computeFireTimesBetween(org.quartz.spi.OperableTrigger, org.quartz.Calendar, java.util.Date, java.util.Date)
+     */
+    @Override
+    public Date getNextFireTime() {
+<span class="fc" id="L693">        return nextFireTime;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns the previous time at which the &lt;code&gt;SimpleTrigger&lt;/code&gt; 
+     * fired. If the trigger has not yet fired, &lt;code&gt;null&lt;/code&gt; will be
+     * returned.
+     */
+    @Override
+    public Date getPreviousFireTime() {
+<span class="fc" id="L704">        return previousFireTime;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the next time at which the &lt;code&gt;SimpleTrigger&lt;/code&gt; should fire.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * &lt;b&gt;This method should not be invoked by client code.&lt;/b&gt;
+     * &lt;/p&gt;
+     */
+    public void setNextFireTime(Date nextFireTime) {
+<span class="fc" id="L717">        this.nextFireTime = nextFireTime;</span>
+<span class="fc" id="L718">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Set the previous time at which the &lt;code&gt;SimpleTrigger&lt;/code&gt; fired.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * &lt;b&gt;This method should not be invoked by client code.&lt;/b&gt;
+     * &lt;/p&gt;
+     */
+    public void setPreviousFireTime(Date previousFireTime) {
+<span class="fc" id="L730">        this.previousFireTime = previousFireTime;</span>
+<span class="fc" id="L731">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Returns the next time at which the &lt;code&gt;SimpleTrigger&lt;/code&gt; will
+     * fire, after the given time. If the trigger will not fire after the given
+     * time, &lt;code&gt;null&lt;/code&gt; will be returned.
+     * &lt;/p&gt;
+     */
+    @Override
+    public Date getFireTimeAfter(Date afterTime) {
+<span class="pc bpc" id="L742" title="1 of 2 branches missed.">        if (complete) {</span>
+<span class="nc" id="L743">            return null;</span>
+        }
+
+<span class="fc bfc" id="L746" title="All 4 branches covered.">        if ((timesTriggered &gt; repeatCount)</span>
+                &amp;&amp; (repeatCount != REPEAT_INDEFINITELY)) {
+<span class="fc" id="L748">            return null;</span>
+        }
+
+<span class="pc bpc" id="L751" title="1 of 2 branches missed.">        if (afterTime == null) {</span>
+<span class="nc" id="L752">            afterTime = new Date();</span>
+        }
+
+<span class="pc bpc" id="L755" title="3 of 4 branches missed.">        if (repeatCount == 0 &amp;&amp; afterTime.compareTo(getStartTime()) &gt;= 0) {</span>
+<span class="nc" id="L756">            return null;</span>
+        }
+
+<span class="fc" id="L759">        long startMillis = getStartTime().getTime();</span>
+<span class="fc" id="L760">        long afterMillis = afterTime.getTime();</span>
+<span class="fc bfc" id="L761" title="All 2 branches covered.">        long endMillis = (getEndTime() == null) ? Long.MAX_VALUE : getEndTime()</span>
+<span class="fc" id="L762">                .getTime();</span>
+
+<span class="fc bfc" id="L764" title="All 2 branches covered.">        if (endMillis &lt;= afterMillis) {</span>
+<span class="fc" id="L765">            return null;</span>
+        }
+
+<span class="pc bpc" id="L768" title="1 of 2 branches missed.">        if (afterMillis &lt; startMillis) {</span>
+<span class="nc" id="L769">            return new Date(startMillis);</span>
+        }
+
+<span class="fc" id="L772">        long numberOfTimesExecuted = ((afterMillis - startMillis) / repeatInterval) + 1;</span>
+
+<span class="pc bpc" id="L774" title="1 of 4 branches missed.">        if ((numberOfTimesExecuted &gt; repeatCount) &amp;&amp; </span>
+            (repeatCount != REPEAT_INDEFINITELY)) {
+<span class="nc" id="L776">            return null;</span>
+        }
+
+<span class="fc" id="L779">        Date time = new Date(startMillis + (numberOfTimesExecuted * repeatInterval));</span>
+
+<span class="pc bpc" id="L781" title="1 of 2 branches missed.">        if (endMillis &lt;= time.getTime()) {</span>
+<span class="nc" id="L782">            return null;</span>
+        }
+
+<span class="fc" id="L785">        return time;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns the last time at which the &lt;code&gt;SimpleTrigger&lt;/code&gt; will
+     * fire, before the given time. If the trigger will not fire before the
+     * given time, &lt;code&gt;null&lt;/code&gt; will be returned.
+     * &lt;/p&gt;
+     */
+    public Date getFireTimeBefore(Date end) {
+<span class="nc bnc" id="L796" title="All 2 branches missed.">        if (end.getTime() &lt; getStartTime().getTime()) {</span>
+<span class="nc" id="L797">            return null;</span>
+        }
+
+<span class="nc" id="L800">        int numFires = computeNumTimesFiredBetween(getStartTime(), end);</span>
+
+<span class="nc" id="L802">        return new Date(getStartTime().getTime() + (numFires * repeatInterval));</span>
+    }
+
+    public int computeNumTimesFiredBetween(Date start, Date end) {
+
+<span class="pc bpc" id="L807" title="1 of 2 branches missed.">        if(repeatInterval &lt; 1) {</span>
+<span class="nc" id="L808">            return 0;</span>
+        }
+        
+<span class="fc" id="L811">        long time = end.getTime() - start.getTime();</span>
+
+<span class="fc" id="L813">        return (int) (time / repeatInterval);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns the final time at which the &lt;code&gt;SimpleTrigger&lt;/code&gt; will
+     * fire, if repeatCount is REPEAT_INDEFINITELY, null will be returned.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Note that the return time may be in the past.
+     * &lt;/p&gt;
+     */
+    @Override
+    public Date getFinalFireTime() {
+<span class="pc bpc" id="L828" title="1 of 2 branches missed.">        if (repeatCount == 0) {</span>
+<span class="fc" id="L829">            return startTime;</span>
+        }
+
+<span class="nc bnc" id="L832" title="All 2 branches missed.">        if (repeatCount == REPEAT_INDEFINITELY) {</span>
+<span class="nc bnc" id="L833" title="All 2 branches missed.">            return (getEndTime() == null) ? null : getFireTimeBefore(getEndTime()); </span>
+        }
+
+<span class="nc" id="L836">        long lastTrigger = startTime.getTime() + (repeatCount * repeatInterval);</span>
+
+<span class="nc bnc" id="L838" title="All 4 branches missed.">        if ((getEndTime() == null) || (lastTrigger &lt; getEndTime().getTime())) { </span>
+<span class="nc" id="L839">            return new Date(lastTrigger);</span>
+        } else {
+<span class="nc" id="L841">            return getFireTimeBefore(getEndTime());</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Determines whether or not the &lt;code&gt;SimpleTrigger&lt;/code&gt; will occur
+     * again.
+     * &lt;/p&gt;
+     */
+    @Override
+    public boolean mayFireAgain() {
+<span class="fc bfc" id="L853" title="All 2 branches covered.">        return (getNextFireTime() != null);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Validates whether the properties of the &lt;code&gt;JobDetail&lt;/code&gt; are
+     * valid for submission into a &lt;code&gt;Scheduler&lt;/code&gt;.
+     * 
+     * @throws IllegalStateException
+     *           if a required property (such as Name, Group, Class) is not
+     *           set.
+     */
+    @Override
+    public void validate() throws SchedulerException {
+<span class="fc" id="L867">        super.validate();</span>
+
+<span class="pc bpc" id="L869" title="1 of 4 branches missed.">        if (repeatCount != 0 &amp;&amp; repeatInterval &lt; 1) {</span>
+<span class="nc" id="L870">            throw new SchedulerException(&quot;Repeat Interval cannot be zero.&quot;);</span>
+        }
+<span class="fc" id="L872">    }</span>
+
+    /**
+     * Used by extensions of SimpleTrigger to imply that there are additional 
+     * properties, specifically so that extensions can choose whether to be 
+     * stored as a serialized blob, or as a flattened SimpleTrigger table. 
+     */
+    public boolean hasAdditionalProperties() {
+<span class="fc" id="L880">        return false;</span>
+    }
+
+    /**
+     * Get a {@link ScheduleBuilder} that is configured to produce a 
+     * schedule identical to this trigger's schedule.
+     * 
+     * @see #getTriggerBuilder()
+     */
+    @Override
+    public ScheduleBuilder&lt;SimpleTrigger&gt; getScheduleBuilder() {
+        
+<span class="nc" id="L892">        SimpleScheduleBuilder sb = SimpleScheduleBuilder.simpleSchedule()</span>
+<span class="nc" id="L893">        .withIntervalInMilliseconds(getRepeatInterval())</span>
+<span class="nc" id="L894">        .withRepeatCount(getRepeatCount());</span>
+        
+<span class="nc bnc" id="L896" title="All 6 branches missed.">        switch(getMisfireInstruction()) {</span>
+<span class="nc" id="L897">            case MISFIRE_INSTRUCTION_FIRE_NOW : sb.withMisfireHandlingInstructionFireNow();</span>
+<span class="nc" id="L898">            break;</span>
+<span class="nc" id="L899">            case MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_EXISTING_COUNT : sb.withMisfireHandlingInstructionNextWithExistingCount();</span>
+<span class="nc" id="L900">            break;</span>
+<span class="nc" id="L901">            case MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_REMAINING_COUNT : sb.withMisfireHandlingInstructionNextWithRemainingCount();</span>
+<span class="nc" id="L902">            break;</span>
+<span class="nc" id="L903">            case MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_EXISTING_REPEAT_COUNT : sb.withMisfireHandlingInstructionNowWithExistingCount();</span>
+<span class="nc" id="L904">            break;</span>
+<span class="nc" id="L905">            case MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_REMAINING_REPEAT_COUNT : sb.withMisfireHandlingInstructionNowWithRemainingCount();</span>
+            break;
+        }
+        
+<span class="nc" id="L909">        return sb;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

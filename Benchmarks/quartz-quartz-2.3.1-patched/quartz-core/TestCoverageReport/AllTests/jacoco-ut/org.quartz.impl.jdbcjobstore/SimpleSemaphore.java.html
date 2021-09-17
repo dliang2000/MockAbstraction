@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SimpleSemaphore.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.jdbcjobstore</a> &gt; <span class="el_source">SimpleSemaphore.java</span></div><h1>SimpleSemaphore.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.impl.jdbcjobstore;
+
+import java.sql.Connection;
+import java.util.HashSet;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Internal in-memory lock handler for providing thread/resource locking in 
+ * order to protect resources from being altered by multiple threads at the 
+ * same time.
+ * 
+ * @author jhouse
+ */
+<span class="fc" id="L33">public class SimpleSemaphore implements Semaphore {</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+<span class="fc" id="L43">    ThreadLocal&lt;HashSet&lt;String&gt;&gt; lockOwners = new ThreadLocal&lt;HashSet&lt;String&gt;&gt;();</span>
+
+<span class="fc" id="L45">    HashSet&lt;String&gt; locks = new HashSet&lt;String&gt;();</span>
+
+<span class="fc" id="L47">    private final Logger log = LoggerFactory.getLogger(getClass());</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    protected Logger getLog() {
+<span class="fc" id="L58">        return log;</span>
+    }
+
+    private HashSet&lt;String&gt; getThreadLocks() {
+<span class="fc" id="L62">        HashSet&lt;String&gt; threadLocks = lockOwners.get();</span>
+<span class="fc bfc" id="L63" title="All 2 branches covered.">        if (threadLocks == null) {</span>
+<span class="fc" id="L64">            threadLocks = new HashSet&lt;String&gt;();</span>
+<span class="fc" id="L65">            lockOwners.set(threadLocks);</span>
+        }
+<span class="fc" id="L67">        return threadLocks;</span>
+    }
+
+    /**
+     * Grants a lock on the identified resource to the calling thread (blocking
+     * until it is available).
+     * 
+     * @return true if the lock was obtained.
+     */
+    public synchronized boolean obtainLock(Connection conn, String lockName) {
+
+<span class="fc" id="L78">        lockName = lockName.intern();</span>
+
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">        if(log.isDebugEnabled()) {</span>
+<span class="nc" id="L81">            log.debug(</span>
+                &quot;Lock '&quot; + lockName + &quot;' is desired by: &quot;
+<span class="nc" id="L83">                        + Thread.currentThread().getName());</span>
+        }
+
+<span class="fc bfc" id="L86" title="All 2 branches covered.">        if (!isLockOwner(lockName)) {</span>
+<span class="pc bpc" id="L87" title="1 of 2 branches missed.">            if(log.isDebugEnabled()) {</span>
+<span class="nc" id="L88">                log.debug(</span>
+                    &quot;Lock '&quot; + lockName + &quot;' is being obtained: &quot;
+<span class="nc" id="L90">                            + Thread.currentThread().getName());</span>
+            }
+<span class="fc bfc" id="L92" title="All 2 branches covered.">            while (locks.contains(lockName)) {</span>
+                try {
+<span class="fc" id="L94">                    this.wait();</span>
+<span class="nc" id="L95">                } catch (InterruptedException ie) {</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">                    if(log.isDebugEnabled()) {</span>
+<span class="nc" id="L97">                        log.debug(</span>
+                            &quot;Lock '&quot; + lockName + &quot;' was not obtained by: &quot;
+<span class="nc" id="L99">                                    + Thread.currentThread().getName());</span>
+                    }
+<span class="pc" id="L101">                }</span>
+            }
+
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">            if(log.isDebugEnabled()) {</span>
+<span class="nc" id="L105">                log.debug(</span>
+                    &quot;Lock '&quot; + lockName + &quot;' given to: &quot;
+<span class="nc" id="L107">                            + Thread.currentThread().getName());</span>
+            }
+<span class="fc" id="L109">            getThreadLocks().add(lockName);</span>
+<span class="fc" id="L110">            locks.add(lockName);</span>
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">        } else if(log.isDebugEnabled()) {</span>
+<span class="nc" id="L112">            log.debug(</span>
+                &quot;Lock '&quot; + lockName + &quot;' already owned by: &quot;
+<span class="nc" id="L114">                        + Thread.currentThread().getName()</span>
+                        + &quot; -- but not owner!&quot;,
+                new Exception(&quot;stack-trace of wrongful returner&quot;));
+        }
+
+<span class="fc" id="L119">        return true;</span>
+    }
+
+    /**
+     * Release the lock on the identified resource if it is held by the calling
+     * thread.
+     */
+    public synchronized void releaseLock(String lockName) {
+
+<span class="fc" id="L128">        lockName = lockName.intern();</span>
+
+<span class="fc bfc" id="L130" title="All 2 branches covered.">        if (isLockOwner(lockName)) {</span>
+<span class="pc bpc" id="L131" title="1 of 2 branches missed.">            if(getLog().isDebugEnabled()) {</span>
+<span class="nc" id="L132">                getLog().debug(</span>
+                    &quot;Lock '&quot; + lockName + &quot;' retuned by: &quot;
+<span class="nc" id="L134">                            + Thread.currentThread().getName());</span>
+            }
+<span class="fc" id="L136">            getThreadLocks().remove(lockName);</span>
+<span class="fc" id="L137">            locks.remove(lockName);</span>
+<span class="fc" id="L138">            this.notifyAll();</span>
+<span class="pc bpc" id="L139" title="1 of 2 branches missed.">        } else if (getLog().isDebugEnabled()) {</span>
+<span class="nc" id="L140">            getLog().debug(</span>
+                &quot;Lock '&quot; + lockName + &quot;' attempt to retun by: &quot;
+<span class="nc" id="L142">                        + Thread.currentThread().getName()</span>
+                        + &quot; -- but not owner!&quot;,
+                new Exception(&quot;stack-trace of wrongful returner&quot;));
+        }
+<span class="fc" id="L146">    }</span>
+
+    /**
+     * Determine whether the calling thread owns a lock on the identified
+     * resource.
+     */
+    public synchronized boolean isLockOwner(String lockName) {
+
+<span class="fc" id="L154">        lockName = lockName.intern();</span>
+
+<span class="fc" id="L156">        return getThreadLocks().contains(lockName);</span>
+    }
+
+    /**
+     * This Semaphore implementation does not use the database.
+     */
+    public boolean requiresConnection() {
+<span class="fc" id="L163">        return false;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

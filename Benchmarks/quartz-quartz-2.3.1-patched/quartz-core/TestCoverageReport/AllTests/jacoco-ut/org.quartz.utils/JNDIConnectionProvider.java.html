@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JNDIConnectionProvider.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.utils</a> &gt; <span class="el_source">JNDIConnectionProvider.java</span></div><h1>JNDIConnectionProvider.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.utils;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.Properties;
+
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.sql.DataSource;
+import javax.sql.XADataSource;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * &lt;p&gt;
+ * A &lt;code&gt;ConnectionProvider&lt;/code&gt; that provides connections from a &lt;code&gt;DataSource&lt;/code&gt;
+ * that is managed by an application server, and made available via JNDI.
+ * &lt;/p&gt;
+ * 
+ * @see DBConnectionManager
+ * @see ConnectionProvider
+ * @see PoolingConnectionProvider
+ * 
+ * @author James House
+ * @author Sharada Jambula
+ * @author Mohammad Rezaei
+ * @author Patrick Lightbody
+ * @author Srinivas Venkatarangaiah
+ */
+public class JNDIConnectionProvider implements ConnectionProvider {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    private String url;
+
+    private Properties props;
+
+    private Object datasource;
+
+<span class="nc" id="L64">    private boolean alwaysLookup = false;</span>
+
+<span class="nc" id="L66">    private final Logger log = LoggerFactory.getLogger(getClass());</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * Constructor
+     * 
+     * @param jndiUrl
+     *          The url for the datasource
+     */
+<span class="nc" id="L82">    public JNDIConnectionProvider(String jndiUrl, boolean alwaysLookup) {</span>
+<span class="nc" id="L83">        this.url = jndiUrl;</span>
+<span class="nc" id="L84">        this.alwaysLookup = alwaysLookup;</span>
+<span class="nc" id="L85">        init();</span>
+<span class="nc" id="L86">    }</span>
+
+    /**
+     * Constructor
+     * 
+     * @param jndiUrl
+     *          The URL for the DataSource
+     * @param jndiProps
+     *          The JNDI properties to use when establishing the InitialContext
+     *          for the lookup of the given URL.
+     */
+    public JNDIConnectionProvider(String jndiUrl, Properties jndiProps,
+<span class="nc" id="L98">            boolean alwaysLookup) {</span>
+<span class="nc" id="L99">        this.url = jndiUrl;</span>
+<span class="nc" id="L100">        this.props = jndiProps;</span>
+<span class="nc" id="L101">        this.alwaysLookup = alwaysLookup;</span>
+<span class="nc" id="L102">        init();</span>
+<span class="nc" id="L103">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    protected Logger getLog() {
+<span class="nc" id="L114">        return log;</span>
+    }
+
+    private void init() {
+
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        if (!isAlwaysLookup()) {</span>
+<span class="nc" id="L120">            Context ctx = null;</span>
+            try {
+<span class="nc bnc" id="L122" title="All 2 branches missed.">                ctx = (props != null) ? new InitialContext(props) : new InitialContext(); </span>
+
+<span class="nc" id="L124">                datasource = (DataSource) ctx.lookup(url);</span>
+<span class="nc" id="L125">            } catch (Exception e) {</span>
+<span class="nc" id="L126">                getLog().error(</span>
+<span class="nc" id="L127">                        &quot;Error looking up datasource: &quot; + e.getMessage(), e);</span>
+            } finally {
+<span class="nc bnc" id="L129" title="All 2 branches missed.">                if (ctx != null) {</span>
+<span class="nc" id="L130">                    try { ctx.close(); } catch(Exception ignore) {}</span>
+                }
+            }
+        }
+<span class="nc" id="L134">    }</span>
+
+    public Connection getConnection() throws SQLException {
+<span class="nc" id="L137">        Context ctx = null;</span>
+        try {
+<span class="nc" id="L139">            Object ds = this.datasource;</span>
+
+<span class="nc bnc" id="L141" title="All 4 branches missed.">            if (ds == null || isAlwaysLookup()) {</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">                ctx = (props != null) ? new InitialContext(props): new InitialContext(); </span>
+
+<span class="nc" id="L144">                ds = ctx.lookup(url);</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">                if (!isAlwaysLookup()) {</span>
+<span class="nc" id="L146">                    this.datasource = ds;</span>
+                }
+            }
+
+<span class="nc bnc" id="L150" title="All 2 branches missed.">            if (ds == null) {</span>
+<span class="nc" id="L151">                throw new SQLException( &quot;There is no object at the JNDI URL '&quot; + url + &quot;'&quot;);</span>
+            }
+
+<span class="nc bnc" id="L154" title="All 2 branches missed.">            if (ds instanceof XADataSource) {</span>
+<span class="nc" id="L155">                return (((XADataSource) ds).getXAConnection().getConnection());</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">            } else if (ds instanceof DataSource) { </span>
+<span class="nc" id="L157">                return ((DataSource) ds).getConnection();</span>
+            } else {
+<span class="nc" id="L159">                throw new SQLException(&quot;Object at JNDI URL '&quot; + url + &quot;' is not a DataSource.&quot;);</span>
+            }
+<span class="nc" id="L161">        } catch (Exception e) {</span>
+<span class="nc" id="L162">            this.datasource = null;</span>
+<span class="nc" id="L163">            throw new SQLException(</span>
+                    &quot;Could not retrieve datasource via JNDI url '&quot; + url + &quot;' &quot;
+<span class="nc" id="L165">                            + e.getClass().getName() + &quot;: &quot; + e.getMessage());</span>
+        } finally {
+<span class="nc bnc" id="L167" title="All 2 branches missed.">            if (ctx != null) {</span>
+<span class="nc" id="L168">                try { ctx.close(); } catch(Exception ignore) {}</span>
+            }
+        }
+    }
+
+    public boolean isAlwaysLookup() {
+<span class="nc" id="L174">        return alwaysLookup;</span>
+    }
+
+    public void setAlwaysLookup(boolean b) {
+<span class="nc" id="L178">        alwaysLookup = b;</span>
+<span class="nc" id="L179">    }</span>
+
+    /* 
+     * @see org.quartz.utils.ConnectionProvider#shutdown()
+     */
+    public void shutdown() throws SQLException {
+        // do nothing
+<span class="nc" id="L186">    }</span>
+
+    public void initialize() throws SQLException {
+        // do nothing, already initialized during constructor call
+<span class="nc" id="L190">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

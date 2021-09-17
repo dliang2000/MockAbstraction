@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobExecutionContextSupport.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.core.jmx</a> &gt; <span class="el_source">JobExecutionContextSupport.java</span></div><h1>JobExecutionContextSupport.java</h1><pre class="source lang-java linenums">package org.quartz.core.jmx;
+
+import static javax.management.openmbean.SimpleType.BOOLEAN;
+import static javax.management.openmbean.SimpleType.DATE;
+import static javax.management.openmbean.SimpleType.INTEGER;
+import static javax.management.openmbean.SimpleType.LONG;
+import static javax.management.openmbean.SimpleType.STRING;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.management.openmbean.CompositeData;
+import javax.management.openmbean.CompositeDataSupport;
+import javax.management.openmbean.CompositeType;
+import javax.management.openmbean.OpenDataException;
+import javax.management.openmbean.OpenType;
+import javax.management.openmbean.TabularData;
+import javax.management.openmbean.TabularDataSupport;
+import javax.management.openmbean.TabularType;
+
+import org.quartz.JobExecutionContext;
+import org.quartz.SchedulerException;
+
+<span class="nc" id="L24">public class JobExecutionContextSupport {</span>
+    private static final String COMPOSITE_TYPE_NAME = &quot;JobExecutionContext&quot;;
+    private static final String COMPOSITE_TYPE_DESCRIPTION = &quot;Job Execution Instance Details&quot;;
+<span class="nc" id="L27">    private static final String[] ITEM_NAMES = new String[] { &quot;schedulerName&quot;,</span>
+            &quot;triggerName&quot;, &quot;triggerGroup&quot;, &quot;jobName&quot;, &quot;jobGroup&quot;, &quot;jobDataMap&quot;,
+            &quot;calendarName&quot;, &quot;recovering&quot;, &quot;refireCount&quot;, &quot;fireTime&quot;,
+            &quot;scheduledFireTime&quot;, &quot;previousFireTime&quot;, &quot;nextFireTime&quot;,
+            &quot;jobRunTime&quot;, &quot;fireInstanceId&quot; };
+<span class="nc" id="L32">    private static final String[] ITEM_DESCRIPTIONS = new String[] {</span>
+            &quot;schedulerName&quot;, &quot;triggerName&quot;, &quot;triggerGroup&quot;, &quot;jobName&quot;,
+            &quot;jobGroup&quot;, &quot;jobDataMap&quot;, &quot;calendarName&quot;, &quot;recovering&quot;,
+            &quot;refireCount&quot;, &quot;fireTime&quot;, &quot;scheduledFireTime&quot;, &quot;previousFireTime&quot;,
+            &quot;nextFireTime&quot;, &quot;jobRunTime&quot;, &quot;fireInstanceId&quot; };
+<span class="nc" id="L37">    private static final OpenType[] ITEM_TYPES = new OpenType[] { STRING,</span>
+            STRING, STRING, STRING, STRING, JobDataMapSupport.TABULAR_TYPE,
+            STRING, BOOLEAN, INTEGER, DATE, DATE, DATE, DATE, LONG, STRING };
+    private static final CompositeType COMPOSITE_TYPE;
+    private static final String TABULAR_TYPE_NAME = &quot;JobExecutionContextArray&quot;;
+    private static final String TABULAR_TYPE_DESCRIPTION = &quot;Array of composite JobExecutionContext&quot;;
+<span class="nc" id="L43">    private static final String[] INDEX_NAMES = new String[] { &quot;schedulerName&quot;,</span>
+            &quot;triggerName&quot;, &quot;triggerGroup&quot;, &quot;jobName&quot;, &quot;jobGroup&quot;, &quot;fireTime&quot; };
+    private static final TabularType TABULAR_TYPE;
+
+    static {
+        try {
+<span class="nc" id="L49">            COMPOSITE_TYPE = new CompositeType(COMPOSITE_TYPE_NAME,</span>
+                    COMPOSITE_TYPE_DESCRIPTION, ITEM_NAMES, ITEM_DESCRIPTIONS,
+                    ITEM_TYPES);
+<span class="nc" id="L52">            TABULAR_TYPE = new TabularType(TABULAR_TYPE_NAME,</span>
+                    TABULAR_TYPE_DESCRIPTION, COMPOSITE_TYPE, INDEX_NAMES);
+<span class="nc" id="L54">        } catch (OpenDataException e) {</span>
+<span class="nc" id="L55">            throw new RuntimeException(e);</span>
+<span class="nc" id="L56">        }</span>
+<span class="nc" id="L57">    }</span>
+
+    /**
+     * @return composite data
+     */
+    public static CompositeData toCompositeData(JobExecutionContext jec)
+            throws SchedulerException {
+        try {
+<span class="nc" id="L65">            return new CompositeDataSupport(COMPOSITE_TYPE, ITEM_NAMES,</span>
+                    new Object[] {
+<span class="nc" id="L67">                            jec.getScheduler().getSchedulerName(),</span>
+<span class="nc" id="L68">                            jec.getTrigger().getKey().getName(),</span>
+<span class="nc" id="L69">                            jec.getTrigger().getKey().getGroup(),</span>
+<span class="nc" id="L70">                            jec.getJobDetail().getKey().getName(),</span>
+<span class="nc" id="L71">                            jec.getJobDetail().getKey().getGroup(),</span>
+<span class="nc" id="L72">                            JobDataMapSupport.toTabularData(jec</span>
+<span class="nc" id="L73">                                    .getMergedJobDataMap()),</span>
+<span class="nc" id="L74">                            jec.getTrigger().getCalendarName(),</span>
+<span class="nc" id="L75">                            jec.isRecovering(),</span>
+<span class="nc" id="L76">                            jec.getRefireCount(),</span>
+<span class="nc" id="L77">                            jec.getFireTime(), jec.getScheduledFireTime(),</span>
+<span class="nc" id="L78">                            jec.getPreviousFireTime(), jec.getNextFireTime(),</span>
+<span class="nc" id="L79">                            jec.getJobRunTime(),</span>
+<span class="nc" id="L80">                            jec.getFireInstanceId() });</span>
+<span class="nc" id="L81">        } catch (OpenDataException e) {</span>
+<span class="nc" id="L82">            throw new RuntimeException(e);</span>
+        }
+    }
+
+    /**
+     * @return array of region statistics
+     */
+    public static TabularData toTabularData(
+            final List&lt;JobExecutionContext&gt; executingJobs)
+            throws SchedulerException {
+<span class="nc" id="L92">        List&lt;CompositeData&gt; list = new ArrayList&lt;CompositeData&gt;();</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">        for (JobExecutionContext executingJob : executingJobs) {</span>
+<span class="nc" id="L94">            list.add(toCompositeData(executingJob));</span>
+<span class="nc" id="L95">        }</span>
+<span class="nc" id="L96">        TabularData td = new TabularDataSupport(TABULAR_TYPE);</span>
+<span class="nc" id="L97">        td.putAll(list.toArray(new CompositeData[list.size()]));</span>
+<span class="nc" id="L98">        return td;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

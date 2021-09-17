@@ -1,0 +1,890 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AbstractTrigger.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.triggers</a> &gt; <span class="el_source">AbstractTrigger.java</span></div><h1>AbstractTrigger.java</h1><pre class="source lang-java linenums">
+/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.impl.triggers;
+
+import java.util.Date;
+
+import org.quartz.Calendar;
+import org.quartz.CronTrigger;
+import org.quartz.JobDataMap;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.quartz.JobKey;
+import org.quartz.ScheduleBuilder;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.quartz.SimpleTrigger;
+import org.quartz.Trigger;
+import org.quartz.TriggerBuilder;
+import org.quartz.TriggerKey;
+import org.quartz.TriggerUtils;
+import org.quartz.spi.OperableTrigger;
+
+
+/**
+ * &lt;p&gt;
+ * The base abstract class to be extended by all &lt;code&gt;Trigger&lt;/code&gt;s.
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * &lt;code&gt;Triggers&lt;/code&gt; s have a name and group associated with them, which
+ * should uniquely identify them within a single &lt;code&gt;{@link Scheduler}&lt;/code&gt;.
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * &lt;code&gt;Trigger&lt;/code&gt;s are the 'mechanism' by which &lt;code&gt;Job&lt;/code&gt; s
+ * are scheduled. Many &lt;code&gt;Trigger&lt;/code&gt; s can point to the same &lt;code&gt;Job&lt;/code&gt;,
+ * but a single &lt;code&gt;Trigger&lt;/code&gt; can only point to one &lt;code&gt;Job&lt;/code&gt;.
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * Triggers can 'send' parameters/data to &lt;code&gt;Job&lt;/code&gt;s by placing contents
+ * into the &lt;code&gt;JobDataMap&lt;/code&gt; on the &lt;code&gt;Trigger&lt;/code&gt;.
+ * &lt;/p&gt;
+ *
+ * @author James House
+ * @author Sharada Jambula
+ */
+public abstract class AbstractTrigger&lt;T extends Trigger&gt; implements OperableTrigger {
+
+    private static final long serialVersionUID = -3904243490805975570L;
+
+    /*
+    * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    *
+    * Data members.
+    *
+    * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    */
+
+    private String name;
+
+<span class="pc" id="L78">    private String group = Scheduler.DEFAULT_GROUP;</span>
+
+    private String jobName;
+
+<span class="pc" id="L82">    private String jobGroup = Scheduler.DEFAULT_GROUP;</span>
+
+    private String description;
+
+    private JobDataMap jobDataMap;
+
+<span class="pc" id="L88">    @SuppressWarnings(&quot;unused&quot;)</span>
+    private boolean volatility = false; // still here for serialization backward compatibility
+
+<span class="pc" id="L91">    private String calendarName = null;</span>
+
+<span class="pc" id="L93">    private String fireInstanceId = null;</span>
+
+<span class="pc" id="L95">    private int misfireInstruction = MISFIRE_INSTRUCTION_SMART_POLICY;</span>
+
+<span class="pc" id="L97">    private int priority = DEFAULT_PRIORITY;</span>
+
+<span class="pc" id="L99">    private transient TriggerKey key = null;</span>
+
+    /*
+    * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    *
+    * Constructors.
+    *
+    * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    */
+
+
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;Trigger&lt;/code&gt; with no specified name, group, or &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Note that the {@link #setName(String)},{@link #setGroup(String)}and
+     * the {@link #setJobName(String)}and {@link #setJobGroup(String)}methods
+     * must be called before the &lt;code&gt;Trigger&lt;/code&gt; can be placed into a
+     * {@link Scheduler}.
+     * &lt;/p&gt;
+     */
+<span class="fc" id="L123">    public AbstractTrigger() {</span>
+        // do nothing...
+<span class="fc" id="L125">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;Trigger&lt;/code&gt; with the given name, and default group.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Note that the {@link #setJobName(String)}and
+     * {@link #setJobGroup(String)}methods must be called before the &lt;code&gt;Trigger&lt;/code&gt;
+     * can be placed into a {@link Scheduler}.
+     * &lt;/p&gt;
+     * 
+     * @exception IllegalArgumentException
+     *              if name is null or empty, or the group is an empty string.
+     */
+<span class="nc" id="L141">    public AbstractTrigger(String name) {</span>
+<span class="nc" id="L142">        setName(name);</span>
+<span class="nc" id="L143">        setGroup(null);</span>
+<span class="nc" id="L144">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;Trigger&lt;/code&gt; with the given name, and group.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Note that the {@link #setJobName(String)}and
+     * {@link #setJobGroup(String)}methods must be called before the &lt;code&gt;Trigger&lt;/code&gt;
+     * can be placed into a {@link Scheduler}.
+     * &lt;/p&gt;
+     * 
+     * @param group if &lt;code&gt;null&lt;/code&gt;, Scheduler.DEFAULT_GROUP will be used.
+     * 
+     * @exception IllegalArgumentException
+     *              if name is null or empty, or the group is an empty string.
+     */
+<span class="fc" id="L162">    public AbstractTrigger(String name, String group) {</span>
+<span class="fc" id="L163">        setName(name);</span>
+<span class="fc" id="L164">        setGroup(group);</span>
+<span class="fc" id="L165">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;Trigger&lt;/code&gt; with the given name, and group.
+     * &lt;/p&gt;
+     * 
+     * @param group if &lt;code&gt;null&lt;/code&gt;, Scheduler.DEFAULT_GROUP will be used.
+     * 
+     * @exception IllegalArgumentException
+     *              if name is null or empty, or the group is an empty string.
+     */
+<span class="fc" id="L177">    public AbstractTrigger(String name, String group, String jobName, String jobGroup) {</span>
+<span class="fc" id="L178">        setName(name);</span>
+<span class="fc" id="L179">        setGroup(group);</span>
+<span class="fc" id="L180">        setJobName(jobName);</span>
+<span class="fc" id="L181">        setJobGroup(jobGroup);</span>
+<span class="fc" id="L182">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Get the name of this &lt;code&gt;Trigger&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public String getName() {
+<span class="fc" id="L198">        return name;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the name of this &lt;code&gt;Trigger&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @exception IllegalArgumentException
+     *              if name is null or empty.
+     */
+    public void setName(String name) {
+<span class="pc bpc" id="L210" title="2 of 4 branches missed.">        if (name == null || name.trim().length() == 0) {</span>
+<span class="nc" id="L211">            throw new IllegalArgumentException(</span>
+                    &quot;Trigger name cannot be null or empty.&quot;);
+        }
+
+<span class="fc" id="L215">        this.name = name;</span>
+<span class="fc" id="L216">        this.key = null;</span>
+<span class="fc" id="L217">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the group of this &lt;code&gt;Trigger&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public String getGroup() {
+<span class="fc" id="L225">        return group;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the name of this &lt;code&gt;Trigger&lt;/code&gt;. 
+     * &lt;/p&gt;
+     * 
+     * @param group if &lt;code&gt;null&lt;/code&gt;, Scheduler.DEFAULT_GROUP will be used.
+     * 
+     * @exception IllegalArgumentException
+     *              if group is an empty string.
+     */
+    public void setGroup(String group) {
+<span class="pc bpc" id="L239" title="1 of 4 branches missed.">        if (group != null &amp;&amp; group.trim().length() == 0) {</span>
+<span class="nc" id="L240">            throw new IllegalArgumentException(</span>
+                    &quot;Group name cannot be an empty string.&quot;);
+        }
+
+<span class="fc bfc" id="L244" title="All 2 branches covered.">        if(group == null) {</span>
+<span class="fc" id="L245">            group = Scheduler.DEFAULT_GROUP;</span>
+        }
+
+<span class="fc" id="L248">        this.group = group;</span>
+<span class="fc" id="L249">        this.key = null;</span>
+<span class="fc" id="L250">    }</span>
+
+    public void setKey(TriggerKey key) {
+<span class="fc" id="L253">        setName(key.getName());</span>
+<span class="fc" id="L254">        setGroup(key.getGroup());</span>
+<span class="fc" id="L255">        this.key = key;</span>
+<span class="fc" id="L256">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the name of the associated &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public String getJobName() {
+<span class="fc" id="L264">        return jobName;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the name of the associated &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @exception IllegalArgumentException
+     *              if jobName is null or empty.
+     */
+    public void setJobName(String jobName) {
+<span class="pc bpc" id="L276" title="2 of 4 branches missed.">        if (jobName == null || jobName.trim().length() == 0) {</span>
+<span class="nc" id="L277">            throw new IllegalArgumentException(</span>
+                    &quot;Job name cannot be null or empty.&quot;);
+        }
+
+<span class="fc" id="L281">        this.jobName = jobName;</span>
+<span class="fc" id="L282">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the name of the associated &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt;'s
+     * group.
+     * &lt;/p&gt;
+     */
+    public String getJobGroup() {
+<span class="fc" id="L291">        return jobGroup;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set the name of the associated &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt;'s
+     * group.
+     * &lt;/p&gt;
+     * 
+     * @param jobGroup if &lt;code&gt;null&lt;/code&gt;, Scheduler.DEFAULT_GROUP will be used.
+     * 
+     * @exception IllegalArgumentException
+     *              if group is an empty string.
+     */
+    public void setJobGroup(String jobGroup) {
+<span class="pc bpc" id="L306" title="2 of 4 branches missed.">        if (jobGroup != null &amp;&amp; jobGroup.trim().length() == 0) {</span>
+<span class="nc" id="L307">            throw new IllegalArgumentException(</span>
+                    &quot;Group name cannot be null or empty.&quot;);
+        }
+
+<span class="pc bpc" id="L311" title="1 of 2 branches missed.">        if(jobGroup == null) {</span>
+<span class="nc" id="L312">            jobGroup = Scheduler.DEFAULT_GROUP;</span>
+        }
+
+<span class="fc" id="L315">        this.jobGroup = jobGroup;</span>
+<span class="fc" id="L316">    }</span>
+
+    public void setJobKey(JobKey key) {
+<span class="fc" id="L319">        setJobName(key.getName());</span>
+<span class="fc" id="L320">        setJobGroup(key.getGroup());</span>
+<span class="fc" id="L321">    }</span>
+
+
+    /**
+     * &lt;p&gt;
+     * Returns the 'full name' of the &lt;code&gt;Trigger&lt;/code&gt; in the format
+     * &quot;group.name&quot;.
+     * &lt;/p&gt;
+     */
+    public String getFullName() {
+<span class="fc" id="L331">        return group + &quot;.&quot; + name;</span>
+    }
+
+    public TriggerKey getKey() {
+<span class="fc bfc" id="L335" title="All 2 branches covered.">        if(key == null) {</span>
+<span class="fc bfc" id="L336" title="All 2 branches covered.">            if(getName() == null)</span>
+<span class="fc" id="L337">                return null;</span>
+<span class="fc" id="L338">            key = new TriggerKey(getName(), getGroup());</span>
+        }
+
+<span class="fc" id="L341">        return key;</span>
+    }
+
+    public JobKey getJobKey() {
+<span class="fc bfc" id="L345" title="All 2 branches covered.">        if(getJobName() == null)</span>
+<span class="fc" id="L346">            return null;</span>
+
+<span class="fc" id="L348">        return new JobKey(getJobName(), getJobGroup());</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns the 'full name' of the &lt;code&gt;Job&lt;/code&gt; that the &lt;code&gt;Trigger&lt;/code&gt;
+     * points to, in the format &quot;group.name&quot;.
+     * &lt;/p&gt;
+     */
+    public String getFullJobName() {
+<span class="nc" id="L358">        return jobGroup + &quot;.&quot; + jobName;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Return the description given to the &lt;code&gt;Trigger&lt;/code&gt; instance by
+     * its creator (if any).
+     * &lt;/p&gt;
+     * 
+     * @return null if no description was set.
+     */
+    public String getDescription() {
+<span class="fc" id="L370">        return description;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set a description for the &lt;code&gt;Trigger&lt;/code&gt; instance - may be
+     * useful for remembering/displaying the purpose of the trigger, though the
+     * description has no meaning to Quartz.
+     * &lt;/p&gt;
+     */
+    public void setDescription(String description) {
+<span class="fc" id="L381">        this.description = description;</span>
+<span class="fc" id="L382">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Associate the &lt;code&gt;{@link Calendar}&lt;/code&gt; with the given name with
+     * this Trigger.
+     * &lt;/p&gt;
+     * 
+     * @param calendarName
+     *          use &lt;code&gt;null&lt;/code&gt; to dis-associate a Calendar.
+     */
+    public void setCalendarName(String calendarName) {
+<span class="fc" id="L394">        this.calendarName = calendarName;</span>
+<span class="fc" id="L395">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the name of the &lt;code&gt;{@link Calendar}&lt;/code&gt; associated with this
+     * Trigger.
+     * &lt;/p&gt;
+     * 
+     * @return &lt;code&gt;null&lt;/code&gt; if there is no associated Calendar.
+     */
+    public String getCalendarName() {
+<span class="fc" id="L406">        return calendarName;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the &lt;code&gt;JobDataMap&lt;/code&gt; that is associated with the 
+     * &lt;code&gt;Trigger&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Changes made to this map during job execution are not re-persisted, and
+     * in fact typically result in an &lt;code&gt;IllegalStateException&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public JobDataMap getJobDataMap() {
+<span class="fc bfc" id="L421" title="All 2 branches covered.">        if (jobDataMap == null) {</span>
+<span class="fc" id="L422">            jobDataMap = new JobDataMap();</span>
+        }
+<span class="fc" id="L424">        return jobDataMap;</span>
+    }
+
+
+    /**
+     * &lt;p&gt;
+     * Set the &lt;code&gt;JobDataMap&lt;/code&gt; to be associated with the 
+     * &lt;code&gt;Trigger&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public void setJobDataMap(JobDataMap jobDataMap) {
+<span class="fc" id="L435">        this.jobDataMap = jobDataMap;</span>
+<span class="fc" id="L436">    }</span>
+
+    /**
+     * The priority of a &lt;code&gt;Trigger&lt;/code&gt; acts as a tiebreaker such that if 
+     * two &lt;code&gt;Trigger&lt;/code&gt;s have the same scheduled fire time, then the
+     * one with the higher priority will get first access to a worker
+     * thread.
+     * 
+     * &lt;p&gt;
+     * If not explicitly set, the default value is &lt;code&gt;5&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @see #DEFAULT_PRIORITY
+     */
+    public int getPriority() {
+<span class="fc" id="L451">        return priority;</span>
+    }
+
+
+    /**
+     * The priority of a &lt;code&gt;Trigger&lt;/code&gt; acts as a tie breaker such that if 
+     * two &lt;code&gt;Trigger&lt;/code&gt;s have the same scheduled fire time, then Quartz
+     * will do its best to give the one with the higher priority first access 
+     * to a worker thread.
+     * 
+     * &lt;p&gt;
+     * If not explicitly set, the default value is &lt;code&gt;5&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @see #DEFAULT_PRIORITY
+     */
+    public void setPriority(int priority) {
+<span class="fc" id="L468">        this.priority = priority;</span>
+<span class="fc" id="L469">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * This method should not be used by the Quartz client.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Called when the &lt;code&gt;{@link Scheduler}&lt;/code&gt; has decided to 'fire'
+     * the trigger (execute the associated &lt;code&gt;Job&lt;/code&gt;), in order to
+     * give the &lt;code&gt;Trigger&lt;/code&gt; a chance to update itself for its next
+     * triggering (if any).
+     * &lt;/p&gt;
+     * 
+     * @see #executionComplete(JobExecutionContext, JobExecutionException)
+     */
+    public abstract void triggered(Calendar calendar);
+
+    /**
+     * &lt;p&gt;
+     * This method should not be used by the Quartz client.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Called by the scheduler at the time a &lt;code&gt;Trigger&lt;/code&gt; is first
+     * added to the scheduler, in order to have the &lt;code&gt;Trigger&lt;/code&gt;
+     * compute its first fire time, based on any associated calendar.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * After this method has been called, &lt;code&gt;getNextFireTime()&lt;/code&gt;
+     * should return a valid answer.
+     * &lt;/p&gt;
+     * 
+     * @return the first time at which the &lt;code&gt;Trigger&lt;/code&gt; will be fired
+     *         by the scheduler, which is also the same value &lt;code&gt;getNextFireTime()&lt;/code&gt;
+     *         will return (until after the first firing of the &lt;code&gt;Trigger&lt;/code&gt;).
+     *         &lt;/p&gt;
+     */
+    public abstract Date computeFirstFireTime(Calendar calendar);
+
+    /**
+     * &lt;p&gt;
+     * This method should not be used by the Quartz client.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Called after the &lt;code&gt;{@link Scheduler}&lt;/code&gt; has executed the
+     * &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt; associated with the &lt;code&gt;Trigger&lt;/code&gt;
+     * in order to get the final instruction code from the trigger.
+     * &lt;/p&gt;
+     * 
+     * @param context
+     *          is the &lt;code&gt;JobExecutionContext&lt;/code&gt; that was used by the
+     *          &lt;code&gt;Job&lt;/code&gt;'s&lt;code&gt;execute(xx)&lt;/code&gt; method.
+     * @param result
+     *          is the &lt;code&gt;JobExecutionException&lt;/code&gt; thrown by the
+     *          &lt;code&gt;Job&lt;/code&gt;, if any (may be null).
+     * @return one of the CompletedExecutionInstruction constants.
+     * 
+     * @see org.quartz.Trigger.CompletedExecutionInstruction
+     * @see #triggered(Calendar)
+     */
+    public CompletedExecutionInstruction executionComplete(JobExecutionContext context,
+                                          JobExecutionException result)
+    {
+<span class="pc bpc" id="L535" title="3 of 4 branches missed.">        if (result != null &amp;&amp; result.refireImmediately()) {</span>
+<span class="nc" id="L536">            return CompletedExecutionInstruction.RE_EXECUTE_JOB;</span>
+        }
+    
+<span class="pc bpc" id="L539" title="3 of 4 branches missed.">        if (result != null &amp;&amp; result.unscheduleFiringTrigger()) {</span>
+<span class="nc" id="L540">            return CompletedExecutionInstruction.SET_TRIGGER_COMPLETE;</span>
+        }
+    
+<span class="pc bpc" id="L543" title="3 of 4 branches missed.">        if (result != null &amp;&amp; result.unscheduleAllTriggers()) {</span>
+<span class="nc" id="L544">            return CompletedExecutionInstruction.SET_ALL_JOB_TRIGGERS_COMPLETE;</span>
+        }
+    
+<span class="fc bfc" id="L547" title="All 2 branches covered.">        if (!mayFireAgain()) {</span>
+<span class="fc" id="L548">            return CompletedExecutionInstruction.DELETE_TRIGGER;</span>
+        }
+    
+<span class="fc" id="L551">        return CompletedExecutionInstruction.NOOP;</span>
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Used by the &lt;code&gt;{@link Scheduler}&lt;/code&gt; to determine whether or not
+     * it is possible for this &lt;code&gt;Trigger&lt;/code&gt; to fire again.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * If the returned value is &lt;code&gt;false&lt;/code&gt; then the &lt;code&gt;Scheduler&lt;/code&gt;
+     * may remove the &lt;code&gt;Trigger&lt;/code&gt; from the &lt;code&gt;{@link org.quartz.spi.JobStore}&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public abstract boolean mayFireAgain();
+
+    /**
+     * &lt;p&gt;
+     * Get the time at which the &lt;code&gt;Trigger&lt;/code&gt; should occur.
+     * &lt;/p&gt;
+     */
+    public abstract Date getStartTime();
+
+    /**
+     * &lt;p&gt;
+     * The time at which the trigger's scheduling should start.  May or may not
+     * be the first actual fire time of the trigger, depending upon the type of
+     * trigger and the settings of the other properties of the trigger.  However
+     * the first actual first time will not be before this date.
+     * &lt;/p&gt;
+     * &lt;p&gt;
+     * Setting a value in the past may cause a new trigger to compute a first
+     * fire time that is in the past, which may cause an immediate misfire
+     * of the trigger.
+     * &lt;/p&gt;
+     */
+    public abstract void setStartTime(Date startTime);
+
+    /**
+     * &lt;p&gt;
+     * Set the time at which the &lt;code&gt;Trigger&lt;/code&gt; should quit repeating -
+     * regardless of any remaining repeats (based on the trigger's particular 
+     * repeat settings). 
+     * &lt;/p&gt;
+     * 
+     * @see TriggerUtils#computeEndTimeToAllowParticularNumberOfFirings(org.quartz.spi.OperableTrigger, org.quartz.Calendar, int)
+     */ 
+    public abstract void setEndTime(Date endTime);
+
+    /**
+     * &lt;p&gt;
+     * Get the time at which the &lt;code&gt;Trigger&lt;/code&gt; should quit repeating -
+     * regardless of any remaining repeats (based on the trigger's particular 
+     * repeat settings). 
+     * &lt;/p&gt;
+     * 
+     * @see #getFinalFireTime()
+     */
+    public abstract Date getEndTime();
+
+    /**
+     * &lt;p&gt;
+     * Returns the next time at which the &lt;code&gt;Trigger&lt;/code&gt; is scheduled to fire. If
+     * the trigger will not fire again, &lt;code&gt;null&lt;/code&gt; will be returned.  Note that
+     * the time returned can possibly be in the past, if the time that was computed
+     * for the trigger to next fire has already arrived, but the scheduler has not yet
+     * been able to fire the trigger (which would likely be due to lack of resources
+     * e.g. threads).
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;The value returned is not guaranteed to be valid until after the &lt;code&gt;Trigger&lt;/code&gt;
+     * has been added to the scheduler.
+     * &lt;/p&gt;
+     *
+     * @see TriggerUtils#computeFireTimesBetween(org.quartz.spi.OperableTrigger, org.quartz.Calendar, java.util.Date, java.util.Date)
+     */
+    public abstract Date getNextFireTime();
+
+    /**
+     * &lt;p&gt;
+     * Returns the previous time at which the &lt;code&gt;Trigger&lt;/code&gt; fired.
+     * If the trigger has not yet fired, &lt;code&gt;null&lt;/code&gt; will be returned.
+     */
+    public abstract Date getPreviousFireTime();
+
+    /**
+     * &lt;p&gt;
+     * Returns the next time at which the &lt;code&gt;Trigger&lt;/code&gt; will fire,
+     * after the given time. If the trigger will not fire after the given time,
+     * &lt;code&gt;null&lt;/code&gt; will be returned.
+     * &lt;/p&gt;
+     */
+    public abstract Date getFireTimeAfter(Date afterTime);
+
+    /**
+     * &lt;p&gt;
+     * Returns the last time at which the &lt;code&gt;Trigger&lt;/code&gt; will fire, if
+     * the Trigger will repeat indefinitely, null will be returned.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Note that the return time *may* be in the past.
+     * &lt;/p&gt;
+     */
+    public abstract Date getFinalFireTime();
+
+    /**
+     * &lt;p&gt;
+     * Set the instruction the &lt;code&gt;Scheduler&lt;/code&gt; should be given for
+     * handling misfire situations for this &lt;code&gt;Trigger&lt;/code&gt;- the
+     * concrete &lt;code&gt;Trigger&lt;/code&gt; type that you are using will have
+     * defined a set of additional &lt;code&gt;MISFIRE_INSTRUCTION_XXX&lt;/code&gt;
+     * constants that may be passed to this method.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * If not explicitly set, the default value is &lt;code&gt;MISFIRE_INSTRUCTION_SMART_POLICY&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @see #MISFIRE_INSTRUCTION_SMART_POLICY
+     * @see #updateAfterMisfire(Calendar)
+     * @see SimpleTrigger
+     * @see CronTrigger
+     */
+    public void setMisfireInstruction(int misfireInstruction) {
+<span class="fc bfc" id="L676" title="All 2 branches covered.">        if (!validateMisfireInstruction(misfireInstruction)) {</span>
+<span class="fc" id="L677">            throw new IllegalArgumentException(</span>
+                        &quot;The misfire instruction code is invalid for this type of trigger.&quot;);
+        }
+<span class="fc" id="L680">        this.misfireInstruction = misfireInstruction;</span>
+<span class="fc" id="L681">    }</span>
+
+    protected abstract boolean validateMisfireInstruction(int candidateMisfireInstruction);
+
+    /**
+     * &lt;p&gt;
+     * Get the instruction the &lt;code&gt;Scheduler&lt;/code&gt; should be given for
+     * handling misfire situations for this &lt;code&gt;Trigger&lt;/code&gt;- the
+     * concrete &lt;code&gt;Trigger&lt;/code&gt; type that you are using will have
+     * defined a set of additional &lt;code&gt;MISFIRE_INSTRUCTION_XXX&lt;/code&gt;
+     * constants that may be passed to this method.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * If not explicitly set, the default value is &lt;code&gt;MISFIRE_INSTRUCTION_SMART_POLICY&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * @see #MISFIRE_INSTRUCTION_SMART_POLICY
+     * @see #updateAfterMisfire(Calendar)
+     * @see SimpleTrigger
+     * @see CronTrigger
+     */
+    public int getMisfireInstruction() {
+<span class="fc" id="L704">        return misfireInstruction;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * This method should not be used by the Quartz client.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * To be implemented by the concrete classes that extend this class.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * The implementation should update the &lt;code&gt;Trigger&lt;/code&gt;'s state
+     * based on the MISFIRE_INSTRUCTION_XXX that was selected when the &lt;code&gt;Trigger&lt;/code&gt;
+     * was created.
+     * &lt;/p&gt;
+     */
+    public abstract void updateAfterMisfire(Calendar cal);
+
+    /**
+     * &lt;p&gt;
+     * This method should not be used by the Quartz client.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * To be implemented by the concrete class.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * The implementation should update the &lt;code&gt;Trigger&lt;/code&gt;'s state
+     * based on the given new version of the associated &lt;code&gt;Calendar&lt;/code&gt;
+     * (the state should be updated so that it's next fire time is appropriate
+     * given the Calendar's new settings). 
+     * &lt;/p&gt;
+     * 
+     * @param cal the modifying calendar
+     */
+    public abstract void updateWithNewCalendar(Calendar cal, long misfireThreshold);
+
+    /**
+     * &lt;p&gt;
+     * Validates whether the properties of the &lt;code&gt;JobDetail&lt;/code&gt; are
+     * valid for submission into a &lt;code&gt;Scheduler&lt;/code&gt;.
+     * 
+     * @throws IllegalStateException
+     *           if a required property (such as Name, Group, Class) is not
+     *           set.
+     */
+    public void validate() throws SchedulerException {
+<span class="fc bfc" id="L754" title="All 2 branches covered.">        if (name == null) {</span>
+<span class="fc" id="L755">            throw new SchedulerException(&quot;Trigger's name cannot be null&quot;);</span>
+        }
+
+<span class="pc bpc" id="L758" title="1 of 2 branches missed.">        if (group == null) {</span>
+<span class="nc" id="L759">            throw new SchedulerException(&quot;Trigger's group cannot be null&quot;);</span>
+        }
+
+<span class="pc bpc" id="L762" title="1 of 2 branches missed.">        if (jobName == null) {</span>
+<span class="nc" id="L763">            throw new SchedulerException(</span>
+                        &quot;Trigger's related Job's name cannot be null&quot;);
+        }
+
+<span class="pc bpc" id="L767" title="1 of 2 branches missed.">        if (jobGroup == null) {</span>
+<span class="nc" id="L768">            throw new SchedulerException(</span>
+                        &quot;Trigger's related Job's group cannot be null&quot;);
+        }
+<span class="fc" id="L771">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * This method should not be used by the Quartz client.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Usable by &lt;code&gt;{@link org.quartz.spi.JobStore}&lt;/code&gt;
+     * implementations, in order to facilitate 'recognizing' instances of fired
+     * &lt;code&gt;Trigger&lt;/code&gt; s as their jobs complete execution.
+     * &lt;/p&gt;
+     * 
+     *  
+     */
+    public void setFireInstanceId(String id) {
+<span class="fc" id="L787">        this.fireInstanceId = id;</span>
+<span class="fc" id="L788">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * This method should not be used by the Quartz client.
+     * &lt;/p&gt;
+     */
+    public String getFireInstanceId() {
+<span class="fc" id="L796">        return fireInstanceId;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Return a simple string representation of this object.
+     * &lt;/p&gt;
+     */
+    @Override
+    public String toString() {
+<span class="fc" id="L806">        return &quot;Trigger '&quot; + getFullName() + &quot;':  triggerClass: '&quot;</span>
+<span class="fc" id="L807">                + getClass().getName() + &quot; calendar: '&quot; + getCalendarName() </span>
+<span class="fc" id="L808">                + &quot;' misfireInstruction: &quot; + getMisfireInstruction() </span>
+<span class="fc" id="L809">                + &quot; nextFireTime: &quot; + getNextFireTime();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Compare the next fire time of this &lt;code&gt;Trigger&lt;/code&gt; to that of
+     * another by comparing their keys, or in other words, sorts them
+     * according to the natural (i.e. alphabetical) order of their keys.
+     * &lt;/p&gt;
+     */
+    public int compareTo(Trigger other) {
+
+<span class="pc bpc" id="L821" title="3 of 4 branches missed.">        if(other.getKey() == null &amp;&amp; getKey() == null)</span>
+<span class="nc" id="L822">            return 0;</span>
+<span class="pc bpc" id="L823" title="1 of 2 branches missed.">        if(other.getKey() == null)</span>
+<span class="nc" id="L824">            return -1;</span>
+<span class="pc bpc" id="L825" title="1 of 2 branches missed.">        if(getKey() == null)</span>
+<span class="nc" id="L826">            return 1;</span>
+        
+<span class="fc" id="L828">        return getKey().compareTo(other.getKey());</span>
+    }
+
+    /**
+     * Trigger equality is based upon the equality of the TriggerKey.
+     * 
+     * @return true if the key of this Trigger equals that of the given Trigger.
+     */
+    @Override
+    public boolean equals(Object o) {
+<span class="pc bpc" id="L838" title="1 of 2 branches missed.">        if(!(o instanceof Trigger))</span>
+<span class="nc" id="L839">            return false;</span>
+        
+<span class="fc" id="L841">        Trigger other = (Trigger)o;</span>
+
+<span class="pc bpc" id="L843" title="1 of 6 branches missed.">        return !(other.getKey() == null || getKey() == null) &amp;&amp; getKey().equals(other.getKey());</span>
+
+    }
+
+
+    @Override
+    public int hashCode() {
+<span class="pc bpc" id="L850" title="1 of 2 branches missed.">        if(getKey() == null)</span>
+<span class="nc" id="L851">            return super.hashCode();</span>
+        
+<span class="fc" id="L853">        return getKey().hashCode();</span>
+    }
+
+    @Override
+    public Object clone() {
+        AbstractTrigger&lt;?&gt; copy;
+        try {
+<span class="fc" id="L860">            copy = (AbstractTrigger&lt;?&gt;) super.clone();</span>
+
+            // Shallow copy the jobDataMap.  Note that this means that if a user
+            // modifies a value object in this map from the cloned Trigger
+            // they will also be modifying this Trigger. 
+<span class="fc bfc" id="L865" title="All 2 branches covered.">            if (jobDataMap != null) {</span>
+<span class="fc" id="L866">                copy.jobDataMap = (JobDataMap)jobDataMap.clone();</span>
+            }
+
+<span class="nc" id="L869">        } catch (CloneNotSupportedException ex) {</span>
+<span class="nc" id="L870">            throw new IncompatibleClassChangeError(&quot;Not Cloneable.&quot;);</span>
+<span class="fc" id="L871">        }</span>
+<span class="fc" id="L872">        return copy;</span>
+    }
+    
+    public TriggerBuilder&lt;T&gt; getTriggerBuilder() {
+<span class="nc" id="L876">        return TriggerBuilder.newTrigger()</span>
+<span class="nc" id="L877">            .forJob(getJobKey())</span>
+<span class="nc" id="L878">            .modifiedByCalendar(getCalendarName())</span>
+<span class="nc" id="L879">            .usingJobData(getJobDataMap())</span>
+<span class="nc" id="L880">            .withDescription(getDescription())</span>
+<span class="nc" id="L881">            .endAt(getEndTime())</span>
+<span class="nc" id="L882">            .withIdentity(getKey())</span>
+<span class="nc" id="L883">            .withPriority(getPriority())</span>
+<span class="nc" id="L884">            .startAt(getStartTime())</span>
+<span class="nc" id="L885">            .withSchedule(getScheduleBuilder());</span>
+    }
+
+    public abstract ScheduleBuilder&lt;T&gt; getScheduleBuilder();
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

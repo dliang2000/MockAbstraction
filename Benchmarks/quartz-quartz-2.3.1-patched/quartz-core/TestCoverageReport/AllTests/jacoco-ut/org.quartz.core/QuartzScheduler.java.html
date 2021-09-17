@@ -1,0 +1,2467 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>QuartzScheduler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.core</a> &gt; <span class="el_source">QuartzScheduler.java</span></div><h1>QuartzScheduler.java</h1><pre class="source lang-java linenums">
+/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.core;
+
+import java.io.InputStream;
+import java.lang.management.ManagementFactory;
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.rmi.server.UnicastRemoteObject;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Random;
+import java.util.Set;
+import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+
+import org.quartz.Calendar;
+import org.quartz.InterruptableJob;
+import org.quartz.Job;
+import org.quartz.JobDataMap;
+import org.quartz.JobDetail;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.quartz.JobKey;
+import org.quartz.JobListener;
+import org.quartz.ListenerManager;
+import org.quartz.Matcher;
+import org.quartz.ObjectAlreadyExistsException;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerContext;
+import org.quartz.SchedulerException;
+import org.quartz.SchedulerListener;
+import org.quartz.SchedulerMetaData;
+import org.quartz.Trigger;
+import static org.quartz.TriggerBuilder.*;
+import org.quartz.TriggerKey;
+import org.quartz.TriggerListener;
+import org.quartz.UnableToInterruptJobException;
+import org.quartz.Trigger.CompletedExecutionInstruction;
+import org.quartz.Trigger.TriggerState;
+import org.quartz.core.jmx.QuartzSchedulerMBean;
+import org.quartz.impl.SchedulerRepository;
+import org.quartz.impl.matchers.GroupMatcher;
+import org.quartz.listeners.SchedulerListenerSupport;
+import org.quartz.simpl.PropertySettingJobFactory;
+import org.quartz.spi.JobFactory;
+import org.quartz.spi.OperableTrigger;
+import org.quartz.spi.SchedulerPlugin;
+import org.quartz.spi.SchedulerSignaler;
+import org.quartz.spi.ThreadExecutor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * &lt;p&gt;
+ * This is the heart of Quartz, an indirect implementation of the &lt;code&gt;{@link org.quartz.Scheduler}&lt;/code&gt;
+ * interface, containing methods to schedule &lt;code&gt;{@link org.quartz.Job}&lt;/code&gt;s,
+ * register &lt;code&gt;{@link org.quartz.JobListener}&lt;/code&gt; instances, etc.
+ * &lt;/p&gt;
+ * 
+ * @see org.quartz.Scheduler
+ * @see org.quartz.core.QuartzSchedulerThread
+ * @see org.quartz.spi.JobStore
+ * @see org.quartz.spi.ThreadPool
+ * 
+ * @author James House
+ */
+public class QuartzScheduler implements RemotableQuartzScheduler {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constants.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+<span class="fc" id="L104">    private static String VERSION_MAJOR = &quot;UNKNOWN&quot;;</span>
+<span class="fc" id="L105">    private static String VERSION_MINOR = &quot;UNKNOWN&quot;;</span>
+<span class="fc" id="L106">    private static String VERSION_ITERATION = &quot;UNKNOWN&quot;;</span>
+
+    static {
+<span class="fc" id="L109">        Properties props = new Properties();</span>
+<span class="fc" id="L110">        InputStream is = null;</span>
+        try {
+<span class="fc" id="L112">            is = QuartzScheduler.class.getResourceAsStream(&quot;quartz-build.properties&quot;);</span>
+<span class="pc bpc" id="L113" title="1 of 2 branches missed.">            if(is != null) {</span>
+<span class="fc" id="L114">                props.load(is);</span>
+<span class="fc" id="L115">                String version = props.getProperty(&quot;version&quot;);</span>
+<span class="pc bpc" id="L116" title="1 of 2 branches missed.">                if (version != null) {</span>
+<span class="fc" id="L117">                    String[] versionComponents = version.split(&quot;\\.&quot;);</span>
+<span class="fc" id="L118">                    VERSION_MAJOR = versionComponents[0];</span>
+<span class="fc" id="L119">                    VERSION_MINOR = versionComponents[1];</span>
+<span class="pc bpc" id="L120" title="1 of 2 branches missed.">                    if(versionComponents.length &gt; 2)</span>
+<span class="fc" id="L121">                        VERSION_ITERATION = versionComponents[2];</span>
+                    else
+<span class="nc" id="L123">                        VERSION_ITERATION = &quot;0&quot;;</span>
+<span class="fc" id="L124">                } else {</span>
+<span class="nc" id="L125">                  (LoggerFactory.getLogger(QuartzScheduler.class)).error(</span>
+                      &quot;Can't parse Quartz version from quartz-build.properties&quot;);
+                }
+            }
+<span class="nc" id="L129">        } catch (Exception e) {</span>
+<span class="nc" id="L130">            (LoggerFactory.getLogger(QuartzScheduler.class)).error(</span>
+                &quot;Error loading version info from quartz-build.properties.&quot;, e);
+        } finally {
+<span class="pc bpc" id="L133" title="1 of 2 branches missed.">            if(is != null) {</span>
+<span class="pc" id="L134">                try { is.close(); } catch(Exception ignore) {}</span>
+            }
+        }
+<span class="fc" id="L137">    }</span>
+    
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    private QuartzSchedulerResources resources;
+
+    private QuartzSchedulerThread schedThread;
+
+    private ThreadGroup threadGroup;
+
+<span class="fc" id="L154">    private SchedulerContext context = new SchedulerContext();</span>
+
+<span class="fc" id="L156">    private ListenerManager listenerManager = new ListenerManagerImpl();</span>
+    
+<span class="fc" id="L158">    private HashMap&lt;String, JobListener&gt; internalJobListeners = new HashMap&lt;String, JobListener&gt;(10);</span>
+
+<span class="fc" id="L160">    private HashMap&lt;String, TriggerListener&gt; internalTriggerListeners = new HashMap&lt;String, TriggerListener&gt;(10);</span>
+
+<span class="fc" id="L162">    private ArrayList&lt;SchedulerListener&gt; internalSchedulerListeners = new ArrayList&lt;SchedulerListener&gt;(10);</span>
+
+<span class="fc" id="L164">    private JobFactory jobFactory = new PropertySettingJobFactory();</span>
+    
+<span class="fc" id="L166">    ExecutingJobsManager jobMgr = null;</span>
+
+<span class="fc" id="L168">    ErrorLogger errLogger = null;</span>
+
+    private SchedulerSignaler signaler;
+
+<span class="fc" id="L172">    private Random random = new Random();</span>
+
+<span class="fc" id="L174">    private ArrayList&lt;Object&gt; holdToPreventGC = new ArrayList&lt;Object&gt;(5);</span>
+
+<span class="fc" id="L176">    private boolean signalOnSchedulingChange = true;</span>
+
+<span class="fc" id="L178">    private volatile boolean closed = false;</span>
+<span class="fc" id="L179">    private volatile boolean shuttingDown = false;</span>
+<span class="fc" id="L180">    private boolean boundRemotely = false;</span>
+
+<span class="fc" id="L182">    private QuartzSchedulerMBean jmxBean = null;</span>
+    
+<span class="fc" id="L184">    private Date initialStart = null;</span>
+
+<span class="fc" id="L186">    private final Logger log = LoggerFactory.getLogger(getClass());</span>
+    
+    // private static final Map&lt;String, ManagementServer&gt; MGMT_SVR_BY_BIND = new
+    // HashMap&lt;String, ManagementServer&gt;();
+    // private String registeredManagementServerBind;
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Create a &lt;code&gt;QuartzScheduler&lt;/code&gt; with the given configuration
+     * properties.
+     * &lt;/p&gt;
+     * 
+     * @see QuartzSchedulerResources
+     */
+    public QuartzScheduler(QuartzSchedulerResources resources, long idleWaitTime, @Deprecated long dbRetryInterval)
+<span class="fc" id="L209">        throws SchedulerException {</span>
+<span class="fc" id="L210">        this.resources = resources;</span>
+<span class="pc bpc" id="L211" title="1 of 2 branches missed.">        if (resources.getJobStore() instanceof JobListener) {</span>
+<span class="nc" id="L212">            addInternalJobListener((JobListener)resources.getJobStore());</span>
+        }
+
+<span class="fc" id="L215">        this.schedThread = new QuartzSchedulerThread(this, resources);</span>
+<span class="fc" id="L216">        ThreadExecutor schedThreadExecutor = resources.getThreadExecutor();</span>
+<span class="fc" id="L217">        schedThreadExecutor.execute(this.schedThread);</span>
+<span class="fc bfc" id="L218" title="All 2 branches covered.">        if (idleWaitTime &gt; 0) {</span>
+<span class="fc" id="L219">            this.schedThread.setIdleWaitTime(idleWaitTime);</span>
+        }
+
+<span class="fc" id="L222">        jobMgr = new ExecutingJobsManager();</span>
+<span class="fc" id="L223">        addInternalJobListener(jobMgr);</span>
+<span class="fc" id="L224">        errLogger = new ErrorLogger();</span>
+<span class="fc" id="L225">        addInternalSchedulerListener(errLogger);</span>
+
+<span class="fc" id="L227">        signaler = new SchedulerSignalerImpl(this, this.schedThread);</span>
+        
+<span class="fc" id="L229">        getLog().info(&quot;Quartz Scheduler v.&quot; + getVersion() + &quot; created.&quot;);</span>
+<span class="fc" id="L230">    }</span>
+
+    public void initialize() throws SchedulerException {
+        
+        try {
+<span class="fc" id="L235">            bind();</span>
+<span class="nc" id="L236">        } catch (Exception re) {</span>
+<span class="nc" id="L237">            throw new SchedulerException(</span>
+                    &quot;Unable to bind scheduler to RMI Registry.&quot;, re);
+<span class="fc" id="L239">        }</span>
+        
+<span class="fc bfc" id="L241" title="All 2 branches covered.">        if (resources.getJMXExport()) {</span>
+            try {
+<span class="fc" id="L243">                registerJMX();</span>
+<span class="nc" id="L244">            } catch (Exception e) {</span>
+<span class="nc" id="L245">                throw new SchedulerException(</span>
+                        &quot;Unable to register scheduler with MBeanServer.&quot;, e);
+<span class="fc" id="L247">            }</span>
+        }
+
+        // ManagementRESTServiceConfiguration managementRESTServiceConfiguration
+        // = resources.getManagementRESTServiceConfiguration();
+        //
+        // if (managementRESTServiceConfiguration != null &amp;&amp;
+        // managementRESTServiceConfiguration.isEnabled()) {
+        // try {
+        // /**
+        // * ManagementServer will only be instantiated and started if one
+        // * isn't already running on the configured port for this class
+        // * loader space.
+        // */
+        // synchronized (QuartzScheduler.class) {
+        // if
+        // (!MGMT_SVR_BY_BIND.containsKey(managementRESTServiceConfiguration.getBind()))
+        // {
+        // Class&lt;?&gt; managementServerImplClass =
+        // Class.forName(&quot;org.quartz.management.ManagementServerImpl&quot;);
+        // Class&lt;?&gt; managementRESTServiceConfigurationClass[] = new Class[] {
+        // managementRESTServiceConfiguration.getClass() };
+        // Constructor&lt;?&gt; managementRESTServiceConfigurationConstructor =
+        // managementServerImplClass
+        // .getConstructor(managementRESTServiceConfigurationClass);
+        // Object arglist[] = new Object[] { managementRESTServiceConfiguration
+        // };
+        // ManagementServer embeddedRESTServer = ((ManagementServer)
+        // managementRESTServiceConfigurationConstructor.newInstance(arglist));
+        // embeddedRESTServer.start();
+        // MGMT_SVR_BY_BIND.put(managementRESTServiceConfiguration.getBind(),
+        // embeddedRESTServer);
+        // }
+        // registeredManagementServerBind =
+        // managementRESTServiceConfiguration.getBind();
+        // ManagementServer embeddedRESTServer =
+        // MGMT_SVR_BY_BIND.get(registeredManagementServerBind);
+        // embeddedRESTServer.register(this);
+        // }
+        // } catch (Exception e) {
+        // throw new
+        // SchedulerException(&quot;Unable to start the scheduler management REST service&quot;,
+        // e);
+        // }
+        // }
+
+        
+<span class="fc" id="L294">        getLog().info(&quot;Scheduler meta-data: &quot; +</span>
+<span class="fc" id="L295">                (new SchedulerMetaData(getSchedulerName(),</span>
+<span class="pc bpc" id="L296" title="1 of 2 branches missed.">                        getSchedulerInstanceId(), getClass(), boundRemotely, runningSince() != null, </span>
+<span class="fc" id="L297">                        isInStandbyMode(), isShutdown(), runningSince(), </span>
+<span class="fc" id="L298">                        numJobsExecuted(), getJobStoreClass(), </span>
+<span class="fc" id="L299">                        supportsPersistence(), isClustered(), getThreadPoolClass(), </span>
+<span class="fc" id="L300">                        getThreadPoolSize(), getVersion())).toString());</span>
+<span class="fc" id="L301">    }</span>
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public String getVersion() {
+<span class="fc" id="L312">        return getVersionMajor() + &quot;.&quot; + getVersionMinor() + &quot;.&quot;</span>
+<span class="fc" id="L313">                + getVersionIteration();</span>
+    }
+
+    public static String getVersionMajor() {
+<span class="fc" id="L317">        return VERSION_MAJOR;</span>
+    }
+    
+    public static String getVersionMinor() {
+<span class="fc" id="L321">        return VERSION_MINOR;</span>
+    }
+
+    public static String getVersionIteration() {
+<span class="fc" id="L325">        return VERSION_ITERATION;</span>
+    }
+
+    public SchedulerSignaler getSchedulerSignaler() {
+<span class="fc" id="L329">        return signaler;</span>
+    }
+
+    public Logger getLog() {
+<span class="fc" id="L333">        return log;</span>
+    }
+    
+    /**
+     * Register the scheduler in the local MBeanServer.
+     */
+    private void registerJMX() throws Exception {
+<span class="fc" id="L340">        String jmxObjectName = resources.getJMXObjectName();</span>
+<span class="fc" id="L341">        MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();</span>
+<span class="fc" id="L342">        jmxBean = new QuartzSchedulerMBeanImpl(this);</span>
+<span class="fc" id="L343">        mbs.registerMBean(jmxBean, new ObjectName(jmxObjectName));</span>
+<span class="fc" id="L344">    }</span>
+
+    /**
+     * Unregister the scheduler from the local MBeanServer.
+     */
+    private void unregisterJMX() throws Exception {
+<span class="fc" id="L350">        String jmxObjectName = resources.getJMXObjectName();</span>
+<span class="fc" id="L351">        MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();</span>
+<span class="fc" id="L352">        mbs.unregisterMBean(new ObjectName(jmxObjectName));</span>
+<span class="fc" id="L353">        jmxBean.setSampledStatisticsEnabled(false);</span>
+<span class="fc" id="L354">        getLog().info(&quot;Scheduler unregistered from name '&quot; + jmxObjectName + &quot;' in the local MBeanServer.&quot;);</span>
+<span class="fc" id="L355">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Bind the scheduler to an RMI registry.
+     * &lt;/p&gt;
+     */
+    private void bind() throws RemoteException {
+<span class="fc" id="L363">        String host = resources.getRMIRegistryHost();</span>
+        // don't export if we're not configured to do so...
+<span class="pc bpc" id="L365" title="3 of 4 branches missed.">        if (host == null || host.length() == 0) {</span>
+<span class="fc" id="L366">            return;</span>
+        }
+
+<span class="nc" id="L369">        RemotableQuartzScheduler exportable = null;</span>
+
+<span class="nc bnc" id="L371" title="All 2 branches missed.">        if(resources.getRMIServerPort() &gt; 0) {</span>
+<span class="nc" id="L372">            exportable = (RemotableQuartzScheduler) UnicastRemoteObject</span>
+<span class="nc" id="L373">                .exportObject(this, resources.getRMIServerPort());</span>
+        } else {
+<span class="nc" id="L375">            exportable = (RemotableQuartzScheduler) UnicastRemoteObject</span>
+<span class="nc" id="L376">                .exportObject(this);</span>
+        }
+
+<span class="nc" id="L379">        Registry registry = null;</span>
+
+<span class="nc bnc" id="L381" title="All 2 branches missed.">        if (resources.getRMICreateRegistryStrategy().equals(</span>
+                QuartzSchedulerResources.CREATE_REGISTRY_AS_NEEDED)) {
+            try {
+                // First try to get an existing one, instead of creating it,
+                // since if
+                // we're in a web-app being 'hot' re-depoloyed, then the JVM
+                // still
+                // has the registry that we created above the first time...
+<span class="nc" id="L389">                registry = LocateRegistry.getRegistry(resources</span>
+<span class="nc" id="L390">                        .getRMIRegistryPort());</span>
+<span class="nc" id="L391">                registry.list();</span>
+<span class="nc" id="L392">            } catch (Exception e) {</span>
+<span class="nc" id="L393">                registry = LocateRegistry.createRegistry(resources</span>
+<span class="nc" id="L394">                        .getRMIRegistryPort());</span>
+<span class="nc" id="L395">            }</span>
+<span class="nc bnc" id="L396" title="All 2 branches missed.">        } else if (resources.getRMICreateRegistryStrategy().equals(</span>
+                QuartzSchedulerResources.CREATE_REGISTRY_ALWAYS)) {
+            try {
+<span class="nc" id="L399">                registry = LocateRegistry.createRegistry(resources</span>
+<span class="nc" id="L400">                        .getRMIRegistryPort());</span>
+<span class="nc" id="L401">            } catch (Exception e) {</span>
+                // Fall back to an existing one, instead of creating it, since
+                // if
+                // we're in a web-app being 'hot' re-depoloyed, then the JVM
+                // still
+                // has the registry that we created above the first time...
+<span class="nc" id="L407">                registry = LocateRegistry.getRegistry(resources</span>
+<span class="nc" id="L408">                        .getRMIRegistryPort());</span>
+<span class="nc" id="L409">            }</span>
+        } else {
+<span class="nc" id="L411">            registry = LocateRegistry.getRegistry(resources</span>
+<span class="nc" id="L412">                    .getRMIRegistryHost(), resources.getRMIRegistryPort());</span>
+        }
+
+<span class="nc" id="L415">        String bindName = resources.getRMIBindName();</span>
+        
+<span class="nc" id="L417">        registry.rebind(bindName, exportable);</span>
+        
+<span class="nc" id="L419">        boundRemotely = true;</span>
+
+<span class="nc" id="L421">        getLog().info(&quot;Scheduler bound to RMI registry under name '&quot; + bindName + &quot;'&quot;);</span>
+<span class="nc" id="L422">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Un-bind the scheduler from an RMI registry.
+     * &lt;/p&gt;
+     */
+    private void unBind() throws RemoteException {
+<span class="nc" id="L430">        String host = resources.getRMIRegistryHost();</span>
+        // don't un-export if we're not configured to do so...
+<span class="nc bnc" id="L432" title="All 4 branches missed.">        if (host == null || host.length() == 0) {</span>
+<span class="nc" id="L433">            return;</span>
+        }
+
+<span class="nc" id="L436">        Registry registry = LocateRegistry.getRegistry(resources</span>
+<span class="nc" id="L437">                .getRMIRegistryHost(), resources.getRMIRegistryPort());</span>
+
+<span class="nc" id="L439">        String bindName = resources.getRMIBindName();</span>
+        
+        try {
+<span class="nc" id="L442">            registry.unbind(bindName);</span>
+<span class="nc" id="L443">            UnicastRemoteObject.unexportObject(this, true);</span>
+<span class="nc" id="L444">        } catch (java.rmi.NotBoundException nbe) {</span>
+<span class="nc" id="L445">        }</span>
+
+<span class="nc" id="L447">        getLog().info(&quot;Scheduler un-bound from name '&quot; + bindName + &quot;' in RMI registry&quot;);</span>
+<span class="nc" id="L448">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Returns the name of the &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public String getSchedulerName() {
+<span class="fc" id="L456">        return resources.getName();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns the instance Id of the &lt;code&gt;QuartzScheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public String getSchedulerInstanceId() {
+<span class="fc" id="L465">        return resources.getInstanceId();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns the name of the thread group for Quartz's main threads.
+     * &lt;/p&gt;
+     */
+    public ThreadGroup getSchedulerThreadGroup() {
+<span class="pc bpc" id="L474" title="1 of 2 branches missed.">        if (threadGroup == null) {</span>
+<span class="fc" id="L475">            threadGroup = new ThreadGroup(&quot;QuartzScheduler:&quot;</span>
+<span class="fc" id="L476">                    + getSchedulerName());</span>
+<span class="pc bpc" id="L477" title="1 of 2 branches missed.">            if (resources.getMakeSchedulerThreadDaemon()) {</span>
+<span class="nc" id="L478">                threadGroup.setDaemon(true);</span>
+            }
+        }
+
+<span class="fc" id="L482">        return threadGroup;</span>
+    }
+
+    public void addNoGCObject(Object obj) {
+<span class="fc" id="L486">        holdToPreventGC.add(obj);</span>
+<span class="fc" id="L487">    }</span>
+
+    public boolean removeNoGCObject(Object obj) {
+<span class="nc" id="L490">        return holdToPreventGC.remove(obj);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns the &lt;code&gt;SchedulerContext&lt;/code&gt; of the &lt;code&gt;Scheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public SchedulerContext getSchedulerContext() throws SchedulerException {
+<span class="fc" id="L499">        return context;</span>
+    }
+
+    public boolean isSignalOnSchedulingChange() {
+<span class="fc" id="L503">        return signalOnSchedulingChange;</span>
+    }
+
+    public void setSignalOnSchedulingChange(boolean signalOnSchedulingChange) {
+<span class="nc" id="L507">        this.signalOnSchedulingChange = signalOnSchedulingChange;</span>
+<span class="nc" id="L508">    }</span>
+
+    ///////////////////////////////////////////////////////////////////////////
+    ///
+    /// Scheduler State Management Methods
+    ///
+    ///////////////////////////////////////////////////////////////////////////
+
+    /**
+     * &lt;p&gt;
+     * Starts the &lt;code&gt;QuartzScheduler&lt;/code&gt;'s threads that fire &lt;code&gt;{@link org.quartz.Trigger}s&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * All &lt;code&gt;{@link org.quartz.Trigger}s&lt;/code&gt; that have misfired will
+     * be passed to the appropriate TriggerListener(s).
+     * &lt;/p&gt;
+     */
+    public void start() throws SchedulerException {
+
+<span class="pc bpc" id="L528" title="2 of 4 branches missed.">        if (shuttingDown|| closed) {</span>
+<span class="nc" id="L529">            throw new SchedulerException(</span>
+                    &quot;The Scheduler cannot be restarted after shutdown() has been called.&quot;);
+        }
+
+        // QTZ-212 : calling new schedulerStarting() method on the listeners
+        // right after entering start()
+<span class="fc" id="L535">        notifySchedulerListenersStarting();</span>
+
+<span class="fc bfc" id="L537" title="All 2 branches covered.">        if (initialStart == null) {</span>
+<span class="fc" id="L538">            initialStart = new Date();</span>
+<span class="fc" id="L539">            this.resources.getJobStore().schedulerStarted();            </span>
+<span class="fc" id="L540">            startPlugins();</span>
+        } else {
+<span class="fc" id="L542">            resources.getJobStore().schedulerResumed();</span>
+        }
+
+<span class="fc" id="L545">        schedThread.togglePause(false);</span>
+
+<span class="fc" id="L547">        getLog().info(</span>
+<span class="fc" id="L548">                &quot;Scheduler &quot; + resources.getUniqueIdentifier() + &quot; started.&quot;);</span>
+        
+<span class="fc" id="L550">        notifySchedulerListenersStarted();</span>
+<span class="fc" id="L551">    }</span>
+
+    public void startDelayed(final int seconds) throws SchedulerException
+    {
+<span class="nc bnc" id="L555" title="All 4 branches missed.">        if (shuttingDown || closed) {</span>
+<span class="nc" id="L556">            throw new SchedulerException(</span>
+                    &quot;The Scheduler cannot be restarted after shutdown() has been called.&quot;);
+        }
+
+<span class="nc" id="L560">        Thread t = new Thread(new Runnable() {</span>
+            public void run() {
+<span class="nc" id="L562">                try { Thread.sleep(seconds * 1000L); }</span>
+<span class="nc" id="L563">                catch(InterruptedException ignore) {}</span>
+<span class="nc" id="L564">                try { start(); }</span>
+<span class="nc" id="L565">                catch(SchedulerException se) {</span>
+<span class="nc" id="L566">                    getLog().error(&quot;Unable to start scheduler after startup delay.&quot;, se);</span>
+<span class="nc" id="L567">                }</span>
+<span class="nc" id="L568">            }</span>
+        });
+<span class="nc" id="L570">        t.start();</span>
+<span class="nc" id="L571">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Temporarily halts the &lt;code&gt;QuartzScheduler&lt;/code&gt;'s firing of &lt;code&gt;{@link org.quartz.Trigger}s&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * The scheduler is not destroyed, and can be re-started at any time.
+     * &lt;/p&gt;
+     */
+    public void standby() {
+<span class="fc" id="L583">        resources.getJobStore().schedulerPaused();</span>
+<span class="fc" id="L584">        schedThread.togglePause(true);</span>
+<span class="fc" id="L585">        getLog().info(</span>
+<span class="fc" id="L586">                &quot;Scheduler &quot; + resources.getUniqueIdentifier() + &quot; paused.&quot;);</span>
+<span class="fc" id="L587">        notifySchedulerListenersInStandbyMode();        </span>
+<span class="fc" id="L588">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Reports whether the &lt;code&gt;Scheduler&lt;/code&gt; is paused.
+     * &lt;/p&gt;
+     */
+    public boolean isInStandbyMode() {
+<span class="fc" id="L596">        return schedThread.isPaused();</span>
+    }
+
+    public Date runningSince() {
+<span class="fc bfc" id="L600" title="All 2 branches covered.">        if(initialStart == null)</span>
+<span class="fc" id="L601">            return null;</span>
+<span class="fc" id="L602">        return new Date(initialStart.getTime());</span>
+    }
+
+    public int numJobsExecuted() {
+<span class="fc" id="L606">        return jobMgr.getNumJobsFired();</span>
+    }
+
+    public Class&lt;?&gt; getJobStoreClass() {
+<span class="fc" id="L610">        return resources.getJobStore().getClass();</span>
+    }
+
+    public boolean supportsPersistence() {
+<span class="fc" id="L614">        return resources.getJobStore().supportsPersistence();</span>
+    }
+
+    public boolean isClustered() {
+<span class="fc" id="L618">        return resources.getJobStore().isClustered();</span>
+    }
+
+    public Class&lt;?&gt; getThreadPoolClass() {
+<span class="fc" id="L622">        return resources.getThreadPool().getClass();</span>
+    }
+
+    public int getThreadPoolSize() {
+<span class="fc" id="L626">        return resources.getThreadPool().getPoolSize();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Halts the &lt;code&gt;QuartzScheduler&lt;/code&gt;'s firing of &lt;code&gt;{@link org.quartz.Trigger}s&lt;/code&gt;,
+     * and cleans up all resources associated with the QuartzScheduler.
+     * Equivalent to &lt;code&gt;shutdown(false)&lt;/code&gt;.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * The scheduler cannot be re-started.
+     * &lt;/p&gt;
+     */
+    public void shutdown() {
+<span class="fc" id="L641">        shutdown(false);</span>
+<span class="fc" id="L642">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Halts the &lt;code&gt;QuartzScheduler&lt;/code&gt;'s firing of &lt;code&gt;{@link org.quartz.Trigger}s&lt;/code&gt;,
+     * and cleans up all resources associated with the QuartzScheduler.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * The scheduler cannot be re-started.
+     * &lt;/p&gt;
+     * 
+     * @param waitForJobsToComplete
+     *          if &lt;code&gt;true&lt;/code&gt; the scheduler will not allow this method
+     *          to return until all currently executing jobs have completed.
+     */
+    public void shutdown(boolean waitForJobsToComplete) {
+        
+<span class="pc bpc" id="L660" title="1 of 4 branches missed.">        if(shuttingDown || closed) {</span>
+<span class="fc" id="L661">            return;</span>
+        }
+        
+<span class="fc" id="L664">        shuttingDown = true;</span>
+
+<span class="fc" id="L666">        getLog().info(</span>
+<span class="fc" id="L667">                &quot;Scheduler &quot; + resources.getUniqueIdentifier()</span>
+                        + &quot; shutting down.&quot;);
+        // boolean removeMgmtSvr = false;
+        // if (registeredManagementServerBind != null) {
+        // ManagementServer standaloneRestServer =
+        // MGMT_SVR_BY_BIND.get(registeredManagementServerBind);
+        //
+        // try {
+        // standaloneRestServer.unregister(this);
+        //
+        // if (!standaloneRestServer.hasRegistered()) {
+        // removeMgmtSvr = true;
+        // standaloneRestServer.stop();
+        // }
+        // } catch (Exception e) {
+        // getLog().warn(&quot;Failed to shutdown the ManagementRESTService&quot;, e);
+        // } finally {
+        // if (removeMgmtSvr) {
+        // MGMT_SVR_BY_BIND.remove(registeredManagementServerBind);
+        // }
+        //
+        // registeredManagementServerBind = null;
+        // }
+        // }
+
+<span class="fc" id="L692">        standby();</span>
+
+<span class="fc" id="L694">        schedThread.halt(waitForJobsToComplete);</span>
+        
+<span class="fc" id="L696">        notifySchedulerListenersShuttingdown();</span>
+        
+<span class="pc bpc" id="L698" title="3 of 4 branches missed.">        if( (resources.isInterruptJobsOnShutdown() &amp;&amp; !waitForJobsToComplete) || </span>
+<span class="pc bpc" id="L699" title="3 of 4 branches missed.">                (resources.isInterruptJobsOnShutdownWithWait() &amp;&amp; waitForJobsToComplete)) {</span>
+<span class="nc" id="L700">            List&lt;JobExecutionContext&gt; jobs = getCurrentlyExecutingJobs();</span>
+<span class="nc bnc" id="L701" title="All 2 branches missed.">            for(JobExecutionContext job: jobs) {</span>
+<span class="nc bnc" id="L702" title="All 2 branches missed.">                if(job.getJobInstance() instanceof InterruptableJob)</span>
+                    try {
+<span class="nc" id="L704">                        ((InterruptableJob)job.getJobInstance()).interrupt();</span>
+<span class="nc" id="L705">                    } catch (Throwable e) {</span>
+                        // do nothing, this was just a courtesy effort
+<span class="nc" id="L707">                        getLog().warn(&quot;Encountered error when interrupting job {} during shutdown: {}&quot;, job.getJobDetail().getKey(), e);</span>
+<span class="nc" id="L708">                    }</span>
+<span class="nc" id="L709">            }</span>
+        }
+        
+<span class="fc" id="L712">        resources.getThreadPool().shutdown(waitForJobsToComplete);</span>
+        
+<span class="fc" id="L714">        closed = true;</span>
+
+<span class="fc bfc" id="L716" title="All 2 branches covered.">        if (resources.getJMXExport()) {</span>
+            try {
+<span class="fc" id="L718">                unregisterJMX();</span>
+<span class="nc" id="L719">            } catch (Exception e) {</span>
+<span class="fc" id="L720">            }</span>
+        }
+
+<span class="pc bpc" id="L723" title="1 of 2 branches missed.">        if(boundRemotely) {</span>
+            try {
+<span class="nc" id="L725">                unBind();</span>
+<span class="nc" id="L726">            } catch (RemoteException re) {</span>
+<span class="nc" id="L727">            }</span>
+        }
+        
+<span class="fc" id="L730">        shutdownPlugins();</span>
+
+<span class="fc" id="L732">        resources.getJobStore().shutdown();</span>
+
+<span class="fc" id="L734">        notifySchedulerListenersShutdown();</span>
+
+<span class="fc" id="L736">        SchedulerRepository.getInstance().remove(resources.getName());</span>
+
+<span class="fc" id="L738">        holdToPreventGC.clear();</span>
+        
+<span class="fc" id="L740">        getLog().info(</span>
+<span class="fc" id="L741">                &quot;Scheduler &quot; + resources.getUniqueIdentifier()</span>
+                        + &quot; shutdown complete.&quot;);
+<span class="fc" id="L743">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Reports whether the &lt;code&gt;Scheduler&lt;/code&gt; has been shutdown.
+     * &lt;/p&gt;
+     */
+    public boolean isShutdown() {
+<span class="fc" id="L751">        return closed;</span>
+    }
+
+    public boolean isShuttingDown() {
+<span class="nc" id="L755">        return shuttingDown;</span>
+    }
+
+    public boolean isStarted() {
+<span class="pc bpc" id="L759" title="4 of 8 branches missed.">        return !shuttingDown &amp;&amp; !closed &amp;&amp; !isInStandbyMode() &amp;&amp; initialStart != null;</span>
+    }
+    
+    public void validateState() throws SchedulerException {
+<span class="pc bpc" id="L763" title="1 of 2 branches missed.">        if (isShutdown()) {</span>
+<span class="nc" id="L764">            throw new SchedulerException(&quot;The Scheduler has been shutdown.&quot;);</span>
+        }
+
+        // other conditions to check (?)
+<span class="fc" id="L768">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Return a list of &lt;code&gt;JobExecutionContext&lt;/code&gt; objects that
+     * represent all currently executing Jobs in this Scheduler instance.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * This method is not cluster aware.  That is, it will only return Jobs
+     * currently executing in this Scheduler instance, not across the entire
+     * cluster.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * Note that the list returned is an 'instantaneous' snap-shot, and that as
+     * soon as it's returned, the true list of executing jobs may be different.
+     * &lt;/p&gt;
+     */
+    public List&lt;JobExecutionContext&gt; getCurrentlyExecutingJobs() {
+<span class="fc" id="L788">        return jobMgr.getExecutingJobs();</span>
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    ///
+    /// Scheduling-related Methods
+    ///
+    ///////////////////////////////////////////////////////////////////////////
+
+    /**
+     * &lt;p&gt;
+     * Add the &lt;code&gt;{@link org.quartz.Job}&lt;/code&gt; identified by the given
+     * &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt; to the Scheduler, and
+     * associate the given &lt;code&gt;{@link org.quartz.Trigger}&lt;/code&gt; with it.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * If the given Trigger does not reference any &lt;code&gt;Job&lt;/code&gt;, then it
+     * will be set to reference the Job passed with it into this method.
+     * &lt;/p&gt;
+     * 
+     * @throws SchedulerException
+     *           if the Job or Trigger cannot be added to the Scheduler, or
+     *           there is an internal Scheduler error.
+     */
+    public Date scheduleJob(JobDetail jobDetail,
+            Trigger trigger) throws SchedulerException {
+<span class="fc" id="L815">        validateState();</span>
+
+<span class="pc bpc" id="L817" title="1 of 2 branches missed.">        if (jobDetail == null) {</span>
+<span class="nc" id="L818">            throw new SchedulerException(&quot;JobDetail cannot be null&quot;);</span>
+        }
+        
+<span class="pc bpc" id="L821" title="1 of 2 branches missed.">        if (trigger == null) {</span>
+<span class="nc" id="L822">            throw new SchedulerException(&quot;Trigger cannot be null&quot;);</span>
+        }
+        
+<span class="pc bpc" id="L825" title="1 of 2 branches missed.">        if (jobDetail.getKey() == null) {</span>
+<span class="nc" id="L826">            throw new SchedulerException(&quot;Job's key cannot be null&quot;);</span>
+        }
+
+<span class="pc bpc" id="L829" title="1 of 2 branches missed.">        if (jobDetail.getJobClass() == null) {</span>
+<span class="nc" id="L830">            throw new SchedulerException(&quot;Job's class cannot be null&quot;);</span>
+        }
+        
+<span class="fc" id="L833">        OperableTrigger trig = (OperableTrigger)trigger;</span>
+
+<span class="fc bfc" id="L835" title="All 2 branches covered.">        if (trigger.getJobKey() == null) {</span>
+<span class="fc" id="L836">            trig.setJobKey(jobDetail.getKey());</span>
+<span class="pc bpc" id="L837" title="1 of 2 branches missed.">        } else if (!trigger.getJobKey().equals(jobDetail.getKey())) {</span>
+<span class="nc" id="L838">            throw new SchedulerException(</span>
+                &quot;Trigger does not reference given job!&quot;);
+        }
+
+<span class="fc" id="L842">        trig.validate();</span>
+
+<span class="fc" id="L844">        Calendar cal = null;</span>
+<span class="pc bpc" id="L845" title="1 of 2 branches missed.">        if (trigger.getCalendarName() != null) {</span>
+<span class="nc" id="L846">            cal = resources.getJobStore().retrieveCalendar(trigger.getCalendarName());</span>
+        }
+<span class="fc" id="L848">        Date ft = trig.computeFirstFireTime(cal);</span>
+
+<span class="pc bpc" id="L850" title="1 of 2 branches missed.">        if (ft == null) {</span>
+<span class="nc" id="L851">            throw new SchedulerException(</span>
+<span class="nc" id="L852">                    &quot;Based on configured schedule, the given trigger '&quot; + trigger.getKey() + &quot;' will never fire.&quot;);</span>
+        }
+
+<span class="fc" id="L855">        resources.getJobStore().storeJobAndTrigger(jobDetail, trig);</span>
+<span class="fc" id="L856">        notifySchedulerListenersJobAdded(jobDetail);</span>
+<span class="fc" id="L857">        notifySchedulerThread(trigger.getNextFireTime().getTime());</span>
+<span class="fc" id="L858">        notifySchedulerListenersSchduled(trigger);</span>
+
+<span class="fc" id="L860">        return ft;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Schedule the given &lt;code&gt;{@link org.quartz.Trigger}&lt;/code&gt; with the
+     * &lt;code&gt;Job&lt;/code&gt; identified by the &lt;code&gt;Trigger&lt;/code&gt;'s settings.
+     * &lt;/p&gt;
+     * 
+     * @throws SchedulerException
+     *           if the indicated Job does not exist, or the Trigger cannot be
+     *           added to the Scheduler, or there is an internal Scheduler
+     *           error.
+     */
+    public Date scheduleJob(Trigger trigger)
+        throws SchedulerException {
+<span class="fc" id="L876">        validateState();</span>
+
+<span class="pc bpc" id="L878" title="1 of 2 branches missed.">        if (trigger == null) {</span>
+<span class="nc" id="L879">            throw new SchedulerException(&quot;Trigger cannot be null&quot;);</span>
+        }
+
+<span class="fc" id="L882">        OperableTrigger trig = (OperableTrigger)trigger;</span>
+        
+<span class="fc" id="L884">        trig.validate();</span>
+
+<span class="fc" id="L886">        Calendar cal = null;</span>
+<span class="pc bpc" id="L887" title="1 of 2 branches missed.">        if (trigger.getCalendarName() != null) {</span>
+<span class="nc" id="L888">            cal = resources.getJobStore().retrieveCalendar(trigger.getCalendarName());</span>
+<span class="nc bnc" id="L889" title="All 2 branches missed.">            if(cal == null) {</span>
+<span class="nc" id="L890">                throw new SchedulerException(</span>
+<span class="nc" id="L891">                    &quot;Calendar not found: &quot; + trigger.getCalendarName());</span>
+            }
+        }
+<span class="fc" id="L894">        Date ft = trig.computeFirstFireTime(cal);</span>
+
+<span class="pc bpc" id="L896" title="1 of 2 branches missed.">        if (ft == null) {</span>
+<span class="nc" id="L897">            throw new SchedulerException(</span>
+<span class="nc" id="L898">                    &quot;Based on configured schedule, the given trigger '&quot; + trigger.getKey() + &quot;' will never fire.&quot;);</span>
+        }
+
+<span class="fc" id="L901">        resources.getJobStore().storeTrigger(trig, false);</span>
+<span class="fc" id="L902">        notifySchedulerThread(trigger.getNextFireTime().getTime());</span>
+<span class="fc" id="L903">        notifySchedulerListenersSchduled(trigger);</span>
+
+<span class="fc" id="L905">        return ft;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Add the given &lt;code&gt;Job&lt;/code&gt; to the Scheduler - with no associated
+     * &lt;code&gt;Trigger&lt;/code&gt;. The &lt;code&gt;Job&lt;/code&gt; will be 'dormant' until
+     * it is scheduled with a &lt;code&gt;Trigger&lt;/code&gt;, or &lt;code&gt;Scheduler.triggerJob()&lt;/code&gt;
+     * is called for it.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * The &lt;code&gt;Job&lt;/code&gt; must by definition be 'durable', if it is not,
+     * SchedulerException will be thrown.
+     * &lt;/p&gt;
+     * 
+     * @throws SchedulerException
+     *           if there is an internal Scheduler error, or if the Job is not
+     *           durable, or a Job with the same name already exists, and
+     *           &lt;code&gt;replace&lt;/code&gt; is &lt;code&gt;false&lt;/code&gt;.
+     */
+    public void addJob(JobDetail jobDetail, boolean replace) throws SchedulerException {
+<span class="fc" id="L927">        addJob(jobDetail, replace, false);</span>
+<span class="fc" id="L928">    }</span>
+
+    public void addJob(JobDetail jobDetail, boolean replace, boolean storeNonDurableWhileAwaitingScheduling) throws SchedulerException {
+<span class="fc" id="L931">        validateState();</span>
+
+<span class="fc bfc" id="L933" title="All 4 branches covered.">        if (!storeNonDurableWhileAwaitingScheduling &amp;&amp; !jobDetail.isDurable()) {</span>
+<span class="fc" id="L934">            throw new SchedulerException(</span>
+                    &quot;Jobs added with no trigger must be durable.&quot;);
+        }
+
+<span class="fc" id="L938">        resources.getJobStore().storeJob(jobDetail, replace);</span>
+<span class="fc" id="L939">        notifySchedulerThread(0L);</span>
+<span class="fc" id="L940">        notifySchedulerListenersJobAdded(jobDetail);</span>
+<span class="fc" id="L941">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Delete the identified &lt;code&gt;Job&lt;/code&gt; from the Scheduler - and any
+     * associated &lt;code&gt;Trigger&lt;/code&gt;s.
+     * &lt;/p&gt;
+     * 
+     * @return true if the Job was found and deleted.
+     * @throws SchedulerException
+     *           if there is an internal Scheduler error.
+     */
+    public boolean deleteJob(JobKey jobKey) throws SchedulerException {
+<span class="fc" id="L954">        validateState();</span>
+
+<span class="fc" id="L956">        boolean result = false;</span>
+        
+<span class="fc" id="L958">        List&lt;? extends Trigger&gt; triggers = getTriggersOfJob(jobKey);</span>
+<span class="fc bfc" id="L959" title="All 2 branches covered.">        for (Trigger trigger : triggers) {</span>
+<span class="pc bpc" id="L960" title="1 of 2 branches missed.">            if (!unscheduleJob(trigger.getKey())) {</span>
+<span class="nc" id="L961">                StringBuilder sb = new StringBuilder().append(</span>
+<span class="nc" id="L962">                        &quot;Unable to unschedule trigger [&quot;).append(</span>
+<span class="nc" id="L963">                        trigger.getKey()).append(&quot;] while deleting job [&quot;)</span>
+<span class="nc" id="L964">                        .append(jobKey).append(</span>
+                                &quot;]&quot;);
+<span class="nc" id="L966">                throw new SchedulerException(sb.toString());</span>
+            }
+<span class="fc" id="L968">            result = true;</span>
+<span class="fc" id="L969">        }</span>
+
+<span class="pc bpc" id="L971" title="1 of 4 branches missed.">        result = resources.getJobStore().removeJob(jobKey) || result;</span>
+<span class="pc bpc" id="L972" title="1 of 2 branches missed.">        if (result) {</span>
+<span class="fc" id="L973">            notifySchedulerThread(0L);</span>
+<span class="fc" id="L974">            notifySchedulerListenersJobDeleted(jobKey);</span>
+        }
+<span class="fc" id="L976">        return result;</span>
+    }
+
+    public boolean deleteJobs(List&lt;JobKey&gt; jobKeys)  throws SchedulerException {
+<span class="nc" id="L980">        validateState();</span>
+
+<span class="nc" id="L982">        boolean result = false;</span>
+        
+<span class="nc" id="L984">        result = resources.getJobStore().removeJobs(jobKeys);</span>
+<span class="nc" id="L985">        notifySchedulerThread(0L);</span>
+<span class="nc bnc" id="L986" title="All 2 branches missed.">        for(JobKey key: jobKeys)</span>
+<span class="nc" id="L987">            notifySchedulerListenersJobDeleted(key);</span>
+<span class="nc" id="L988">        return result;</span>
+    }
+
+    public void scheduleJobs(Map&lt;JobDetail, Set&lt;? extends Trigger&gt;&gt; triggersAndJobs, boolean replace)  throws SchedulerException  {
+<span class="fc" id="L992">        validateState();</span>
+
+        // make sure all triggers refer to their associated job
+<span class="fc bfc" id="L995" title="All 2 branches covered.">        for(Entry&lt;JobDetail, Set&lt;? extends Trigger&gt;&gt; e: triggersAndJobs.entrySet()) {</span>
+<span class="fc" id="L996">            JobDetail job = e.getKey();</span>
+<span class="pc bpc" id="L997" title="1 of 2 branches missed.">            if(job == null) // there can be one of these (for adding a bulk set of triggers for pre-existing jobs)</span>
+<span class="nc" id="L998">                continue;</span>
+<span class="fc" id="L999">            Set&lt;? extends Trigger&gt; triggers = e.getValue();</span>
+<span class="pc bpc" id="L1000" title="1 of 2 branches missed.">            if(triggers == null) // this is possible because the job may be durable, and not yet be having triggers</span>
+<span class="nc" id="L1001">                continue;</span>
+<span class="fc bfc" id="L1002" title="All 2 branches covered.">            for(Trigger trigger: triggers) {</span>
+<span class="fc" id="L1003">                OperableTrigger opt = (OperableTrigger)trigger;</span>
+<span class="fc" id="L1004">                opt.setJobKey(job.getKey());</span>
+
+<span class="fc" id="L1006">                opt.validate();</span>
+
+<span class="fc" id="L1008">                Calendar cal = null;</span>
+<span class="pc bpc" id="L1009" title="1 of 2 branches missed.">                if (trigger.getCalendarName() != null) {</span>
+<span class="nc" id="L1010">                    cal = resources.getJobStore().retrieveCalendar(trigger.getCalendarName());</span>
+<span class="nc bnc" id="L1011" title="All 2 branches missed.">                    if(cal == null) {</span>
+<span class="nc" id="L1012">                        throw new SchedulerException(</span>
+<span class="nc" id="L1013">                            &quot;Calendar '&quot; + trigger.getCalendarName() + &quot;' not found for trigger: &quot; + trigger.getKey());</span>
+                    }
+                }
+<span class="fc" id="L1016">                Date ft = opt.computeFirstFireTime(cal);</span>
+
+<span class="pc bpc" id="L1018" title="1 of 2 branches missed.">                if (ft == null) {</span>
+<span class="nc" id="L1019">                    throw new SchedulerException(</span>
+                            &quot;Based on configured schedule, the given trigger will never fire.&quot;);
+                }                
+<span class="fc" id="L1022">            }</span>
+<span class="fc" id="L1023">        }</span>
+
+<span class="fc" id="L1025">        resources.getJobStore().storeJobsAndTriggers(triggersAndJobs, replace);</span>
+<span class="fc" id="L1026">        notifySchedulerThread(0L);</span>
+<span class="fc bfc" id="L1027" title="All 2 branches covered.">        for (JobDetail job : triggersAndJobs.keySet()) {</span>
+<span class="fc" id="L1028">          notifySchedulerListenersJobAdded(job);</span>
+
+<span class="fc" id="L1030">          Set&lt;? extends Trigger&gt; triggers = triggersAndJobs.get(job);</span>
+<span class="fc bfc" id="L1031" title="All 2 branches covered.">          for (Trigger trigger : triggers) {</span>
+<span class="fc" id="L1032">            notifySchedulerListenersSchduled(trigger);</span>
+<span class="fc" id="L1033">          }</span>
+<span class="fc" id="L1034">        }</span>
+<span class="fc" id="L1035">    }</span>
+
+    public void scheduleJob(JobDetail jobDetail, Set&lt;? extends Trigger&gt; triggersForJob,
+            boolean replace) throws SchedulerException {
+<span class="fc" id="L1039">        Map&lt;JobDetail, Set&lt;? extends Trigger&gt;&gt; triggersAndJobs = new HashMap&lt;JobDetail, Set&lt;? extends Trigger&gt;&gt;();</span>
+<span class="fc" id="L1040">        triggersAndJobs.put(jobDetail, triggersForJob);</span>
+<span class="fc" id="L1041">        scheduleJobs(triggersAndJobs, replace);</span>
+<span class="fc" id="L1042">    }</span>
+
+    public boolean unscheduleJobs(List&lt;TriggerKey&gt; triggerKeys) throws SchedulerException  {
+<span class="nc" id="L1045">        validateState();</span>
+
+<span class="nc" id="L1047">        boolean result = false;</span>
+        
+<span class="nc" id="L1049">        result = resources.getJobStore().removeTriggers(triggerKeys);</span>
+<span class="nc" id="L1050">        notifySchedulerThread(0L);</span>
+<span class="nc bnc" id="L1051" title="All 2 branches missed.">        for(TriggerKey key: triggerKeys)</span>
+<span class="nc" id="L1052">            notifySchedulerListenersUnscheduled(key);</span>
+<span class="nc" id="L1053">        return result;</span>
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Remove the indicated &lt;code&gt;{@link org.quartz.Trigger}&lt;/code&gt; from the
+     * scheduler.
+     * &lt;/p&gt;
+     */
+    public boolean unscheduleJob(TriggerKey triggerKey) throws SchedulerException {
+<span class="fc" id="L1063">        validateState();</span>
+
+<span class="fc bfc" id="L1065" title="All 2 branches covered.">        if (resources.getJobStore().removeTrigger(triggerKey)) {</span>
+<span class="fc" id="L1066">            notifySchedulerThread(0L);</span>
+<span class="fc" id="L1067">            notifySchedulerListenersUnscheduled(triggerKey);</span>
+        } else {
+<span class="fc" id="L1069">            return false;</span>
+        }
+
+<span class="fc" id="L1072">        return true;</span>
+    }
+
+
+    /**
+     * &lt;p&gt;
+     * Remove (delete) the &lt;code&gt;{@link org.quartz.Trigger}&lt;/code&gt; with the
+     * given name, and store the new given one - which must be associated
+     * with the same job.
+     * &lt;/p&gt;
+     * @param newTrigger
+     *          The new &lt;code&gt;Trigger&lt;/code&gt; to be stored.
+     * 
+     * @return &lt;code&gt;null&lt;/code&gt; if a &lt;code&gt;Trigger&lt;/code&gt; with the given
+     *         name &amp; group was not found and removed from the store, otherwise
+     *         the first fire time of the newly scheduled trigger.
+     */
+    public Date rescheduleJob(TriggerKey triggerKey,
+            Trigger newTrigger) throws SchedulerException {
+<span class="fc" id="L1091">        validateState();</span>
+
+<span class="pc bpc" id="L1093" title="1 of 2 branches missed.">        if (triggerKey == null) {</span>
+<span class="nc" id="L1094">            throw new IllegalArgumentException(&quot;triggerKey cannot be null&quot;);</span>
+        }
+<span class="pc bpc" id="L1096" title="1 of 2 branches missed.">        if (newTrigger == null) {</span>
+<span class="nc" id="L1097">            throw new IllegalArgumentException(&quot;newTrigger cannot be null&quot;);</span>
+        }
+
+<span class="fc" id="L1100">        OperableTrigger trig = (OperableTrigger)newTrigger;</span>
+<span class="fc" id="L1101">        Trigger oldTrigger = getTrigger(triggerKey);</span>
+<span class="pc bpc" id="L1102" title="1 of 2 branches missed.">        if (oldTrigger == null) {</span>
+<span class="nc" id="L1103">            return null;</span>
+        } else {
+<span class="fc" id="L1105">            trig.setJobKey(oldTrigger.getJobKey());</span>
+        }
+<span class="fc" id="L1107">        trig.validate();</span>
+
+<span class="fc" id="L1109">        Calendar cal = null;</span>
+<span class="pc bpc" id="L1110" title="1 of 2 branches missed.">        if (newTrigger.getCalendarName() != null) {</span>
+<span class="nc" id="L1111">            cal = resources.getJobStore().retrieveCalendar(</span>
+<span class="nc" id="L1112">                    newTrigger.getCalendarName());</span>
+        }
+<span class="fc" id="L1114">        Date ft = trig.computeFirstFireTime(cal);</span>
+
+<span class="pc bpc" id="L1116" title="1 of 2 branches missed.">        if (ft == null) {</span>
+<span class="nc" id="L1117">            throw new SchedulerException(</span>
+                    &quot;Based on configured schedule, the given trigger will never fire.&quot;);
+        }
+        
+<span class="pc bpc" id="L1121" title="1 of 2 branches missed.">        if (resources.getJobStore().replaceTrigger(triggerKey, trig)) {</span>
+<span class="fc" id="L1122">            notifySchedulerThread(newTrigger.getNextFireTime().getTime());</span>
+<span class="fc" id="L1123">            notifySchedulerListenersUnscheduled(triggerKey);</span>
+<span class="fc" id="L1124">            notifySchedulerListenersSchduled(newTrigger);</span>
+        } else {
+<span class="nc" id="L1126">            return null;</span>
+        }
+
+<span class="fc" id="L1129">        return ft;</span>
+        
+    }
+    
+    
+    private String newTriggerId() {
+<span class="fc" id="L1135">        long r = random.nextLong();</span>
+<span class="fc bfc" id="L1136" title="All 2 branches covered.">        if (r &lt; 0) {</span>
+<span class="fc" id="L1137">            r = -r;</span>
+        }
+<span class="fc" id="L1139">        return &quot;MT_&quot;</span>
+<span class="fc" id="L1140">                + Long.toString(r, 30 + (int) (System.currentTimeMillis() % 7));</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Trigger the identified &lt;code&gt;{@link org.quartz.Job}&lt;/code&gt; (execute it
+     * now) - with a non-volatile trigger.
+     * &lt;/p&gt;
+     */
+    @SuppressWarnings(&quot;deprecation&quot;)
+    public void triggerJob(JobKey jobKey, JobDataMap data) throws SchedulerException {
+<span class="fc" id="L1151">        validateState();</span>
+
+<span class="fc" id="L1153">        OperableTrigger trig = (OperableTrigger) newTrigger().withIdentity(newTriggerId(), Scheduler.DEFAULT_GROUP).forJob(jobKey).build();</span>
+<span class="fc" id="L1154">        trig.computeFirstFireTime(null);</span>
+<span class="pc bpc" id="L1155" title="1 of 2 branches missed.">        if(data != null) {</span>
+<span class="nc" id="L1156">            trig.setJobDataMap(data);</span>
+        }
+
+<span class="fc" id="L1159">        boolean collision = true;</span>
+<span class="fc bfc" id="L1160" title="All 2 branches covered.">        while (collision) {</span>
+            try {
+<span class="fc" id="L1162">                resources.getJobStore().storeTrigger(trig, false);</span>
+<span class="fc" id="L1163">                collision = false;</span>
+<span class="nc" id="L1164">            } catch (ObjectAlreadyExistsException oaee) {</span>
+<span class="nc" id="L1165">                trig.setKey(new TriggerKey(newTriggerId(), Scheduler.DEFAULT_GROUP));</span>
+<span class="pc" id="L1166">            }</span>
+        }
+
+<span class="fc" id="L1169">        notifySchedulerThread(trig.getNextFireTime().getTime());</span>
+<span class="fc" id="L1170">        notifySchedulerListenersSchduled(trig);</span>
+<span class="fc" id="L1171">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Store and schedule the identified &lt;code&gt;{@link org.quartz.spi.OperableTrigger}&lt;/code&gt;
+     * &lt;/p&gt;
+     */
+    public void triggerJob(OperableTrigger trig) throws SchedulerException {
+<span class="nc" id="L1179">        validateState();</span>
+
+<span class="nc" id="L1181">        trig.computeFirstFireTime(null);</span>
+
+<span class="nc" id="L1183">        boolean collision = true;</span>
+<span class="nc bnc" id="L1184" title="All 2 branches missed.">        while (collision) {</span>
+            try {
+<span class="nc" id="L1186">                resources.getJobStore().storeTrigger(trig, false);</span>
+<span class="nc" id="L1187">                collision = false;</span>
+<span class="nc" id="L1188">            } catch (ObjectAlreadyExistsException oaee) {</span>
+<span class="nc" id="L1189">                trig.setKey(new TriggerKey(newTriggerId(), Scheduler.DEFAULT_GROUP));</span>
+<span class="nc" id="L1190">            }</span>
+        }
+
+<span class="nc" id="L1193">        notifySchedulerThread(trig.getNextFireTime().getTime());</span>
+<span class="nc" id="L1194">        notifySchedulerListenersSchduled(trig);</span>
+<span class="nc" id="L1195">    }</span>
+    
+    /**
+     * &lt;p&gt;
+     * Pause the &lt;code&gt;{@link Trigger}&lt;/code&gt; with the given name.
+     * &lt;/p&gt;
+     *  
+     */
+    public void pauseTrigger(TriggerKey triggerKey) throws SchedulerException {
+<span class="fc" id="L1204">        validateState();</span>
+
+<span class="fc" id="L1206">        resources.getJobStore().pauseTrigger(triggerKey);</span>
+<span class="fc" id="L1207">        notifySchedulerThread(0L);</span>
+<span class="fc" id="L1208">        notifySchedulerListenersPausedTrigger(triggerKey);</span>
+<span class="fc" id="L1209">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Pause all of the &lt;code&gt;{@link Trigger}s&lt;/code&gt; in the matching groups.
+     * &lt;/p&gt;
+     *  
+     */
+    public void pauseTriggers(GroupMatcher&lt;TriggerKey&gt; matcher)
+        throws SchedulerException {
+<span class="fc" id="L1219">        validateState();</span>
+
+<span class="pc bpc" id="L1221" title="1 of 2 branches missed.">        if(matcher == null) {</span>
+<span class="nc" id="L1222">            matcher = GroupMatcher.groupEquals(Scheduler.DEFAULT_GROUP);</span>
+        }
+
+<span class="fc" id="L1225">        Collection&lt;String&gt; pausedGroups = resources.getJobStore().pauseTriggers(matcher);</span>
+<span class="fc" id="L1226">        notifySchedulerThread(0L);</span>
+<span class="fc bfc" id="L1227" title="All 2 branches covered.">        for (String pausedGroup : pausedGroups) {</span>
+<span class="fc" id="L1228">            notifySchedulerListenersPausedTriggers(pausedGroup);</span>
+<span class="fc" id="L1229">        }</span>
+<span class="fc" id="L1230">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Pause the &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt; with the given
+     * name - by pausing all of its current &lt;code&gt;Trigger&lt;/code&gt;s.
+     * &lt;/p&gt;
+     *  
+     */
+    public void pauseJob(JobKey jobKey) throws SchedulerException {
+<span class="fc" id="L1240">        validateState();</span>
+
+<span class="fc" id="L1242">        resources.getJobStore().pauseJob(jobKey);</span>
+<span class="fc" id="L1243">        notifySchedulerThread(0L);</span>
+<span class="fc" id="L1244">        notifySchedulerListenersPausedJob(jobKey);</span>
+<span class="fc" id="L1245">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Pause all of the &lt;code&gt;{@link org.quartz.JobDetail}s&lt;/code&gt; in the
+     * matching groups - by pausing all of their &lt;code&gt;Trigger&lt;/code&gt;s.
+     * &lt;/p&gt;
+     *  
+     */
+    public void pauseJobs(GroupMatcher&lt;JobKey&gt; groupMatcher)
+        throws SchedulerException {
+<span class="fc" id="L1256">        validateState();</span>
+
+<span class="pc bpc" id="L1258" title="1 of 2 branches missed.">        if(groupMatcher == null) {</span>
+<span class="nc" id="L1259">            groupMatcher = GroupMatcher.groupEquals(Scheduler.DEFAULT_GROUP);</span>
+        }
+        
+<span class="fc" id="L1262">        Collection&lt;String&gt; pausedGroups = resources.getJobStore().pauseJobs(groupMatcher);</span>
+<span class="fc" id="L1263">        notifySchedulerThread(0L);</span>
+<span class="fc bfc" id="L1264" title="All 2 branches covered.">        for (String pausedGroup : pausedGroups) {</span>
+<span class="fc" id="L1265">            notifySchedulerListenersPausedJobs(pausedGroup);</span>
+<span class="fc" id="L1266">        }</span>
+<span class="fc" id="L1267">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Resume (un-pause) the &lt;code&gt;{@link Trigger}&lt;/code&gt; with the given
+     * name.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * If the &lt;code&gt;Trigger&lt;/code&gt; missed one or more fire-times, then the
+     * &lt;code&gt;Trigger&lt;/code&gt;'s misfire instruction will be applied.
+     * &lt;/p&gt;
+     *  
+     */
+    public void resumeTrigger(TriggerKey triggerKey) throws SchedulerException {
+<span class="fc" id="L1282">        validateState();</span>
+
+<span class="fc" id="L1284">        resources.getJobStore().resumeTrigger(triggerKey);</span>
+<span class="fc" id="L1285">        notifySchedulerThread(0L);</span>
+<span class="fc" id="L1286">        notifySchedulerListenersResumedTrigger(triggerKey);</span>
+<span class="fc" id="L1287">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Resume (un-pause) all of the &lt;code&gt;{@link Trigger}s&lt;/code&gt; in the
+     * matching groups.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * If any &lt;code&gt;Trigger&lt;/code&gt; missed one or more fire-times, then the
+     * &lt;code&gt;Trigger&lt;/code&gt;'s misfire instruction will be applied.
+     * &lt;/p&gt;
+     *  
+     */
+    public void resumeTriggers(GroupMatcher&lt;TriggerKey&gt; matcher)
+        throws SchedulerException {
+<span class="fc" id="L1303">        validateState();</span>
+
+<span class="pc bpc" id="L1305" title="1 of 2 branches missed.">        if(matcher == null) {</span>
+<span class="nc" id="L1306">            matcher = GroupMatcher.groupEquals(Scheduler.DEFAULT_GROUP);</span>
+        }
+
+<span class="fc" id="L1309">        Collection&lt;String&gt; pausedGroups = resources.getJobStore().resumeTriggers(matcher);</span>
+<span class="fc" id="L1310">        notifySchedulerThread(0L);</span>
+<span class="fc bfc" id="L1311" title="All 2 branches covered.">        for (String pausedGroup : pausedGroups) {</span>
+<span class="fc" id="L1312">            notifySchedulerListenersResumedTriggers(pausedGroup);</span>
+<span class="fc" id="L1313">        }</span>
+<span class="fc" id="L1314">    }</span>
+
+    public Set&lt;String&gt; getPausedTriggerGroups() throws SchedulerException {
+<span class="fc" id="L1317">        return resources.getJobStore().getPausedTriggerGroups();</span>
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Resume (un-pause) the &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt; with
+     * the given name.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * If any of the &lt;code&gt;Job&lt;/code&gt;'s&lt;code&gt;Trigger&lt;/code&gt; s missed one
+     * or more fire-times, then the &lt;code&gt;Trigger&lt;/code&gt;'s misfire
+     * instruction will be applied.
+     * &lt;/p&gt;
+     *  
+     */
+    public void resumeJob(JobKey jobKey) throws SchedulerException {
+<span class="fc" id="L1334">        validateState();</span>
+
+<span class="fc" id="L1336">        resources.getJobStore().resumeJob(jobKey);</span>
+<span class="fc" id="L1337">        notifySchedulerThread(0L);</span>
+<span class="fc" id="L1338">        notifySchedulerListenersResumedJob(jobKey);</span>
+<span class="fc" id="L1339">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Resume (un-pause) all of the &lt;code&gt;{@link org.quartz.JobDetail}s&lt;/code&gt;
+     * in the matching groups.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * If any of the &lt;code&gt;Job&lt;/code&gt; s had &lt;code&gt;Trigger&lt;/code&gt; s that
+     * missed one or more fire-times, then the &lt;code&gt;Trigger&lt;/code&gt;'s
+     * misfire instruction will be applied.
+     * &lt;/p&gt;
+     *  
+     */
+    public void resumeJobs(GroupMatcher&lt;JobKey&gt; matcher)
+        throws SchedulerException {
+<span class="fc" id="L1356">        validateState();</span>
+
+<span class="pc bpc" id="L1358" title="1 of 2 branches missed.">        if(matcher == null) {</span>
+<span class="nc" id="L1359">            matcher = GroupMatcher.groupEquals(Scheduler.DEFAULT_GROUP);</span>
+        }
+        
+<span class="fc" id="L1362">        Collection&lt;String&gt; resumedGroups = resources.getJobStore().resumeJobs(matcher);</span>
+<span class="fc" id="L1363">        notifySchedulerThread(0L);</span>
+<span class="fc bfc" id="L1364" title="All 2 branches covered.">        for (String pausedGroup : resumedGroups) {</span>
+<span class="fc" id="L1365">            notifySchedulerListenersResumedJobs(pausedGroup);</span>
+<span class="fc" id="L1366">        }</span>
+<span class="fc" id="L1367">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Pause all triggers - equivalent of calling &lt;code&gt;pauseTriggers(GroupMatcher&lt;TriggerKey&gt;)&lt;/code&gt;
+     * with a matcher matching all known groups.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * When &lt;code&gt;resumeAll()&lt;/code&gt; is called (to un-pause), trigger misfire
+     * instructions WILL be applied.
+     * &lt;/p&gt;
+     * 
+     * @see #resumeAll()
+     * @see #pauseTriggers(org.quartz.impl.matchers.GroupMatcher)
+     * @see #standby()
+     */
+    public void pauseAll() throws SchedulerException {
+<span class="fc" id="L1385">        validateState();</span>
+
+<span class="fc" id="L1387">        resources.getJobStore().pauseAll();</span>
+<span class="fc" id="L1388">        notifySchedulerThread(0L);</span>
+<span class="fc" id="L1389">        notifySchedulerListenersPausedTriggers(null);</span>
+<span class="fc" id="L1390">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Resume (un-pause) all triggers - equivalent of calling &lt;code&gt;resumeTriggerGroup(group)&lt;/code&gt;
+     * on every group.
+     * &lt;/p&gt;
+     * 
+     * &lt;p&gt;
+     * If any &lt;code&gt;Trigger&lt;/code&gt; missed one or more fire-times, then the
+     * &lt;code&gt;Trigger&lt;/code&gt;'s misfire instruction will be applied.
+     * &lt;/p&gt;
+     * 
+     * @see #pauseAll()
+     */
+    public void resumeAll() throws SchedulerException {
+<span class="fc" id="L1406">        validateState();</span>
+
+<span class="fc" id="L1408">        resources.getJobStore().resumeAll();</span>
+<span class="fc" id="L1409">        notifySchedulerThread(0L);</span>
+<span class="fc" id="L1410">        notifySchedulerListenersResumedTrigger(null);</span>
+<span class="fc" id="L1411">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the names of all known &lt;code&gt;{@link org.quartz.Job}&lt;/code&gt; groups.
+     * &lt;/p&gt;
+     */
+    public List&lt;String&gt; getJobGroupNames()
+        throws SchedulerException {
+<span class="fc" id="L1420">        validateState();</span>
+
+<span class="fc" id="L1422">        return resources.getJobStore().getJobGroupNames();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the names of all the &lt;code&gt;{@link org.quartz.Job}s&lt;/code&gt; in the
+     * matching groups.
+     * &lt;/p&gt;
+     */
+    public Set&lt;JobKey&gt; getJobKeys(GroupMatcher&lt;JobKey&gt; matcher)
+        throws SchedulerException {
+<span class="fc" id="L1433">        validateState();</span>
+
+<span class="pc bpc" id="L1435" title="1 of 2 branches missed.">        if(matcher == null) {</span>
+<span class="nc" id="L1436">            matcher = GroupMatcher.groupEquals(Scheduler.DEFAULT_GROUP);</span>
+        }
+        
+<span class="fc" id="L1439">        return resources.getJobStore().getJobKeys(matcher);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get all &lt;code&gt;{@link Trigger}&lt;/code&gt; s that are associated with the
+     * identified &lt;code&gt;{@link org.quartz.JobDetail}&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public List&lt;? extends Trigger&gt; getTriggersOfJob(JobKey jobKey) throws SchedulerException {
+<span class="fc" id="L1449">        validateState();</span>
+
+<span class="fc" id="L1451">        return resources.getJobStore().getTriggersForJob(jobKey);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the names of all known &lt;code&gt;{@link org.quartz.Trigger}&lt;/code&gt;
+     * groups.
+     * &lt;/p&gt;
+     */
+    public List&lt;String&gt; getTriggerGroupNames()
+        throws SchedulerException {
+<span class="fc" id="L1462">        validateState();</span>
+
+<span class="fc" id="L1464">        return resources.getJobStore().getTriggerGroupNames();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the names of all the &lt;code&gt;{@link org.quartz.Trigger}s&lt;/code&gt; in
+     * the matching groups.
+     * &lt;/p&gt;
+     */
+    public Set&lt;TriggerKey&gt; getTriggerKeys(GroupMatcher&lt;TriggerKey&gt; matcher)
+        throws SchedulerException {
+<span class="fc" id="L1475">        validateState();</span>
+
+<span class="pc bpc" id="L1477" title="1 of 2 branches missed.">        if(matcher == null) {</span>
+<span class="nc" id="L1478">            matcher = GroupMatcher.groupEquals(Scheduler.DEFAULT_GROUP);</span>
+        }
+        
+<span class="fc" id="L1481">        return resources.getJobStore().getTriggerKeys(matcher);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the &lt;code&gt;{@link JobDetail}&lt;/code&gt; for the &lt;code&gt;Job&lt;/code&gt;
+     * instance with the given name and group.
+     * &lt;/p&gt;
+     */
+    public JobDetail getJobDetail(JobKey jobKey) throws SchedulerException {
+<span class="fc" id="L1491">        validateState();</span>
+
+<span class="fc" id="L1493">        return resources.getJobStore().retrieveJob(jobKey);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the &lt;code&gt;{@link Trigger}&lt;/code&gt; instance with the given name and
+     * group.
+     * &lt;/p&gt;
+     */
+    public Trigger getTrigger(TriggerKey triggerKey) throws SchedulerException {
+<span class="fc" id="L1503">        validateState();</span>
+
+<span class="fc" id="L1505">        return resources.getJobStore().retrieveTrigger(triggerKey);</span>
+    }
+
+    /**
+     * Determine whether a {@link Job} with the given identifier already 
+     * exists within the scheduler.
+     * 
+     * @param jobKey the identifier to check for
+     * @return true if a Job exists with the given identifier
+     * @throws SchedulerException 
+     */
+    public boolean checkExists(JobKey jobKey) throws SchedulerException {
+<span class="fc" id="L1517">        validateState();</span>
+
+<span class="fc" id="L1519">        return resources.getJobStore().checkExists(jobKey);</span>
+        
+    }
+   
+    /**
+     * Determine whether a {@link Trigger} with the given identifier already 
+     * exists within the scheduler.
+     * 
+     * @param triggerKey the identifier to check for
+     * @return true if a Trigger exists with the given identifier
+     * @throws SchedulerException 
+     */
+    public boolean checkExists(TriggerKey triggerKey) throws SchedulerException {
+<span class="fc" id="L1532">        validateState();</span>
+
+<span class="fc" id="L1534">        return resources.getJobStore().checkExists(triggerKey);</span>
+        
+    }
+    
+    /**
+     * Clears (deletes!) all scheduling data - all {@link Job}s, {@link Trigger}s
+     * {@link Calendar}s.
+     * 
+     * @throws SchedulerException
+     */
+    public void clear() throws SchedulerException {
+<span class="fc" id="L1545">        validateState();</span>
+
+<span class="fc" id="L1547">        resources.getJobStore().clearAllSchedulingData();</span>
+<span class="fc" id="L1548">        notifySchedulerListenersUnscheduled(null);</span>
+<span class="fc" id="L1549">    }</span>
+    
+    
+    /**
+     * &lt;p&gt;
+     * Get the current state of the identified &lt;code&gt;{@link Trigger}&lt;/code&gt;.
+     * &lt;/p&gt;
+J     *
+     * @see TriggerState
+     */
+    public TriggerState getTriggerState(TriggerKey triggerKey) throws SchedulerException {
+<span class="fc" id="L1560">        validateState();</span>
+
+<span class="fc" id="L1562">        return resources.getJobStore().getTriggerState(triggerKey);</span>
+    }
+
+
+    public void resetTriggerFromErrorState(TriggerKey triggerKey) throws SchedulerException  {
+<span class="nc" id="L1567">        validateState();</span>
+
+<span class="nc" id="L1569">        resources.getJobStore().resetTriggerFromErrorState(triggerKey);</span>
+<span class="nc" id="L1570">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Add (register) the given &lt;code&gt;Calendar&lt;/code&gt; to the Scheduler.
+     * &lt;/p&gt;
+     * 
+     * @throws SchedulerException
+     *           if there is an internal Scheduler error, or a Calendar with
+     *           the same name already exists, and &lt;code&gt;replace&lt;/code&gt; is
+     *           &lt;code&gt;false&lt;/code&gt;.
+     */
+    public void addCalendar(String calName, Calendar calendar, boolean replace, boolean updateTriggers) throws SchedulerException {
+<span class="fc" id="L1583">        validateState();</span>
+
+<span class="fc" id="L1585">        resources.getJobStore().storeCalendar(calName, calendar, replace, updateTriggers);</span>
+<span class="fc" id="L1586">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Delete the identified &lt;code&gt;Calendar&lt;/code&gt; from the Scheduler.
+     * &lt;/p&gt;
+     * 
+     * @return true if the Calendar was found and deleted.
+     * @throws SchedulerException
+     *           if there is an internal Scheduler error.
+     */
+    public boolean deleteCalendar(String calName)
+        throws SchedulerException {
+<span class="fc" id="L1599">        validateState();</span>
+
+<span class="fc" id="L1601">        return resources.getJobStore().removeCalendar(calName);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the &lt;code&gt;{@link Calendar}&lt;/code&gt; instance with the given name.
+     * &lt;/p&gt;
+     */
+    public Calendar getCalendar(String calName)
+        throws SchedulerException {
+<span class="fc" id="L1611">        validateState();</span>
+
+<span class="fc" id="L1613">        return resources.getJobStore().retrieveCalendar(calName);</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the names of all registered &lt;code&gt;{@link Calendar}s&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public List&lt;String&gt; getCalendarNames()
+        throws SchedulerException {
+<span class="fc" id="L1623">        validateState();</span>
+
+<span class="fc" id="L1625">        return resources.getJobStore().getCalendarNames();</span>
+    }
+
+    public ListenerManager getListenerManager() {
+<span class="fc" id="L1629">        return listenerManager;</span>
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Add the given &lt;code&gt;{@link org.quartz.JobListener}&lt;/code&gt; to the
+     * &lt;code&gt;Scheduler&lt;/code&gt;'s &lt;i&gt;internal&lt;/i&gt; list.
+     * &lt;/p&gt;
+     */
+    public void addInternalJobListener(JobListener jobListener) {
+<span class="pc bpc" id="L1639" title="1 of 2 branches missed.">        if (jobListener.getName() == null</span>
+<span class="pc bpc" id="L1640" title="1 of 2 branches missed.">                || jobListener.getName().length() == 0) {</span>
+<span class="nc" id="L1641">            throw new IllegalArgumentException(</span>
+                    &quot;JobListener name cannot be empty.&quot;);
+        }
+        
+<span class="fc" id="L1645">        synchronized (internalJobListeners) {</span>
+<span class="fc" id="L1646">            internalJobListeners.put(jobListener.getName(), jobListener);</span>
+<span class="fc" id="L1647">        }</span>
+<span class="fc" id="L1648">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Remove the identified &lt;code&gt;{@link JobListener}&lt;/code&gt; from the &lt;code&gt;Scheduler&lt;/code&gt;'s
+     * list of &lt;i&gt;internal&lt;/i&gt; listeners.
+     * &lt;/p&gt;
+     * 
+     * @return true if the identified listener was found in the list, and
+     *         removed.
+     */
+    public boolean removeInternalJobListener(String name) {
+<span class="fc" id="L1660">        synchronized (internalJobListeners) {</span>
+<span class="pc bpc" id="L1661" title="1 of 2 branches missed.">            return (internalJobListeners.remove(name) != null);</span>
+        }
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Get a List containing all of the &lt;code&gt;{@link org.quartz.JobListener}&lt;/code&gt;s
+     * in the &lt;code&gt;Scheduler&lt;/code&gt;'s &lt;i&gt;internal&lt;/i&gt; list.
+     * &lt;/p&gt;
+     */
+    public List&lt;JobListener&gt; getInternalJobListeners() {
+<span class="fc" id="L1672">        synchronized (internalJobListeners) {</span>
+<span class="fc" id="L1673">            return java.util.Collections.unmodifiableList(new LinkedList&lt;JobListener&gt;(internalJobListeners.values()));</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the &lt;i&gt;internal&lt;/i&gt; &lt;code&gt;{@link org.quartz.JobListener}&lt;/code&gt;
+     * that has the given name.
+     * &lt;/p&gt;
+     */
+    public JobListener getInternalJobListener(String name) {
+<span class="nc" id="L1684">        synchronized (internalJobListeners) {</span>
+<span class="nc" id="L1685">            return internalJobListeners.get(name);</span>
+        }
+    }
+    
+    /**
+     * &lt;p&gt;
+     * Add the given &lt;code&gt;{@link org.quartz.TriggerListener}&lt;/code&gt; to the
+     * &lt;code&gt;Scheduler&lt;/code&gt;'s &lt;i&gt;internal&lt;/i&gt; list.
+     * &lt;/p&gt;
+     */
+    public void addInternalTriggerListener(TriggerListener triggerListener) {
+<span class="nc bnc" id="L1696" title="All 2 branches missed.">        if (triggerListener.getName() == null</span>
+<span class="nc bnc" id="L1697" title="All 2 branches missed.">                || triggerListener.getName().length() == 0) {</span>
+<span class="nc" id="L1698">            throw new IllegalArgumentException(</span>
+                    &quot;TriggerListener name cannot be empty.&quot;);
+        }
+
+<span class="nc" id="L1702">        synchronized (internalTriggerListeners) {</span>
+<span class="nc" id="L1703">            internalTriggerListeners.put(triggerListener.getName(), triggerListener);</span>
+<span class="nc" id="L1704">        }</span>
+<span class="nc" id="L1705">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Remove the identified &lt;code&gt;{@link TriggerListener}&lt;/code&gt; from the &lt;code&gt;Scheduler&lt;/code&gt;'s
+     * list of &lt;i&gt;internal&lt;/i&gt; listeners.
+     * &lt;/p&gt;
+     * 
+     * @return true if the identified listener was found in the list, and
+     *         removed.
+     */
+    public boolean removeinternalTriggerListener(String name) {
+<span class="nc" id="L1717">        synchronized (internalTriggerListeners) {</span>
+<span class="nc bnc" id="L1718" title="All 2 branches missed.">            return (internalTriggerListeners.remove(name) != null);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get a list containing all of the &lt;code&gt;{@link org.quartz.TriggerListener}&lt;/code&gt;s
+     * in the &lt;code&gt;Scheduler&lt;/code&gt;'s &lt;i&gt;internal&lt;/i&gt; list.
+     * &lt;/p&gt;
+     */
+    public List&lt;TriggerListener&gt; getInternalTriggerListeners() {
+<span class="fc" id="L1729">        synchronized (internalTriggerListeners) {</span>
+<span class="fc" id="L1730">            return java.util.Collections.unmodifiableList(new LinkedList&lt;TriggerListener&gt;(internalTriggerListeners.values()));</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get the &lt;i&gt;internal&lt;/i&gt; &lt;code&gt;{@link TriggerListener}&lt;/code&gt; that
+     * has the given name.
+     * &lt;/p&gt;
+     */
+    public TriggerListener getInternalTriggerListener(String name) {
+<span class="nc" id="L1741">        synchronized (internalTriggerListeners) {</span>
+<span class="nc" id="L1742">            return internalTriggerListeners.get(name);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Register the given &lt;code&gt;{@link SchedulerListener}&lt;/code&gt; with the
+     * &lt;code&gt;Scheduler&lt;/code&gt;'s list of internal listeners.
+     * &lt;/p&gt;
+     */
+    public void addInternalSchedulerListener(SchedulerListener schedulerListener) {
+<span class="fc" id="L1753">        synchronized (internalSchedulerListeners) {</span>
+<span class="fc" id="L1754">            internalSchedulerListeners.add(schedulerListener);</span>
+<span class="fc" id="L1755">        }</span>
+<span class="fc" id="L1756">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Remove the given &lt;code&gt;{@link SchedulerListener}&lt;/code&gt; from the
+     * &lt;code&gt;Scheduler&lt;/code&gt;'s list of internal listeners.
+     * &lt;/p&gt;
+     * 
+     * @return true if the identified listener was found in the list, and
+     *         removed.
+     */
+    public boolean removeInternalSchedulerListener(SchedulerListener schedulerListener) {
+<span class="fc" id="L1768">        synchronized (internalSchedulerListeners) {</span>
+<span class="fc" id="L1769">            return internalSchedulerListeners.remove(schedulerListener);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get a List containing all of the &lt;i&gt;internal&lt;/i&gt; &lt;code&gt;{@link SchedulerListener}&lt;/code&gt;s
+     * registered with the &lt;code&gt;Scheduler&lt;/code&gt;.
+     * &lt;/p&gt;
+     */
+    public List&lt;SchedulerListener&gt; getInternalSchedulerListeners() {
+<span class="fc" id="L1780">        synchronized (internalSchedulerListeners) {</span>
+<span class="fc" id="L1781">            return java.util.Collections.unmodifiableList(new ArrayList&lt;SchedulerListener&gt;(internalSchedulerListeners));</span>
+        }
+    }
+
+    protected void notifyJobStoreJobComplete(OperableTrigger trigger, JobDetail detail, CompletedExecutionInstruction instCode) {
+<span class="fc" id="L1786">        resources.getJobStore().triggeredJobComplete(trigger, detail, instCode);</span>
+<span class="fc" id="L1787">    }</span>
+
+    protected void notifyJobStoreJobVetoed(OperableTrigger trigger, JobDetail detail, CompletedExecutionInstruction instCode) {
+<span class="fc" id="L1790">        resources.getJobStore().triggeredJobComplete(trigger, detail, instCode);</span>
+<span class="fc" id="L1791">    }</span>
+
+    protected void notifySchedulerThread(long candidateNewNextFireTime) {
+<span class="pc bpc" id="L1794" title="1 of 2 branches missed.">        if (isSignalOnSchedulingChange()) {</span>
+<span class="fc" id="L1795">            signaler.signalSchedulingChange(candidateNewNextFireTime);</span>
+        }
+<span class="fc" id="L1797">    }</span>
+
+    private List&lt;TriggerListener&gt; buildTriggerListenerList()
+        throws SchedulerException {
+<span class="fc" id="L1801">        List&lt;TriggerListener&gt; allListeners = new LinkedList&lt;TriggerListener&gt;();</span>
+<span class="fc" id="L1802">        allListeners.addAll(getListenerManager().getTriggerListeners());</span>
+<span class="fc" id="L1803">        allListeners.addAll(getInternalTriggerListeners());</span>
+
+<span class="fc" id="L1805">        return allListeners;</span>
+    }
+
+    private List&lt;JobListener&gt; buildJobListenerList()
+        throws SchedulerException {
+<span class="fc" id="L1810">        List&lt;JobListener&gt; allListeners = new LinkedList&lt;JobListener&gt;();</span>
+<span class="fc" id="L1811">        allListeners.addAll(getListenerManager().getJobListeners());</span>
+<span class="fc" id="L1812">        allListeners.addAll(getInternalJobListeners());</span>
+
+<span class="fc" id="L1814">        return allListeners;</span>
+    }
+
+    private List&lt;SchedulerListener&gt; buildSchedulerListenerList() {
+<span class="fc" id="L1818">        List&lt;SchedulerListener&gt; allListeners = new LinkedList&lt;SchedulerListener&gt;();</span>
+<span class="fc" id="L1819">        allListeners.addAll(getListenerManager().getSchedulerListeners());</span>
+<span class="fc" id="L1820">        allListeners.addAll(getInternalSchedulerListeners());</span>
+    
+<span class="fc" id="L1822">        return allListeners;</span>
+    }
+    
+    private boolean matchJobListener(JobListener listener, JobKey key) {
+<span class="fc" id="L1826">        List&lt;Matcher&lt;JobKey&gt;&gt; matchers = getListenerManager().getJobListenerMatchers(listener.getName());</span>
+<span class="fc bfc" id="L1827" title="All 2 branches covered.">        if(matchers == null)</span>
+<span class="fc" id="L1828">            return true;</span>
+<span class="pc bpc" id="L1829" title="1 of 2 branches missed.">        for(Matcher&lt;JobKey&gt; matcher: matchers) {</span>
+<span class="pc bpc" id="L1830" title="1 of 2 branches missed.">            if(matcher.isMatch(key))</span>
+<span class="fc" id="L1831">                return true;</span>
+<span class="nc" id="L1832">        }</span>
+<span class="nc" id="L1833">        return false;</span>
+    }
+
+    private boolean matchTriggerListener(TriggerListener listener, TriggerKey key) {
+<span class="fc" id="L1837">        List&lt;Matcher&lt;TriggerKey&gt;&gt; matchers = getListenerManager().getTriggerListenerMatchers(listener.getName());</span>
+<span class="pc bpc" id="L1838" title="1 of 2 branches missed.">        if(matchers == null)</span>
+<span class="nc" id="L1839">            return true;</span>
+<span class="pc bpc" id="L1840" title="1 of 2 branches missed.">        for(Matcher&lt;TriggerKey&gt; matcher: matchers) {</span>
+<span class="pc bpc" id="L1841" title="1 of 2 branches missed.">            if(matcher.isMatch(key))</span>
+<span class="fc" id="L1842">                return true;</span>
+<span class="nc" id="L1843">        }</span>
+<span class="nc" id="L1844">        return false;</span>
+    }
+
+    public boolean notifyTriggerListenersFired(JobExecutionContext jec)
+        throws SchedulerException {
+
+<span class="fc" id="L1850">        boolean vetoedExecution = false;</span>
+        
+        // build a list of all trigger listeners that are to be notified...
+<span class="fc" id="L1853">        List&lt;TriggerListener&gt; triggerListeners = buildTriggerListenerList();</span>
+
+        // notify all trigger listeners in the list
+<span class="fc bfc" id="L1856" title="All 2 branches covered.">        for(TriggerListener tl: triggerListeners) {</span>
+            try {
+<span class="pc bpc" id="L1858" title="1 of 2 branches missed.">                if(!matchTriggerListener(tl, jec.getTrigger().getKey()))</span>
+<span class="nc" id="L1859">                    continue;</span>
+<span class="fc" id="L1860">                tl.triggerFired(jec.getTrigger(), jec);</span>
+                
+<span class="fc bfc" id="L1862" title="All 2 branches covered.">                if(tl.vetoJobExecution(jec.getTrigger(), jec)) {</span>
+<span class="fc" id="L1863">                    vetoedExecution = true;</span>
+                }
+<span class="nc" id="L1865">            } catch (Exception e) {</span>
+<span class="nc" id="L1866">                SchedulerException se = new SchedulerException(</span>
+<span class="nc" id="L1867">                        &quot;TriggerListener '&quot; + tl.getName()</span>
+<span class="nc" id="L1868">                                + &quot;' threw exception: &quot; + e.getMessage(), e);</span>
+<span class="nc" id="L1869">                throw se;</span>
+<span class="fc" id="L1870">            }</span>
+<span class="fc" id="L1871">        }</span>
+        
+<span class="fc" id="L1873">        return vetoedExecution;</span>
+    }
+    
+
+    public void notifyTriggerListenersMisfired(Trigger trigger)
+        throws SchedulerException {
+        // build a list of all trigger listeners that are to be notified...
+<span class="fc" id="L1880">        List&lt;TriggerListener&gt; triggerListeners = buildTriggerListenerList();</span>
+
+        // notify all trigger listeners in the list
+<span class="pc bpc" id="L1883" title="1 of 2 branches missed.">        for(TriggerListener tl: triggerListeners) {</span>
+            try {
+<span class="nc bnc" id="L1885" title="All 2 branches missed.">                if(!matchTriggerListener(tl, trigger.getKey()))</span>
+<span class="nc" id="L1886">                    continue;</span>
+<span class="nc" id="L1887">                tl.triggerMisfired(trigger);</span>
+<span class="nc" id="L1888">            } catch (Exception e) {</span>
+<span class="nc" id="L1889">                SchedulerException se = new SchedulerException(</span>
+<span class="nc" id="L1890">                        &quot;TriggerListener '&quot; + tl.getName()</span>
+<span class="nc" id="L1891">                                + &quot;' threw exception: &quot; + e.getMessage(), e);</span>
+<span class="nc" id="L1892">                throw se;</span>
+<span class="nc" id="L1893">            }</span>
+<span class="nc" id="L1894">        }</span>
+<span class="fc" id="L1895">    }    </span>
+
+    public void notifyTriggerListenersComplete(JobExecutionContext jec,
+            CompletedExecutionInstruction instCode) throws SchedulerException {
+        // build a list of all trigger listeners that are to be notified...
+<span class="fc" id="L1900">        List&lt;TriggerListener&gt; triggerListeners = buildTriggerListenerList();</span>
+
+        // notify all trigger listeners in the list
+<span class="fc bfc" id="L1903" title="All 2 branches covered.">        for(TriggerListener tl: triggerListeners) {</span>
+            try {
+<span class="pc bpc" id="L1905" title="1 of 2 branches missed.">                if(!matchTriggerListener(tl, jec.getTrigger().getKey()))</span>
+<span class="nc" id="L1906">                    continue;</span>
+<span class="fc" id="L1907">                tl.triggerComplete(jec.getTrigger(), jec, instCode);</span>
+<span class="nc" id="L1908">            } catch (Exception e) {</span>
+<span class="nc" id="L1909">                SchedulerException se = new SchedulerException(</span>
+<span class="nc" id="L1910">                        &quot;TriggerListener '&quot; + tl.getName()</span>
+<span class="nc" id="L1911">                                + &quot;' threw exception: &quot; + e.getMessage(), e);</span>
+<span class="nc" id="L1912">                throw se;</span>
+<span class="fc" id="L1913">            }</span>
+<span class="fc" id="L1914">        }</span>
+<span class="fc" id="L1915">    }</span>
+
+    public void notifyJobListenersToBeExecuted(JobExecutionContext jec)
+        throws SchedulerException {
+        // build a list of all job listeners that are to be notified...
+<span class="fc" id="L1920">        List&lt;JobListener&gt; jobListeners = buildJobListenerList();</span>
+
+        // notify all job listeners
+<span class="fc bfc" id="L1923" title="All 2 branches covered.">        for(JobListener jl: jobListeners) {</span>
+            try {
+<span class="pc bpc" id="L1925" title="1 of 2 branches missed.">                if(!matchJobListener(jl, jec.getJobDetail().getKey()))</span>
+<span class="nc" id="L1926">                    continue;</span>
+<span class="fc" id="L1927">                jl.jobToBeExecuted(jec);</span>
+<span class="nc" id="L1928">            } catch (Exception e) {</span>
+<span class="nc" id="L1929">                SchedulerException se = new SchedulerException(</span>
+<span class="nc" id="L1930">                        &quot;JobListener '&quot; + jl.getName() + &quot;' threw exception: &quot;</span>
+<span class="nc" id="L1931">                                + e.getMessage(), e);</span>
+<span class="nc" id="L1932">                throw se;</span>
+<span class="fc" id="L1933">            }</span>
+<span class="fc" id="L1934">        }</span>
+<span class="fc" id="L1935">    }</span>
+
+    public void notifyJobListenersWasVetoed(JobExecutionContext jec)
+        throws SchedulerException {
+        // build a list of all job listeners that are to be notified...
+<span class="fc" id="L1940">        List&lt;JobListener&gt; jobListeners = buildJobListenerList();</span>
+
+        // notify all job listeners
+<span class="fc bfc" id="L1943" title="All 2 branches covered.">        for(JobListener jl: jobListeners) {</span>
+            try {
+<span class="pc bpc" id="L1945" title="1 of 2 branches missed.">                if(!matchJobListener(jl, jec.getJobDetail().getKey()))</span>
+<span class="nc" id="L1946">                    continue;</span>
+<span class="fc" id="L1947">                jl.jobExecutionVetoed(jec);</span>
+<span class="nc" id="L1948">            } catch (Exception e) {</span>
+<span class="nc" id="L1949">                SchedulerException se = new SchedulerException(</span>
+<span class="nc" id="L1950">                        &quot;JobListener '&quot; + jl.getName() + &quot;' threw exception: &quot;</span>
+<span class="nc" id="L1951">                        + e.getMessage(), e);</span>
+<span class="nc" id="L1952">                throw se;</span>
+<span class="fc" id="L1953">            }</span>
+<span class="fc" id="L1954">        }</span>
+<span class="fc" id="L1955">    }</span>
+
+    public void notifyJobListenersWasExecuted(JobExecutionContext jec,
+            JobExecutionException je) throws SchedulerException {
+        // build a list of all job listeners that are to be notified...
+<span class="fc" id="L1960">        List&lt;JobListener&gt; jobListeners = buildJobListenerList();</span>
+
+        // notify all job listeners
+<span class="fc bfc" id="L1963" title="All 2 branches covered.">        for(JobListener jl: jobListeners) {</span>
+            try {
+<span class="pc bpc" id="L1965" title="1 of 2 branches missed.">                if(!matchJobListener(jl, jec.getJobDetail().getKey()))</span>
+<span class="nc" id="L1966">                    continue;</span>
+<span class="fc" id="L1967">                jl.jobWasExecuted(jec, je);</span>
+<span class="nc" id="L1968">            } catch (Exception e) {</span>
+<span class="nc" id="L1969">                SchedulerException se = new SchedulerException(</span>
+<span class="nc" id="L1970">                        &quot;JobListener '&quot; + jl.getName() + &quot;' threw exception: &quot;</span>
+<span class="nc" id="L1971">                                + e.getMessage(), e);</span>
+<span class="nc" id="L1972">                throw se;</span>
+<span class="fc" id="L1973">            }</span>
+<span class="fc" id="L1974">        }</span>
+<span class="fc" id="L1975">    }</span>
+
+    public void notifySchedulerListenersError(String msg, SchedulerException se) {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L1979">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L1982" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc" id="L1984">                sl.schedulerError(msg, se);</span>
+<span class="nc" id="L1985">            } catch (Exception e) {</span>
+<span class="nc" id="L1986">                getLog()</span>
+<span class="nc" id="L1987">                        .error(</span>
+                                &quot;Error while notifying SchedulerListener of error: &quot;,
+                                e);
+<span class="nc" id="L1990">                getLog().error(</span>
+                        &quot;  Original error (for notification) was: &quot; + msg, se);
+<span class="fc" id="L1992">            }</span>
+<span class="fc" id="L1993">        }</span>
+<span class="fc" id="L1994">    }</span>
+
+    public void notifySchedulerListenersSchduled(Trigger trigger) {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L1998">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2001" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc" id="L2003">                sl.jobScheduled(trigger);</span>
+<span class="nc" id="L2004">            } catch (Exception e) {</span>
+<span class="nc" id="L2005">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of scheduled job.&quot;
+<span class="nc" id="L2007">                                + &quot;  Triger=&quot; + trigger.getKey(), e);</span>
+<span class="fc" id="L2008">            }</span>
+<span class="fc" id="L2009">        }</span>
+<span class="fc" id="L2010">    }</span>
+
+    public void notifySchedulerListenersUnscheduled(TriggerKey triggerKey) {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L2014">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2017" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc bfc" id="L2019" title="All 2 branches covered.">                if(triggerKey == null)</span>
+<span class="fc" id="L2020">                    sl.schedulingDataCleared();</span>
+                else
+<span class="fc" id="L2022">                    sl.jobUnscheduled(triggerKey);</span>
+<span class="nc" id="L2023">            } catch (Exception e) {</span>
+<span class="nc bnc" id="L2024" title="All 2 branches missed.">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of unscheduled job.&quot;
+                                + &quot;  Triger=&quot; + (triggerKey == null ? &quot;ALL DATA&quot; : triggerKey), e);
+<span class="fc" id="L2027">            }</span>
+<span class="fc" id="L2028">        }</span>
+<span class="fc" id="L2029">    }</span>
+
+    public void notifySchedulerListenersFinalized(Trigger trigger) {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L2033">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2036" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc" id="L2038">                sl.triggerFinalized(trigger);</span>
+<span class="nc" id="L2039">            } catch (Exception e) {</span>
+<span class="nc" id="L2040">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of finalized trigger.&quot;
+<span class="nc" id="L2042">                                + &quot;  Triger=&quot; + trigger.getKey(), e);</span>
+<span class="fc" id="L2043">            }</span>
+<span class="fc" id="L2044">        }</span>
+<span class="fc" id="L2045">    }</span>
+
+    public void notifySchedulerListenersPausedTrigger(TriggerKey triggerKey) {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L2049">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2052" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc" id="L2054">                sl.triggerPaused(triggerKey);</span>
+<span class="nc" id="L2055">            } catch (Exception e) {</span>
+<span class="nc" id="L2056">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of paused trigger: &quot;
+                                + triggerKey, e);
+<span class="fc" id="L2059">            }</span>
+<span class="fc" id="L2060">        }</span>
+<span class="fc" id="L2061">    }</span>
+
+    public void notifySchedulerListenersPausedTriggers(String group) {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L2065">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2068" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc" id="L2070">                sl.triggersPaused(group);</span>
+<span class="nc" id="L2071">            } catch (Exception e) {</span>
+<span class="nc" id="L2072">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of paused trigger group.&quot;
+                                + group, e);
+<span class="fc" id="L2075">            }</span>
+<span class="fc" id="L2076">        }</span>
+<span class="fc" id="L2077">    }</span>
+    
+    public void notifySchedulerListenersResumedTrigger(TriggerKey key) {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L2081">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2084" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc" id="L2086">                sl.triggerResumed(key);</span>
+<span class="nc" id="L2087">            } catch (Exception e) {</span>
+<span class="nc" id="L2088">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of resumed trigger: &quot;
+                                + key, e);
+<span class="fc" id="L2091">            }</span>
+<span class="fc" id="L2092">        }</span>
+<span class="fc" id="L2093">    }</span>
+
+    public void notifySchedulerListenersResumedTriggers(String group) {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L2097">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2100" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc" id="L2102">                sl.triggersResumed(group);</span>
+<span class="nc" id="L2103">            } catch (Exception e) {</span>
+<span class="nc" id="L2104">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of resumed group: &quot;
+                                + group, e);
+<span class="fc" id="L2107">            }</span>
+<span class="fc" id="L2108">        }</span>
+<span class="fc" id="L2109">    }</span>
+
+    public void notifySchedulerListenersPausedJob(JobKey key) {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L2113">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2116" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc" id="L2118">                sl.jobPaused(key);</span>
+<span class="nc" id="L2119">            } catch (Exception e) {</span>
+<span class="nc" id="L2120">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of paused job: &quot;
+                                + key, e);
+<span class="fc" id="L2123">            }</span>
+<span class="fc" id="L2124">        }</span>
+<span class="fc" id="L2125">    }</span>
+
+    public void notifySchedulerListenersPausedJobs(String group) {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L2129">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2132" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc" id="L2134">                sl.jobsPaused(group);</span>
+<span class="nc" id="L2135">            } catch (Exception e) {</span>
+<span class="nc" id="L2136">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of paused job group: &quot;
+                                + group, e);
+<span class="fc" id="L2139">            }</span>
+<span class="fc" id="L2140">        }</span>
+<span class="fc" id="L2141">    }</span>
+    
+    public void notifySchedulerListenersResumedJob(JobKey key) {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L2145">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2148" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc" id="L2150">                sl.jobResumed(key);</span>
+<span class="nc" id="L2151">            } catch (Exception e) {</span>
+<span class="nc" id="L2152">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of resumed job: &quot;
+                                + key, e);
+<span class="fc" id="L2155">            }</span>
+<span class="fc" id="L2156">        }</span>
+<span class="fc" id="L2157">    }</span>
+
+    public void notifySchedulerListenersResumedJobs(String group) {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L2161">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2164" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc" id="L2166">                sl.jobsResumed(group);</span>
+<span class="nc" id="L2167">            } catch (Exception e) {</span>
+<span class="nc" id="L2168">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of resumed job group: &quot;
+                                + group, e);
+<span class="fc" id="L2171">            }</span>
+<span class="fc" id="L2172">        }</span>
+<span class="fc" id="L2173">    }</span>
+
+    public void notifySchedulerListenersInStandbyMode() {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L2177">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2180" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc" id="L2182">                sl.schedulerInStandbyMode();</span>
+<span class="nc" id="L2183">            } catch (Exception e) {</span>
+<span class="nc" id="L2184">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of inStandByMode.&quot;,
+                        e);
+<span class="fc" id="L2187">            }</span>
+<span class="fc" id="L2188">        }</span>
+<span class="fc" id="L2189">    }</span>
+    
+    public void notifySchedulerListenersStarted() {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L2193">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2196" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc" id="L2198">                sl.schedulerStarted();</span>
+<span class="nc" id="L2199">            } catch (Exception e) {</span>
+<span class="nc" id="L2200">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of startup.&quot;,
+                        e);
+<span class="fc" id="L2203">            }</span>
+<span class="fc" id="L2204">        }</span>
+<span class="fc" id="L2205">    }</span>
+
+    public void notifySchedulerListenersStarting() {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L2209">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2212" title="All 2 branches covered.">        for (SchedulerListener sl : schedListeners) {</span>
+            try {
+<span class="fc" id="L2214">                sl.schedulerStarting();</span>
+<span class="nc" id="L2215">            } catch (Exception e) {</span>
+<span class="nc" id="L2216">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of startup.&quot;,
+                        e);
+<span class="fc" id="L2219">            }</span>
+<span class="fc" id="L2220">        }</span>
+<span class="fc" id="L2221">    }</span>
+
+    public void notifySchedulerListenersShutdown() {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L2225">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2228" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc" id="L2230">                sl.schedulerShutdown();</span>
+<span class="nc" id="L2231">            } catch (Exception e) {</span>
+<span class="nc" id="L2232">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of shutdown.&quot;,
+                        e);
+<span class="fc" id="L2235">            }</span>
+<span class="fc" id="L2236">        }</span>
+<span class="fc" id="L2237">    }</span>
+    
+    public void notifySchedulerListenersShuttingdown() {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L2241">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2244" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc" id="L2246">                sl.schedulerShuttingdown();</span>
+<span class="nc" id="L2247">            } catch (Exception e) {</span>
+<span class="nc" id="L2248">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of shutdown.&quot;,
+                        e);
+<span class="fc" id="L2251">            }</span>
+<span class="fc" id="L2252">        }</span>
+<span class="fc" id="L2253">    }</span>
+    
+    public void notifySchedulerListenersJobAdded(JobDetail jobDetail) {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L2257">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2260" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc" id="L2262">                sl.jobAdded(jobDetail);</span>
+<span class="nc" id="L2263">            } catch (Exception e) {</span>
+<span class="nc" id="L2264">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of JobAdded.&quot;,
+                        e);
+<span class="fc" id="L2267">            }</span>
+<span class="fc" id="L2268">        }</span>
+<span class="fc" id="L2269">    }</span>
+
+    public void notifySchedulerListenersJobDeleted(JobKey jobKey) {
+        // build a list of all scheduler listeners that are to be notified...
+<span class="fc" id="L2273">        List&lt;SchedulerListener&gt; schedListeners = buildSchedulerListenerList();</span>
+
+        // notify all scheduler listeners
+<span class="fc bfc" id="L2276" title="All 2 branches covered.">        for(SchedulerListener sl: schedListeners) {</span>
+            try {
+<span class="fc" id="L2278">                sl.jobDeleted(jobKey);</span>
+<span class="nc" id="L2279">            } catch (Exception e) {</span>
+<span class="nc" id="L2280">                getLog().error(</span>
+                        &quot;Error while notifying SchedulerListener of JobAdded.&quot;,
+                        e);
+<span class="fc" id="L2283">            }</span>
+<span class="fc" id="L2284">        }</span>
+<span class="fc" id="L2285">    }</span>
+    
+    public void setJobFactory(JobFactory factory) throws SchedulerException {
+
+<span class="pc bpc" id="L2289" title="1 of 2 branches missed.">        if(factory == null) {</span>
+<span class="nc" id="L2290">            throw new IllegalArgumentException(&quot;JobFactory cannot be set to null!&quot;);</span>
+        }
+
+<span class="fc" id="L2293">        getLog().info(&quot;JobFactory set to: &quot; + factory);</span>
+
+<span class="fc" id="L2295">        this.jobFactory = factory;</span>
+<span class="fc" id="L2296">    }</span>
+    
+    public JobFactory getJobFactory()  {
+<span class="fc" id="L2299">        return jobFactory;</span>
+    }
+    
+    
+    /**
+     * Interrupt all instances of the identified InterruptableJob executing in 
+     * this Scheduler instance.
+     *  
+     * &lt;p&gt;
+     * This method is not cluster aware.  That is, it will only interrupt 
+     * instances of the identified InterruptableJob currently executing in this 
+     * Scheduler instance, not across the entire cluster.
+     * &lt;/p&gt;
+     * 
+     * @see org.quartz.core.RemotableQuartzScheduler#interrupt(JobKey)
+     */
+    public boolean interrupt(JobKey jobKey) throws UnableToInterruptJobException {
+
+<span class="fc" id="L2317">        List&lt;JobExecutionContext&gt; jobs = getCurrentlyExecutingJobs();</span>
+        
+<span class="fc" id="L2319">        JobDetail jobDetail = null;</span>
+<span class="fc" id="L2320">        Job job = null;</span>
+        
+<span class="fc" id="L2322">        boolean interrupted = false;</span>
+        
+<span class="pc bpc" id="L2324" title="1 of 2 branches missed.">        for(JobExecutionContext jec : jobs) {</span>
+<span class="nc" id="L2325">            jobDetail = jec.getJobDetail();</span>
+<span class="nc bnc" id="L2326" title="All 2 branches missed.">            if (jobKey.equals(jobDetail.getKey())) {</span>
+<span class="nc" id="L2327">                job = jec.getJobInstance();</span>
+<span class="nc bnc" id="L2328" title="All 2 branches missed.">                if (job instanceof InterruptableJob) {</span>
+<span class="nc" id="L2329">                    ((InterruptableJob)job).interrupt();</span>
+<span class="nc" id="L2330">                    interrupted = true;</span>
+                } else {
+<span class="nc" id="L2332">                    throw new UnableToInterruptJobException(</span>
+<span class="nc" id="L2333">                            &quot;Job &quot; + jobDetail.getKey() +</span>
+                            &quot; can not be interrupted, since it does not implement &quot; +                        
+<span class="nc" id="L2335">                            InterruptableJob.class.getName());</span>
+                }
+            }                        
+<span class="nc" id="L2338">        }</span>
+        
+<span class="fc" id="L2340">        return interrupted;</span>
+    }
+
+    /**
+     * Interrupt the identified InterruptableJob executing in this Scheduler instance.
+     *  
+     * &lt;p&gt;
+     * This method is not cluster aware.  That is, it will only interrupt 
+     * instances of the identified InterruptableJob currently executing in this 
+     * Scheduler instance, not across the entire cluster.
+     * &lt;/p&gt;
+     * 
+     * @see org.quartz.core.RemotableQuartzScheduler#interrupt(JobKey)
+     */
+    public boolean interrupt(String fireInstanceId) throws UnableToInterruptJobException {
+<span class="fc" id="L2355">        List&lt;JobExecutionContext&gt; jobs = getCurrentlyExecutingJobs();</span>
+        
+<span class="fc" id="L2357">        Job job = null;</span>
+        
+<span class="pc bpc" id="L2359" title="1 of 2 branches missed.">        for(JobExecutionContext jec : jobs) {</span>
+<span class="pc bpc" id="L2360" title="1 of 2 branches missed.">            if (jec.getFireInstanceId().equals(fireInstanceId)) {</span>
+<span class="fc" id="L2361">                job = jec.getJobInstance();</span>
+<span class="pc bpc" id="L2362" title="1 of 2 branches missed.">                if (job instanceof InterruptableJob) {</span>
+<span class="fc" id="L2363">                    ((InterruptableJob)job).interrupt();</span>
+<span class="fc" id="L2364">                    return true;</span>
+                } else {
+<span class="nc" id="L2366">                    throw new UnableToInterruptJobException(</span>
+<span class="nc" id="L2367">                        &quot;Job &quot; + jec.getJobDetail().getKey() +</span>
+                        &quot; can not be interrupted, since it does not implement &quot; +                        
+<span class="nc" id="L2369">                        InterruptableJob.class.getName());</span>
+                }
+            }                        
+<span class="nc" id="L2372">        }</span>
+        
+<span class="nc" id="L2374">        return false;</span>
+    }
+    
+    private void shutdownPlugins() {
+<span class="fc" id="L2378">        java.util.Iterator&lt;SchedulerPlugin&gt; itr = resources.getSchedulerPlugins().iterator();</span>
+<span class="fc bfc" id="L2379" title="All 2 branches covered.">        while (itr.hasNext()) {</span>
+<span class="fc" id="L2380">            SchedulerPlugin plugin = itr.next();</span>
+<span class="fc" id="L2381">            plugin.shutdown();</span>
+<span class="fc" id="L2382">        }</span>
+<span class="fc" id="L2383">    }</span>
+
+    private void startPlugins() {
+<span class="fc" id="L2386">        java.util.Iterator&lt;SchedulerPlugin&gt; itr = resources.getSchedulerPlugins().iterator();</span>
+<span class="fc bfc" id="L2387" title="All 2 branches covered.">        while (itr.hasNext()) {</span>
+<span class="fc" id="L2388">            SchedulerPlugin plugin = itr.next();</span>
+<span class="fc" id="L2389">            plugin.start();</span>
+<span class="fc" id="L2390">        }</span>
+<span class="fc" id="L2391">    }</span>
+
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// ErrorLogger - Scheduler Listener Class
+//
+/////////////////////////////////////////////////////////////////////////////
+
+class ErrorLogger extends SchedulerListenerSupport {
+<span class="fc" id="L2402">    ErrorLogger() {</span>
+<span class="fc" id="L2403">    }</span>
+    
+    @Override
+    public void schedulerError(String msg, SchedulerException cause) {
+<span class="fc" id="L2407">        getLog().error(msg, cause);</span>
+<span class="fc" id="L2408">    }</span>
+
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// ExecutingJobsManager - Job Listener Class
+//
+/////////////////////////////////////////////////////////////////////////////
+
+class ExecutingJobsManager implements JobListener {
+<span class="fc" id="L2419">    HashMap&lt;String, JobExecutionContext&gt; executingJobs = new HashMap&lt;String, JobExecutionContext&gt;();</span>
+
+<span class="fc" id="L2421">    AtomicInteger numJobsFired = new AtomicInteger(0);</span>
+
+<span class="fc" id="L2423">    ExecutingJobsManager() {</span>
+<span class="fc" id="L2424">    }</span>
+
+    public String getName() {
+<span class="fc" id="L2427">        return getClass().getName();</span>
+    }
+
+    public int getNumJobsCurrentlyExecuting() {
+<span class="nc" id="L2431">        synchronized (executingJobs) {</span>
+<span class="nc" id="L2432">            return executingJobs.size();</span>
+        }
+    }
+
+    public void jobToBeExecuted(JobExecutionContext context) {
+<span class="fc" id="L2437">        numJobsFired.incrementAndGet();</span>
+
+<span class="fc" id="L2439">        synchronized (executingJobs) {</span>
+<span class="fc" id="L2440">            executingJobs</span>
+<span class="fc" id="L2441">                    .put(((OperableTrigger)context.getTrigger()).getFireInstanceId(), context);</span>
+<span class="fc" id="L2442">        }</span>
+<span class="fc" id="L2443">    }</span>
+
+    public void jobWasExecuted(JobExecutionContext context,
+            JobExecutionException jobException) {
+<span class="fc" id="L2447">        synchronized (executingJobs) {</span>
+<span class="fc" id="L2448">            executingJobs.remove(((OperableTrigger)context.getTrigger()).getFireInstanceId());</span>
+<span class="fc" id="L2449">        }</span>
+<span class="fc" id="L2450">    }</span>
+
+    public int getNumJobsFired() {
+<span class="fc" id="L2453">        return numJobsFired.get();</span>
+    }
+
+    public List&lt;JobExecutionContext&gt; getExecutingJobs() {
+<span class="fc" id="L2457">        synchronized (executingJobs) {</span>
+<span class="fc" id="L2458">            return java.util.Collections.unmodifiableList(new ArrayList&lt;JobExecutionContext&gt;(</span>
+<span class="fc" id="L2459">                    executingJobs.values()));</span>
+        }
+    }
+
+    public void jobExecutionVetoed(JobExecutionContext context) {
+        
+<span class="fc" id="L2465">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

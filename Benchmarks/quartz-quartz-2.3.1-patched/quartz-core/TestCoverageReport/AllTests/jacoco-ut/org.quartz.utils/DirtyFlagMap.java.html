@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DirtyFlagMap.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.utils</a> &gt; <span class="el_source">DirtyFlagMap.java</span></div><h1>DirtyFlagMap.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy
+ * of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ *
+ */
+
+package org.quartz.utils;
+
+import java.lang.reflect.Array;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * &lt;p&gt;
+ * An implementation of &lt;code&gt;Map&lt;/code&gt; that wraps another &lt;code&gt;Map&lt;/code&gt;
+ * and flags itself 'dirty' when it is modified.
+ * &lt;/p&gt;
+ *
+ * @author James House
+ */
+public class DirtyFlagMap&lt;K,V&gt; implements Map&lt;K,V&gt;, Cloneable, java.io.Serializable {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Data members.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+    private static final long serialVersionUID = 1433884852607126222L;
+
+<span class="pc" id="L46">    private boolean dirty = false;</span>
+    private Map&lt;K,V&gt; map;
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Constructors.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Create a DirtyFlagMap that 'wraps' a &lt;code&gt;HashMap&lt;/code&gt;.
+     * &lt;/p&gt;
+     *
+     * @see java.util.HashMap
+     */
+<span class="fc" id="L64">    public DirtyFlagMap() {</span>
+<span class="fc" id="L65">        map = new HashMap&lt;K,V&gt;();</span>
+<span class="fc" id="L66">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a DirtyFlagMap that 'wraps' a &lt;code&gt;HashMap&lt;/code&gt; that has the
+     * given initial capacity.
+     * &lt;/p&gt;
+     *
+     * @see java.util.HashMap
+     */
+<span class="fc" id="L76">    public DirtyFlagMap(final int initialCapacity) {</span>
+<span class="fc" id="L77">        map = new HashMap&lt;K,V&gt;(initialCapacity);</span>
+<span class="fc" id="L78">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Create a DirtyFlagMap that 'wraps' a &lt;code&gt;HashMap&lt;/code&gt; that has the
+     * given initial capacity and load factor.
+     * &lt;/p&gt;
+     *
+     * @see java.util.HashMap
+     */
+<span class="nc" id="L88">    public DirtyFlagMap(final int initialCapacity, final float loadFactor) {</span>
+<span class="nc" id="L89">        map = new HashMap&lt;K,V&gt;(initialCapacity, loadFactor);</span>
+<span class="nc" id="L90">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Interface.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Clear the 'dirty' flag (set dirty flag to &lt;code&gt;false&lt;/code&gt;).
+     * &lt;/p&gt;
+     */
+    public void clearDirtyFlag() {
+<span class="fc" id="L106">        dirty = false;</span>
+<span class="fc" id="L107">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Determine whether the &lt;code&gt;Map&lt;/code&gt; is flagged dirty.
+     * &lt;/p&gt;
+     */
+    public boolean isDirty() {
+<span class="fc" id="L115">        return dirty;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Get a direct handle to the underlying Map.
+     * &lt;/p&gt;
+     */
+    public Map&lt;K,V&gt; getWrappedMap() {
+<span class="fc" id="L124">        return map;</span>
+    }
+
+    public void clear() {
+<span class="fc bfc" id="L128" title="All 2 branches covered.">        if (!map.isEmpty()) {</span>
+<span class="fc" id="L129">            dirty = true;</span>
+        }
+<span class="fc" id="L131">        map.clear();</span>
+<span class="fc" id="L132">    }</span>
+
+    public boolean containsKey(final Object key) {
+<span class="fc" id="L135">        return map.containsKey(key);</span>
+    }
+
+    public boolean containsValue(final Object val) {
+<span class="fc" id="L139">        return map.containsValue(val);</span>
+    }
+
+    public Set&lt;Entry&lt;K,V&gt;&gt; entrySet() {
+<span class="fc" id="L143">        return new DirtyFlagMapEntrySet(map.entrySet());</span>
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+<span class="pc bpc" id="L148" title="2 of 4 branches missed.">        if (obj == null || !(obj instanceof DirtyFlagMap)) {</span>
+<span class="nc" id="L149">            return false;</span>
+        }
+
+<span class="fc" id="L152">        return map.equals(((DirtyFlagMap&lt;?,?&gt;) obj).getWrappedMap());</span>
+    }
+
+    @Override
+    public int hashCode()
+    {
+<span class="nc" id="L158">        return map.hashCode();</span>
+    }
+
+    public V get(final Object key) {
+<span class="fc" id="L162">        return map.get(key);</span>
+    }
+
+    public boolean isEmpty() {
+<span class="fc" id="L166">        return map.isEmpty();</span>
+    }
+
+    public Set&lt;K&gt; keySet() {
+<span class="fc" id="L170">        return new DirtyFlagSet&lt;K&gt;(map.keySet());</span>
+    }
+
+    public V put(final K key, final V val) {
+<span class="fc" id="L174">        dirty = true;</span>
+
+<span class="fc" id="L176">        return map.put(key, val);</span>
+    }
+
+    public void putAll(final Map&lt;? extends K, ? extends V&gt; t) {
+<span class="fc bfc" id="L180" title="All 2 branches covered.">        if (!t.isEmpty()) {</span>
+<span class="fc" id="L181">            dirty = true;</span>
+        }
+
+<span class="fc" id="L184">        map.putAll(t);</span>
+<span class="fc" id="L185">    }</span>
+
+    public V remove(final Object key) {
+<span class="fc" id="L188">        V obj = map.remove(key);</span>
+
+<span class="fc bfc" id="L190" title="All 2 branches covered.">        if (obj != null) {</span>
+<span class="fc" id="L191">            dirty = true;</span>
+        }
+
+<span class="fc" id="L194">        return obj;</span>
+    }
+
+    public int size() {
+<span class="fc" id="L198">        return map.size();</span>
+    }
+
+    public Collection&lt;V&gt; values() {
+<span class="fc" id="L202">        return new DirtyFlagCollection&lt;V&gt;(map.values());</span>
+    }
+
+    @Override
+    @SuppressWarnings(&quot;unchecked&quot;) // suppress warnings on generic cast of super.clone() and map.clone() lines.
+    public Object clone() {
+        DirtyFlagMap&lt;K,V&gt; copy;
+        try {
+<span class="fc" id="L210">            copy = (DirtyFlagMap&lt;K,V&gt;) super.clone();</span>
+<span class="pc bpc" id="L211" title="1 of 2 branches missed.">            if (map instanceof HashMap) {</span>
+<span class="fc" id="L212">                copy.map = (Map&lt;K,V&gt;)((HashMap&lt;K,V&gt;)map).clone();</span>
+            }
+<span class="nc" id="L214">        } catch (CloneNotSupportedException ex) {</span>
+<span class="nc" id="L215">            throw new IncompatibleClassChangeError(&quot;Not Cloneable.&quot;);</span>
+<span class="fc" id="L216">        }</span>
+
+<span class="fc" id="L218">        return copy;</span>
+    }
+
+    /**
+     * Wrap a Collection so we can mark the DirtyFlagMap as dirty if
+     * the underlying Collection is modified.
+     */
+    private class DirtyFlagCollection&lt;T&gt; implements Collection&lt;T&gt; {
+        private Collection&lt;T&gt; collection;
+
+<span class="fc" id="L228">        public DirtyFlagCollection(final Collection&lt;T&gt; c) {</span>
+<span class="fc" id="L229">            collection = c;</span>
+<span class="fc" id="L230">        }</span>
+
+        protected Collection&lt;T&gt; getWrappedCollection() {
+<span class="fc" id="L233">            return collection;</span>
+        }
+
+        public Iterator&lt;T&gt; iterator() {
+<span class="fc" id="L237">            return new DirtyFlagIterator&lt;T&gt;(collection.iterator());</span>
+        }
+
+        public boolean remove(final Object o) {
+<span class="fc" id="L241">            boolean removed = collection.remove(o);</span>
+<span class="fc bfc" id="L242" title="All 2 branches covered.">            if (removed) {</span>
+<span class="fc" id="L243">                dirty = true;</span>
+            }
+<span class="fc" id="L245">            return removed;</span>
+        }
+
+        public boolean removeAll(final Collection&lt;?&gt; c) {
+<span class="fc" id="L249">            boolean changed = collection.removeAll(c);</span>
+<span class="fc bfc" id="L250" title="All 2 branches covered.">            if (changed) {</span>
+<span class="fc" id="L251">                dirty = true;</span>
+            }
+<span class="fc" id="L253">            return changed;</span>
+        }
+
+        public boolean retainAll(final Collection&lt;?&gt; c) {
+<span class="fc" id="L257">            boolean changed = collection.retainAll(c);</span>
+<span class="fc bfc" id="L258" title="All 2 branches covered.">            if (changed) {</span>
+<span class="fc" id="L259">                dirty = true;</span>
+            }
+<span class="fc" id="L261">            return changed;</span>
+        }
+
+        public void clear() {
+<span class="fc bfc" id="L265" title="All 2 branches covered.">            if (collection.isEmpty() == false) {</span>
+<span class="fc" id="L266">                dirty = true;</span>
+            }
+<span class="fc" id="L268">            collection.clear();</span>
+<span class="fc" id="L269">        }</span>
+
+        // Pure wrapper methods
+<span class="fc" id="L272">        public int size() { return collection.size(); }</span>
+<span class="nc" id="L273">        public boolean isEmpty() { return collection.isEmpty(); }</span>
+<span class="nc" id="L274">        public boolean contains(final Object o) { return collection.contains(o); }</span>
+<span class="nc" id="L275">        public boolean add(final T o) { return collection.add(o); } // Not supported</span>
+<span class="nc" id="L276">        public boolean addAll(final Collection&lt;? extends T&gt; c) { return collection.addAll(c); } // Not supported</span>
+<span class="nc" id="L277">        public boolean containsAll(final Collection&lt;?&gt; c) { return collection.containsAll(c); }</span>
+<span class="nc" id="L278">        public Object[] toArray() { return collection.toArray(); }</span>
+<span class="nc" id="L279">        public &lt;U&gt; U[] toArray(final U[] array) { return collection.toArray(array); }</span>
+    }
+
+    /**
+     * Wrap a Set so we can mark the DirtyFlagMap as dirty if
+     * the underlying Collection is modified.
+     */
+    private class DirtyFlagSet&lt;T&gt; extends DirtyFlagCollection&lt;T&gt; implements Set&lt;T&gt; {
+<span class="fc" id="L287">        public DirtyFlagSet(final Set&lt;T&gt; set) {</span>
+<span class="fc" id="L288">            super(set);</span>
+<span class="fc" id="L289">        }</span>
+
+        protected Set&lt;T&gt; getWrappedSet() {
+<span class="fc" id="L292">            return (Set&lt;T&gt;)getWrappedCollection();</span>
+        }
+    }
+
+    /**
+     * Wrap an Iterator so that we can mark the DirtyFlagMap as dirty if an
+     * element is removed.
+     */
+    private class DirtyFlagIterator&lt;T&gt; implements Iterator&lt;T&gt; {
+        private Iterator&lt;T&gt; iterator;
+
+<span class="fc" id="L303">        public DirtyFlagIterator(final Iterator&lt;T&gt; iterator) {</span>
+<span class="fc" id="L304">            this.iterator = iterator;</span>
+<span class="fc" id="L305">        }</span>
+
+        public void remove() {
+<span class="fc" id="L308">            dirty = true;</span>
+<span class="fc" id="L309">            iterator.remove();</span>
+<span class="fc" id="L310">        }</span>
+
+        // Pure wrapper methods
+<span class="fc" id="L313">        public boolean hasNext() { return iterator.hasNext(); }</span>
+<span class="fc" id="L314">        public T next() { return iterator.next(); }</span>
+    }
+
+    /**
+     * Wrap a Map.Entry Set so we can mark the Map as dirty if
+     * the Set is modified, and return Map.Entry objects
+     * wrapped in the &lt;code&gt;DirtyFlagMapEntry&lt;/code&gt; class.
+     */
+    private class DirtyFlagMapEntrySet extends DirtyFlagSet&lt;Map.Entry&lt;K,V&gt;&gt; {
+
+<span class="fc" id="L324">        public DirtyFlagMapEntrySet(final Set&lt;Map.Entry&lt;K,V&gt;&gt; set) {</span>
+<span class="fc" id="L325">            super(set);</span>
+<span class="fc" id="L326">        }</span>
+
+        @Override
+        public Iterator&lt;Map.Entry&lt;K,V&gt;&gt; iterator() {
+<span class="fc" id="L330">            return new DirtyFlagMapEntryIterator(getWrappedSet().iterator());</span>
+        }
+
+        @Override
+        public Object[] toArray() {
+<span class="fc" id="L335">            return toArray(new Object[super.size()]);</span>
+        }
+
+        @SuppressWarnings(&quot;unchecked&quot;) // suppress warnings on both U[] and U casting.
+        @Override
+        public &lt;U&gt; U[] toArray(final U[] array) {
+<span class="pc bpc" id="L341" title="1 of 2 branches missed.">            if (array.getClass().getComponentType().isAssignableFrom(Map.Entry.class) == false) {</span>
+<span class="nc" id="L342">                throw new IllegalArgumentException(&quot;Array must be of type assignable from Map.Entry&quot;);</span>
+            }
+
+<span class="fc" id="L345">            int size = super.size();</span>
+
+<span class="fc bfc" id="L347" title="All 2 branches covered.">            U[] result =</span>
+                array.length &lt; size ?
+<span class="fc" id="L349">                    (U[])Array.newInstance(array.getClass().getComponentType(), size) : array;</span>
+
+<span class="fc" id="L351">            Iterator&lt;Map.Entry&lt;K,V&gt;&gt; entryIter = iterator(); // Will return DirtyFlagMapEntry objects</span>
+<span class="fc bfc" id="L352" title="All 2 branches covered.">            for (int i = 0; i &lt; size; i++) {</span>
+<span class="fc" id="L353">                result[i] = ( U ) entryIter.next();</span>
+            }
+
+<span class="pc bpc" id="L356" title="1 of 2 branches missed.">            if (result.length &gt; size) {</span>
+<span class="nc" id="L357">                result[size] = null;</span>
+            }
+
+<span class="fc" id="L360">            return result;</span>
+        }
+    }
+
+    /**
+     * Wrap an Iterator over Map.Entry objects so that we can
+     * mark the Map as dirty if an element is removed or modified.
+     */
+    private class DirtyFlagMapEntryIterator extends DirtyFlagIterator&lt;Map.Entry&lt;K,V&gt;&gt; {
+<span class="fc" id="L369">        public DirtyFlagMapEntryIterator(final Iterator&lt;Map.Entry&lt;K,V&gt;&gt; iterator) {</span>
+<span class="fc" id="L370">            super(iterator);</span>
+<span class="fc" id="L371">        }</span>
+
+        @Override
+        public DirtyFlagMapEntry next() {
+<span class="fc" id="L375">            return new DirtyFlagMapEntry(super.next());</span>
+        }
+    }
+
+    /**
+     * Wrap a Map.Entry so we can mark the Map as dirty if
+     * a value is set.
+     */
+    private class DirtyFlagMapEntry implements Map.Entry&lt;K,V&gt; {
+        private Map.Entry&lt;K,V&gt; entry;
+
+<span class="fc" id="L386">        public DirtyFlagMapEntry(final Map.Entry&lt;K,V&gt; entry) {</span>
+<span class="fc" id="L387">            this.entry = entry;</span>
+<span class="fc" id="L388">        }</span>
+
+        public V setValue(final V o) {
+<span class="fc" id="L391">            dirty = true;</span>
+<span class="fc" id="L392">            return entry.setValue(o);</span>
+        }
+
+        // Pure wrapper methods
+<span class="fc" id="L396">        public K getKey() { return entry.getKey(); }</span>
+<span class="fc" id="L397">        public V getValue() { return entry.getValue(); }</span>
+<span class="nc" id="L398">        public boolean equals(Object o) { return entry.equals(o); }</span>
+    }
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

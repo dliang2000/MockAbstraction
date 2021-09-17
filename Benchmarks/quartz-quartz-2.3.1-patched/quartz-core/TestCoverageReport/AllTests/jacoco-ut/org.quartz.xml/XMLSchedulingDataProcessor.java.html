@@ -1,0 +1,1227 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>XMLSchedulingDataProcessor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.xml</a> &gt; <span class="el_source">XMLSchedulingDataProcessor.java</span></div><h1>XMLSchedulingDataProcessor.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.xml;
+
+import static org.quartz.CalendarIntervalScheduleBuilder.calendarIntervalSchedule;
+import static org.quartz.CronScheduleBuilder.cronSchedule;
+import static org.quartz.JobBuilder.newJob;
+import static org.quartz.SimpleScheduleBuilder.simpleSchedule;
+import static org.quartz.TriggerBuilder.newTrigger;
+import static org.quartz.TriggerKey.triggerKey;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.net.URL;
+import java.net.URLDecoder;
+import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.TimeZone;
+
+import javax.xml.XMLConstants;
+import javax.xml.namespace.NamespaceContext;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathException;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
+
+import org.quartz.*;
+import org.quartz.DateBuilder.IntervalUnit;
+import org.quartz.impl.matchers.GroupMatcher;
+import org.quartz.spi.ClassLoadHelper;
+import org.quartz.spi.MutableTrigger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.ErrorHandler;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+import javax.xml.bind.DatatypeConverter;
+
+
+/**
+ * Parses an XML file that declares Jobs and their schedules (Triggers), and processes the related data.
+ * 
+ * The xml document must conform to the format defined in
+ * &quot;job_scheduling_data_2_0.xsd&quot;
+ * 
+ * The same instance can be used again and again, however a single instance is not thread-safe.
+ * 
+ * @author James House
+ * @author Past contributions from &lt;a href=&quot;mailto:bonhamcm@thirdeyeconsulting.com&quot;&gt;Chris Bonham&lt;/a&gt;
+ * @author Past contributions from pl47ypus
+ * 
+ * @since Quartz 1.8
+ */
+public class XMLSchedulingDataProcessor implements ErrorHandler {
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constants.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public static final String QUARTZ_NS = &quot;http://www.quartz-scheduler.org/xml/JobSchedulingData&quot;;
+
+    public static final String QUARTZ_SCHEMA_WEB_URL = &quot;http://www.quartz-scheduler.org/xml/job_scheduling_data_2_0.xsd&quot;;
+    
+    public static final String QUARTZ_XSD_PATH_IN_JAR = &quot;org/quartz/xml/job_scheduling_data_2_0.xsd&quot;;
+
+    public static final String QUARTZ_XML_DEFAULT_FILE_NAME = &quot;quartz_data.xml&quot;;
+
+    public static final String QUARTZ_SYSTEM_ID_JAR_PREFIX = &quot;jar:&quot;;
+    
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    // pre-processing commands
+<span class="fc" id="L118">    protected List&lt;String&gt; jobGroupsToDelete = new LinkedList&lt;String&gt;();</span>
+<span class="fc" id="L119">    protected List&lt;String&gt; triggerGroupsToDelete = new LinkedList&lt;String&gt;();</span>
+<span class="fc" id="L120">    protected List&lt;JobKey&gt; jobsToDelete = new LinkedList&lt;JobKey&gt;();</span>
+<span class="fc" id="L121">    protected List&lt;TriggerKey&gt; triggersToDelete = new LinkedList&lt;TriggerKey&gt;();</span>
+
+    // scheduling commands
+<span class="fc" id="L124">    protected List&lt;JobDetail&gt; loadedJobs = new LinkedList&lt;JobDetail&gt;();</span>
+<span class="fc" id="L125">    protected List&lt;MutableTrigger&gt; loadedTriggers = new LinkedList&lt;MutableTrigger&gt;();</span>
+    
+    // directives
+<span class="fc" id="L128">    private boolean overWriteExistingData = true;</span>
+<span class="fc" id="L129">    private boolean ignoreDuplicates = false;</span>
+
+<span class="fc" id="L131">    protected Collection&lt;Exception&gt; validationExceptions = new ArrayList&lt;Exception&gt;();</span>
+
+    
+    protected ClassLoadHelper classLoadHelper;
+<span class="fc" id="L135">    protected List&lt;String&gt; jobGroupsToNeverDelete = new LinkedList&lt;String&gt;();</span>
+<span class="fc" id="L136">    protected List&lt;String&gt; triggerGroupsToNeverDelete = new LinkedList&lt;String&gt;();</span>
+    
+<span class="fc" id="L138">    private DocumentBuilder docBuilder = null;</span>
+<span class="fc" id="L139">    private XPath xpath = null;</span>
+    
+<span class="fc" id="L141">    private final Logger log = LoggerFactory.getLogger(getClass());</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+     
+    /**
+     * Constructor for JobSchedulingDataLoader.
+     * 
+     * @param clh               class-loader helper to share with digester.
+     * @throws ParserConfigurationException if the XML parser cannot be configured as needed. 
+     */
+<span class="fc" id="L157">    public XMLSchedulingDataProcessor(ClassLoadHelper clh) throws ParserConfigurationException {</span>
+<span class="fc" id="L158">        this.classLoadHelper = clh;</span>
+<span class="fc" id="L159">        initDocumentParser();</span>
+<span class="fc" id="L160">    }</span>
+    
+    /**
+     * Initializes the XML parser.
+     * @throws ParserConfigurationException 
+     */
+    protected void initDocumentParser() throws ParserConfigurationException  {
+
+<span class="fc" id="L168">        DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();</span>
+
+<span class="fc" id="L170">        docBuilderFactory.setNamespaceAware(true);</span>
+<span class="fc" id="L171">        docBuilderFactory.setValidating(true);</span>
+        
+<span class="fc" id="L173">        docBuilderFactory.setAttribute(&quot;http://java.sun.com/xml/jaxp/properties/schemaLanguage&quot;, &quot;http://www.w3.org/2001/XMLSchema&quot;);</span>
+        
+<span class="fc" id="L175">        docBuilderFactory.setAttribute(&quot;http://java.sun.com/xml/jaxp/properties/schemaSource&quot;, resolveSchemaSource());</span>
+        
+<span class="fc" id="L177">        docBuilder = docBuilderFactory.newDocumentBuilder();</span>
+        
+<span class="fc" id="L179">        docBuilder.setErrorHandler(this);</span>
+        
+<span class="fc" id="L181">        NamespaceContext nsContext = new NamespaceContext()</span>
+<span class="fc" id="L182">        {</span>
+          public String getNamespaceURI(String prefix)
+          {
+<span class="pc bpc" id="L185" title="1 of 2 branches missed.">              if (prefix == null)</span>
+<span class="nc" id="L186">                  throw new IllegalArgumentException(&quot;Null prefix&quot;);</span>
+<span class="pc bpc" id="L187" title="1 of 2 branches missed.">              if (XMLConstants.XML_NS_PREFIX.equals(prefix))</span>
+<span class="nc" id="L188">                  return XMLConstants.XML_NS_URI;</span>
+<span class="pc bpc" id="L189" title="1 of 2 branches missed.">              if (XMLConstants.XMLNS_ATTRIBUTE.equals(prefix))</span>
+<span class="nc" id="L190">                  return XMLConstants.XMLNS_ATTRIBUTE_NS_URI;</span>
+        
+<span class="pc bpc" id="L192" title="1 of 2 branches missed.">              if (&quot;q&quot;.equals(prefix))</span>
+<span class="fc" id="L193">                  return QUARTZ_NS;</span>
+        
+<span class="nc" id="L195">              return XMLConstants.NULL_NS_URI;</span>
+          }
+        
+          public Iterator&lt;?&gt; getPrefixes(String namespaceURI)
+          {
+              // This method isn't necessary for XPath processing.
+<span class="nc" id="L201">              throw new UnsupportedOperationException();</span>
+          }
+        
+          public String getPrefix(String namespaceURI)
+          {
+              // This method isn't necessary for XPath processing.
+<span class="nc" id="L207">              throw new UnsupportedOperationException();</span>
+          }
+        
+        }; 
+        
+<span class="fc" id="L212">        xpath = XPathFactory.newInstance().newXPath();</span>
+<span class="fc" id="L213">        xpath.setNamespaceContext(nsContext);</span>
+<span class="fc" id="L214">    }</span>
+    
+    protected Object resolveSchemaSource() {
+        InputSource inputSource;
+
+<span class="fc" id="L219">        InputStream is = null;</span>
+
+        try {
+<span class="fc" id="L222">            is = classLoadHelper.getResourceAsStream(QUARTZ_XSD_PATH_IN_JAR);</span>
+        }  finally {
+<span class="pc bpc" id="L224" title="1 of 2 branches missed.">            if (is != null) {</span>
+<span class="fc" id="L225">                inputSource = new InputSource(is);</span>
+<span class="fc" id="L226">                inputSource.setSystemId(QUARTZ_SCHEMA_WEB_URL);</span>
+<span class="fc" id="L227">                log.debug(&quot;Utilizing schema packaged in local quartz distribution jar.&quot;);</span>
+            }
+            else {
+<span class="nc" id="L230">                log.info(&quot;Unable to load local schema packaged in quartz distribution jar. Utilizing schema online at &quot; + QUARTZ_SCHEMA_WEB_URL);</span>
+<span class="nc" id="L231">                return QUARTZ_SCHEMA_WEB_URL;</span>
+            }
+                
+        }
+
+<span class="fc" id="L236">        return inputSource;</span>
+    }
+
+    /**
+     * Whether the existing scheduling data (with same identifiers) will be 
+     * overwritten. 
+     * 
+     * If false, and &lt;code&gt;IgnoreDuplicates&lt;/code&gt; is not false, and jobs or 
+     * triggers with the same names already exist as those in the file, an 
+     * error will occur.
+     * 
+     * @see #isIgnoreDuplicates()
+     */
+    public boolean isOverWriteExistingData() {
+<span class="fc" id="L250">        return overWriteExistingData;</span>
+    }
+    
+    /**
+     * Whether the existing scheduling data (with same identifiers) will be 
+     * overwritten. 
+     * 
+     * If false, and &lt;code&gt;IgnoreDuplicates&lt;/code&gt; is not false, and jobs or 
+     * triggers with the same names already exist as those in the file, an 
+     * error will occur.
+     * 
+     * @see #setIgnoreDuplicates(boolean)
+     */
+    protected void setOverWriteExistingData(boolean overWriteExistingData) {
+<span class="fc" id="L264">        this.overWriteExistingData = overWriteExistingData;</span>
+<span class="fc" id="L265">    }</span>
+
+    /**
+     * If true (and &lt;code&gt;OverWriteExistingData&lt;/code&gt; is false) then any 
+     * job/triggers encountered in this file that have names that already exist 
+     * in the scheduler will be ignored, and no error will be produced.
+     * 
+     * @see #isOverWriteExistingData()
+     */ 
+    public boolean isIgnoreDuplicates() {
+<span class="fc" id="L275">        return ignoreDuplicates;</span>
+    }
+
+    /**
+     * If true (and &lt;code&gt;OverWriteExistingData&lt;/code&gt; is false) then any 
+     * job/triggers encountered in this file that have names that already exist 
+     * in the scheduler will be ignored, and no error will be produced.
+     * 
+     * @see #setOverWriteExistingData(boolean)
+     */ 
+    public void setIgnoreDuplicates(boolean ignoreDuplicates) {
+<span class="fc" id="L286">        this.ignoreDuplicates = ignoreDuplicates;</span>
+<span class="fc" id="L287">    }</span>
+
+    /**
+     * Add the given group to the list of job groups that will never be
+     * deleted by this processor, even if a pre-processing-command to
+     * delete the group is encountered.
+     */
+    public void addJobGroupToNeverDelete(String group) {
+<span class="nc bnc" id="L295" title="All 2 branches missed.">        if(group != null)</span>
+<span class="nc" id="L296">            jobGroupsToNeverDelete.add(group);</span>
+<span class="nc" id="L297">    }</span>
+    
+    /**
+     * Remove the given group to the list of job groups that will never be
+     * deleted by this processor, even if a pre-processing-command to
+     * delete the group is encountered.
+     */
+    public boolean removeJobGroupToNeverDelete(String group) {
+<span class="nc bnc" id="L305" title="All 4 branches missed.">        return group != null &amp;&amp; jobGroupsToNeverDelete.remove(group);</span>
+    }
+
+    /**
+     * Get the (unmodifiable) list of job groups that will never be
+     * deleted by this processor, even if a pre-processing-command to
+     * delete the group is encountered.
+     */
+    public List&lt;String&gt; getJobGroupsToNeverDelete() {
+<span class="nc" id="L314">        return Collections.unmodifiableList(jobGroupsToDelete);</span>
+    }
+
+    /**
+     * Add the given group to the list of trigger groups that will never be
+     * deleted by this processor, even if a pre-processing-command to
+     * delete the group is encountered.
+     */
+    public void addTriggerGroupToNeverDelete(String group) {
+<span class="nc bnc" id="L323" title="All 2 branches missed.">        if(group != null)</span>
+<span class="nc" id="L324">            triggerGroupsToNeverDelete.add(group);</span>
+<span class="nc" id="L325">    }</span>
+    
+    /**
+     * Remove the given group to the list of trigger groups that will never be
+     * deleted by this processor, even if a pre-processing-command to
+     * delete the group is encountered.
+     */
+    public boolean removeTriggerGroupToNeverDelete(String group) {
+<span class="nc bnc" id="L333" title="All 2 branches missed.">        if(group != null)</span>
+<span class="nc" id="L334">            return triggerGroupsToNeverDelete.remove(group);</span>
+<span class="nc" id="L335">        return false;</span>
+    }
+
+    /**
+     * Get the (unmodifiable) list of trigger groups that will never be
+     * deleted by this processor, even if a pre-processing-command to
+     * delete the group is encountered.
+     */
+    public List&lt;String&gt; getTriggerGroupsToNeverDelete() {
+<span class="nc" id="L344">        return Collections.unmodifiableList(triggerGroupsToDelete);</span>
+    }
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+
+    /**
+     * Process the xml file in the default location (a file named
+     * &quot;quartz_jobs.xml&quot; in the current working directory).
+     *  
+     */
+    protected void processFile() throws Exception {
+<span class="nc" id="L362">        processFile(QUARTZ_XML_DEFAULT_FILE_NAME);</span>
+<span class="nc" id="L363">    }</span>
+
+    /**
+     * Process the xml file named &lt;code&gt;fileName&lt;/code&gt;.
+     * 
+     * @param fileName
+     *          meta data file name.
+     */
+    protected void processFile(String fileName) throws Exception {
+<span class="nc" id="L372">        processFile(fileName, getSystemIdForFileName(fileName));</span>
+<span class="nc" id="L373">    }</span>
+
+    /**
+     * For the given &lt;code&gt;fileName&lt;/code&gt;, attempt to expand it to its full path
+     * for use as a system id.
+     * 
+     * @see #getURL(String)
+     * @see #processFile()
+     * @see #processFile(String)
+     * @see #processFileAndScheduleJobs(Scheduler, boolean)
+     * @see #processFileAndScheduleJobs(String, org.quartz.Scheduler)
+     */
+    protected String getSystemIdForFileName(String fileName) {
+<span class="fc" id="L386">        File file = new File(fileName); // files in filesystem</span>
+<span class="fc bfc" id="L387" title="All 2 branches covered.">        if (file.exists()) {</span>
+            try {
+<span class="fc" id="L389">                new FileInputStream(file).close();</span>
+<span class="fc" id="L390">                return file.toURI().toString();</span>
+<span class="nc" id="L391">            }catch (IOException ignore) {</span>
+<span class="nc" id="L392">                return fileName;</span>
+            }
+        } else {
+<span class="fc" id="L395">            URL url = getURL(fileName);</span>
+<span class="pc bpc" id="L396" title="1 of 2 branches missed.">            if (url == null) {</span>
+<span class="nc" id="L397">                return fileName;</span>
+            } else {
+                try {
+<span class="fc" id="L400">                    url.openStream().close();</span>
+<span class="fc" id="L401">                    return url.toString();</span>
+<span class="nc" id="L402">                } catch (IOException ignore) {</span>
+<span class="nc" id="L403">                    return fileName;</span>
+                }
+            }      
+        }
+    }
+
+    /**
+     * Returns an &lt;code&gt;URL&lt;/code&gt; from the fileName as a resource.
+     * 
+     * @param fileName
+     *          file name.
+     * @return an &lt;code&gt;URL&lt;/code&gt; from the fileName as a resource.
+     */
+    protected URL getURL(String fileName) {
+<span class="fc" id="L417">        return classLoadHelper.getResource(fileName); </span>
+    }
+
+    protected void prepForProcessing()
+    {
+<span class="fc" id="L422">        clearValidationExceptions();</span>
+        
+<span class="fc" id="L424">        setOverWriteExistingData(true);</span>
+<span class="fc" id="L425">        setIgnoreDuplicates(false);</span>
+
+<span class="fc" id="L427">        jobGroupsToDelete.clear();</span>
+<span class="fc" id="L428">        jobsToDelete.clear();</span>
+<span class="fc" id="L429">        triggerGroupsToDelete.clear();</span>
+<span class="fc" id="L430">        triggersToDelete.clear();</span>
+        
+<span class="fc" id="L432">        loadedJobs.clear();</span>
+<span class="fc" id="L433">        loadedTriggers.clear();</span>
+<span class="fc" id="L434">    }</span>
+    
+    /**
+     * Process the xmlfile named &lt;code&gt;fileName&lt;/code&gt; with the given system
+     * ID.
+     * 
+     * @param fileName
+     *          meta data file name.
+     * @param systemId
+     *          system ID.
+     */
+    protected void processFile(String fileName, String systemId)
+        throws ValidationException, ParserConfigurationException,
+            SAXException, IOException, SchedulerException,
+            ClassNotFoundException, ParseException, XPathException {
+
+<span class="fc" id="L450">        prepForProcessing();</span>
+        
+<span class="fc" id="L452">        log.info(&quot;Parsing XML file: &quot; + fileName + </span>
+                &quot; with systemId: &quot; + systemId);
+<span class="fc" id="L454">        InputSource is = new InputSource(getInputStream(fileName));</span>
+<span class="fc" id="L455">        is.setSystemId(systemId);</span>
+        
+<span class="fc" id="L457">        process(is);</span>
+        
+<span class="fc" id="L459">        maybeThrowValidationException();</span>
+<span class="fc" id="L460">    }</span>
+    
+    /**
+     * Process the xmlfile named &lt;code&gt;fileName&lt;/code&gt; with the given system
+     * ID.
+     * 
+     * @param stream
+     *          an input stream containing the xml content.
+     * @param systemId
+     *          system ID.
+     */
+    public void processStreamAndScheduleJobs(InputStream stream, String systemId, Scheduler sched)
+        throws ValidationException, ParserConfigurationException,
+            SAXException, XPathException, IOException, SchedulerException,
+            ClassNotFoundException, ParseException {
+
+<span class="nc" id="L476">        prepForProcessing();</span>
+
+<span class="nc" id="L478">        log.info(&quot;Parsing XML from stream with systemId: &quot; + systemId);</span>
+
+<span class="nc" id="L480">        InputSource is = new InputSource(stream);</span>
+<span class="nc" id="L481">        is.setSystemId(systemId);</span>
+
+<span class="nc" id="L483">        process(is);</span>
+<span class="nc" id="L484">        executePreProcessCommands(sched);</span>
+<span class="nc" id="L485">        scheduleJobs(sched);</span>
+
+<span class="nc" id="L487">        maybeThrowValidationException();</span>
+<span class="nc" id="L488">    }</span>
+    
+    @SuppressWarnings(&quot;ConstantConditions&quot;)
+    protected void process(InputSource is) throws SAXException, IOException, ParseException, XPathException, ClassNotFoundException {
+        
+        // load the document 
+<span class="fc" id="L494">        Document document = docBuilder.parse(is);</span>
+        
+        //
+        // Extract pre-processing commands
+        //
+
+<span class="fc" id="L500">        NodeList deleteJobGroupNodes = (NodeList) xpath.evaluate(</span>
+                &quot;/q:job-scheduling-data/q:pre-processing-commands/q:delete-jobs-in-group&quot;,
+                document, XPathConstants.NODESET);
+
+<span class="fc" id="L504">        log.debug(&quot;Found &quot; + deleteJobGroupNodes.getLength() + &quot; delete job group commands.&quot;);</span>
+
+<span class="pc bpc" id="L506" title="1 of 2 branches missed.">        for (int i = 0; i &lt; deleteJobGroupNodes.getLength(); i++) {</span>
+<span class="nc" id="L507">            Node node = deleteJobGroupNodes.item(i);</span>
+<span class="nc" id="L508">            String t = node.getTextContent();</span>
+<span class="nc bnc" id="L509" title="All 4 branches missed.">            if(t == null || (t = t.trim()).length() == 0)</span>
+<span class="nc" id="L510">                continue;</span>
+<span class="nc" id="L511">            jobGroupsToDelete.add(t);</span>
+        }
+
+<span class="fc" id="L514">        NodeList deleteTriggerGroupNodes = (NodeList) xpath.evaluate(</span>
+                &quot;/q:job-scheduling-data/q:pre-processing-commands/q:delete-triggers-in-group&quot;,
+                document, XPathConstants.NODESET);
+
+<span class="fc" id="L518">        log.debug(&quot;Found &quot; + deleteTriggerGroupNodes.getLength() + &quot; delete trigger group commands.&quot;);</span>
+
+<span class="pc bpc" id="L520" title="1 of 2 branches missed.">        for (int i = 0; i &lt; deleteTriggerGroupNodes.getLength(); i++) {</span>
+<span class="nc" id="L521">            Node node = deleteTriggerGroupNodes.item(i);</span>
+<span class="nc" id="L522">            String t = node.getTextContent();</span>
+<span class="nc bnc" id="L523" title="All 4 branches missed.">            if(t == null || (t = t.trim()).length() == 0)</span>
+<span class="nc" id="L524">                continue;</span>
+<span class="nc" id="L525">            triggerGroupsToDelete.add(t);</span>
+        }
+
+<span class="fc" id="L528">        NodeList deleteJobNodes = (NodeList) xpath.evaluate(</span>
+                &quot;/q:job-scheduling-data/q:pre-processing-commands/q:delete-job&quot;,
+                document, XPathConstants.NODESET);
+
+<span class="fc" id="L532">        log.debug(&quot;Found &quot; + deleteJobNodes.getLength() + &quot; delete job commands.&quot;);</span>
+
+<span class="fc bfc" id="L534" title="All 2 branches covered.">        for (int i = 0; i &lt; deleteJobNodes.getLength(); i++) {</span>
+<span class="fc" id="L535">            Node node = deleteJobNodes.item(i);</span>
+
+<span class="fc" id="L537">            String name = getTrimmedToNullString(xpath, &quot;q:name&quot;, node);</span>
+<span class="fc" id="L538">            String group = getTrimmedToNullString(xpath, &quot;q:group&quot;, node);</span>
+            
+<span class="pc bpc" id="L540" title="1 of 2 branches missed.">            if(name == null)</span>
+<span class="nc" id="L541">                throw new ParseException(&quot;Encountered a 'delete-job' command without a name specified.&quot;, -1);</span>
+<span class="fc" id="L542">            jobsToDelete.add(new JobKey(name, group));</span>
+        }
+
+<span class="fc" id="L545">        NodeList deleteTriggerNodes = (NodeList) xpath.evaluate(</span>
+                &quot;/q:job-scheduling-data/q:pre-processing-commands/q:delete-trigger&quot;,
+                document, XPathConstants.NODESET);
+
+<span class="fc" id="L549">        log.debug(&quot;Found &quot; + deleteTriggerNodes.getLength() + &quot; delete trigger commands.&quot;);</span>
+
+<span class="pc bpc" id="L551" title="1 of 2 branches missed.">        for (int i = 0; i &lt; deleteTriggerNodes.getLength(); i++) {</span>
+<span class="nc" id="L552">            Node node = deleteTriggerNodes.item(i);</span>
+
+<span class="nc" id="L554">            String name = getTrimmedToNullString(xpath, &quot;q:name&quot;, node);</span>
+<span class="nc" id="L555">            String group = getTrimmedToNullString(xpath, &quot;q:group&quot;, node);</span>
+            
+<span class="nc bnc" id="L557" title="All 2 branches missed.">            if(name == null)</span>
+<span class="nc" id="L558">                throw new ParseException(&quot;Encountered a 'delete-trigger' command without a name specified.&quot;, -1);</span>
+<span class="nc" id="L559">            triggersToDelete.add(new TriggerKey(name, group));</span>
+        }
+        
+        //
+        // Extract directives
+        //
+
+<span class="fc" id="L566">        Boolean overWrite = getBoolean(xpath, </span>
+                &quot;/q:job-scheduling-data/q:processing-directives/q:overwrite-existing-data&quot;, document);
+<span class="fc bfc" id="L568" title="All 2 branches covered.">        if(overWrite == null) {</span>
+<span class="fc" id="L569">            log.debug(&quot;Directive 'overwrite-existing-data' not specified, defaulting to &quot; + isOverWriteExistingData());</span>
+        }
+        else {
+<span class="fc" id="L572">            log.debug(&quot;Directive 'overwrite-existing-data' specified as: &quot; + overWrite);</span>
+<span class="fc" id="L573">            setOverWriteExistingData(overWrite);</span>
+        }
+        
+<span class="fc" id="L576">        Boolean ignoreDupes = getBoolean(xpath, </span>
+                &quot;/q:job-scheduling-data/q:processing-directives/q:ignore-duplicates&quot;, document);
+<span class="fc bfc" id="L578" title="All 2 branches covered.">        if(ignoreDupes == null) {</span>
+<span class="fc" id="L579">            log.debug(&quot;Directive 'ignore-duplicates' not specified, defaulting to &quot; + isIgnoreDuplicates());</span>
+        }
+        else {
+<span class="fc" id="L582">            log.debug(&quot;Directive 'ignore-duplicates' specified as: &quot; + ignoreDupes);</span>
+<span class="fc" id="L583">            setIgnoreDuplicates(ignoreDupes);</span>
+        }
+        
+        //
+        // Extract Job definitions...
+        //
+
+<span class="fc" id="L590">        NodeList jobNodes = (NodeList) xpath.evaluate(&quot;/q:job-scheduling-data/q:schedule/q:job&quot;,</span>
+                document, XPathConstants.NODESET);
+
+<span class="fc" id="L593">        log.debug(&quot;Found &quot; + jobNodes.getLength() + &quot; job definitions.&quot;);</span>
+
+<span class="fc bfc" id="L595" title="All 2 branches covered.">        for (int i = 0; i &lt; jobNodes.getLength(); i++) {</span>
+<span class="fc" id="L596">            Node jobDetailNode = jobNodes.item(i);</span>
+<span class="fc" id="L597">            String t = null;</span>
+
+<span class="fc" id="L599">            String jobName = getTrimmedToNullString(xpath, &quot;q:name&quot;, jobDetailNode);</span>
+<span class="fc" id="L600">            String jobGroup = getTrimmedToNullString(xpath, &quot;q:group&quot;, jobDetailNode);</span>
+<span class="fc" id="L601">            String jobDescription = getTrimmedToNullString(xpath, &quot;q:description&quot;, jobDetailNode);</span>
+<span class="fc" id="L602">            String jobClassName = getTrimmedToNullString(xpath, &quot;q:job-class&quot;, jobDetailNode);</span>
+<span class="fc" id="L603">            t = getTrimmedToNullString(xpath, &quot;q:durability&quot;, jobDetailNode);</span>
+<span class="pc bpc" id="L604" title="1 of 4 branches missed.">            boolean jobDurability = (t != null) &amp;&amp; t.equals(&quot;true&quot;);</span>
+<span class="fc" id="L605">            t = getTrimmedToNullString(xpath, &quot;q:recover&quot;, jobDetailNode);</span>
+<span class="pc bpc" id="L606" title="1 of 4 branches missed.">            boolean jobRecoveryRequested = (t != null) &amp;&amp; t.equals(&quot;true&quot;);</span>
+
+<span class="fc" id="L608">            Class&lt;? extends Job&gt; jobClass = classLoadHelper.loadClass(jobClassName, Job.class);</span>
+
+<span class="fc" id="L610">            JobDetail jobDetail = newJob(jobClass)</span>
+<span class="fc" id="L611">                .withIdentity(jobName, jobGroup)</span>
+<span class="fc" id="L612">                .withDescription(jobDescription)</span>
+<span class="fc" id="L613">                .storeDurably(jobDurability)</span>
+<span class="fc" id="L614">                .requestRecovery(jobRecoveryRequested)</span>
+<span class="fc" id="L615">                .build();</span>
+            
+<span class="fc" id="L617">            NodeList jobDataEntries = (NodeList) xpath.evaluate(</span>
+                    &quot;q:job-data-map/q:entry&quot;, jobDetailNode,
+                    XPathConstants.NODESET);
+            
+<span class="fc bfc" id="L621" title="All 2 branches covered.">            for (int k = 0; k &lt; jobDataEntries.getLength(); k++) {</span>
+<span class="fc" id="L622">                Node entryNode = jobDataEntries.item(k);</span>
+<span class="fc" id="L623">                String key = getTrimmedToNullString(xpath, &quot;q:key&quot;, entryNode);</span>
+<span class="fc" id="L624">                String value = getTrimmedToNullString(xpath, &quot;q:value&quot;, entryNode);</span>
+<span class="fc" id="L625">                jobDetail.getJobDataMap().put(key, value);</span>
+            }
+            
+<span class="pc bpc" id="L628" title="1 of 2 branches missed.">            if(log.isDebugEnabled())</span>
+<span class="nc" id="L629">                log.debug(&quot;Parsed job definition: &quot; + jobDetail);</span>
+
+<span class="fc" id="L631">            addJobToSchedule(jobDetail);</span>
+        }
+        
+        //
+        // Extract Trigger definitions...
+        //
+
+<span class="fc" id="L638">        NodeList triggerEntries = (NodeList) xpath.evaluate(</span>
+                &quot;/q:job-scheduling-data/q:schedule/q:trigger/*&quot;, document, XPathConstants.NODESET);
+
+<span class="fc" id="L641">        log.debug(&quot;Found &quot; + triggerEntries.getLength() + &quot; trigger definitions.&quot;);</span>
+
+<span class="fc bfc" id="L643" title="All 2 branches covered.">        for (int j = 0; j &lt; triggerEntries.getLength(); j++) {</span>
+<span class="fc" id="L644">            Node triggerNode = triggerEntries.item(j);</span>
+<span class="fc" id="L645">            String triggerName = getTrimmedToNullString(xpath, &quot;q:name&quot;, triggerNode);</span>
+<span class="fc" id="L646">            String triggerGroup = getTrimmedToNullString(xpath, &quot;q:group&quot;, triggerNode);</span>
+<span class="fc" id="L647">            String triggerDescription = getTrimmedToNullString(xpath, &quot;q:description&quot;, triggerNode);</span>
+<span class="fc" id="L648">            String triggerMisfireInstructionConst = getTrimmedToNullString(xpath, &quot;q:misfire-instruction&quot;, triggerNode);</span>
+<span class="fc" id="L649">            String triggerPriorityString = getTrimmedToNullString(xpath, &quot;q:priority&quot;, triggerNode);</span>
+<span class="fc" id="L650">            String triggerCalendarRef = getTrimmedToNullString(xpath, &quot;q:calendar-name&quot;, triggerNode);</span>
+<span class="fc" id="L651">            String triggerJobName = getTrimmedToNullString(xpath, &quot;q:job-name&quot;, triggerNode);</span>
+<span class="fc" id="L652">            String triggerJobGroup = getTrimmedToNullString(xpath, &quot;q:job-group&quot;, triggerNode);</span>
+
+<span class="fc" id="L654">            int triggerPriority = Trigger.DEFAULT_PRIORITY;</span>
+<span class="pc bpc" id="L655" title="1 of 2 branches missed.">            if(triggerPriorityString != null)</span>
+<span class="nc" id="L656">                triggerPriority = Integer.valueOf(triggerPriorityString);</span>
+            
+<span class="fc" id="L658">            String startTimeString = getTrimmedToNullString(xpath, &quot;q:start-time&quot;, triggerNode);</span>
+<span class="fc" id="L659">            String startTimeFutureSecsString = getTrimmedToNullString(xpath, &quot;q:start-time-seconds-in-future&quot;, triggerNode);</span>
+<span class="fc" id="L660">            String endTimeString = getTrimmedToNullString(xpath, &quot;q:end-time&quot;, triggerNode);</span>
+
+            //QTZ-273 : use of DatatypeConverter.parseDateTime() instead of SimpleDateFormat
+            Date triggerStartTime;
+<span class="pc bpc" id="L664" title="1 of 2 branches missed.">            if(startTimeFutureSecsString != null)</span>
+<span class="nc" id="L665">                triggerStartTime = new Date(System.currentTimeMillis() + (Long.valueOf(startTimeFutureSecsString) * 1000L));</span>
+            else 
+<span class="pc bpc" id="L667" title="1 of 4 branches missed.">                triggerStartTime = (startTimeString == null || startTimeString.length() == 0 ? new Date() : DatatypeConverter.parseDateTime(startTimeString).getTime());</span>
+<span class="pc bpc" id="L668" title="1 of 4 branches missed.">            Date triggerEndTime = endTimeString == null || endTimeString.length() == 0 ? null : DatatypeConverter.parseDateTime(endTimeString).getTime();</span>
+
+<span class="fc" id="L670">            TriggerKey triggerKey = triggerKey(triggerName, triggerGroup);</span>
+            
+            ScheduleBuilder&lt;?&gt; sched;
+            
+<span class="fc bfc" id="L674" title="All 2 branches covered.">            if (triggerNode.getNodeName().equals(&quot;simple&quot;)) {</span>
+<span class="fc" id="L675">                String repeatCountString = getTrimmedToNullString(xpath, &quot;q:repeat-count&quot;, triggerNode);</span>
+<span class="fc" id="L676">                String repeatIntervalString = getTrimmedToNullString(xpath, &quot;q:repeat-interval&quot;, triggerNode);</span>
+
+<span class="fc bfc" id="L678" title="All 2 branches covered.">                int repeatCount = repeatCountString == null ? 0 : Integer.parseInt(repeatCountString);</span>
+<span class="fc bfc" id="L679" title="All 2 branches covered.">                long repeatInterval = repeatIntervalString == null ? 0 : Long.parseLong(repeatIntervalString);</span>
+
+<span class="fc" id="L681">                sched = simpleSchedule()</span>
+<span class="fc" id="L682">                    .withIntervalInMilliseconds(repeatInterval)</span>
+<span class="fc" id="L683">                    .withRepeatCount(repeatCount);</span>
+                
+<span class="pc bpc" id="L685" title="3 of 4 branches missed.">                if (triggerMisfireInstructionConst != null &amp;&amp; triggerMisfireInstructionConst.length() != 0) {</span>
+<span class="nc bnc" id="L686" title="All 2 branches missed.">                    if(triggerMisfireInstructionConst.equals(&quot;MISFIRE_INSTRUCTION_FIRE_NOW&quot;))</span>
+<span class="nc" id="L687">                        ((SimpleScheduleBuilder)sched).withMisfireHandlingInstructionFireNow();</span>
+<span class="nc bnc" id="L688" title="All 2 branches missed.">                    else if(triggerMisfireInstructionConst.equals(&quot;MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_EXISTING_COUNT&quot;))</span>
+<span class="nc" id="L689">                        ((SimpleScheduleBuilder)sched).withMisfireHandlingInstructionNextWithExistingCount();</span>
+<span class="nc bnc" id="L690" title="All 2 branches missed.">                    else if(triggerMisfireInstructionConst.equals(&quot;MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_REMAINING_COUNT&quot;))</span>
+<span class="nc" id="L691">                        ((SimpleScheduleBuilder)sched).withMisfireHandlingInstructionNextWithRemainingCount();</span>
+<span class="nc bnc" id="L692" title="All 2 branches missed.">                    else if(triggerMisfireInstructionConst.equals(&quot;MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_EXISTING_REPEAT_COUNT&quot;))</span>
+<span class="nc" id="L693">                        ((SimpleScheduleBuilder)sched).withMisfireHandlingInstructionNowWithExistingCount();</span>
+<span class="nc bnc" id="L694" title="All 2 branches missed.">                    else if(triggerMisfireInstructionConst.equals(&quot;MISFIRE_INSTRUCTION_RESCHEDULE_NOW_WITH_REMAINING_REPEAT_COUNT&quot;))</span>
+<span class="nc" id="L695">                        ((SimpleScheduleBuilder)sched).withMisfireHandlingInstructionNowWithRemainingCount();</span>
+<span class="nc bnc" id="L696" title="All 2 branches missed.">                    else if(triggerMisfireInstructionConst.equals(&quot;MISFIRE_INSTRUCTION_SMART_POLICY&quot;)) {</span>
+                        // do nothing.... (smart policy is default)
+                    }
+                    else
+<span class="nc" id="L700">                        throw new ParseException(&quot;Unexpected/Unhandlable Misfire Instruction encountered '&quot; + triggerMisfireInstructionConst + &quot;', for trigger: &quot; + triggerKey, -1);</span>
+                }
+<span class="pc bpc" id="L702" title="1 of 2 branches missed.">            } else if (triggerNode.getNodeName().equals(&quot;cron&quot;)) {</span>
+<span class="fc" id="L703">                String cronExpression = getTrimmedToNullString(xpath, &quot;q:cron-expression&quot;, triggerNode);</span>
+<span class="fc" id="L704">                String timezoneString = getTrimmedToNullString(xpath, &quot;q:time-zone&quot;, triggerNode);</span>
+
+<span class="pc bpc" id="L706" title="1 of 2 branches missed.">                TimeZone tz = timezoneString == null ? null : TimeZone.getTimeZone(timezoneString);</span>
+
+<span class="fc" id="L708">                sched = cronSchedule(cronExpression)</span>
+<span class="fc" id="L709">                    .inTimeZone(tz);</span>
+
+<span class="pc bpc" id="L711" title="3 of 4 branches missed.">                if (triggerMisfireInstructionConst != null &amp;&amp; triggerMisfireInstructionConst.length() != 0) {</span>
+<span class="nc bnc" id="L712" title="All 2 branches missed.">                    if(triggerMisfireInstructionConst.equals(&quot;MISFIRE_INSTRUCTION_DO_NOTHING&quot;))</span>
+<span class="nc" id="L713">                        ((CronScheduleBuilder)sched).withMisfireHandlingInstructionDoNothing();</span>
+<span class="nc bnc" id="L714" title="All 2 branches missed.">                    else if(triggerMisfireInstructionConst.equals(&quot;MISFIRE_INSTRUCTION_FIRE_ONCE_NOW&quot;))</span>
+<span class="nc" id="L715">                        ((CronScheduleBuilder)sched).withMisfireHandlingInstructionFireAndProceed();</span>
+<span class="nc bnc" id="L716" title="All 2 branches missed.">                    else if(triggerMisfireInstructionConst.equals(&quot;MISFIRE_INSTRUCTION_SMART_POLICY&quot;)) {</span>
+                        // do nothing.... (smart policy is default)
+                    }
+                    else
+<span class="nc" id="L720">                        throw new ParseException(&quot;Unexpected/Unhandlable Misfire Instruction encountered '&quot; + triggerMisfireInstructionConst + &quot;', for trigger: &quot; + triggerKey, -1);</span>
+                }
+<span class="pc bnc" id="L722" title="All 2 branches missed.">            } else if (triggerNode.getNodeName().equals(&quot;calendar-interval&quot;)) {</span>
+<span class="nc" id="L723">                String repeatIntervalString = getTrimmedToNullString(xpath, &quot;q:repeat-interval&quot;, triggerNode);</span>
+<span class="nc" id="L724">                String repeatUnitString = getTrimmedToNullString(xpath, &quot;q:repeat-interval-unit&quot;, triggerNode);</span>
+
+<span class="nc" id="L726">                int repeatInterval = Integer.parseInt(repeatIntervalString);</span>
+
+<span class="nc" id="L728">                IntervalUnit repeatUnit = IntervalUnit.valueOf(repeatUnitString);</span>
+
+<span class="nc" id="L730">                sched = calendarIntervalSchedule()</span>
+<span class="nc" id="L731">                    .withInterval(repeatInterval, repeatUnit);</span>
+
+<span class="nc bnc" id="L733" title="All 4 branches missed.">                if (triggerMisfireInstructionConst != null &amp;&amp; triggerMisfireInstructionConst.length() != 0) {</span>
+<span class="nc bnc" id="L734" title="All 2 branches missed.">                    if(triggerMisfireInstructionConst.equals(&quot;MISFIRE_INSTRUCTION_DO_NOTHING&quot;))</span>
+<span class="nc" id="L735">                        ((CalendarIntervalScheduleBuilder)sched).withMisfireHandlingInstructionDoNothing();</span>
+<span class="nc bnc" id="L736" title="All 2 branches missed.">                    else if(triggerMisfireInstructionConst.equals(&quot;MISFIRE_INSTRUCTION_FIRE_ONCE_NOW&quot;))</span>
+<span class="nc" id="L737">                        ((CalendarIntervalScheduleBuilder)sched).withMisfireHandlingInstructionFireAndProceed();</span>
+<span class="nc bnc" id="L738" title="All 2 branches missed.">                    else if(triggerMisfireInstructionConst.equals(&quot;MISFIRE_INSTRUCTION_SMART_POLICY&quot;)) {</span>
+                        // do nothing.... (smart policy is default)
+                    }
+                    else
+<span class="nc" id="L742">                        throw new ParseException(&quot;Unexpected/Unhandlable Misfire Instruction encountered '&quot; + triggerMisfireInstructionConst + &quot;', for trigger: &quot; + triggerKey, -1);</span>
+                }
+<span class="nc" id="L744">            } else {</span>
+<span class="nc" id="L745">                throw new ParseException(&quot;Unknown trigger type: &quot; + triggerNode.getNodeName(), -1);</span>
+            }
+
+            
+<span class="fc" id="L749">            MutableTrigger trigger = (MutableTrigger) newTrigger()</span>
+<span class="fc" id="L750">                .withIdentity(triggerName, triggerGroup)</span>
+<span class="fc" id="L751">                .withDescription(triggerDescription)</span>
+<span class="fc" id="L752">                .forJob(triggerJobName, triggerJobGroup)</span>
+<span class="fc" id="L753">                .startAt(triggerStartTime)</span>
+<span class="fc" id="L754">                .endAt(triggerEndTime)</span>
+<span class="fc" id="L755">                .withPriority(triggerPriority)</span>
+<span class="fc" id="L756">                .modifiedByCalendar(triggerCalendarRef)</span>
+<span class="fc" id="L757">                .withSchedule(sched)</span>
+<span class="fc" id="L758">                .build();</span>
+
+<span class="fc" id="L760">            NodeList jobDataEntries = (NodeList) xpath.evaluate(</span>
+                    &quot;q:job-data-map/q:entry&quot;, triggerNode,
+                    XPathConstants.NODESET);
+            
+<span class="pc bpc" id="L764" title="1 of 2 branches missed.">            for (int k = 0; k &lt; jobDataEntries.getLength(); k++) {</span>
+<span class="nc" id="L765">                Node entryNode = jobDataEntries.item(k);</span>
+<span class="nc" id="L766">                String key = getTrimmedToNullString(xpath, &quot;q:key&quot;, entryNode);</span>
+<span class="nc" id="L767">                String value = getTrimmedToNullString(xpath, &quot;q:value&quot;, entryNode);</span>
+<span class="nc" id="L768">                trigger.getJobDataMap().put(key, value);</span>
+            }
+            
+<span class="pc bpc" id="L771" title="1 of 2 branches missed.">            if(log.isDebugEnabled())</span>
+<span class="nc" id="L772">                log.debug(&quot;Parsed trigger definition: &quot; + trigger);</span>
+            
+<span class="fc" id="L774">            addTriggerToSchedule(trigger);</span>
+        }
+<span class="fc" id="L776">    }</span>
+    
+    protected String getTrimmedToNullString(XPath xpathToElement, String elementName, Node parentNode) throws XPathExpressionException {
+<span class="fc" id="L779">        String str = (String) xpathToElement.evaluate(elementName,</span>
+                parentNode, XPathConstants.STRING);
+        
+<span class="pc bpc" id="L782" title="1 of 2 branches missed.">        if(str != null)</span>
+<span class="fc" id="L783">            str = str.trim();</span>
+        
+<span class="pc bpc" id="L785" title="1 of 4 branches missed.">        if(str != null &amp;&amp; str.length() == 0)</span>
+<span class="fc" id="L786">            str = null;</span>
+        
+<span class="fc" id="L788">        return str;</span>
+    }
+
+    protected Boolean getBoolean(XPath xpathToElement, String elementName, Document document) throws XPathExpressionException {
+        
+<span class="fc" id="L793">        Node directive = (Node) xpathToElement.evaluate(elementName, document, XPathConstants.NODE);</span>
+
+<span class="pc bpc" id="L795" title="1 of 4 branches missed.">        if(directive == null || directive.getTextContent() == null)</span>
+<span class="fc" id="L796">            return null;</span>
+        
+<span class="fc" id="L798">        String val = directive.getTextContent();</span>
+<span class="pc bpc" id="L799" title="2 of 6 branches missed.">        if(val.equalsIgnoreCase(&quot;true&quot;) || val.equalsIgnoreCase(&quot;yes&quot;) || val.equalsIgnoreCase(&quot;y&quot;))</span>
+<span class="fc" id="L800">            return Boolean.TRUE;</span>
+        
+<span class="fc" id="L802">        return Boolean.FALSE;</span>
+    }
+
+    /**
+     * Process the xml file in the default location, and schedule all of the
+     * jobs defined within it.
+     * 
+     * &lt;p&gt;Note that we will set overWriteExistingJobs after the default xml is parsed. 
+     */
+    public void processFileAndScheduleJobs(Scheduler sched,
+            boolean overWriteExistingJobs) throws Exception {
+<span class="fc" id="L813">        String fileName = QUARTZ_XML_DEFAULT_FILE_NAME;</span>
+<span class="fc" id="L814">        processFile(fileName, getSystemIdForFileName(fileName));</span>
+        // The overWriteExistingJobs flag was set by processFile() -&gt; prepForProcessing(), then by xml parsing, and then now
+        // we need to reset it again here by this method parameter to override it.
+<span class="fc" id="L817">        setOverWriteExistingData(overWriteExistingJobs);</span>
+<span class="fc" id="L818">        executePreProcessCommands(sched);</span>
+<span class="nc" id="L819">        scheduleJobs(sched);</span>
+<span class="nc" id="L820">    }</span>
+
+    /**
+     * Process the xml file in the given location, and schedule all of the
+     * jobs defined within it.
+     * 
+     * @param fileName
+     *          meta data file name.
+     */
+    public void processFileAndScheduleJobs(String fileName, Scheduler sched) throws Exception {
+<span class="fc" id="L830">        processFileAndScheduleJobs(fileName, getSystemIdForFileName(fileName), sched);</span>
+<span class="fc" id="L831">    }</span>
+    
+    /**
+     * Process the xml file in the given location, and schedule all of the
+     * jobs defined within it.
+     * 
+     * @param fileName
+     *          meta data file name.
+     */
+    public void processFileAndScheduleJobs(String fileName, String systemId, Scheduler sched) throws Exception {
+<span class="fc" id="L841">        processFile(fileName, systemId);</span>
+<span class="fc" id="L842">        executePreProcessCommands(sched);</span>
+<span class="fc" id="L843">        scheduleJobs(sched);</span>
+<span class="fc" id="L844">    }</span>
+
+    /**
+     * Returns a &lt;code&gt;List&lt;/code&gt; of jobs loaded from the xml file.
+     * &lt;p/&gt;
+     * 
+     * @return a &lt;code&gt;List&lt;/code&gt; of jobs.
+     */
+    protected List&lt;JobDetail&gt; getLoadedJobs() {
+<span class="fc" id="L853">        return Collections.unmodifiableList(loadedJobs);</span>
+    }
+    
+    /**
+     * Returns a &lt;code&gt;List&lt;/code&gt; of triggers loaded from the xml file.
+     * &lt;p/&gt;
+     * 
+     * @return a &lt;code&gt;List&lt;/code&gt; of triggers.
+     */
+    protected List&lt;MutableTrigger&gt; getLoadedTriggers() {
+<span class="fc" id="L863">        return Collections.unmodifiableList(loadedTriggers);</span>
+    }
+
+    /**
+     * Returns an &lt;code&gt;InputStream&lt;/code&gt; from the fileName as a resource.
+     * 
+     * @param fileName
+     *          file name.
+     * @return an &lt;code&gt;InputStream&lt;/code&gt; from the fileName as a resource.
+     */
+    protected InputStream getInputStream(String fileName) {
+<span class="fc" id="L874">        return this.classLoadHelper.getResourceAsStream(fileName);</span>
+    }
+    
+    protected void addJobToSchedule(JobDetail job) {
+<span class="fc" id="L878">        loadedJobs.add(job);</span>
+<span class="fc" id="L879">    }</span>
+    
+    protected void addTriggerToSchedule(MutableTrigger trigger) {
+<span class="fc" id="L882">        loadedTriggers.add(trigger);</span>
+<span class="fc" id="L883">    }</span>
+
+    private Map&lt;JobKey, List&lt;MutableTrigger&gt;&gt; buildTriggersByFQJobNameMap(List&lt;MutableTrigger&gt; triggers) {
+        
+<span class="fc" id="L887">        Map&lt;JobKey, List&lt;MutableTrigger&gt;&gt; triggersByFQJobName = new HashMap&lt;JobKey, List&lt;MutableTrigger&gt;&gt;();</span>
+        
+<span class="fc bfc" id="L889" title="All 2 branches covered.">        for(MutableTrigger trigger: triggers) {</span>
+<span class="fc" id="L890">            List&lt;MutableTrigger&gt; triggersOfJob = triggersByFQJobName.get(trigger.getJobKey());</span>
+<span class="fc bfc" id="L891" title="All 2 branches covered.">            if(triggersOfJob == null) {</span>
+<span class="fc" id="L892">                triggersOfJob = new LinkedList&lt;MutableTrigger&gt;();</span>
+<span class="fc" id="L893">                triggersByFQJobName.put(trigger.getJobKey(), triggersOfJob);</span>
+            }
+<span class="fc" id="L895">            triggersOfJob.add(trigger);</span>
+<span class="fc" id="L896">        }</span>
+
+<span class="fc" id="L898">        return triggersByFQJobName;</span>
+    }
+    
+    protected void executePreProcessCommands(Scheduler scheduler) 
+        throws SchedulerException {
+        
+<span class="pc bpc" id="L904" title="1 of 2 branches missed.">        for(String group: jobGroupsToDelete) {</span>
+<span class="nc bnc" id="L905" title="All 2 branches missed.">            if(group.equals(&quot;*&quot;)) {</span>
+<span class="nc" id="L906">                log.info(&quot;Deleting all jobs in ALL groups.&quot;);</span>
+<span class="nc bnc" id="L907" title="All 2 branches missed.">                for (String groupName : scheduler.getJobGroupNames()) {</span>
+<span class="nc bnc" id="L908" title="All 2 branches missed.">                    if (!jobGroupsToNeverDelete.contains(groupName)) {</span>
+<span class="nc bnc" id="L909" title="All 2 branches missed.">                        for (JobKey key : scheduler.getJobKeys(GroupMatcher.jobGroupEquals(groupName))) {</span>
+<span class="nc" id="L910">                            scheduler.deleteJob(key);</span>
+<span class="nc" id="L911">                        }</span>
+                    }
+<span class="nc" id="L913">                }</span>
+            }
+            else {
+<span class="nc bnc" id="L916" title="All 2 branches missed.">                if(!jobGroupsToNeverDelete.contains(group)) {</span>
+<span class="nc" id="L917">                    log.info(&quot;Deleting all jobs in group: {}&quot;, group);</span>
+<span class="nc bnc" id="L918" title="All 2 branches missed.">                    for (JobKey key : scheduler.getJobKeys(GroupMatcher.jobGroupEquals(group))) {</span>
+<span class="nc" id="L919">                        scheduler.deleteJob(key);</span>
+<span class="nc" id="L920">                    }</span>
+                }
+            }
+<span class="nc" id="L923">        }</span>
+        
+<span class="pc bpc" id="L925" title="1 of 2 branches missed.">        for(String group: triggerGroupsToDelete) {</span>
+<span class="nc bnc" id="L926" title="All 2 branches missed.">            if(group.equals(&quot;*&quot;)) {</span>
+<span class="nc" id="L927">                log.info(&quot;Deleting all triggers in ALL groups.&quot;);</span>
+<span class="nc bnc" id="L928" title="All 2 branches missed.">                for (String groupName : scheduler.getTriggerGroupNames()) {</span>
+<span class="nc bnc" id="L929" title="All 2 branches missed.">                    if (!triggerGroupsToNeverDelete.contains(groupName)) {</span>
+<span class="nc bnc" id="L930" title="All 2 branches missed.">                        for (TriggerKey key : scheduler.getTriggerKeys(GroupMatcher.triggerGroupEquals(groupName))) {</span>
+<span class="nc" id="L931">                            scheduler.unscheduleJob(key);</span>
+<span class="nc" id="L932">                        }</span>
+                    }
+<span class="nc" id="L934">                }</span>
+            }
+            else {
+<span class="nc bnc" id="L937" title="All 2 branches missed.">                if(!triggerGroupsToNeverDelete.contains(group)) {</span>
+<span class="nc" id="L938">                    log.info(&quot;Deleting all triggers in group: {}&quot;, group);</span>
+<span class="nc bnc" id="L939" title="All 2 branches missed.">                    for (TriggerKey key : scheduler.getTriggerKeys(GroupMatcher.triggerGroupEquals(group))) {</span>
+<span class="nc" id="L940">                        scheduler.unscheduleJob(key);</span>
+<span class="nc" id="L941">                    }</span>
+                }
+            }
+<span class="nc" id="L944">        }</span>
+        
+<span class="fc bfc" id="L946" title="All 2 branches covered.">        for(JobKey key: jobsToDelete) {</span>
+<span class="pc bpc" id="L947" title="1 of 2 branches missed.">            if(!jobGroupsToNeverDelete.contains(key.getGroup())) {</span>
+<span class="fc" id="L948">                log.info(&quot;Deleting job: {}&quot;, key);</span>
+<span class="fc" id="L949">                scheduler.deleteJob(key);</span>
+            } 
+<span class="fc" id="L951">        }</span>
+        
+<span class="pc bpc" id="L953" title="1 of 2 branches missed.">        for(TriggerKey key: triggersToDelete) {</span>
+<span class="nc bnc" id="L954" title="All 2 branches missed.">            if(!triggerGroupsToNeverDelete.contains(key.getGroup())) {</span>
+<span class="nc" id="L955">                log.info(&quot;Deleting trigger: {}&quot;, key);</span>
+<span class="nc" id="L956">                scheduler.unscheduleJob(key);</span>
+            }
+<span class="nc" id="L958">        }</span>
+<span class="fc" id="L959">    }</span>
+
+    /**
+     * Schedules the given sets of jobs and triggers.
+     * 
+     * @param sched
+     *          job scheduler.
+     * @exception SchedulerException
+     *              if the Job or Trigger cannot be added to the Scheduler, or
+     *              there is an internal Scheduler error.
+     */
+    @SuppressWarnings(&quot;ConstantConditions&quot;)
+    protected void scheduleJobs(Scheduler sched)
+        throws SchedulerException {
+        
+<span class="fc" id="L974">        List&lt;JobDetail&gt; jobs = new LinkedList&lt;JobDetail&gt;(getLoadedJobs());</span>
+<span class="fc" id="L975">        List&lt;MutableTrigger&gt; triggers = new LinkedList&lt;MutableTrigger&gt;( getLoadedTriggers());</span>
+        
+<span class="fc" id="L977">        log.info(&quot;Adding &quot; + jobs.size() + &quot; jobs, &quot; + triggers.size() + &quot; triggers.&quot;);</span>
+        
+<span class="fc" id="L979">        Map&lt;JobKey, List&lt;MutableTrigger&gt;&gt; triggersByFQJobName = buildTriggersByFQJobNameMap(triggers);</span>
+        
+        // add each job, and it's associated triggers
+<span class="fc" id="L982">        Iterator&lt;JobDetail&gt; itr = jobs.iterator();</span>
+<span class="fc bfc" id="L983" title="All 2 branches covered.">        while(itr.hasNext()) {</span>
+<span class="fc" id="L984">            JobDetail detail = itr.next();</span>
+<span class="fc" id="L985">            itr.remove(); // remove jobs as we handle them...</span>
+
+<span class="fc" id="L987">            JobDetail dupeJ = null;</span>
+            try {
+                // The existing job could have been deleted, and Quartz API doesn't allow us to query this without
+                // loading the job class, so use try/catch to handle it.
+<span class="fc" id="L991">                dupeJ = sched.getJobDetail(detail.getKey());</span>
+<span class="fc" id="L992">            } catch (JobPersistenceException e) {</span>
+<span class="pc bpc" id="L993" title="2 of 4 branches missed.">                if (e.getCause() instanceof ClassNotFoundException &amp;&amp; isOverWriteExistingData()) {</span>
+                    // We are going to replace jobDetail anyway, so just delete it first.
+<span class="fc" id="L995">                    log.info(&quot;Removing job: &quot; + detail.getKey());</span>
+<span class="fc" id="L996">                    sched.deleteJob(detail.getKey());</span>
+                } else {
+<span class="nc" id="L998">                    throw e;</span>
+                }
+<span class="fc" id="L1000">            }</span>
+
+<span class="fc bfc" id="L1002" title="All 2 branches covered.">            if ((dupeJ != null)) {</span>
+<span class="fc bfc" id="L1003" title="All 4 branches covered.">                if(!isOverWriteExistingData() &amp;&amp; isIgnoreDuplicates()) {</span>
+<span class="fc" id="L1004">                    log.info(&quot;Not overwriting existing job: &quot; + dupeJ.getKey());</span>
+<span class="fc" id="L1005">                    continue; // just ignore the entry</span>
+                }
+<span class="pc bpc" id="L1007" title="1 of 4 branches missed.">                if(!isOverWriteExistingData() &amp;&amp; !isIgnoreDuplicates()) {</span>
+<span class="fc" id="L1008">                    throw new ObjectAlreadyExistsException(detail);</span>
+                }
+            }
+            
+<span class="fc bfc" id="L1012" title="All 2 branches covered.">            if (dupeJ != null) {</span>
+<span class="fc" id="L1013">                log.info(&quot;Replacing job: &quot; + detail.getKey());</span>
+            } else {
+<span class="fc" id="L1015">                log.info(&quot;Adding job: &quot; + detail.getKey());</span>
+            }
+            
+<span class="fc" id="L1018">            List&lt;MutableTrigger&gt; triggersOfJob = triggersByFQJobName.get(detail.getKey());</span>
+            
+<span class="pc bpc" id="L1020" title="2 of 6 branches missed.">            if (!detail.isDurable() &amp;&amp; (triggersOfJob == null || triggersOfJob.size() == 0)) {</span>
+<span class="nc bnc" id="L1021" title="All 2 branches missed.">                if (dupeJ == null) {</span>
+<span class="nc" id="L1022">                    throw new SchedulerException(</span>
+                        &quot;A new job defined without any triggers must be durable: &quot; + 
+<span class="nc" id="L1024">                        detail.getKey());</span>
+                }
+                
+<span class="nc bnc" id="L1027" title="All 2 branches missed.">                if ((dupeJ.isDurable() &amp;&amp; </span>
+<span class="nc" id="L1028">                    (sched.getTriggersOfJob(</span>
+<span class="nc bnc" id="L1029" title="All 2 branches missed.">                        detail.getKey()).size() == 0))) {</span>
+<span class="nc" id="L1030">                    throw new SchedulerException(</span>
+                        &quot;Can't change existing durable job without triggers to non-durable: &quot; + 
+<span class="nc" id="L1032">                        detail.getKey());</span>
+                }
+            }
+            
+            
+<span class="fc bfc" id="L1037" title="All 4 branches covered.">            if(dupeJ != null || detail.isDurable()) {</span>
+<span class="pc bpc" id="L1038" title="2 of 4 branches missed.">                if (triggersOfJob != null &amp;&amp; triggersOfJob.size() &gt; 0)</span>
+<span class="fc" id="L1039">                    sched.addJob(detail, true, true);  // add the job regardless is durable or not b/c we have trigger to add</span>
+                else
+<span class="nc" id="L1041">                    sched.addJob(detail, true, false); // add the job only if a replacement or durable, else exception will throw!</span>
+            }
+            else {
+<span class="fc" id="L1044">                boolean addJobWithFirstSchedule = true;</span>
+
+                // Add triggers related to the job...
+<span class="fc bfc" id="L1047" title="All 2 branches covered.">                for (MutableTrigger trigger : triggersOfJob) {</span>
+<span class="fc" id="L1048">                    triggers.remove(trigger);  // remove triggers as we handle them...</span>
+
+<span class="pc bpc" id="L1050" title="1 of 2 branches missed.">                    if (trigger.getStartTime() == null) {</span>
+<span class="nc" id="L1051">                        trigger.setStartTime(new Date());</span>
+                    }
+
+<span class="fc" id="L1054">                    Trigger dupeT = sched.getTrigger(trigger.getKey());</span>
+<span class="pc bpc" id="L1055" title="1 of 2 branches missed.">                    if (dupeT != null) {</span>
+<span class="nc bnc" id="L1056" title="All 2 branches missed.">                        if (isOverWriteExistingData()) {</span>
+<span class="nc bnc" id="L1057" title="All 2 branches missed.">                            if (log.isDebugEnabled()) {</span>
+<span class="nc" id="L1058">                                log.debug(</span>
+<span class="nc" id="L1059">                                        &quot;Rescheduling job: &quot; + trigger.getJobKey() + &quot; with updated trigger: &quot; + trigger.getKey());</span>
+                            }
+<span class="nc bnc" id="L1061" title="All 2 branches missed.">                        } else if (isIgnoreDuplicates()) {</span>
+<span class="nc" id="L1062">                            log.info(&quot;Not overwriting existing trigger: &quot; + dupeT.getKey());</span>
+<span class="nc" id="L1063">                            continue; // just ignore the trigger (and possibly job)</span>
+                        } else {
+<span class="nc" id="L1065">                            throw new ObjectAlreadyExistsException(trigger);</span>
+                        }
+
+<span class="nc bnc" id="L1068" title="All 2 branches missed.">                        if (!dupeT.getJobKey().equals(trigger.getJobKey())) {</span>
+<span class="nc" id="L1069">                            log.warn(&quot;Possibly duplicately named ({}) triggers in jobs xml file! &quot;, trigger.getKey());</span>
+                        }
+
+<span class="nc" id="L1072">                        sched.rescheduleJob(trigger.getKey(), trigger);</span>
+                    } else {
+<span class="pc bpc" id="L1074" title="1 of 2 branches missed.">                        if (log.isDebugEnabled()) {</span>
+<span class="nc" id="L1075">                            log.debug(</span>
+<span class="nc" id="L1076">                                    &quot;Scheduling job: &quot; + trigger.getJobKey() + &quot; with trigger: &quot; + trigger.getKey());</span>
+                        }
+
+                        try {
+<span class="pc bpc" id="L1080" title="1 of 2 branches missed.">                            if (addJobWithFirstSchedule) {</span>
+<span class="fc" id="L1081">                                sched.scheduleJob(detail, trigger); // add the job if it's not in yet...</span>
+<span class="fc" id="L1082">                                addJobWithFirstSchedule = false;</span>
+                            } else {
+<span class="nc" id="L1084">                                sched.scheduleJob(trigger);</span>
+                            }
+<span class="nc" id="L1086">                        } catch (ObjectAlreadyExistsException e) {</span>
+<span class="nc bnc" id="L1087" title="All 2 branches missed.">                            if (log.isDebugEnabled()) {</span>
+<span class="nc" id="L1088">                                log.debug(</span>
+<span class="nc" id="L1089">                                        &quot;Adding trigger: &quot; + trigger.getKey() + &quot; for job: &quot; + detail.getKey() +</span>
+                                                &quot; failed because the trigger already existed.  &quot; +
+                                                &quot;This is likely due to a race condition between multiple instances &quot; +
+                                                &quot;in the cluster.  Will try to reschedule instead.&quot;);
+                            }
+
+                            // Let's try one more time as reschedule.
+<span class="nc" id="L1096">                            sched.rescheduleJob(trigger.getKey(), trigger);</span>
+<span class="fc" id="L1097">                        }</span>
+                    }
+<span class="fc" id="L1099">                }</span>
+            }
+<span class="fc" id="L1101">        }</span>
+        
+        // add triggers that weren't associated with a new job... (those we already handled were removed above)
+<span class="fc bfc" id="L1104" title="All 2 branches covered.">        for(MutableTrigger trigger: triggers) {</span>
+            
+<span class="pc bpc" id="L1106" title="1 of 2 branches missed.">            if(trigger.getStartTime() == null) {</span>
+<span class="nc" id="L1107">                trigger.setStartTime(new Date());</span>
+            }
+            
+<span class="fc" id="L1110">            Trigger dupeT = sched.getTrigger(trigger.getKey());</span>
+<span class="fc bfc" id="L1111" title="All 2 branches covered.">            if (dupeT != null) {</span>
+<span class="fc bfc" id="L1112" title="All 2 branches covered.">                if(isOverWriteExistingData()) {</span>
+<span class="pc bpc" id="L1113" title="1 of 2 branches missed.">                    if (log.isDebugEnabled()) {</span>
+<span class="nc" id="L1114">                        log.debug(</span>
+<span class="nc" id="L1115">                            &quot;Rescheduling job: &quot; + trigger.getJobKey() + &quot; with updated trigger: &quot; + trigger.getKey());</span>
+                    }
+                }
+<span class="pc bpc" id="L1118" title="1 of 2 branches missed.">                else if(isIgnoreDuplicates()) {</span>
+<span class="fc" id="L1119">                    log.info(&quot;Not overwriting existing trigger: &quot; + dupeT.getKey());</span>
+<span class="fc" id="L1120">                    continue; // just ignore the trigger </span>
+                }
+                else {
+<span class="nc" id="L1123">                    throw new ObjectAlreadyExistsException(trigger);</span>
+                }
+                
+<span class="pc bpc" id="L1126" title="1 of 2 branches missed.">                if(!dupeT.getJobKey().equals(trigger.getJobKey())) {</span>
+<span class="nc" id="L1127">                    log.warn(&quot;Possibly duplicately named ({}) triggers in jobs xml file! &quot;, trigger.getKey());</span>
+                }
+                
+<span class="fc" id="L1130">                sched.rescheduleJob(trigger.getKey(), trigger);</span>
+            } else {
+<span class="pc bpc" id="L1132" title="1 of 2 branches missed.">                if (log.isDebugEnabled()) {</span>
+<span class="nc" id="L1133">                    log.debug(</span>
+<span class="nc" id="L1134">                        &quot;Scheduling job: &quot; + trigger.getJobKey() + &quot; with trigger: &quot; + trigger.getKey());</span>
+                }
+
+                try {
+<span class="fc" id="L1138">                    sched.scheduleJob(trigger);</span>
+<span class="nc" id="L1139">                } catch (ObjectAlreadyExistsException e) {</span>
+<span class="nc bnc" id="L1140" title="All 2 branches missed.">                    if (log.isDebugEnabled()) {</span>
+<span class="nc" id="L1141">                        log.debug(</span>
+<span class="nc" id="L1142">                            &quot;Adding trigger: &quot; + trigger.getKey() + &quot; for job: &quot; +trigger.getJobKey() + </span>
+                            &quot; failed because the trigger already existed.  &quot; +
+                            &quot;This is likely due to a race condition between multiple instances &quot; + 
+                            &quot;in the cluster.  Will try to reschedule instead.&quot;);
+                    }
+
+                    // Let's rescheduleJob one more time.
+<span class="nc" id="L1149">                    sched.rescheduleJob(trigger.getKey(), trigger);</span>
+<span class="fc" id="L1150">                }</span>
+            }
+<span class="fc" id="L1152">        }</span>
+<span class="fc" id="L1153">    }</span>
+
+    /**
+     * ErrorHandler interface.
+     * 
+     * Receive notification of a warning.
+     * 
+     * @param e
+     *          The error information encapsulated in a SAX parse exception.
+     * @exception SAXException
+     *              Any SAX exception, possibly wrapping another exception.
+     */
+    public void warning(SAXParseException e) throws SAXException {
+<span class="nc" id="L1166">        addValidationException(e);</span>
+<span class="nc" id="L1167">    }</span>
+
+    /**
+     * ErrorHandler interface.
+     * 
+     * Receive notification of a recoverable error.
+     * 
+     * @param e
+     *          The error information encapsulated in a SAX parse exception.
+     * @exception SAXException
+     *              Any SAX exception, possibly wrapping another exception.
+     */
+    public void error(SAXParseException e) throws SAXException {
+<span class="nc" id="L1180">        addValidationException(e);</span>
+<span class="nc" id="L1181">    }</span>
+
+    /**
+     * ErrorHandler interface.
+     * 
+     * Receive notification of a non-recoverable error.
+     * 
+     * @param e
+     *          The error information encapsulated in a SAX parse exception.
+     * @exception SAXException
+     *              Any SAX exception, possibly wrapping another exception.
+     */
+    public void fatalError(SAXParseException e) throws SAXException {
+<span class="nc" id="L1194">        addValidationException(e);</span>
+<span class="nc" id="L1195">    }</span>
+
+    /**
+     * Adds a detected validation exception.
+     * 
+     * @param e
+     *          SAX exception.
+     */
+    protected void addValidationException(SAXException e) {
+<span class="nc" id="L1204">        validationExceptions.add(e);</span>
+<span class="nc" id="L1205">    }</span>
+
+    /**
+     * Resets the the number of detected validation exceptions.
+     */
+    protected void clearValidationExceptions() {
+<span class="fc" id="L1211">        validationExceptions.clear();</span>
+<span class="fc" id="L1212">    }</span>
+
+    /**
+     * Throws a ValidationException if the number of validationExceptions
+     * detected is greater than zero.
+     * 
+     * @exception ValidationException
+     *              DTD validation exception.
+     */
+    protected void maybeThrowValidationException() throws ValidationException {
+<span class="pc bpc" id="L1222" title="1 of 2 branches missed.">        if (validationExceptions.size() &gt; 0) {</span>
+<span class="nc" id="L1223">            throw new ValidationException(&quot;Encountered &quot; + validationExceptions.size() + &quot; validation exceptions.&quot;, validationExceptions);</span>
+        }
+<span class="fc" id="L1225">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CacheDelegate.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.jdbcjobstore</a> &gt; <span class="el_source">CacheDelegate.java</span></div><h1>CacheDelegate.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.impl.jdbcjobstore;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.sql.Blob;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+/**
+ * &lt;p&gt;
+ * This is a driver delegate for Intersystems Caché database.
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * Works with the Oracle table creation scripts / schema.
+ * &lt;/p&gt;
+ * 
+ * @author Franck Routier
+ * @author &lt;a href=&quot;mailto:alci@mecadu.org&quot;&gt;Franck Routier&lt;/a&gt;
+ */
+<span class="nc" id="L42">public class CacheDelegate extends StdJDBCDelegate {</span>
+        
+    //---------------------------------------------------------------------------
+    // protected methods that can be overridden by subclasses
+    //---------------------------------------------------------------------------
+  
+    /**
+     * Sets the designated parameter to the byte array of the given
+     * &lt;code&gt;ByteArrayOutputStream&lt;/code&gt;. Will set parameter value to null if the
+     * &lt;code&gt;ByteArrayOutputStream&lt;/code&gt; is null.
+     * This just wraps &lt;code&gt;{@link PreparedStatement#setBytes(int, byte[])}&lt;/code&gt;
+     * by default, but it can be overloaded by subclass delegates for databases that
+     * don't explicitly support storing bytes in this way.
+     */
+    @Override
+    protected void setBytes(PreparedStatement ps, int index, ByteArrayOutputStream baos) throws SQLException {
+<span class="nc bnc" id="L58" title="All 2 branches missed.">        ps.setObject(index, ((baos == null) ? null : baos.toByteArray()), java.sql.Types.BLOB);</span>
+<span class="nc" id="L59">    } </span>
+
+    /**
+     * {@inheritDoc}
+     * &lt;p&gt;
+     * Caché requires {@code java.sql.Blob} instances to be explicitly freed.
+     */
+    @Override
+    protected Object getObjectFromBlob(ResultSet rs, String colName) throws ClassNotFoundException, IOException, SQLException {
+<span class="nc" id="L68">        Blob blob = rs.getBlob(colName);</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">        if (blob == null) {</span>
+<span class="nc" id="L70">            return null;</span>
+        } else {
+            try {
+<span class="nc bnc" id="L73" title="All 2 branches missed.">                if (blob.length() == 0) {</span>
+<span class="nc" id="L74">                    return null;</span>
+                } else {
+<span class="nc" id="L76">                    InputStream binaryInput = blob.getBinaryStream();</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">                    if (binaryInput == null) {</span>
+<span class="nc" id="L78">                        return null;</span>
+<span class="nc bnc" id="L79" title="All 4 branches missed.">                    } else if (binaryInput instanceof ByteArrayInputStream &amp;&amp; ((ByteArrayInputStream) binaryInput).available() == 0 ) {</span>
+<span class="nc" id="L80">                        return null;</span>
+                    } else {
+<span class="nc" id="L82">                        ObjectInputStream in = new ObjectInputStream(binaryInput);</span>
+                        try {
+<span class="nc" id="L84">                            return in.readObject();</span>
+                        } finally {
+<span class="nc" id="L86">                            in.close();</span>
+                        }
+                    }
+                }
+            } finally {
+<span class="nc" id="L91">                blob.free();</span>
+            }
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     * &lt;p&gt;
+     * Caché requires {@code java.sql.Blob} instances to be explicitly freed.
+     */
+    @Override
+    protected Object getJobDataFromBlob(ResultSet rs, String colName) throws ClassNotFoundException, IOException, SQLException {
+<span class="nc bnc" id="L103" title="All 2 branches missed.">        if (canUseProperties()) {</span>
+<span class="nc" id="L104">            Blob blob = rs.getBlob(colName);</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">            if (blob == null) {</span>
+<span class="nc" id="L106">                return null;</span>
+            } else {
+<span class="nc" id="L108">                return new BlobFreeingStream(blob, blob.getBinaryStream());</span>
+            }
+        } else {
+<span class="nc" id="L111">            return getObjectFromBlob(rs, colName);</span>
+        }
+    }
+    
+    private static class BlobFreeingStream extends InputStream {
+        
+        private final Blob source;
+        private final InputStream delegate;
+
+<span class="nc" id="L120">        private BlobFreeingStream(Blob blob, InputStream stream) {</span>
+<span class="nc" id="L121">            this.source = blob;</span>
+<span class="nc" id="L122">            this.delegate = stream;</span>
+<span class="nc" id="L123">        }</span>
+
+        @Override
+        public int read() throws IOException {
+<span class="nc" id="L127">            return delegate.read();</span>
+        }
+
+        @Override
+        public int read(byte[] b) throws IOException {
+<span class="nc" id="L132">            return delegate.read(b);</span>
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+<span class="nc" id="L137">            return delegate.read(b, off, len);</span>
+        }
+
+        @Override
+        public long skip(long n) throws IOException {
+<span class="nc" id="L142">            return delegate.skip(n);</span>
+        }
+
+        @Override
+        public int available() throws IOException {
+<span class="nc" id="L147">            return delegate.available();</span>
+        }
+
+        @Override
+        public void close() throws IOException {
+            try {
+<span class="nc" id="L153">                delegate.close();</span>
+            } finally {
+                try {
+<span class="nc" id="L156">                    source.free();</span>
+<span class="nc" id="L157">                } catch (SQLException ex) {</span>
+<span class="nc" id="L158">                    throw new IOException(ex);</span>
+<span class="nc" id="L159">                }</span>
+            }
+<span class="nc" id="L161">        }</span>
+
+        @Override
+        public synchronized void mark(int readlimit) {
+<span class="nc" id="L165">            delegate.mark(readlimit);</span>
+<span class="nc" id="L166">        }</span>
+
+        @Override
+        public synchronized void reset() throws IOException {
+<span class="nc" id="L170">            delegate.reset();</span>
+<span class="nc" id="L171">        }</span>
+
+        @Override
+        public boolean markSupported() {
+<span class="nc" id="L175">            return delegate.markSupported();</span>
+        }
+    }
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

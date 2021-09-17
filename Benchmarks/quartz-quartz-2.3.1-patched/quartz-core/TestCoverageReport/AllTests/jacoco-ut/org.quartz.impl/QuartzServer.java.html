@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>QuartzServer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl</a> &gt; <span class="el_source">QuartzServer.java</span></div><h1>QuartzServer.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.impl;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.quartz.SchedulerFactory;
+import org.quartz.listeners.SchedulerListenerSupport;
+
+/**
+ * &lt;p&gt;
+ * Instantiates an instance of Quartz Scheduler as a stand-alone program, if
+ * the scheduler is configured for RMI it will be made available.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * The main() method of this class currently accepts 0 or 1 arguemtns, if there
+ * is an argument, and its value is &lt;code&gt;&quot;console&quot;&lt;/code&gt;, then the program
+ * will print a short message on the console (std-out) and wait for the user to
+ * type &quot;exit&quot; - at which time the scheduler will be shutdown.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * Future versions of this server should allow additional configuration for
+ * responding to scheduler events by allowing the user to specify &lt;code&gt;{@link org.quartz.JobListener}&lt;/code&gt;,
+ * &lt;code&gt;{@link org.quartz.TriggerListener}&lt;/code&gt; and &lt;code&gt;{@link org.quartz.SchedulerListener}&lt;/code&gt;
+ * classes.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * Please read the Quartz FAQ entries about RMI before asking questions in the
+ * forums or mail-lists.
+ * &lt;/p&gt;
+ *
+ * @author James House
+ */
+public class QuartzServer extends SchedulerListenerSupport {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Data members.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+<span class="nc" id="L65">    private Scheduler sched = null;</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Constructors.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+<span class="nc" id="L75">    QuartzServer() {</span>
+<span class="nc" id="L76">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Interface.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public void serve(SchedulerFactory schedFact, boolean console)
+        throws Exception {
+<span class="nc" id="L88">        sched = schedFact.getScheduler();</span>
+
+<span class="nc" id="L90">        sched.start();</span>
+
+        try {
+<span class="nc" id="L93">            Thread.sleep(3000l);</span>
+<span class="nc" id="L94">        } catch (Exception ignore) {</span>
+<span class="nc" id="L95">        }</span>
+
+<span class="nc" id="L97">        System.out.println(&quot;\n*** The scheduler successfully started.&quot;);</span>
+
+<span class="nc bnc" id="L99" title="All 2 branches missed.">        if (console) {</span>
+<span class="nc" id="L100">            System.out.println(&quot;\n&quot;);</span>
+<span class="nc" id="L101">            System.out</span>
+<span class="nc" id="L102">                    .println(&quot;The scheduler will now run until you type \&quot;exit\&quot;&quot;);</span>
+<span class="nc" id="L103">            System.out</span>
+<span class="nc" id="L104">                    .println(&quot;   If it was configured to export itself via RMI,&quot;);</span>
+<span class="nc" id="L105">            System.out.println(&quot;   then other process may now use it.&quot;);</span>
+
+<span class="nc" id="L107">            BufferedReader rdr = new BufferedReader(new InputStreamReader(</span>
+                    System.in));
+
+            while (true) {
+<span class="nc" id="L111">                System.out.print(&quot;Type 'exit' to shutdown the server: &quot;);</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">                if (&quot;exit&quot;.equals(rdr.readLine())) {</span>
+<span class="nc" id="L113">                    break;</span>
+                }
+            }
+
+<span class="nc" id="L117">            System.out.println(&quot;\n...Shutting down server...&quot;);</span>
+
+<span class="nc" id="L119">            sched.shutdown(true);</span>
+        }
+<span class="nc" id="L121">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * SchedulerListener Interface.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Called by the &lt;code&gt;{@link Scheduler}&lt;/code&gt; when a serious error has
+     * occured within the scheduler - such as repeated failures in the &lt;code&gt;JobStore&lt;/code&gt;,
+     * or the inability to instantiate a &lt;code&gt;Job&lt;/code&gt; instance when its
+     * &lt;code&gt;Trigger&lt;/code&gt; has fired.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * The &lt;code&gt;getErrorCode()&lt;/code&gt; method of the given SchedulerException
+     * can be used to determine more specific information about the type of
+     * error that was encountered.
+     * &lt;/p&gt;
+     */
+    @Override
+    public void schedulerError(String msg, SchedulerException cause) {
+<span class="nc" id="L147">        System.err.println(&quot;*** &quot; + msg);</span>
+<span class="nc" id="L148">        cause.printStackTrace();</span>
+<span class="nc" id="L149">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Called by the &lt;code&gt;{@link Scheduler}&lt;/code&gt; to inform the listener
+     * that it has shutdown.
+     * &lt;/p&gt;
+     */
+    @Override
+    public void schedulerShutdown() {
+<span class="nc" id="L159">        System.out.println(&quot;\n*** The scheduler is now shutdown.&quot;);</span>
+<span class="nc" id="L160">        sched = null;</span>
+<span class="nc" id="L161">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Main Method.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public static void main(String[] args) throws Exception {
+
+        //    //Configure Log4J
+        //    org.apache.log4j.PropertyConfigurator.configure(
+        //      System.getProperty(&quot;log4jConfigFile&quot;, &quot;log4j.properties&quot;));
+
+<span class="nc bnc" id="L177" title="All 2 branches missed.">        if (System.getSecurityManager() == null) {</span>
+<span class="nc" id="L178">            System.setSecurityManager(new java.rmi.RMISecurityManager());</span>
+        }
+
+        try {
+<span class="nc" id="L182">            QuartzServer server = new QuartzServer();</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">            if (args.length == 0) {</span>
+<span class="nc" id="L184">                server.serve(</span>
+                    new org.quartz.impl.StdSchedulerFactory(), false);
+<span class="nc bnc" id="L186" title="All 4 branches missed.">            } else if (args.length == 1 &amp;&amp; args[0].equalsIgnoreCase(&quot;console&quot;)) {</span>
+<span class="nc" id="L187">                server.serve(new org.quartz.impl.StdSchedulerFactory(), true);</span>
+            } else {
+<span class="nc" id="L189">                System.err.println(&quot;\nUsage: QuartzServer [console]&quot;);</span>
+            }
+<span class="nc" id="L191">        } catch (Exception e) {</span>
+<span class="nc" id="L192">            e.printStackTrace();</span>
+<span class="nc" id="L193">        }</span>
+<span class="nc" id="L194">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

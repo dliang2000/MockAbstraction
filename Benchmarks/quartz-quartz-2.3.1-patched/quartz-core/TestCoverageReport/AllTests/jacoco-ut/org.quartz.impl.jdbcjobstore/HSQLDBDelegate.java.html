@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HSQLDBDelegate.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.jdbcjobstore</a> &gt; <span class="el_source">HSQLDBDelegate.java</span></div><h1>HSQLDBDelegate.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+
+package org.quartz.impl.jdbcjobstore;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.quartz.spi.ClassLoadHelper;
+import org.slf4j.Logger;
+
+/**
+ * &lt;p&gt;
+ * This is a driver delegate for the HSQLDB database.
+ * &lt;/p&gt;
+ * 
+ * @author James House
+ * @author &lt;a href=&quot;mailto:jeff@binaryfeed.org&quot;&gt;Jeffrey Wescott&lt;/a&gt;
+ */
+<span class="nc" id="L38">public class HSQLDBDelegate extends StdJDBCDelegate {</span>
+
+    //---------------------------------------------------------------------------
+    // protected methods that can be overridden by subclasses
+    //---------------------------------------------------------------------------
+
+    /**
+     * &lt;p&gt;
+     * This method should be overridden by any delegate subclasses that need
+     * special handling for BLOBs. The default implementation uses standard
+     * JDBC &lt;code&gt;java.sql.Blob&lt;/code&gt; operations.
+     * &lt;/p&gt;
+     * 
+     * @param rs
+     *          the result set, already queued to the correct row
+     * @param colName
+     *          the column name for the BLOB
+     * @return the deserialized Object from the ResultSet BLOB
+     * @throws ClassNotFoundException
+     *           if a class found during deserialization cannot be found
+     * @throws IOException
+     *           if deserialization causes an error
+     */
+    @Override           
+    protected Object getObjectFromBlob(ResultSet rs, String colName)
+        throws ClassNotFoundException, IOException, SQLException {
+<span class="nc" id="L64">        InputStream binaryInput = rs.getBinaryStream(colName);</span>
+
+<span class="nc bnc" id="L66" title="All 4 branches missed.">        if(binaryInput == null || binaryInput.available() == 0) {</span>
+<span class="nc" id="L67">            return null;</span>
+        }
+        
+<span class="nc" id="L70">        Object obj = null;</span>
+        
+<span class="nc" id="L72">        ObjectInputStream in = new ObjectInputStream(binaryInput);</span>
+        try {
+<span class="nc" id="L74">            obj = in.readObject();</span>
+        } finally {
+<span class="nc" id="L76">            in.close();</span>
+        }
+
+<span class="nc" id="L79">        return obj;</span>
+    }
+
+    @Override           
+    protected Object getJobDataFromBlob(ResultSet rs, String colName)
+        throws ClassNotFoundException, IOException, SQLException {
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        if (canUseProperties()) {</span>
+<span class="nc" id="L86">            InputStream binaryInput = rs.getBinaryStream(colName);</span>
+<span class="nc" id="L87">            return binaryInput;</span>
+        }
+<span class="nc" id="L89">        return getObjectFromBlob(rs, colName);</span>
+    }
+}
+
+// EOF
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

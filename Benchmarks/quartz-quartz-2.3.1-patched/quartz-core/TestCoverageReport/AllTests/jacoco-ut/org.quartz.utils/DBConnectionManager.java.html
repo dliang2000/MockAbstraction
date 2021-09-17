@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DBConnectionManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.utils</a> &gt; <span class="el_source">DBConnectionManager.java</span></div><h1>DBConnectionManager.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.utils;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.HashMap;
+
+/**
+ * &lt;p&gt;
+ * Manages a collection of ConnectionProviders, and provides transparent access
+ * to their connections.
+ * &lt;/p&gt;
+ * 
+ * @see ConnectionProvider
+ * @see PoolingConnectionProvider
+ * @see JNDIConnectionProvider
+ * @see org.quartz.utils.weblogic.WeblogicConnectionProvider
+ * 
+ * @author James House
+ * @author Sharada Jambula
+ * @author Mohammad Rezaei
+ */
+public class DBConnectionManager {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constants.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public static final String DB_PROPS_PREFIX = &quot;org.quartz.db.&quot;;
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+<span class="fc" id="L59">    private static DBConnectionManager instance = new DBConnectionManager();</span>
+
+<span class="fc" id="L61">    private HashMap&lt;String, ConnectionProvider&gt; providers = new HashMap&lt;String, ConnectionProvider&gt;();</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Private constructor
+     * &lt;/p&gt;
+     *  
+     */
+<span class="fc" id="L77">    private DBConnectionManager() {</span>
+<span class="fc" id="L78">    }</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public void addConnectionProvider(String dataSourceName,
+            ConnectionProvider provider) {
+<span class="fc" id="L90">        this.providers.put(dataSourceName, provider);</span>
+<span class="fc" id="L91">    }</span>
+
+    /**
+     * Get a database connection from the DataSource with the given name.
+     * 
+     * @return a database connection
+     * @exception SQLException
+     *              if an error occurs, or there is no DataSource with the
+     *              given name.
+     */
+    public Connection getConnection(String dsName) throws SQLException {
+<span class="fc" id="L102">        ConnectionProvider provider = providers.get(dsName);</span>
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">        if (provider == null) {</span>
+<span class="nc" id="L104">            throw new SQLException(&quot;There is no DataSource named '&quot;</span>
+                    + dsName + &quot;'&quot;);
+        }
+
+<span class="fc" id="L108">        return provider.getConnection();</span>
+    }
+
+    /**
+     * Get the class instance.
+     * 
+     * @return an instance of this class
+     */
+    public static DBConnectionManager getInstance() {
+        // since the instance variable is initialized at class loading time,
+        // it's not necessary to synchronize this method */
+<span class="fc" id="L119">        return instance;</span>
+    }
+
+    /**
+     * Shuts down database connections from the DataSource with the given name,
+     * if applicable for the underlying provider.
+     *
+     * @exception SQLException
+     *              if an error occurs, or there is no DataSource with the
+     *              given name.
+     */
+    public void shutdown(String dsName) throws SQLException {
+
+<span class="fc" id="L132">        ConnectionProvider provider = (ConnectionProvider) providers</span>
+<span class="fc" id="L133">        .get(dsName);</span>
+<span class="pc bpc" id="L134" title="1 of 2 branches missed.">        if (provider == null) {</span>
+<span class="nc" id="L135">            throw new SQLException(&quot;There is no DataSource named '&quot;</span>
+                    + dsName + &quot;'&quot;);
+        }
+
+<span class="fc" id="L139">        provider.shutdown();</span>
+
+<span class="fc" id="L141">    }</span>
+
+    ConnectionProvider getConnectionProvider(String key) {
+<span class="fc" id="L144">        return providers.get(key);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

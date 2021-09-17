@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HikariCpPoolingConnectionProvider.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.utils</a> &gt; <span class="el_source">HikariCpPoolingConnectionProvider.java</span></div><h1>HikariCpPoolingConnectionProvider.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.utils;
+
+import com.zaxxer.hikari.HikariDataSource;
+import org.quartz.SchedulerException;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.Properties;
+
+/**
+ * &lt;p&gt;
+ * A &lt;code&gt;ConnectionProvider&lt;/code&gt; implementation that creates its own
+ * pool of connections.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * This class uses HikariCP (https://brettwooldridge.github.io/HikariCP/) as
+ * the underlying pool implementation.&lt;/p&gt;
+ *
+ * @see DBConnectionManager
+ * @see ConnectionProvider
+ *
+ * @author Ludovic Orban
+ */
+public class HikariCpPoolingConnectionProvider implements PoolingConnectionProvider {
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Constants.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /** This pooling provider name. */
+    public static final String POOLING_PROVIDER_NAME = &quot;hikaricp&quot;;
+
+    /** Discard connections after they have been idle this many seconds.  0 disables the feature. Default is 0.*/
+    private static final String DB_DISCARD_IDLE_CONNECTIONS_SECONDS = &quot;discardIdleConnectionsSeconds&quot;;
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Data members.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    private HikariDataSource datasource;
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     *
+     * Constructors.
+     *
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public HikariCpPoolingConnectionProvider(String dbDriver, String dbURL,
+                                             String dbUser, String dbPassword, int maxConnections,
+<span class="nc" id="L78">                                             String dbValidationQuery) throws SQLException, SchedulerException {</span>
+<span class="nc" id="L79">        initialize(</span>
+                dbDriver, dbURL, dbUser, dbPassword,
+                maxConnections, dbValidationQuery, 0);
+<span class="nc" id="L82">    }</span>
+
+    /**
+     * Create a connection pool using the given properties.
+     *
+     * &lt;p&gt;
+     * The properties passed should contain:
+     * &lt;UL&gt;
+     * &lt;LI&gt;{@link #DB_DRIVER}- The database driver class name
+     * &lt;LI&gt;{@link #DB_URL}- The database URL
+     * &lt;LI&gt;{@link #DB_USER}- The database user
+     * &lt;LI&gt;{@link #DB_PASSWORD}- The database password
+     * &lt;LI&gt;{@link #DB_MAX_CONNECTIONS}- The maximum # connections in the pool,
+     * optional
+     * &lt;LI&gt;{@link #DB_VALIDATION_QUERY}- The sql validation query, optional
+     * &lt;/UL&gt;
+     * &lt;/p&gt;
+     *
+     * @param config
+     *            configuration properties
+     */
+<span class="fc" id="L103">    public HikariCpPoolingConnectionProvider(Properties config) throws SchedulerException, SQLException {</span>
+<span class="fc" id="L104">        PropertiesParser cfg = new PropertiesParser(config);</span>
+<span class="fc" id="L105">        initialize(</span>
+<span class="fc" id="L106">                cfg.getStringProperty(DB_DRIVER),</span>
+<span class="fc" id="L107">                cfg.getStringProperty(DB_URL),</span>
+<span class="fc" id="L108">                cfg.getStringProperty(DB_USER, &quot;&quot;),</span>
+<span class="fc" id="L109">                cfg.getStringProperty(DB_PASSWORD, &quot;&quot;),</span>
+<span class="fc" id="L110">                cfg.getIntProperty(DB_MAX_CONNECTIONS, DEFAULT_DB_MAX_CONNECTIONS),</span>
+<span class="fc" id="L111">                cfg.getStringProperty(DB_VALIDATION_QUERY),</span>
+<span class="fc" id="L112">                cfg.getIntProperty(DB_DISCARD_IDLE_CONNECTIONS_SECONDS, 0));</span>
+<span class="fc" id="L113">    }</span>
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * Create the underlying C3PO ComboPooledDataSource with the 
+     * default supported properties.
+     * @throws SchedulerException
+     */
+    private void initialize(
+            String dbDriver,
+            String dbURL,
+            String dbUser,
+            String dbPassword,
+            int maxConnections,
+            String dbValidationQuery,
+            int maxIdleSeconds) throws SQLException, SchedulerException {
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">        if (dbURL == null) {</span>
+<span class="nc" id="L137">            throw new SQLException(</span>
+                    &quot;DBPool could not be created: DB URL cannot be null&quot;);
+        }
+
+<span class="pc bpc" id="L141" title="1 of 2 branches missed.">        if (dbDriver == null) {</span>
+<span class="nc" id="L142">            throw new SQLException(</span>
+                    &quot;DBPool '&quot; + dbURL + &quot;' could not be created: &quot; +
+                            &quot;DB driver class name cannot be null!&quot;);
+        }
+
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">        if (maxConnections &lt; 0) {</span>
+<span class="nc" id="L148">            throw new SQLException(</span>
+                    &quot;DBPool '&quot; + dbURL + &quot;' could not be created: &quot; +
+                            &quot;Max connections must be greater than zero!&quot;);
+        }
+
+
+<span class="fc" id="L154">        datasource = new HikariDataSource();</span>
+<span class="fc" id="L155">        datasource.setDriverClassName(dbDriver);</span>
+<span class="fc" id="L156">        datasource.setJdbcUrl(dbURL);</span>
+<span class="fc" id="L157">        datasource.setUsername(dbUser);</span>
+<span class="fc" id="L158">        datasource.setPassword(dbPassword);</span>
+<span class="fc" id="L159">        datasource.setMaximumPoolSize(maxConnections);</span>
+<span class="fc" id="L160">        datasource.setIdleTimeout(maxIdleSeconds);</span>
+
+<span class="pc bpc" id="L162" title="1 of 2 branches missed.">        if (dbValidationQuery != null) {</span>
+<span class="nc" id="L163">            datasource.setConnectionTestQuery(dbValidationQuery);</span>
+        }
+<span class="fc" id="L165">    }</span>
+
+    /**
+     * Get the HikariCP HikariDataSource created during initialization.
+     *
+     * &lt;p&gt;
+     * This can be used to set additional data source properties in a 
+     * subclass's constructor.
+     * &lt;/p&gt;
+     */
+    public HikariDataSource getDataSource() {
+<span class="fc" id="L176">        return datasource;</span>
+    }
+
+    public Connection getConnection() throws SQLException {
+<span class="fc" id="L180">        return datasource.getConnection();</span>
+    }
+
+    public void shutdown() throws SQLException {
+<span class="fc" id="L184">        datasource.close();</span>
+<span class="fc" id="L185">    }</span>
+
+    public void initialize() throws SQLException {
+        // do nothing, already initialized during constructor call
+<span class="nc" id="L189">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

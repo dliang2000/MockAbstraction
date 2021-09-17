@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StringMatcher.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.matchers</a> &gt; <span class="el_source">StringMatcher.java</span></div><h1>StringMatcher.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+package org.quartz.impl.matchers;
+
+import org.quartz.Matcher;
+import org.quartz.utils.Key;
+
+/**
+ * An abstract base class for some types of matchers.
+ *  
+ * @author jhouse
+ */
+public abstract class StringMatcher&lt;T extends Key&lt;?&gt;&gt; implements Matcher&lt;T&gt; {
+  
+    private static final long serialVersionUID = -2757924162611145836L;
+
+<span class="fc" id="L31">    public enum StringOperatorName {</span>
+
+<span class="fc" id="L33">        EQUALS {</span>
+            @Override
+            public boolean evaluate(final String value, final String compareTo) {
+<span class="fc" id="L36">                return value.equals(compareTo);</span>
+            }
+        },
+
+<span class="fc" id="L40">        STARTS_WITH {</span>
+            @Override
+            public boolean evaluate(final String value, final String compareTo) {
+<span class="fc" id="L43">                return value.startsWith(compareTo);</span>
+            }
+        },
+
+<span class="fc" id="L47">        ENDS_WITH {</span>
+            @Override
+            public boolean evaluate(final String value, final String compareTo) {
+<span class="fc" id="L50">                return value.endsWith(compareTo);</span>
+            }
+        },
+
+<span class="fc" id="L54">        CONTAINS {</span>
+            @Override
+            public boolean evaluate(final String value, final String compareTo) {
+<span class="fc" id="L57">                return value.contains(compareTo);</span>
+            }
+        },
+
+<span class="fc" id="L61">        ANYTHING {</span>
+            @Override
+            public boolean evaluate(final String value, final String compareTo) {
+<span class="fc" id="L64">                return true;</span>
+            }
+        };
+
+        public abstract boolean evaluate(String value, String compareTo);
+    }
+
+    protected String compareTo;
+    protected StringOperatorName compareWith;
+    
+<span class="fc" id="L74">    protected StringMatcher(String compareTo, StringOperatorName compareWith) {</span>
+<span class="pc bpc" id="L75" title="1 of 2 branches missed.">        if(compareTo == null)</span>
+<span class="nc" id="L76">            throw new IllegalArgumentException(&quot;CompareTo value cannot be null!&quot;);</span>
+<span class="pc bpc" id="L77" title="1 of 2 branches missed.">        if(compareWith == null)</span>
+<span class="nc" id="L78">            throw new IllegalArgumentException(&quot;CompareWith operator cannot be null!&quot;);</span>
+        
+<span class="fc" id="L80">        this.compareTo = compareTo;</span>
+<span class="fc" id="L81">        this.compareWith = compareWith;</span>
+<span class="fc" id="L82">    }</span>
+
+    protected abstract String getValue(T key);
+    
+    public boolean isMatch(T key) {
+
+<span class="fc" id="L88">        return compareWith.evaluate(getValue(key), compareTo);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L93">        final int prime = 31;</span>
+<span class="nc" id="L94">        int result = 1;</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        result = prime * result</span>
+<span class="nc" id="L96">                + ((compareTo == null) ? 0 : compareTo.hashCode());</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">        result = prime * result</span>
+<span class="nc" id="L98">                + ((compareWith == null) ? 0 : compareWith.hashCode());</span>
+<span class="nc" id="L99">        return result;</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        if (this == obj)</span>
+<span class="nc" id="L105">            return true;</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">        if (obj == null)</span>
+<span class="nc" id="L107">            return false;</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        if (getClass() != obj.getClass())</span>
+<span class="nc" id="L109">            return false;</span>
+<span class="nc" id="L110">        StringMatcher&lt;?&gt; other = (StringMatcher&lt;?&gt;) obj;</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">        if (compareTo == null) {</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">            if (other.compareTo != null)</span>
+<span class="nc" id="L113">                return false;</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">        } else if (!compareTo.equals(other.compareTo))</span>
+<span class="nc" id="L115">            return false;</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">        if (compareWith == null) {</span>
+<span class="nc bnc" id="L117" title="All 2 branches missed.">            if (other.compareWith != null)</span>
+<span class="nc" id="L118">                return false;</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        } else if (!compareWith.equals(other.compareWith))</span>
+<span class="nc" id="L120">            return false;</span>
+<span class="nc" id="L121">        return true;</span>
+    }
+
+    public String getCompareToValue() {
+<span class="fc" id="L125">        return compareTo;</span>
+    }
+
+    public StringOperatorName getCompareWithOperator() {
+<span class="fc" id="L129">        return compareWith;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BaseCalendar.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.calendar</a> &gt; <span class="el_source">BaseCalendar.java</span></div><h1>BaseCalendar.java</h1><pre class="source lang-java linenums">/*
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy
+ * of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ *
+ */
+
+package org.quartz.impl.calendar;
+
+import java.io.Serializable;
+import java.util.Date;
+import java.util.TimeZone;
+
+import org.quartz.Calendar;
+
+/**
+ * &lt;p&gt;
+ * This implementation of the Calendar may be used (you don't have to) as a
+ * base class for more sophisticated one's. It merely implements the base
+ * functionality required by each Calendar.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * Regarded as base functionality is the treatment of base calendars. Base
+ * calendar allow you to chain (stack) as much calendars as you may need. For
+ * example to exclude weekends you may use WeeklyCalendar. In order to exclude
+ * holidays as well you may define a WeeklyCalendar instance to be the base
+ * calendar for HolidayCalendar instance.
+ * &lt;/p&gt;
+ *
+ * @see org.quartz.Calendar
+ *
+ * @author Juergen Donnerstag
+ * @author James House
+ */
+public class BaseCalendar implements Calendar, Serializable, Cloneable {
+
+    static final long serialVersionUID = 3106623404629760239L;
+
+    // &lt;p&gt;A optional base calendar.&lt;/p&gt;
+    private Calendar baseCalendar;
+
+    private String description;
+
+    private TimeZone timeZone;
+
+<span class="fc" id="L57">    public BaseCalendar() {</span>
+<span class="fc" id="L58">    }</span>
+
+<span class="fc" id="L60">    public BaseCalendar(Calendar baseCalendar) {</span>
+<span class="fc" id="L61">        setBaseCalendar(baseCalendar);</span>
+<span class="fc" id="L62">    }</span>
+
+    /**
+     * @param timeZone The time zone to use for this Calendar, &lt;code&gt;null&lt;/code&gt;
+     * if &lt;code&gt;{@link TimeZone#getDefault()}&lt;/code&gt; should be used
+     */
+<span class="fc" id="L68">    public BaseCalendar(TimeZone timeZone) {</span>
+<span class="fc" id="L69">        setTimeZone(timeZone);</span>
+<span class="fc" id="L70">    }</span>
+
+    /**
+     * @param timeZone The time zone to use for this Calendar, &lt;code&gt;null&lt;/code&gt;
+     * if &lt;code&gt;{@link TimeZone#getDefault()}&lt;/code&gt; should be used
+     */
+<span class="fc" id="L76">    public BaseCalendar(Calendar baseCalendar, TimeZone timeZone) {</span>
+<span class="fc" id="L77">        setBaseCalendar(baseCalendar);</span>
+<span class="fc" id="L78">        setTimeZone(timeZone);</span>
+<span class="fc" id="L79">    }</span>
+
+    @Override
+    public Object clone()  {
+        try {
+<span class="fc" id="L84">            BaseCalendar clone = (BaseCalendar) super.clone();</span>
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">            if (getBaseCalendar() != null) {</span>
+<span class="nc" id="L86">                clone.baseCalendar = (Calendar) getBaseCalendar().clone();</span>
+            }
+<span class="pc bpc" id="L88" title="1 of 2 branches missed.">            if(getTimeZone() != null)</span>
+<span class="nc" id="L89">                clone.timeZone = (TimeZone) getTimeZone().clone();</span>
+<span class="fc" id="L90">            return clone;</span>
+<span class="nc" id="L91">        } catch (CloneNotSupportedException ex) {</span>
+<span class="nc" id="L92">            throw new IncompatibleClassChangeError(&quot;Not Cloneable.&quot;);</span>
+        }
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set a new base calendar or remove the existing one
+     * &lt;/p&gt;
+     */
+    public void setBaseCalendar(Calendar baseCalendar) {
+<span class="fc" id="L102">        this.baseCalendar = baseCalendar;</span>
+<span class="fc" id="L103">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the base calendar. Will be null, if not set.
+     * &lt;/p&gt;
+     */
+    public Calendar getBaseCalendar() {
+<span class="fc" id="L111">        return this.baseCalendar;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Return the description given to the &lt;code&gt;Calendar&lt;/code&gt; instance by
+     * its creator (if any).
+     * &lt;/p&gt;
+     *
+     * @return null if no description was set.
+     */
+    public String getDescription() {
+<span class="fc" id="L123">        return description;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Set a description for the &lt;code&gt;Calendar&lt;/code&gt; instance - may be
+     * useful for remembering/displaying the purpose of the calendar, though
+     * the description has no meaning to Quartz.
+     * &lt;/p&gt;
+     */
+    public void setDescription(String description) {
+<span class="fc" id="L134">        this.description = description;</span>
+<span class="fc" id="L135">    }</span>
+
+    /**
+     * Returns the time zone for which this &lt;code&gt;Calendar&lt;/code&gt; will be
+     * resolved.
+     *
+     * @return This Calendar's timezone, &lt;code&gt;null&lt;/code&gt; if Calendar should
+     * use the &lt;code&gt;{@link TimeZone#getDefault()}&lt;/code&gt;
+     */
+    public TimeZone getTimeZone() {
+<span class="fc" id="L145">        return timeZone;</span>
+    }
+
+    /**
+     * Sets the time zone for which this &lt;code&gt;Calendar&lt;/code&gt; will be resolved.
+     *
+     * @param timeZone The time zone to use for this Calendar, &lt;code&gt;null&lt;/code&gt;
+     * if &lt;code&gt;{@link TimeZone#getDefault()}&lt;/code&gt; should be used
+     */
+    public void setTimeZone(TimeZone timeZone) {
+<span class="fc" id="L155">        this.timeZone = timeZone;</span>
+<span class="fc" id="L156">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Check if date/time represented by timeStamp is included. If included
+     * return true. The implementation of BaseCalendar simply calls the base
+     * calendars isTimeIncluded() method if base calendar is set.
+     * &lt;/p&gt;
+     *
+     * @see org.quartz.Calendar#isTimeIncluded(long)
+     */
+    public boolean isTimeIncluded(long timeStamp) {
+
+<span class="pc bpc" id="L169" title="1 of 2 branches missed.">        if (timeStamp &lt;= 0) {</span>
+<span class="nc" id="L170">            throw new IllegalArgumentException(</span>
+                    &quot;timeStamp must be greater 0&quot;);
+        }
+
+<span class="pc bpc" id="L174" title="1 of 2 branches missed.">        if (baseCalendar != null) {</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">            if (baseCalendar.isTimeIncluded(timeStamp) == false) { return false; }</span>
+        }
+
+<span class="fc" id="L178">        return true;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Determine the next time (in milliseconds) that is 'included' by the
+     * Calendar after the given time. Return the original value if timeStamp is
+     * included. Return 0 if all days are excluded.
+     * &lt;/p&gt;
+     *
+     * @see org.quartz.Calendar#getNextIncludedTime(long)
+     */
+    public long getNextIncludedTime(long timeStamp) {
+
+<span class="pc bpc" id="L192" title="1 of 2 branches missed.">        if (timeStamp &lt;= 0) {</span>
+<span class="nc" id="L193">            throw new IllegalArgumentException(</span>
+                    &quot;timeStamp must be greater 0&quot;);
+        }
+
+<span class="pc bpc" id="L197" title="1 of 2 branches missed.">        if (baseCalendar != null) {</span>
+<span class="nc" id="L198">            return baseCalendar.getNextIncludedTime(timeStamp);</span>
+        }
+
+<span class="fc" id="L201">        return timeStamp;</span>
+    }
+
+    /**
+     * Build a &lt;code&gt;{@link java.util.Calendar}&lt;/code&gt; for the given timeStamp.
+     * The new Calendar will use the &lt;code&gt;BaseCalendar&lt;/code&gt; time zone if it
+     * is not &lt;code&gt;null&lt;/code&gt;.
+     */
+    protected java.util.Calendar createJavaCalendar(long timeStamp) {
+<span class="fc" id="L210">        java.util.Calendar calendar = createJavaCalendar();</span>
+<span class="fc" id="L211">        calendar.setTime(new Date(timeStamp));</span>
+<span class="fc" id="L212">        return calendar;</span>
+    }
+
+    /**
+     * Build a &lt;code&gt;{@link java.util.Calendar}&lt;/code&gt; with the current time.
+     * The new Calendar will use the &lt;code&gt;BaseCalendar&lt;/code&gt; time zone if
+     * it is not &lt;code&gt;null&lt;/code&gt;.
+     */
+    protected java.util.Calendar createJavaCalendar() {
+<span class="fc" id="L221">        return</span>
+<span class="pc bpc" id="L222" title="1 of 2 branches missed.">            (getTimeZone() == null) ?</span>
+<span class="pc" id="L223">                java.util.Calendar.getInstance() :</span>
+<span class="nc" id="L224">                java.util.Calendar.getInstance(getTimeZone());</span>
+    }
+
+    /**
+     * Returns the start of the given day as a &lt;code&gt;{@link java.util.Calendar}&lt;/code&gt;.
+     * This calculation will take the &lt;code&gt;BaseCalendar&lt;/code&gt;
+     * time zone into account if it is not &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @param timeInMillis A time containing the desired date for the
+     *                     start-of-day time
+     * @return A &lt;code&gt;{@link java.util.Calendar}&lt;/code&gt; set to the start of
+     *         the given day.
+     */
+    protected java.util.Calendar getStartOfDayJavaCalendar(long timeInMillis) {
+<span class="fc" id="L238">        java.util.Calendar startOfDay = createJavaCalendar(timeInMillis);</span>
+<span class="fc" id="L239">        startOfDay.set(java.util.Calendar.HOUR_OF_DAY, 0);</span>
+<span class="fc" id="L240">        startOfDay.set(java.util.Calendar.MINUTE, 0);</span>
+<span class="fc" id="L241">        startOfDay.set(java.util.Calendar.SECOND, 0);</span>
+<span class="fc" id="L242">        startOfDay.set(java.util.Calendar.MILLISECOND, 0);</span>
+<span class="fc" id="L243">        return startOfDay;</span>
+    }
+
+    /**
+     * Returns the end of the given day &lt;code&gt;{@link java.util.Calendar}&lt;/code&gt;.
+     * This calculation will take the &lt;code&gt;BaseCalendar&lt;/code&gt;
+     * time zone into account if it is not &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @param timeInMillis a time containing the desired date for the
+     *                     end-of-day time.
+     * @return A &lt;code&gt;{@link java.util.Calendar}&lt;/code&gt; set to the end of
+     *         the given day.
+     */
+    protected java.util.Calendar getEndOfDayJavaCalendar(long timeInMillis) {
+<span class="nc" id="L257">        java.util.Calendar endOfDay = createJavaCalendar(timeInMillis);</span>
+<span class="nc" id="L258">        endOfDay.set(java.util.Calendar.HOUR_OF_DAY, 23);</span>
+<span class="nc" id="L259">        endOfDay.set(java.util.Calendar.MINUTE, 59);</span>
+<span class="nc" id="L260">        endOfDay.set(java.util.Calendar.SECOND, 59);</span>
+<span class="nc" id="L261">        endOfDay.set(java.util.Calendar.MILLISECOND, 999);</span>
+<span class="nc" id="L262">        return endOfDay;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

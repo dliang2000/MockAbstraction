@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UserTransactionHelper.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.ee.jta</a> &gt; <span class="el_source">UserTransactionHelper.java</span></div><h1>UserTransactionHelper.java</h1><pre class="source lang-java linenums">
+/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+package org.quartz.ee.jta;
+
+import javax.naming.InitialContext;
+import javax.transaction.HeuristicMixedException;
+import javax.transaction.HeuristicRollbackException;
+import javax.transaction.NotSupportedException;
+import javax.transaction.RollbackException;
+import javax.transaction.SystemException;
+import javax.transaction.UserTransaction;
+
+import org.quartz.SchedulerException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * &lt;p&gt;
+ * A helper for obtaining a handle to a UserTransaction...
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * To ensure proper cleanup of the InitalContext used to create/lookup
+ * the UserTransaction, be sure to always call returnUserTransaction() when
+ * you are done with the UserTransaction. 
+ * &lt;/p&gt;
+ * 
+ * @author James House
+ */
+public class UserTransactionHelper {
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constants.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public static final String DEFAULT_USER_TX_LOCATION = &quot;java:comp/UserTransaction&quot;;
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+<span class="nc" id="L64">    private static String userTxURL = DEFAULT_USER_TX_LOCATION;</span>
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Constructors.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * Do not allow the creation of an all static utility class.
+     */
+    private UserTransactionHelper() {
+    }
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    public static String getUserTxLocation() {
+<span class="nc" id="L89">        return userTxURL;</span>
+    }
+
+    /**
+     * Set the JNDI URL at which the Application Server's UserTransaction can
+     * be found. If not set, the default value is &quot;java:comp/UserTransaction&quot; -
+     * which works for nearly all application servers.
+     */
+    public static void setUserTxLocation(String userTxURL) {
+<span class="nc bnc" id="L98" title="All 2 branches missed.">        if (userTxURL != null) {</span>
+<span class="nc" id="L99">            UserTransactionHelper.userTxURL = userTxURL;</span>
+        }
+<span class="nc" id="L101">    }</span>
+
+    /**
+     * Create/Lookup a UserTransaction in the InitialContext via the
+     * name set in setUserTxLocation().
+     */
+    public static UserTransaction lookupUserTransaction() throws SchedulerException {
+<span class="nc" id="L108">        return new UserTransactionWithContext();</span>
+    }
+    
+    /**
+     * Return a UserTransaction that was retrieved via getUserTransaction().
+     * This will make sure that the InitalContext used to lookup/create the 
+     * UserTransaction is properly cleaned up.
+     */
+    public static void returnUserTransaction(UserTransaction userTransaction) {
+<span class="nc bnc" id="L117" title="All 4 branches missed.">        if ((userTransaction != null) &amp;&amp; </span>
+            (userTransaction instanceof UserTransactionWithContext)) {
+<span class="nc" id="L119">            UserTransactionWithContext userTransactionWithContext = </span>
+                (UserTransactionWithContext)userTransaction;
+            
+<span class="nc" id="L122">            userTransactionWithContext.closeContext();</span>
+        }
+<span class="nc" id="L124">    }</span>
+
+
+    /**
+     * This class wraps a UserTransaction with the InitialContext that was used
+     * to look it up, so that when the UserTransaction is returned to the 
+     * UserTransactionHelper the InitialContext can be closed.
+     */
+    private static class UserTransactionWithContext implements UserTransaction {
+        InitialContext context;
+        UserTransaction userTransaction;
+        
+<span class="nc" id="L136">        public UserTransactionWithContext() throws SchedulerException {</span>
+            try {
+<span class="nc" id="L138">                context = new InitialContext();</span>
+<span class="nc" id="L139">            } catch (Throwable t) {</span>
+<span class="nc" id="L140">                throw new SchedulerException(</span>
+                    &quot;UserTransactionHelper failed to create InitialContext to lookup/create UserTransaction.&quot;, t);
+<span class="nc" id="L142">            }</span>
+            
+            try {
+<span class="nc" id="L145">                userTransaction = (UserTransaction)context.lookup(userTxURL);</span>
+<span class="nc" id="L146">            } catch (Throwable t) {</span>
+<span class="nc" id="L147">                closeContext();</span>
+<span class="nc" id="L148">                throw new SchedulerException(</span>
+                    &quot;UserTransactionHelper could not lookup/create UserTransaction.&quot;,
+                    t);
+<span class="nc" id="L151">            }</span>
+            
+<span class="nc bnc" id="L153" title="All 2 branches missed.">            if (userTransaction == null) {</span>
+<span class="nc" id="L154">                closeContext();</span>
+<span class="nc" id="L155">                throw new SchedulerException(</span>
+                    &quot;UserTransactionHelper could not lookup/create UserTransaction from the InitialContext.&quot;);
+            }
+<span class="nc" id="L158">        }</span>
+
+        /**
+         * Close the InitialContext that was used to lookup/create the
+         * underlying UserTransaction.
+         */
+        public void closeContext() {
+            try {
+<span class="nc bnc" id="L166" title="All 2 branches missed.">                if (context != null) {</span>
+<span class="nc" id="L167">                    context.close();</span>
+                }
+<span class="nc" id="L169">            } catch (Throwable t) {</span>
+<span class="nc" id="L170">                getLog().warn(&quot;Failed to close InitialContext used to get a UserTransaction.&quot;, t);</span>
+<span class="nc" id="L171">            }</span>
+<span class="nc" id="L172">            context = null;</span>
+<span class="nc" id="L173">        }</span>
+
+        /**
+         * When we are being garbage collected, make sure we were properly
+         * returned to the UserTransactionHelper.
+         */
+        @Override
+        protected void finalize() throws Throwable {
+            try {
+<span class="nc bnc" id="L182" title="All 2 branches missed.">                if (context != null) {</span>
+<span class="nc" id="L183">                    getLog().warn(&quot;UserTransaction was never returned to the UserTransactionHelper.&quot;);</span>
+<span class="nc" id="L184">                    closeContext();</span>
+                }
+            } finally {
+<span class="nc" id="L187">                super.finalize();</span>
+            }
+<span class="nc" id="L189">        }</span>
+
+        private static Logger getLog() {
+<span class="nc" id="L192">            return LoggerFactory.getLogger(UserTransactionWithContext.class);</span>
+        }
+        
+        // Wrapper methods that just delegate to the underlying UserTransaction
+        
+        public void begin() throws NotSupportedException, SystemException {
+<span class="nc" id="L198">            userTransaction.begin();</span>
+<span class="nc" id="L199">        }</span>
+
+        public void commit() throws RollbackException, HeuristicMixedException, HeuristicRollbackException, SecurityException, IllegalStateException, SystemException {
+<span class="nc" id="L202">            userTransaction.commit();        </span>
+<span class="nc" id="L203">        }</span>
+
+        public void rollback() throws IllegalStateException, SecurityException, SystemException {
+<span class="nc" id="L206">            userTransaction.rollback();</span>
+<span class="nc" id="L207">        }</span>
+
+        public void setRollbackOnly() throws IllegalStateException, SystemException {
+<span class="nc" id="L210">            userTransaction.setRollbackOnly();</span>
+<span class="nc" id="L211">        }</span>
+
+        public int getStatus() throws SystemException {
+<span class="nc" id="L214">            return userTransaction.getStatus();</span>
+        }
+
+        public void setTransactionTimeout(int seconds) throws SystemException {
+<span class="nc" id="L218">            userTransaction.setTransactionTimeout(seconds);</span>
+<span class="nc" id="L219">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

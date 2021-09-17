@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobStoreCMT.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">quartz-core</a> &gt; <a href="index.source.html" class="el_package">org.quartz.impl.jdbcjobstore</a> &gt; <span class="el_source">JobStoreCMT.java</span></div><h1>JobStoreCMT.java</h1><pre class="source lang-java linenums">/* 
+ * All content copyright Terracotta, Inc., unless otherwise indicated. All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not 
+ * use this file except in compliance with the License. You may obtain a copy 
+ * of the License at 
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0 
+ *   
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations 
+ * under the License.
+ * 
+ */
+
+
+package org.quartz.impl.jdbcjobstore;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+
+import org.quartz.JobPersistenceException;
+import org.quartz.SchedulerConfigException;
+import org.quartz.spi.ClassLoadHelper;
+import org.quartz.spi.SchedulerSignaler;
+import org.quartz.utils.DBConnectionManager;
+
+/**
+ * &lt;p&gt;
+ * &lt;code&gt;JobStoreCMT&lt;/code&gt; is meant to be used in an application-server
+ * environment that provides container-managed-transactions. No commit /
+ * rollback will be1 handled by this class.
+ * &lt;/p&gt;
+ * 
+ * &lt;p&gt;
+ * If you need commit / rollback, use &lt;code&gt;{@link
+ * org.quartz.impl.jdbcjobstore.JobStoreTX}&lt;/code&gt;
+ * instead.
+ * &lt;/p&gt;
+ * 
+ * @author &lt;a href=&quot;mailto:jeff@binaryfeed.org&quot;&gt;Jeffrey Wescott&lt;/a&gt;
+ * @author James House
+ * @author Srinivas Venkatarangaiah
+ *  
+ */
+<span class="nc" id="L48">public class JobStoreCMT extends JobStoreSupport {</span>
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Data members.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    protected String nonManagedTxDsName;
+
+    // Great name huh?
+<span class="nc" id="L61">    protected boolean dontSetNonManagedTXConnectionAutoCommitFalse = false;</span>
+
+    
+<span class="nc" id="L64">    protected boolean setTxIsolationLevelReadCommitted = false;</span>
+    
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * 
+     * Interface.
+     * 
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+
+    /**
+     * &lt;p&gt;
+     * Set the name of the &lt;code&gt;DataSource&lt;/code&gt; that should be used for
+     * performing database functions.
+     * &lt;/p&gt;
+     */
+    public void setNonManagedTXDataSource(String nonManagedTxDsName) {
+<span class="nc" id="L81">        this.nonManagedTxDsName = nonManagedTxDsName;</span>
+<span class="nc" id="L82">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Get the name of the &lt;code&gt;DataSource&lt;/code&gt; that should be used for
+     * performing database functions.
+     * &lt;/p&gt;
+     */
+    public String getNonManagedTXDataSource() {
+<span class="nc" id="L91">        return nonManagedTxDsName;</span>
+    }
+
+    public boolean isDontSetNonManagedTXConnectionAutoCommitFalse() {
+<span class="nc" id="L95">        return dontSetNonManagedTXConnectionAutoCommitFalse;</span>
+    }
+
+    /**
+     * Don't call set autocommit(false) on connections obtained from the
+     * DataSource. This can be helpfull in a few situations, such as if you
+     * have a driver that complains if it is called when it is already off.
+     * 
+     * @param b
+     */
+    public void setDontSetNonManagedTXConnectionAutoCommitFalse(boolean b) {
+<span class="nc" id="L106">        dontSetNonManagedTXConnectionAutoCommitFalse = b;</span>
+<span class="nc" id="L107">    }</span>
+
+
+    public boolean isTxIsolationLevelReadCommitted() {
+<span class="nc" id="L111">        return setTxIsolationLevelReadCommitted;</span>
+    }
+
+    /**
+     * Set the transaction isolation level of DB connections to sequential.
+     * 
+     * @param b
+     */
+    public void setTxIsolationLevelReadCommitted(boolean b) {
+<span class="nc" id="L120">        setTxIsolationLevelReadCommitted = b;</span>
+<span class="nc" id="L121">    }</span>
+    
+
+    @Override
+    public void initialize(ClassLoadHelper loadHelper,
+            SchedulerSignaler signaler) throws SchedulerConfigException {
+
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        if (nonManagedTxDsName == null) {</span>
+<span class="nc" id="L129">            throw new SchedulerConfigException(</span>
+                &quot;Non-ManagedTX DataSource name not set!  &quot; +
+                &quot;If your 'org.quartz.jobStore.dataSource' is XA, then set &quot; + 
+                &quot;'org.quartz.jobStore.nonManagedTXDataSource' to a non-XA &quot;+ 
+                &quot;datasource (for the same DB).  &quot; + 
+                &quot;Otherwise, you can set them to be the same.&quot;);
+        }
+
+<span class="nc bnc" id="L137" title="All 2 branches missed.">        if (getLockHandler() == null) {</span>
+            // If the user hasn't specified an explicit lock handler, 
+            // then we *must* use DB locks with CMT...
+<span class="nc" id="L140">            setUseDBLocks(true);</span>
+        }
+
+<span class="nc" id="L143">        super.initialize(loadHelper, signaler);</span>
+
+<span class="nc" id="L145">        getLog().info(&quot;JobStoreCMT initialized.&quot;);</span>
+<span class="nc" id="L146">    }</span>
+    
+    @Override
+    public void shutdown() {
+
+<span class="nc" id="L151">        super.shutdown();</span>
+        
+        try {
+<span class="nc" id="L154">            DBConnectionManager.getInstance().shutdown(getNonManagedTXDataSource());</span>
+<span class="nc" id="L155">        } catch (SQLException sqle) {</span>
+<span class="nc" id="L156">            getLog().warn(&quot;Database connection shutdown unsuccessful.&quot;, sqle);</span>
+<span class="nc" id="L157">        }</span>
+<span class="nc" id="L158">    }</span>
+
+    @Override
+    protected Connection getNonManagedTXConnection()
+        throws JobPersistenceException {
+<span class="nc" id="L163">        Connection conn = null;</span>
+        try {
+<span class="nc" id="L165">            conn = DBConnectionManager.getInstance().getConnection(</span>
+<span class="nc" id="L166">                    getNonManagedTXDataSource());</span>
+<span class="nc" id="L167">        } catch (SQLException sqle) {</span>
+<span class="nc" id="L168">            throw new JobPersistenceException(</span>
+                &quot;Failed to obtain DB connection from data source '&quot;
+<span class="nc" id="L170">                        + getNonManagedTXDataSource() + &quot;': &quot;</span>
+<span class="nc" id="L171">                        + sqle.toString(), sqle);</span>
+<span class="nc" id="L172">        } catch (Throwable e) {</span>
+<span class="nc" id="L173">            throw new JobPersistenceException(</span>
+                &quot;Failed to obtain DB connection from data source '&quot;
+<span class="nc" id="L175">                        + getNonManagedTXDataSource() + &quot;': &quot;</span>
+<span class="nc" id="L176">                        + e.toString(), e);</span>
+<span class="nc" id="L177">        }</span>
+
+<span class="nc bnc" id="L179" title="All 2 branches missed.">        if (conn == null) { </span>
+<span class="nc" id="L180">            throw new JobPersistenceException(</span>
+                &quot;Could not get connection from DataSource '&quot;
+<span class="nc" id="L182">                        + getNonManagedTXDataSource() + &quot;'&quot;); </span>
+        }
+
+        // Protect connection attributes we might change.
+<span class="nc" id="L186">        conn = getAttributeRestoringConnection(conn);</span>
+        
+        // Set any connection connection attributes we are to override.
+        try {
+<span class="nc bnc" id="L190" title="All 2 branches missed.">            if (!isDontSetNonManagedTXConnectionAutoCommitFalse()) {</span>
+<span class="nc" id="L191">                conn.setAutoCommit(false);</span>
+            }
+            
+<span class="nc bnc" id="L194" title="All 2 branches missed.">            if (isTxIsolationLevelReadCommitted()) {</span>
+<span class="nc" id="L195">                conn.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);</span>
+            }
+<span class="nc" id="L197">        } catch (SQLException sqle) {</span>
+<span class="nc" id="L198">            getLog().warn(&quot;Failed to override connection auto commit/transaction isolation.&quot;, sqle);</span>
+<span class="nc" id="L199">        } catch (Throwable e) {</span>
+<span class="nc" id="L200">            try { conn.close(); } catch(Throwable tt) {}</span>
+            
+<span class="nc" id="L202">            throw new JobPersistenceException(</span>
+                &quot;Failure setting up connection.&quot;, e);
+<span class="nc" id="L204">        }</span>
+        
+<span class="nc" id="L206">        return conn;</span>
+    }
+    
+    /**
+     * Execute the given callback having optionally acquired the given lock.  
+     * Because CMT assumes that the connection is already part of a managed
+     * transaction, it does not attempt to commit or rollback the 
+     * enclosing transaction.
+     * 
+     * @param lockName The name of the lock to acquire, for example 
+     * &quot;TRIGGER_ACCESS&quot;.  If null, then no lock is acquired, but the
+     * txCallback is still executed in a transaction.
+     * 
+     * @see JobStoreSupport#executeInNonManagedTXLock(String, TransactionCallback)
+     * @see JobStoreTX#executeInLock(String, TransactionCallback)
+     * @see JobStoreSupport#getNonManagedTXConnection()
+     * @see JobStoreSupport#getConnection()
+     */
+    @Override
+    protected Object executeInLock(
+            String lockName, 
+            TransactionCallback txCallback) throws JobPersistenceException {
+<span class="nc" id="L228">        boolean transOwner = false;</span>
+<span class="nc" id="L229">        Connection conn = null;</span>
+        try {
+<span class="nc bnc" id="L231" title="All 2 branches missed.">            if (lockName != null) {</span>
+                // If we aren't using db locks, then delay getting DB connection 
+                // until after acquiring the lock since it isn't needed.
+<span class="nc bnc" id="L234" title="All 2 branches missed.">                if (getLockHandler().requiresConnection()) {</span>
+<span class="nc" id="L235">                    conn = getConnection();</span>
+                }
+                
+<span class="nc" id="L238">                transOwner = getLockHandler().obtainLock(conn, lockName);</span>
+            }
+
+<span class="nc bnc" id="L241" title="All 2 branches missed.">            if (conn == null) {</span>
+<span class="nc" id="L242">                conn = getConnection();</span>
+            }
+
+<span class="nc" id="L245">            return txCallback.execute(conn);</span>
+        } finally {
+            try {
+<span class="nc" id="L248">                releaseLock(lockName, transOwner);</span>
+            } finally {
+<span class="nc" id="L250">                cleanupConnection(conn);</span>
+            }
+        }
+    }
+}
+
+// EOF
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>
