@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultResourceTranslator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.http</a> &gt; <span class="el_source">DefaultResourceTranslator.java</span></div><h1>DefaultResourceTranslator.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package br.com.caelum.vraptor.http;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import br.com.caelum.vraptor.core.RequestInfo;
+import br.com.caelum.vraptor.http.route.MethodNotAllowedException;
+import br.com.caelum.vraptor.http.route.Router;
+import br.com.caelum.vraptor.ioc.ApplicationScoped;
+import br.com.caelum.vraptor.resource.HttpMethod;
+import br.com.caelum.vraptor.resource.ResourceMethod;
+
+/**
+ * Basic url to resource method translator.
+ *
+ * @author Guilherme Silveira
+ * @author Leonardo Bessa
+ */
+@ApplicationScoped
+public class DefaultResourceTranslator implements UrlToResourceTranslator {
+
+<span class="fc" id="L39">	private final Logger logger = LoggerFactory.getLogger(DefaultResourceTranslator.class);</span>
+
+	private final Router router;
+
+<span class="fc" id="L43">	public DefaultResourceTranslator(Router router) {</span>
+<span class="fc" id="L44">		this.router = router;</span>
+<span class="fc" id="L45">	}</span>
+
+	public ResourceMethod translate(RequestInfo info) {
+<span class="nc" id="L48">		MutableRequest request = info.getRequest();</span>
+<span class="nc" id="L49">		String resourceName = info.getRequestedUri();</span>
+
+<span class="nc" id="L51">		logger.debug(&quot;trying to access {}&quot;, resourceName);</span>
+
+		HttpMethod method;
+		try {
+<span class="nc" id="L55">			method = HttpMethod.of(request);</span>
+<span class="nc" id="L56">		} catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L57">			throw new MethodNotAllowedException(router.allowedMethodsFor(resourceName), request.getMethod());</span>
+<span class="nc" id="L58">		}</span>
+<span class="nc" id="L59">		ResourceMethod resource = router.parse(resourceName, method, request);</span>
+
+<span class="nc" id="L61">		logger.debug(&quot;found resource {}&quot;, resource);</span>
+<span class="nc" id="L62">		return resource;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

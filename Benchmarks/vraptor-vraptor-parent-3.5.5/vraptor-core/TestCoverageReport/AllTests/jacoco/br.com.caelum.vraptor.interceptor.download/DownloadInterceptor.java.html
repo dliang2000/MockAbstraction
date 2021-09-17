@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DownloadInterceptor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.interceptor.download</a> &gt; <span class="el_source">DownloadInterceptor.java</span></div><h1>DownloadInterceptor.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package br.com.caelum.vraptor.interceptor.download;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import br.com.caelum.vraptor.InterceptionException;
+import br.com.caelum.vraptor.Intercepts;
+import br.com.caelum.vraptor.Lazy;
+import br.com.caelum.vraptor.Result;
+import br.com.caelum.vraptor.core.InterceptorStack;
+import br.com.caelum.vraptor.core.MethodInfo;
+import br.com.caelum.vraptor.interceptor.ExecuteMethodInterceptor;
+import br.com.caelum.vraptor.interceptor.ForwardToDefaultViewInterceptor;
+import br.com.caelum.vraptor.interceptor.Interceptor;
+import br.com.caelum.vraptor.ioc.RequestScoped;
+import br.com.caelum.vraptor.resource.ResourceMethod;
+
+/**
+ * Intercepts methods whom return a File or an InputStream.
+ *
+ * @author filipesabella
+ */
+@Intercepts(after=ExecuteMethodInterceptor.class, before=ForwardToDefaultViewInterceptor.class)
+@RequestScoped
+@Lazy
+public class DownloadInterceptor implements Interceptor {
+
+<span class="fc" id="L52">	private static final Logger logger = LoggerFactory.getLogger(DownloadInterceptor.class);</span>
+
+	private final HttpServletResponse response;
+	private final MethodInfo info;
+	private final Result result;
+
+<span class="fc" id="L58">	public DownloadInterceptor(HttpServletResponse response, MethodInfo info, Result result) {</span>
+<span class="fc" id="L59">		this.response = response;</span>
+<span class="fc" id="L60">		this.info = info;</span>
+<span class="fc" id="L61">		this.result = result;</span>
+<span class="fc" id="L62">	}</span>
+
+	public boolean accepts(ResourceMethod method) {
+<span class="fc" id="L65">		Class&lt;?&gt; type = method.getMethod().getReturnType();</span>
+<span class="fc bfc" id="L66" title="All 8 branches covered.">		return InputStream.class.isAssignableFrom(type) || type == File.class || Download.class.isAssignableFrom(type)</span>
+				|| type == byte[].class;
+	}
+
+	public void intercept(InterceptorStack stack, ResourceMethod method, Object instance) throws InterceptionException {
+<span class="fc" id="L71">		logger.debug(&quot;Sending a file to the client&quot;);</span>
+
+<span class="fc" id="L73">		Object result = info.getResult();</span>
+
+<span class="fc bfc" id="L75" title="All 2 branches covered.">		if (result == null) {</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">			if (this.result.used()) {</span>
+<span class="fc" id="L77">				stack.next(method, instance);</span>
+<span class="fc" id="L78">				return;</span>
+			} else {
+<span class="fc" id="L80">				throw new NullPointerException(&quot;You've just returned a Null Download. Consider redirecting to another page/logic&quot;);</span>
+			}
+		}
+		try {
+<span class="fc" id="L84">			Download download = null;</span>
+
+<span class="fc bfc" id="L86" title="All 2 branches covered.">			if (result instanceof InputStream) {</span>
+<span class="fc" id="L87">				InputStream input = (InputStream) result;</span>
+<span class="fc" id="L88">				download = new InputStreamDownload(input, null, null);</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">			} else if (result instanceof byte[]) {</span>
+<span class="fc" id="L90">				byte[] bytes = (byte[]) result;</span>
+<span class="fc" id="L91">				download = new ByteArrayDownload(bytes, null, null);</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">			} else if (result instanceof File) {</span>
+<span class="fc" id="L93">				File file = (File) result;</span>
+<span class="fc" id="L94">				download = new FileDownload(file, null, null);</span>
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">			} else if (result instanceof Download) {</span>
+<span class="fc" id="L96">				download = (Download) result;</span>
+			}
+
+<span class="fc" id="L99">			OutputStream output = response.getOutputStream();</span>
+<span class="fc" id="L100">			download.write(response);</span>
+
+<span class="fc" id="L102">			output.flush();</span>
+<span class="fc" id="L103">			output.close();</span>
+<span class="fc" id="L104">		} catch (IOException e) {</span>
+<span class="fc" id="L105">			throw new InterceptionException(e);</span>
+<span class="fc" id="L106">		}</span>
+
+<span class="fc" id="L108">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

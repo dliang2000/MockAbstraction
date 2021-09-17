@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StandaloneClasspathResolver.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.scan</a> &gt; <span class="el_source">StandaloneClasspathResolver.java</span></div><h1>StandaloneClasspathResolver.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+package br.com.caelum.vraptor.scan;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.List;
+import java.util.Scanner;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+
+/**
+ * A ClasspathResolver for static use, without a web context.
+ *
+ * @author Sérgio Lopes
+ * @since 3.2
+ */
+public class StandaloneClasspathResolver implements ClasspathResolver {
+
+<span class="fc" id="L45">	private static final Logger logger = LoggerFactory.getLogger(StandaloneClasspathResolver.class);</span>
+	private final File webxml;
+
+<span class="fc" id="L48">	public StandaloneClasspathResolver() {</span>
+		// try to discover web.xml location related to vraptor.jar
+<span class="fc" id="L50">		String vraptor = &quot;br/com/caelum/vraptor/VRaptor.class&quot;;</span>
+<span class="fc" id="L51">		URL vraptorJAR = getClassLoader().getResource(vraptor);</span>
+<span class="fc" id="L52">		String filename = vraptorJAR.getPath();</span>
+
+<span class="fc" id="L54">		int jarSeparationIndex = filename.lastIndexOf('!');</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">		filename = filename.substring(filename.indexOf(':') + 1, jarSeparationIndex == -1 ? filename.length() - 1: jarSeparationIndex);</span>
+<span class="fc" id="L56">		filename = filename.substring(0, filename.lastIndexOf('/'));</span>
+
+<span class="fc" id="L58">		this.webxml = new File(filename.substring(0, filename.lastIndexOf('/')) + &quot;/web.xml&quot;);</span>
+<span class="fc" id="L59">	}</span>
+
+<span class="nc" id="L61">	public StandaloneClasspathResolver(String webxml) {</span>
+<span class="nc" id="L62">		this.webxml = new File(webxml);</span>
+<span class="nc" id="L63">	}</span>
+
+	public ClassLoader getClassLoader() {
+<span class="fc" id="L66">		return Thread.currentThread().getContextClassLoader();</span>
+	}
+
+	// find WEB-INF classes related to web.xml
+	public URL findWebInfClassesLocation() {
+		try {
+<span class="nc" id="L72">			File webInfClasses = new File(this.getWebxml().getParent() + &quot;/classes&quot;);</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">			if (webInfClasses.exists()) {</span>
+<span class="nc" id="L74">				return new URL(&quot;file:&quot; + webInfClasses.getAbsolutePath() + &quot;/&quot;);</span>
+			}
+<span class="nc" id="L76">			throw new ScannerException(&quot;Could not determine WEB-INF/classes location&quot;);</span>
+<span class="nc" id="L77">		} catch (MalformedURLException e) {</span>
+<span class="nc" id="L78">			throw new ScannerException(&quot;Could not determine WEB-INF/classes location&quot;, e);</span>
+		}
+	}
+
+	public List&lt;String&gt; findBasePackages() {
+<span class="nc" id="L83">		ArrayList&lt;String&gt; packages = new ArrayList&lt;String&gt;();</span>
+<span class="nc" id="L84">		getPackagesFromWebXml(packages);</span>
+<span class="nc" id="L85">		getPackagesFromPluginsJARs(packages);</span>
+<span class="nc" id="L86">		return packages;</span>
+	}
+
+	void getPackagesFromWebXml(List&lt;String&gt; result) {
+		try {
+<span class="nc" id="L91">			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();</span>
+<span class="nc" id="L92">			factory.setNamespaceAware(true);</span>
+<span class="nc" id="L93">			DocumentBuilder builder = factory.newDocumentBuilder();</span>
+<span class="nc" id="L94">			Document doc = builder.parse(this.getWebxml());</span>
+
+<span class="nc" id="L96">			NodeList params = doc.getElementsByTagName(&quot;context-param&quot;);</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">			for (int i = 0; i &lt; params.getLength(); i++) {</span>
+<span class="nc" id="L98">				Element param = (Element) params.item(i);</span>
+<span class="nc" id="L99">				NodeList paramName = param.getElementsByTagName(&quot;param-name&quot;);</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">				if (&quot;br.com.caelum.vraptor.packages&quot;.equals(paramName.item(0).getTextContent())) {</span>
+<span class="nc" id="L101">					NodeList paramValue = param.getElementsByTagName(&quot;param-value&quot;);</span>
+<span class="nc" id="L102">					String packages = paramValue.item(0).getTextContent();</span>
+
+<span class="nc" id="L104">					Collections.addAll(result, packages.trim().split(&quot;\\s*,\\s*&quot;));</span>
+<span class="nc" id="L105">					return;</span>
+				}
+			}
+<span class="nc" id="L108">			logger.debug(&quot;No &lt;context-param&gt; found in web.xml&quot;);</span>
+<span class="nc" id="L109">		} catch (Exception e) {</span>
+<span class="nc" id="L110">			throw new ScannerException(&quot;Problems while parsing web.xml&quot;, e);</span>
+<span class="nc" id="L111">		}</span>
+<span class="nc" id="L112">	}</span>
+
+	/**
+	 * find plugin packages
+	 * @param result
+	 */
+	void getPackagesFromPluginsJARs(List&lt;String&gt; result) {
+		try {
+<span class="fc" id="L120">			ClassLoader classLoader = getClassLoader();</span>
+<span class="fc" id="L121">			Enumeration&lt;URL&gt; urls = classLoader.getResources(&quot;META-INF/br.com.caelum.vraptor.packages&quot;);</span>
+
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">			while (urls.hasMoreElements()) {</span>
+<span class="nc" id="L124">				URL url = urls.nextElement();</span>
+<span class="nc" id="L125">				String packagesConfig = new Scanner(url.openStream()).useDelimiter(&quot;\\Z&quot;).next();</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">				if (packagesConfig != null) {</span>
+<span class="nc" id="L127">					Collections.addAll(result, packagesConfig.trim().split(&quot;\\s*,\\s*&quot;));</span>
+				} else {
+<span class="nc" id="L129">					logger.warn(&quot;Plugin packages file was empty: {}&quot;, url.getPath());</span>
+				}
+<span class="nc" id="L131">			}</span>
+<span class="nc" id="L132">		} catch (IOException e) {</span>
+<span class="nc" id="L133">			logger.error(&quot;Exception while searching for packages file inside JARs&quot;, e);</span>
+<span class="fc" id="L134">		}</span>
+<span class="fc" id="L135">	}</span>
+
+	private File getWebxml() {
+<span class="nc bnc" id="L138" title="All 2 branches missed.">		if (!this.webxml.exists()) {</span>
+<span class="nc" id="L139">			throw new ScannerException(&quot;Could not locate web.xml. Please use the proper argument in command-line.&quot;);</span>
+		}
+<span class="nc" id="L141">		return webxml;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

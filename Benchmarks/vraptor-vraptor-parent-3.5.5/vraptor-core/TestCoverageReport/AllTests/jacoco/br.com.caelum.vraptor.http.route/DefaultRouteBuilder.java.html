@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultRouteBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.http.route</a> &gt; <span class="el_source">DefaultRouteBuilder.java</span></div><h1>DefaultRouteBuilder.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/***
+ *
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer. 2. Redistributions in
+ * binary form must reproduce the above copyright notice, this list of
+ * conditions and the following disclaimer in the documentation and/or other
+ * materials provided with the distribution. 3. Neither the name of the
+ * copyright holders nor the names of its contributors may be used to endorse or
+ * promote products derived from this software without specific prior written
+ * permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot;
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+package br.com.caelum.vraptor.http.route;
+
+import java.lang.reflect.Method;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.Map.Entry;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import br.com.caelum.vraptor.Path;
+import br.com.caelum.vraptor.core.Converters;
+import br.com.caelum.vraptor.http.ParameterNameProvider;
+import br.com.caelum.vraptor.proxy.MethodInvocation;
+import br.com.caelum.vraptor.proxy.Proxifier;
+import br.com.caelum.vraptor.proxy.SuperMethod;
+import br.com.caelum.vraptor.resource.DefaultResourceMethod;
+import br.com.caelum.vraptor.resource.HttpMethod;
+import br.com.caelum.vraptor.resource.ResourceMethod;
+import br.com.caelum.vraptor.util.StringUtils;
+import br.com.caelum.vraptor.util.Stringnifier;
+
+import com.google.common.base.Joiner;
+
+/**
+ * Should be used in one of two ways, either configure the type and invoke the
+ * method or pass the method (java reflection) object.
+ *
+ * If not specified, the built route will have the lowest priority (higher value
+ * of priority), so will be the last to be used.
+ *
+ * @author Guilherme Silveira
+ */
+public class DefaultRouteBuilder implements RouteBuilder {
+<span class="fc" id="L83">	private final Set&lt;HttpMethod&gt; supportedMethods = EnumSet.noneOf(HttpMethod.class);</span>
+
+	private final Proxifier proxifier;
+<span class="fc" id="L86">	private static final Logger logger = LoggerFactory.getLogger(DefaultRouteBuilder.class);</span>
+
+	private final String originalUri;
+
+<span class="fc" id="L90">	private Route strategy = new NoStrategy();</span>
+
+<span class="fc" id="L92">	private int priority = Path.LOWEST;</span>
+
+	private final DefaultParameterControlBuilder builder;
+
+	private final TypeFinder finder;
+
+	private final Converters converters;
+
+	private final ParameterNameProvider nameProvider;
+	private final Evaluator evaluator;
+
+<span class="fc" id="L103">	public DefaultRouteBuilder(Proxifier proxifier, TypeFinder finder, Converters converters, ParameterNameProvider nameProvider, Evaluator evaluator, String uri) {</span>
+<span class="fc" id="L104">		this.proxifier = proxifier;</span>
+<span class="fc" id="L105">		this.finder = finder;</span>
+<span class="fc" id="L106">		this.converters = converters;</span>
+<span class="fc" id="L107">		this.nameProvider = nameProvider;</span>
+<span class="fc" id="L108">		this.evaluator = evaluator;</span>
+<span class="fc" id="L109">		this.originalUri = uri;</span>
+<span class="fc" id="L110">		builder = new DefaultParameterControlBuilder();</span>
+<span class="fc" id="L111">	}</span>
+
+<span class="fc" id="L113">	public class DefaultParameterControlBuilder implements ParameterControlBuilder {</span>
+<span class="fc" id="L114">		private final Map&lt;String, String&gt; parameters = new HashMap&lt;String, String&gt;();</span>
+		private String name;
+
+		private DefaultParameterControlBuilder withParameter(String name) {
+<span class="fc" id="L118">			this.name = name;</span>
+<span class="fc" id="L119">			return this;</span>
+		}
+
+		public DefaultRouteBuilder ofType(Class&lt;?&gt; type) {
+<span class="fc" id="L123">			parameters.put(name, regexFor(type));</span>
+<span class="fc" id="L124">			return DefaultRouteBuilder.this;</span>
+		}
+
+		@SuppressWarnings(&quot;unchecked&quot;)
+		private String regexFor(Class&lt;?&gt; type) {
+<span class="fc" id="L129">			if (Arrays.asList(Integer.class, Long.class, int.class, long.class, BigInteger.class,</span>
+<span class="fc bfc" id="L130" title="All 2 branches covered.">					Short.class, short.class).contains(type)) {</span>
+<span class="fc" id="L131">				return &quot;-?\\d+&quot;;</span>
+<span class="pc bpc" id="L132" title="1 of 2 branches missed.">			} else if (Arrays.asList(char.class, Character.class).contains(type)){</span>
+<span class="nc" id="L133">				return &quot;.&quot;;</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">			} else if (Arrays.asList(Double.class, BigDecimal.class, double.class, Float.class, float.class).contains(</span>
+					type)) {
+<span class="fc" id="L136">				return &quot;-?\\d*\\.?\\d+&quot;;</span>
+<span class="pc bpc" id="L137" title="1 of 2 branches missed.">			} else if (Arrays.asList(Boolean.class, boolean.class).contains(type)) {</span>
+<span class="nc" id="L138">				return &quot;true|false&quot;;</span>
+<span class="pc bpc" id="L139" title="1 of 2 branches missed.">			} else if (Enum.class.isAssignableFrom(type)) {</span>
+<span class="nc" id="L140">				return Joiner.on(&quot;|&quot;).join(type.getEnumConstants());</span>
+			}
+<span class="fc" id="L142">			return &quot;[^/]+&quot;;</span>
+		}
+
+		public DefaultRouteBuilder matching(String regex) {
+<span class="fc" id="L146">			parameters.put(name, regex);</span>
+<span class="fc" id="L147">			return DefaultRouteBuilder.this;</span>
+		}
+
+		private ParametersControl build() {
+<span class="fc" id="L151">			return new DefaultParametersControl(originalUri, parameters, converters, evaluator);</span>
+		}
+	}
+
+	public DefaultParameterControlBuilder withParameter(String name) {
+<span class="nc" id="L156">		return builder.withParameter(name);</span>
+	}
+
+	public &lt;T&gt; T is(final Class&lt;T&gt; type) {
+<span class="fc" id="L160">		MethodInvocation&lt;T&gt; handler = new MethodInvocation&lt;T&gt;() {</span>
+			public Object intercept(Object proxy, Method method, Object[] args, SuperMethod superMethod) {
+<span class="pc bpc" id="L162" title="1 of 2 branches missed.">				boolean alreadySetTheStrategy = !strategy.getClass().equals(NoStrategy.class);</span>
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">				if (alreadySetTheStrategy) {</span>
+					// the virtual machine might be invoking the finalize
+<span class="nc" id="L165">					return null;</span>
+				}
+<span class="fc" id="L167">				is(type, method);</span>
+<span class="fc" id="L168">				return null;</span>
+			}
+		};
+<span class="fc" id="L171">		return proxifier.proxify(type, handler);</span>
+	}
+
+	public void is(Class&lt;?&gt; type, Method method) {
+<span class="fc" id="L175">		addParametersInfo(method);</span>
+<span class="fc" id="L176">		ResourceMethod resourceMethod = DefaultResourceMethod.instanceFor(type, method);</span>
+<span class="fc" id="L177">		String[] parameterNames = nameProvider.parameterNamesFor(method);</span>
+<span class="fc" id="L178">		this.strategy = new FixedMethodStrategy(originalUri, resourceMethod, this.supportedMethods, builder.build(), priority, parameterNames);</span>
+
+<span class="fc" id="L180">		logger.info(String.format(&quot;%-50s%s -&gt; %10s&quot;, originalUri,</span>
+<span class="fc bfc" id="L181" title="All 2 branches covered.">				this.supportedMethods.isEmpty() ? &quot;[ALL]&quot; : this.supportedMethods,</span>
+<span class="fc" id="L182">				Stringnifier.simpleNameFor(method)));</span>
+<span class="fc" id="L183">	}</span>
+
+	private void addParametersInfo(Method method) {
+<span class="fc" id="L186">		String[] parameters = StringUtils.extractParameters(originalUri);</span>
+<span class="fc" id="L187">		Map&lt;String, Class&lt;?&gt;&gt; types = finder.getParameterTypes(method, sanitize(parameters));</span>
+<span class="fc bfc" id="L188" title="All 2 branches covered.">		for (Entry&lt;String, Class&lt;?&gt;&gt; entry : types.entrySet()) {</span>
+<span class="pc bpc" id="L189" title="1 of 2 branches missed.">			if (!builder.parameters.containsKey(entry.getKey())) {</span>
+<span class="fc" id="L190">				builder.withParameter(entry.getKey()).ofType(entry.getValue());</span>
+			}
+<span class="fc" id="L192">		}</span>
+<span class="fc bfc" id="L193" title="All 2 branches covered.">		for (String parameter : parameters) {</span>
+<span class="fc" id="L194">			String[] split = parameter.split(&quot;:&quot;);</span>
+<span class="pc bpc" id="L195" title="1 of 4 branches missed.">			if (split.length &gt;= 2 &amp;&amp; !builder.parameters.containsKey(parameter)) {</span>
+<span class="fc" id="L196">				builder.withParameter(parameter).matching(split[1]);</span>
+			}
+		}
+<span class="fc" id="L199">	}</span>
+
+	private String[] sanitize(String[] parameters) {
+<span class="fc" id="L202">		String[] sanitized = new String[parameters.length];</span>
+<span class="fc bfc" id="L203" title="All 2 branches covered.">		for (int i = 0; i &lt; parameters.length; i++) {</span>
+<span class="fc" id="L204">			sanitized[i] = parameters[i].replaceAll(&quot;(\\:.*|\\*)$&quot;, &quot;&quot;);</span>
+		}
+<span class="fc" id="L206">		return sanitized;</span>
+	}
+
+	/**
+	 * Accepts also this http method request. If this method is not invoked, any
+	 * http method is supported, otherwise all parameters passed are supported.
+	 *
+	 * @param method
+	 * @return
+	 */
+	public DefaultRouteBuilder with(HttpMethod method) {
+<span class="fc" id="L217">		this.supportedMethods.add(method);</span>
+<span class="fc" id="L218">		return this;</span>
+	}
+
+	public DefaultRouteBuilder with(Set&lt;HttpMethod&gt; methods) {
+<span class="fc" id="L222">		this.supportedMethods.addAll(methods);</span>
+<span class="fc" id="L223">		return this;</span>
+	}
+
+	/**
+	 * Changes Route priority
+	 *
+	 * @param priority
+	 * @return
+	 */
+	public DefaultRouteBuilder withPriority(int priority) {
+<span class="fc" id="L233">		this.priority = priority;</span>
+<span class="fc" id="L234">		return this;</span>
+	}
+
+	public Route build() {
+<span class="fc bfc" id="L238" title="All 2 branches covered.">		if (strategy instanceof NoStrategy) {</span>
+<span class="fc" id="L239">			throw new IllegalRouteException(&quot;You have created a route, but did not specify any method to be invoked: &quot;</span>
+					+ originalUri);
+		}
+<span class="fc" id="L242">		return strategy;</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="nc bnc" id="L247" title="All 2 branches missed.">		if (supportedMethods.isEmpty()) {</span>
+<span class="nc" id="L248">			return String.format(&quot;&lt;&lt; Route: %s =&gt; %s &gt;&gt;&quot;, originalUri, this.strategy.toString());</span>
+		}
+<span class="nc" id="L250">		return String.format(&quot;&lt;&lt; Route: %s %s=&gt; %s &gt;&gt;&quot;, originalUri, supportedMethods, this.strategy.toString());</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GuiceProvider.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.ioc.guice</a> &gt; <span class="el_source">GuiceProvider.java</span></div><h1>GuiceProvider.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+package br.com.caelum.vraptor.ioc.guice;
+
+import java.util.Set;
+
+import javax.servlet.ServletContext;
+
+import br.com.caelum.vraptor.ComponentRegistry;
+import br.com.caelum.vraptor.config.BasicConfiguration;
+import br.com.caelum.vraptor.core.Execution;
+import br.com.caelum.vraptor.core.RequestInfo;
+import br.com.caelum.vraptor.ioc.Container;
+import br.com.caelum.vraptor.ioc.ContainerProvider;
+import br.com.caelum.vraptor.ioc.StereotypeHandler;
+import br.com.caelum.vraptor.ioc.spring.VRaptorRequestHolder;
+import br.com.caelum.vraptor.scan.WebAppBootstrap;
+import br.com.caelum.vraptor.scan.WebAppBootstrapFactory;
+
+import com.google.inject.Binder;
+import com.google.inject.ConfigurationException;
+import com.google.inject.Guice;
+import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.Module;
+import com.google.inject.Stage;
+import com.google.inject.TypeLiteral;
+import com.google.inject.multibindings.Multibinder;
+import com.google.inject.util.Modules;
+
+/**
+ *
+ * A Container Provider that uses Google Guice as DI container.
+ *
+ * @author Lucas Cavalcanti
+ * @author Sergio Lopes
+ * @since 3.2
+ *
+ */
+<span class="fc" id="L53">public class GuiceProvider implements ContainerProvider {</span>
+
+<span class="fc" id="L55">	private boolean stopSession = false;</span>
+<span class="fc" id="L56">	static final RequestCustomScope REQUEST = new RequestCustomScope();</span>
+<span class="fc" id="L57">	static final SessionCustomScope SESSION = new SessionCustomScope();</span>
+<span class="fc" id="L58">	static final ApplicationCustomScope APPLICATION = new ApplicationCustomScope();</span>
+
+<span class="fc" id="L60">	private final class GuiceContainer implements Container {</span>
+		public &lt;T&gt; T instanceFor(Class&lt;T&gt; type) {
+<span class="fc" id="L62">			return injector.getInstance(type);</span>
+		}
+
+		public &lt;T&gt; boolean canProvide(Class&lt;T&gt; type) {
+		try {
+<span class="nc bnc" id="L67" title="All 2 branches missed.">		return injector.getProvider(type) != null;</span>
+<span class="nc" id="L68">		} catch (ConfigurationException e) {</span>
+<span class="nc" id="L69">		return false;</span>
+		}
+		}
+	}
+
+	private Injector injector;
+	private GuiceContainer container;
+	protected ServletContext context;
+
+	public &lt;T&gt; T provideForRequest(RequestInfo request, Execution&lt;T&gt; execution) {
+<span class="fc" id="L79">		VRaptorRequestHolder.setRequestForCurrentThread(request);</span>
+<span class="fc" id="L80">		REQUEST.start();</span>
+		try {
+<span class="fc" id="L82">			return execution.insideRequest(container);</span>
+		} finally {
+<span class="fc" id="L84">			REQUEST.stop();</span>
+<span class="fc" id="L85">			VRaptorRequestHolder.resetRequestForCurrentThread();</span>
+		}
+	}
+	
+	public Container getContainer() {
+<span class="nc" id="L90">		return container;</span>
+	}
+
+	public void start(ServletContext context) {
+<span class="fc" id="L94">		this.context = context;</span>
+<span class="fc" id="L95">		APPLICATION.start();</span>
+<span class="fc" id="L96">		container = new GuiceContainer();</span>
+<span class="fc" id="L97">		injector = Guice.createInjector(Stage.PRODUCTION, Modules.override(new VRaptorAbstractModule(context, container)).with(customModule()));</span>
+<span class="fc" id="L98">		executeStereotypeHandlers();</span>
+<span class="fc" id="L99">		injector.injectMembers(REQUEST);</span>
+<span class="fc" id="L100">		injector.injectMembers(SESSION);</span>
+<span class="fc" id="L101">	}</span>
+
+	private void executeStereotypeHandlers() {
+<span class="fc" id="L104">		Set&lt;StereotypeHandler&gt; handlers = injector.getInstance(Key.get(new TypeLiteral&lt;Set&lt;StereotypeHandler&gt;&gt;() {}));</span>
+<span class="fc bfc" id="L105" title="All 2 branches covered.">		for (Key&lt;?&gt; key : injector.getAllBindings().keySet()) {</span>
+<span class="fc bfc" id="L106" title="All 2 branches covered.">			for (StereotypeHandler handler : handlers) {</span>
+<span class="fc" id="L107">				Class&lt;?&gt; type = key.getTypeLiteral().getRawType();</span>
+<span class="fc bfc" id="L108" title="All 2 branches covered.">				if (type.isAnnotationPresent(handler.stereotype())) {</span>
+<span class="fc" id="L109">					handler.handle(type);</span>
+				}
+<span class="fc" id="L111">			}</span>
+<span class="fc" id="L112">		}</span>
+<span class="fc" id="L113">	}</span>
+
+	protected Module customModule() {
+<span class="fc" id="L116">		return new Module() {</span>
+			public void configure(Binder binder) {
+<span class="fc" id="L118">				ComponentRegistry registry = new GuiceComponentRegistry(binder, Multibinder.newSetBinder(binder, StereotypeHandler.class));</span>
+<span class="fc" id="L119">				BasicConfiguration config = new BasicConfiguration(context);</span>
+
+				// using the new vraptor.scan
+<span class="fc" id="L122">				WebAppBootstrap webAppBootstrap = new WebAppBootstrapFactory().create(config);</span>
+<span class="fc" id="L123">				webAppBootstrap.configure(registry);</span>
+
+				// call old-style custom components registration
+<span class="fc" id="L126">				registerCustomComponents(registry);</span>
+<span class="fc" id="L127">			}</span>
+		};
+	}
+
+	protected void registerCustomComponents(ComponentRegistry registry) {
+		/* TODO: For now, this is an empty hook method to enable subclasses to use
+		 * the scanner and register their specific components.
+		 *
+		 * In the future, if we scan the classpath for StereotypeHandlers, we can
+		 * eliminate this hook.
+		 */
+<span class="fc" id="L138">	}</span>
+	
+	protected void stopSession(Boolean value) {
+<span class="nc" id="L141">		this.stopSession = value;</span>
+<span class="nc" id="L142">	}</span>
+
+	public void stop() {
+<span class="pc bpc" id="L145" title="1 of 2 branches missed.">		if(stopSession) {</span>
+<span class="nc" id="L146">			SESSION.stopAll();</span>
+		}
+<span class="fc" id="L148">		APPLICATION.stop();</span>
+<span class="fc" id="L149">	}</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

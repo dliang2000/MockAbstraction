@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GenericNullHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.http.ognl</a> &gt; <span class="el_source">GenericNullHandler.java</span></div><h1>GenericNullHandler.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package br.com.caelum.vraptor.http.ognl;
+
+import java.lang.reflect.Array;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collection;
+import java.util.GregorianCalendar;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
+
+import net.vidageek.mirror.dsl.Mirror;
+
+/**
+ * Capable of instantiating generic interfaces and custom types.
+ *
+ * @author Guilherme Silveira
+ */
+public class GenericNullHandler implements NullHandler {
+
+<span class="fc" id="L45">	private static final Map&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt; CONCRETE_TYPES = new HashMap&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt;();</span>
+	private final EmptyElementsRemoval removal;
+
+	static {
+<span class="fc" id="L49">	CONCRETE_TYPES.put(List.class, ArrayList.class);</span>
+<span class="fc" id="L50">	CONCRETE_TYPES.put(Calendar.class, GregorianCalendar.class);</span>
+<span class="fc" id="L51">	CONCRETE_TYPES.put(Collection.class, ArrayList.class);</span>
+<span class="fc" id="L52">	CONCRETE_TYPES.put(Set.class, HashSet.class);</span>
+<span class="fc" id="L53">	CONCRETE_TYPES.put(SortedSet.class, TreeSet.class);</span>
+<span class="fc" id="L54">	CONCRETE_TYPES.put(Queue.class, LinkedList.class);</span>
+<span class="fc" id="L55">	}</span>
+
+<span class="fc" id="L57">	public GenericNullHandler(EmptyElementsRemoval removal) {</span>
+<span class="fc" id="L58">		this.removal = removal;</span>
+<span class="fc" id="L59">	}</span>
+
+	public &lt;T&gt; T instantiate(Class&lt;T&gt; baseType) {
+<span class="fc bfc" id="L62" title="All 2 branches covered.">		if (baseType.isArray()) {</span>
+<span class="fc" id="L63">			return baseType.cast(Array.newInstance(baseType.getComponentType(), 0));</span>
+		}
+<span class="fc" id="L65">	Class&lt;?&gt; typeToInstantiate = baseType;</span>
+<span class="fc bfc" id="L66" title="All 4 branches covered.">	if (baseType.isInterface() || Modifier.isAbstract(baseType.getModifiers())) {</span>
+<span class="fc bfc" id="L67" title="All 2 branches covered.">		if (!CONCRETE_TYPES.containsKey(baseType)) {</span>
+		// TODO better
+<span class="fc" id="L69">		throw new IllegalArgumentException(&quot;Vraptor does not support this interface or abstract type: &quot;</span>
+<span class="fc" id="L70">			+ typeToInstantiate.getName());</span>
+		}
+<span class="fc" id="L72">		typeToInstantiate = CONCRETE_TYPES.get(baseType);</span>
+	}
+<span class="fc" id="L74">	Object instance = new Mirror().on(typeToInstantiate).invoke().constructor().withoutArgs();</span>
+
+<span class="fc bfc" id="L76" title="All 2 branches covered.">	if(Collection.class.isAssignableFrom(typeToInstantiate)) {</span>
+<span class="fc" id="L77">		removal.add((Collection)instance);</span>
+	}
+
+<span class="fc" id="L80">	return baseType.cast(instance);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

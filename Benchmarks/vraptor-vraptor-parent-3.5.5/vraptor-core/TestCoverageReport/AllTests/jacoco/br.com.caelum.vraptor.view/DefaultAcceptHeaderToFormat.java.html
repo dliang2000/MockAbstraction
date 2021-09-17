@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultAcceptHeaderToFormat.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.view</a> &gt; <span class="el_source">DefaultAcceptHeaderToFormat.java</span></div><h1>DefaultAcceptHeaderToFormat.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package br.com.caelum.vraptor.view;
+
+import static com.google.common.collect.Collections2.transform;
+import static com.google.common.collect.Sets.newTreeSet;
+
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import br.com.caelum.vraptor.ioc.ApplicationScoped;
+import br.com.caelum.vraptor.util.LRUCache;
+
+import com.google.common.base.Function;
+
+/**
+ * The default AcceptHeaderToFormat implementation searches for registered mime types. It also
+ * handles conneg with extended media types (i.e. vnd+xml)
+ *
+ * @author Sérgio Lopes
+ * @author Jonas Abreu
+ * @author Guilherme Silveira
+ */
+@ApplicationScoped
+public class DefaultAcceptHeaderToFormat implements AcceptHeaderToFormat {
+
+<span class="fc" id="L45">	private static final Map&lt;String, String&gt; acceptToFormatCache = Collections.synchronizedMap(new LRUCache&lt;String, String&gt;(100));</span>
+	private static final String DEFAULT_FORMAT = &quot;html&quot;;
+	private static final double DEFAULT_QUALIFIER_VALUE = 0.01;
+	protected final Map&lt;String, String&gt; mimeToFormat;
+
+<span class="fc" id="L50">	public DefaultAcceptHeaderToFormat() {</span>
+<span class="fc" id="L51">		mimeToFormat = new ConcurrentHashMap&lt;String, String&gt;();</span>
+<span class="fc" id="L52">		mimeToFormat.put(&quot;text/html&quot;, &quot;html&quot;);</span>
+<span class="fc" id="L53">		mimeToFormat.put(&quot;application/json&quot;, &quot;json&quot;);</span>
+<span class="fc" id="L54">		mimeToFormat.put(&quot;application/xml&quot;, &quot;xml&quot;);</span>
+<span class="fc" id="L55">		mimeToFormat.put(&quot;text/xml&quot;, &quot;xml&quot;);</span>
+<span class="fc" id="L56">		mimeToFormat.put(&quot;xml&quot;, &quot;xml&quot;);</span>
+<span class="fc" id="L57">	}</span>
+
+	public String getFormat(String acceptHeader) {
+<span class="fc bfc" id="L60" title="All 4 branches covered.">		if (acceptHeader == null || acceptHeader.trim().equals(&quot;&quot;)) {</span>
+<span class="fc" id="L61">			return DEFAULT_FORMAT;</span>
+		}
+
+<span class="fc bfc" id="L64" title="All 2 branches covered.">		if (acceptHeader.contains(DEFAULT_FORMAT)) {</span>
+			// HACK! Opera may send &quot;application/json, text/html, */*&quot; and this should return html.
+<span class="fc" id="L66">			return DEFAULT_FORMAT;</span>
+		}
+
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">		if (acceptToFormatCache.containsKey(acceptHeader)) {</span>
+<span class="nc" id="L70">			return acceptToFormatCache.get(acceptHeader);</span>
+		}
+
+<span class="fc" id="L73">		return chooseMimeType(acceptHeader);</span>
+	}
+
+	private String chooseMimeType(String acceptHeader) {
+<span class="fc" id="L77">		String[] mimeTypes = getOrderedMimeTypes(acceptHeader);</span>
+
+<span class="fc bfc" id="L79" title="All 2 branches covered.">		for (String mimeType : mimeTypes) {</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">			if (mimeToFormat.containsKey(mimeType)) {</span>
+<span class="fc" id="L81">				String format = mimeToFormat.get(mimeType);</span>
+<span class="fc" id="L82">				acceptToFormatCache.put(acceptHeader, format);</span>
+<span class="fc" id="L83">				return format;</span>
+			}
+		}
+
+<span class="fc" id="L87">		return mimeTypes[0];</span>
+	}
+
+	private static class MimeType implements Comparable&lt;MimeType&gt; {
+		String type;
+		double qualifier;
+
+<span class="fc" id="L94">		public MimeType(String type, double qualifier) {</span>
+<span class="fc" id="L95">			this.type = type;</span>
+<span class="fc" id="L96">			this.qualifier = qualifier;</span>
+<span class="fc" id="L97">		}</span>
+
+		public int compareTo(MimeType mime) {
+			// reverse order
+<span class="fc" id="L101">			return Double.compare(mime.qualifier, this.qualifier);</span>
+		}
+
+		public String getType() {
+<span class="fc" id="L105">			return type;</span>
+		}
+
+		@Override
+		public String toString() {
+<span class="nc" id="L110">			return type;</span>
+		}
+	}
+
+	String[] getOrderedMimeTypes(String acceptHeader) {
+<span class="fc" id="L115">		String[] types = acceptHeader.split(&quot;,&quot;);</span>
+
+<span class="pc bpc" id="L117" title="1 of 2 branches missed.">		if (types.length == 0) {</span>
+<span class="nc" id="L118">			return new String[] { types[0].split(&quot;;&quot;)[0] };</span>
+		}
+
+<span class="fc" id="L121">		Set&lt;MimeType&gt; mimes = newTreeSet();</span>
+<span class="fc bfc" id="L122" title="All 2 branches covered.">		for (String string : types) {</span>
+<span class="fc" id="L123">			mimes.add(convertToMimeType(string));</span>
+		}
+
+<span class="fc" id="L126">		return transform(mimes, mimeType()).toArray(new String[mimes.size()]);</span>
+	}
+
+	private Function&lt;MimeType, String&gt; mimeType() {
+<span class="fc" id="L130">		return new Function&lt;MimeType, String&gt;() {</span>
+			public String apply(MimeType mime) {
+<span class="fc" id="L132">				return mime.getType().trim();</span>
+			}
+		};
+	}
+
+	private MimeType convertToMimeType(String string) {
+<span class="fc bfc" id="L138" title="All 2 branches covered.">		if (string.contains(&quot;*/*&quot;)) {</span>
+<span class="fc" id="L139">			return new MimeType(&quot;text/html&quot;, DEFAULT_QUALIFIER_VALUE);</span>
+<span class="fc bfc" id="L140" title="All 2 branches covered.">		} else if (string.contains(&quot;;&quot;)) {</span>
+<span class="fc" id="L141">			String type = string.substring(0, string.indexOf(';'));</span>
+<span class="fc" id="L142">			return new MimeType(type, extractQualifier(string));</span>
+		}
+<span class="fc" id="L144">		return new MimeType(string, 1);</span>
+	}
+
+	private double extractQualifier(String string) {
+<span class="fc" id="L148">		double qualifier = DEFAULT_QUALIFIER_VALUE;</span>
+<span class="pc bpc" id="L149" title="1 of 2 branches missed.">		if (string.contains(&quot;q=&quot;)) {</span>
+<span class="fc" id="L150">			Matcher matcher = Pattern.compile(&quot;\\s*q=(.+)\\s*&quot;).matcher(string);</span>
+<span class="fc" id="L151">			matcher.find();</span>
+<span class="fc" id="L152">			String value = matcher.group(1);</span>
+<span class="fc" id="L153">			qualifier = Double.parseDouble(value);</span>
+		}
+<span class="fc" id="L155">		return qualifier;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

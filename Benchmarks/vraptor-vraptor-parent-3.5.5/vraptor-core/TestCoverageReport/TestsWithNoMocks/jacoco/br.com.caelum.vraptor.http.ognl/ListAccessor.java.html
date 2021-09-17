@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ListAccessor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.http.ognl</a> &gt; <span class="el_source">ListAccessor.java</span></div><h1>ListAccessor.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package br.com.caelum.vraptor.http.ognl;
+
+import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.List;
+import java.util.Map;
+import java.util.ResourceBundle;
+
+import ognl.Evaluation;
+import ognl.ListPropertyAccessor;
+import ognl.OgnlContext;
+import ognl.OgnlException;
+import br.com.caelum.vraptor.Converter;
+import br.com.caelum.vraptor.core.Converters;
+import br.com.caelum.vraptor.proxy.Proxifier;
+import br.com.caelum.vraptor.util.StringUtils;
+
+/**
+ * This list accessor is responsible for setting null values up to the list
+ * size.&lt;br&gt;
+ * Compatibility issues might arrive (in previous vraptor versions, the object
+ * was instantiated instead of null being set).
+ *
+ * @author Guilherme Silveira
+ *
+ */
+public class ListAccessor extends ListPropertyAccessor {
+
+	private final Converters converters;
+
+<span class="fc" id="L49">	public ListAccessor(Converters converters) {</span>
+<span class="fc" id="L50">		this.converters = converters;</span>
+<span class="fc" id="L51">	}</span>
+
+	@Override
+	public Object getProperty(Map context, Object target, Object value) throws OgnlException {
+		try {
+<span class="nc" id="L56">			return super.getProperty(context, target, value);</span>
+<span class="nc" id="L57">		} catch (IndexOutOfBoundsException ex) {</span>
+<span class="nc" id="L58">			return null;</span>
+		}
+	}
+
+	@Override
+	@SuppressWarnings(&quot;unchecked&quot;)
+	public void setProperty(Map context, Object target, Object key, Object value) throws OgnlException {
+		// code comments by Guilherme Silveira in a moment of rage agains ognl
+		// code
+<span class="fc" id="L67">		List&lt;?&gt; list = (List&lt;?&gt;) target;</span>
+<span class="fc" id="L68">		int index = (Integer) key;</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">		for (int i = list.size(); i &lt;= index; i++) {</span>
+<span class="fc" id="L70">			list.add(null);</span>
+		}
+<span class="pc bpc" id="L72" title="1 of 2 branches missed.">		if (value instanceof String) {</span>
+			// it might be that suckable ognl did not call convert, i.e.: on the
+			// values[i] = 2l in a List&lt;Long&gt;.
+			// we all just looooove ognl.
+<span class="fc" id="L76">			OgnlContext ctx = (OgnlContext) context;</span>
+			// if direct injecting, cannot find out what to do, use string
+
+<span class="fc" id="L79">			Type genericType = extractGenericType(ctx, target);</span>
+
+<span class="fc" id="L81">		Class type = getActualType(genericType);</span>
+
+			// suckable ognl doesnt support dependency injection or
+			// anything alike... just that suckable context... therefore
+			// procedural
+			// programming and ognl live together forever!
+<span class="fc" id="L87">			Converter&lt;?&gt; converter = converters.to(type);</span>
+
+<span class="fc" id="L89">			ResourceBundle bundle = (ResourceBundle) context.get(ResourceBundle.class);</span>
+
+<span class="fc" id="L91">			Object result = converter.convert((String) value, type, bundle);</span>
+
+<span class="fc" id="L93">			super.setProperty(context, target, key, result);</span>
+<span class="fc" id="L94">			return;</span>
+		}
+<span class="nc" id="L96">		super.setProperty(context, target, key, value);</span>
+<span class="nc" id="L97">	}</span>
+
+	private Class getActualType(Type genericType) {
+		Class type;
+<span class="pc bpc" id="L101" title="1 of 2 branches missed.">		if (genericType instanceof ParameterizedType) {</span>
+<span class="fc" id="L102">			type = (Class) ((ParameterizedType) genericType).getActualTypeArguments()[0];</span>
+		} else {
+<span class="nc" id="L104">			type = (Class) genericType;</span>
+		}
+<span class="fc" id="L106">		return type;</span>
+	}
+
+	private Type extractGenericType(OgnlContext ctx, Object target) {
+		Type genericType;
+
+<span class="pc bpc" id="L112" title="1 of 2 branches missed.">		if (ctx.getRoot() != target) {</span>
+<span class="fc" id="L113">			Evaluation eval = ctx.getCurrentEvaluation();</span>
+<span class="fc" id="L114">			Evaluation previous = eval.getPrevious();</span>
+<span class="fc" id="L115">			String fieldName = previous.getNode().toString();</span>
+<span class="fc" id="L116">			Object origin = previous.getSource();</span>
+			
+<span class="fc" id="L118">			Proxifier proxifier = (Proxifier) ctx.get(&quot;proxifier&quot;);</span>
+<span class="fc" id="L119">			Method getter = new ReflectionBasedNullHandler(proxifier).findGetter(origin, StringUtils.capitalize(fieldName));</span>
+			
+<span class="fc" id="L121">			genericType = getter.getGenericReturnType();</span>
+<span class="fc" id="L122">		} else {</span>
+<span class="nc" id="L123">			genericType = (Type) ctx.get(&quot;rootType&quot;);</span>
+		}
+<span class="fc" id="L125">		return genericType;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

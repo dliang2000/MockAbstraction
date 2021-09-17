@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FixedMethodStrategy.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.http.route</a> &gt; <span class="el_source">FixedMethodStrategy.java</span></div><h1>FixedMethodStrategy.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package br.com.caelum.vraptor.http.route;
+
+import static com.google.common.base.Objects.equal;
+
+import java.lang.reflect.Method;
+import java.util.EnumSet;
+import java.util.Set;
+
+import br.com.caelum.vraptor.http.MutableRequest;
+import br.com.caelum.vraptor.resource.HttpMethod;
+import br.com.caelum.vraptor.resource.ResourceMethod;
+import br.com.caelum.vraptor.util.Stringnifier;
+
+/**
+ * A route strategy which invokes a fixed type's method.
+ *
+ * @author guilherme silveira
+ */
+public class FixedMethodStrategy implements Route {
+
+	private final ResourceMethod resourceMethod;
+
+	private final EnumSet&lt;HttpMethod&gt; methods;
+
+	private final ParametersControl parameters;
+
+	private final int priority;
+
+	private final String originalUri;
+
+	private final String[] parameterNames;
+
+
+	public FixedMethodStrategy(String originalUri, ResourceMethod method, Set&lt;HttpMethod&gt; methods,
+<span class="fc" id="L52">			ParametersControl control, int priority, String[] parameterNames) {</span>
+<span class="fc" id="L53">		this.originalUri = originalUri;</span>
+<span class="fc" id="L54">		this.parameterNames = parameterNames;</span>
+<span class="fc bfc" id="L55" title="All 2 branches covered.">		this.methods = methods.isEmpty() ? EnumSet.allOf(HttpMethod.class) : EnumSet.copyOf(methods);</span>
+<span class="fc" id="L56">		this.parameters = control;</span>
+<span class="fc" id="L57">		this.resourceMethod = method;</span>
+<span class="fc" id="L58">		this.priority = priority;</span>
+<span class="fc" id="L59">	}</span>
+
+	public boolean canHandle(Class&lt;?&gt; type, Method method) {
+<span class="fc bfc" id="L62" title="All 2 branches covered.">		return type.equals(this.resourceMethod.getResource().getType())</span>
+<span class="fc bfc" id="L63" title="All 2 branches covered.">				&amp;&amp; method.equals(this.resourceMethod.getMethod());</span>
+	}
+
+	public ResourceMethod resourceMethod(MutableRequest request, String uri) {
+<span class="fc" id="L67">		parameters.fillIntoRequest(uri, request);</span>
+<span class="fc" id="L68">		return this.resourceMethod;</span>
+	}
+
+	public EnumSet&lt;HttpMethod&gt; allowedMethods() {
+<span class="fc" id="L72">		return methods;</span>
+	}
+
+	public boolean canHandle(String uri) {
+<span class="fc" id="L76">		return parameters.matches(uri);</span>
+	}
+
+	public String urlFor(Class&lt;?&gt; type, Method m, Object... params) {
+<span class="fc" id="L80">		return parameters.fillUri(parameterNames, params);</span>
+	}
+
+	public int getPriority() {
+<span class="fc" id="L84">		return this.priority;</span>
+	}
+
+	public String getOriginalUri() {
+<span class="nc" id="L88">		return this.originalUri;</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L93">		return String.format(&quot;[FixedMethodStrategy: %-65s %-70s %s]&quot;, originalUri, Stringnifier</span>
+<span class="pc bpc" id="L94" title="1 of 2 branches missed.">				.simpleNameFor(resourceMethod.getMethod()), methods.size() == HttpMethod.values().length ? &quot;ALL&quot; : methods);</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L99">		final int prime = 31;</span>
+<span class="fc" id="L100">		int result = 1;</span>
+<span class="pc bpc" id="L101" title="1 of 2 branches missed.">		result = prime * result + ((methods == null) ? 0 : methods.hashCode());</span>
+<span class="pc bpc" id="L102" title="1 of 2 branches missed.">		result = prime * result + ((originalUri == null) ? 0 : originalUri.hashCode());</span>
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">		result = prime * result + ((resourceMethod == null) ? 0 : resourceMethod.hashCode());</span>
+<span class="fc" id="L104">		return result;</span>
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+<span class="nc bnc" id="L109" title="All 2 branches missed.">		if (this == obj) {</span>
+<span class="nc" id="L110">			return true;</span>
+		}
+<span class="nc bnc" id="L112" title="All 2 branches missed.">		if (obj == null) {</span>
+<span class="nc" id="L113">			return false;</span>
+		}
+<span class="nc bnc" id="L115" title="All 2 branches missed.">		if (getClass() != obj.getClass()) {</span>
+<span class="nc" id="L116">			return false;</span>
+		}
+<span class="nc" id="L118">		FixedMethodStrategy other = (FixedMethodStrategy) obj;</span>
+<span class="nc bnc" id="L119" title="All 6 branches missed.">		return equal(methods, other.methods) &amp;&amp; equal(originalUri, other.originalUri) &amp;&amp; equal(resourceMethod,other.resourceMethod);</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

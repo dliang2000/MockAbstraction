@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>XStreamJSONPSerialization.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.serialization.xstream</a> &gt; <span class="el_source">XStreamJSONPSerialization.java</span></div><h1>XStreamJSONPSerialization.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+package br.com.caelum.vraptor.serialization.xstream;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+
+import javax.servlet.http.HttpServletResponse;
+
+import br.com.caelum.vraptor.interceptor.TypeNameExtractor;
+import br.com.caelum.vraptor.ioc.Component;
+import br.com.caelum.vraptor.serialization.JSONPSerialization;
+import br.com.caelum.vraptor.serialization.JSONSerialization;
+import br.com.caelum.vraptor.serialization.ProxyInitializer;
+import br.com.caelum.vraptor.serialization.SerializerBuilder;
+import br.com.caelum.vraptor.view.ResultException;
+
+/**
+ *
+ * Default implementation for JSONPSerialization that decorates default jsonSerialization output
+ * adding the callback padding
+ *
+ * @author Lucas Cavalcanti
+ * @author Pedro Matiello
+ * @since 3.3.0
+ *
+ */
+@Component
+public class XStreamJSONPSerialization implements JSONPSerialization {
+
+	private final HttpServletResponse response;
+	private final TypeNameExtractor extractor;
+	private final ProxyInitializer initializer;
+	private final XStreamBuilder builder;
+
+<span class="fc" id="L50">	public XStreamJSONPSerialization(HttpServletResponse response, TypeNameExtractor extractor, ProxyInitializer initializer, XStreamBuilder builder) {</span>
+<span class="fc" id="L51">		this.response = response;</span>
+<span class="fc" id="L52">		this.extractor = extractor;</span>
+<span class="fc" id="L53">		this.initializer = initializer;</span>
+<span class="fc" id="L54">		this.builder = builder;</span>
+<span class="fc" id="L55">	}</span>
+
+	public JSONSerialization withCallback(final String callbackName) {
+<span class="fc" id="L58">		return new XStreamJSONSerialization(response, extractor, initializer, builder) {</span>
+			@Override
+			protected SerializerBuilder getSerializer() {
+				try {
+<span class="fc" id="L62">					final PrintWriter writer = response.getWriter();</span>
+<span class="fc" id="L63">					final StringWriter out = new StringWriter();</span>
+<span class="fc" id="L64">					return new XStreamSerializer(super.getXStream(), new PrintWriter(out), extractor, initializer) {</span>
+						@Override
+						public void serialize() {
+<span class="fc" id="L67">							super.serialize();</span>
+<span class="fc" id="L68">							writer.append(callbackName).append(&quot;(&quot;).append(out.getBuffer()).append(&quot;)&quot;);</span>
+<span class="fc" id="L69">							writer.close();</span>
+<span class="fc" id="L70">						}</span>
+					};
+<span class="nc" id="L72">				} catch (IOException e) {</span>
+<span class="nc" id="L73">					throw new ResultException(&quot;Unable to serialize data&quot;, e);</span>
+				}
+			}
+		};
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

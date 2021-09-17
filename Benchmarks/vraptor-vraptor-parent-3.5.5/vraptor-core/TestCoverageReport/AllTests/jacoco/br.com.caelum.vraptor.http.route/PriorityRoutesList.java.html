@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PriorityRoutesList.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.http.route</a> &gt; <span class="el_source">PriorityRoutesList.java</span></div><h1>PriorityRoutesList.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package br.com.caelum.vraptor.http.route;
+
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.Map.Entry;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+/**
+ * Order Routes by priority
+ * @author Lucas Cavalcanti
+ *
+ */
+public class PriorityRoutesList implements Collection&lt;Route&gt; {
+
+	private final SortedMap&lt;Integer, Set&lt;Route&gt;&gt; map;
+
+	private List&lt;Route&gt; cache;
+
+<span class="fc" id="L42">	private Lock cacheLock = new ReentrantLock();</span>
+
+<span class="fc" id="L44">	public PriorityRoutesList() {</span>
+<span class="fc" id="L45">		map = new TreeMap&lt;Integer, Set&lt;Route&gt;&gt;();</span>
+<span class="fc" id="L46">	}</span>
+
+	private List&lt;Route&gt; getFullList() {
+		try {
+<span class="fc" id="L50">			cacheLock.lock();</span>
+<span class="fc bfc" id="L51" title="All 2 branches covered.">			if (cache == null) {</span>
+<span class="fc" id="L52">				cache = new LinkedList&lt;Route&gt;();</span>
+<span class="fc bfc" id="L53" title="All 2 branches covered.">				for (Entry&lt;Integer, Set&lt;Route&gt;&gt; entry : map.entrySet()) {</span>
+<span class="fc" id="L54">					cache.addAll(entry.getValue());</span>
+<span class="fc" id="L55">				}</span>
+			}
+<span class="fc" id="L57">			return cache;</span>
+		} finally {
+<span class="fc" id="L59">			cacheLock.unlock();</span>
+		}
+	}
+	private Set&lt;Route&gt; getSetFor(Route e) {
+<span class="fc bfc" id="L63" title="All 2 branches covered.">		if (!map.containsKey(e.getPriority())) {</span>
+<span class="fc" id="L64">			map.put(e.getPriority(), new LinkedHashSet&lt;Route&gt;());</span>
+		}
+<span class="fc" id="L66">		return map.get(e.getPriority());</span>
+	}
+
+	public boolean add(Route e) {
+<span class="fc" id="L70">		cache = null;</span>
+<span class="fc" id="L71">		return getSetFor(e).add(e);</span>
+	}
+
+
+	public boolean addAll(Collection&lt;? extends Route&gt; c) {
+<span class="nc bnc" id="L76" title="All 2 branches missed.">		for (Route route : c) {</span>
+<span class="nc" id="L77">			add(route);</span>
+<span class="nc" id="L78">		}</span>
+<span class="nc" id="L79">		return true;</span>
+	}
+
+	public void clear() {
+<span class="nc" id="L83">		cache = null;</span>
+<span class="nc" id="L84">		map.clear();</span>
+<span class="nc" id="L85">	}</span>
+
+	public boolean contains(Object o) {
+<span class="nc" id="L88">		return getFullList().contains(o);</span>
+	}
+
+	public boolean containsAll(Collection&lt;?&gt; c) {
+<span class="nc" id="L92">		return getFullList().containsAll(c);</span>
+	}
+
+	public boolean isEmpty() {
+<span class="nc" id="L96">		return getFullList().isEmpty();</span>
+	}
+
+	public Iterator&lt;Route&gt; iterator() {
+<span class="fc" id="L100">		return getFullList().iterator();</span>
+	}
+
+	public boolean remove(Object o) {
+<span class="nc" id="L104">		throw new UnsupportedOperationException();</span>
+	}
+
+	public boolean removeAll(Collection&lt;?&gt; c) {
+<span class="nc" id="L108">		throw new UnsupportedOperationException();</span>
+	}
+
+	public boolean retainAll(Collection&lt;?&gt; c) {
+<span class="nc" id="L112">		throw new UnsupportedOperationException();</span>
+	}
+
+	public int size() {
+<span class="nc" id="L116">		return getFullList().size();</span>
+	}
+
+	public Object[] toArray() {
+<span class="fc" id="L120">		return getFullList().toArray();</span>
+	}
+
+	public &lt;T&gt; T[] toArray(T[] a) {
+<span class="nc" id="L124">		return getFullList().toArray(a);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

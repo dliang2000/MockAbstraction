@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SpringRegistry.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.ioc.spring</a> &gt; <span class="el_source">SpringRegistry.java</span></div><h1>SpringRegistry.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+package br.com.caelum.vraptor.ioc.spring;
+
+import java.util.Arrays;
+import java.util.Collection;
+
+import org.springframework.aop.config.AopConfigUtils;
+import org.springframework.aop.scope.ScopedProxyUtils;
+import org.springframework.beans.factory.annotation.AnnotatedGenericBeanDefinition;
+import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.beans.factory.config.BeanDefinitionHolder;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.beans.factory.support.AbstractBeanDefinition;
+import org.springframework.beans.factory.support.BeanDefinitionReaderUtils;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.BeanNameGenerator;
+import org.springframework.beans.factory.support.RootBeanDefinition;
+import org.springframework.context.annotation.AnnotationBeanNameGenerator;
+import org.springframework.context.annotation.AnnotationConfigUtils;
+import org.springframework.context.annotation.ScopeMetadata;
+import org.springframework.context.annotation.ScopedProxyMode;
+import org.springframework.core.Ordered;
+import org.springframework.web.context.support.WebApplicationContextUtils;
+
+import br.com.caelum.vraptor.core.BaseComponents;
+import br.com.caelum.vraptor.ioc.ComponentFactory;
+import br.com.caelum.vraptor.ioc.Container;
+
+/**
+ * Class responsible for registering beans on spring.
+ * 
+ * @author Lucas Cavalcanti
+ * @author Douglas Campos (qmx)
+ * @since 3.3.0
+ */
+public class SpringRegistry {
+
+<span class="fc" id="L52">	private final BeanNameGenerator beanNameGenerator = new UniqueBeanNameGenerator(new AnnotationBeanNameGenerator());</span>
+	private final ConfigurableListableBeanFactory beanFactory;
+<span class="fc" id="L54">	private final VRaptorScopeResolver scopeResolver = new VRaptorScopeResolver();</span>
+	private final Container container;
+
+<span class="fc" id="L57">	public SpringRegistry(ConfigurableListableBeanFactory configurableListableBeanFactory, Container container) {</span>
+<span class="fc" id="L58">		this.beanFactory = configurableListableBeanFactory;</span>
+<span class="fc" id="L59">		this.container = container;</span>
+<span class="fc" id="L60">	}</span>
+
+	private void registerOn(Class&lt;?&gt; type, boolean customComponent) {
+<span class="fc" id="L63">		AnnotatedGenericBeanDefinition definition = new AnnotatedGenericBeanDefinition(type);</span>
+<span class="fc bfc" id="L64" title="All 2 branches covered.">		if (!customComponent) {</span>
+<span class="fc" id="L65">			definition.setLazyInit(true);</span>
+		}
+<span class="fc" id="L67">		definition.setAutowireMode(AbstractBeanDefinition.AUTOWIRE_NO);</span>
+<span class="fc" id="L68">		definition.setPrimary(customComponent);</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">		definition.setRole(customComponent ? BeanDefinition.ROLE_APPLICATION : BeanDefinition.ROLE_INFRASTRUCTURE);</span>
+
+<span class="fc" id="L71">		String name = beanNameGenerator.generateBeanName(definition, (BeanDefinitionRegistry) beanFactory);</span>
+<span class="fc" id="L72">		BeanDefinitionHolder definitionHolder = new BeanDefinitionHolder(definition, name);</span>
+
+<span class="fc" id="L74">		ScopeMetadata scopeMetadata = scopeResolver.resolveScopeMetadata(definition);</span>
+<span class="fc" id="L75">		definitionHolder = applyScopeOn(definitionHolder, scopeMetadata);</span>
+
+<span class="fc" id="L77">		BeanDefinitionReaderUtils.registerBeanDefinition(definitionHolder, (BeanDefinitionRegistry) beanFactory);</span>
+<span class="fc" id="L78">	}</span>
+
+	/**
+	 * From org.springframework.context.annotation.ClassPathBeanDefinitionScanner#applyScope()
+	 * @param definition
+	 * @param scopeMetadata
+	 *
+	 * @return
+	 */
+	private BeanDefinitionHolder applyScopeOn(BeanDefinitionHolder definition, ScopeMetadata scopeMetadata) {
+<span class="fc" id="L88">		String scope = scopeMetadata.getScopeName();</span>
+<span class="fc" id="L89">		ScopedProxyMode proxyMode = scopeMetadata.getScopedProxyMode();</span>
+<span class="fc" id="L90">		definition.getBeanDefinition().setScope(scope);</span>
+<span class="fc bfc" id="L91" title="All 4 branches covered.">		if (BeanDefinition.SCOPE_SINGLETON.equals(scope) || BeanDefinition.SCOPE_PROTOTYPE.equals(scope)</span>
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">				|| proxyMode.equals(ScopedProxyMode.NO)) {</span>
+<span class="fc" id="L93">			return definition;</span>
+		} else {
+<span class="nc" id="L95">			boolean proxyTargetClass = proxyMode.equals(ScopedProxyMode.TARGET_CLASS);</span>
+<span class="nc" id="L96">			return ScopedProxyUtils.createScopedProxy(definition, (BeanDefinitionRegistry) beanFactory, proxyTargetClass);</span>
+		}
+	}
+
+	private void registerOn(Class&lt;?&gt; type) {
+<span class="fc" id="L101">		registerOn(type, false);</span>
+<span class="fc" id="L102">	}</span>
+
+	@SuppressWarnings({ &quot;unchecked&quot;, &quot;rawtypes&quot; })
+	private void registerFactory(final Class&lt;?&gt; type) {
+<span class="fc bfc" id="L106" title="All 2 branches covered.">		if (ComponentFactory.class.isAssignableFrom(type)) {</span>
+<span class="fc" id="L107">			beanFactory.registerSingleton(type.getName(), new ComponentFactoryBean(container, type));</span>
+		}
+<span class="fc" id="L109">	}</span>
+
+	void register(final Class&lt;?&gt; type) {
+<span class="fc" id="L112">		register(type, true);</span>
+<span class="fc" id="L113">	}</span>
+
+	private void register(final Class&lt;?&gt; type, boolean customComponent) {
+<span class="fc" id="L116">		registerOn(type, customComponent);</span>
+<span class="fc" id="L117">		registerFactory(type);</span>
+<span class="fc" id="L118">	}</span>
+
+	private void registerPrototypeScopedComponentsOn() {
+<span class="fc bfc" id="L121" title="All 2 branches covered.">		for (Class&lt;?&gt; prototypeComponent : BaseComponents.getPrototypeScoped().values()) {</span>
+<span class="fc" id="L122">			registerOn(prototypeComponent);</span>
+<span class="fc" id="L123">		}</span>
+<span class="fc" id="L124">	}</span>
+
+	private void registerCachedComponentsOn() {
+<span class="pc bpc" id="L127" title="1 of 2 branches missed.">		for (Class&lt;?&gt; cachedComponent : BaseComponents.getCachedComponents().values()) {</span>
+<span class="nc" id="L128">			registerOn(cachedComponent, true);</span>
+<span class="nc" id="L129">		}</span>
+<span class="fc" id="L130">	}</span>
+
+	private void registerApplicationScopedComponentsOn() {
+<span class="fc" id="L133">		registerComponents(BaseComponents.getApplicationScoped().values());</span>
+
+<span class="fc" id="L135">		registerComponents(Arrays.asList(BaseComponents.getStereotypeHandlers()));</span>
+
+<span class="fc" id="L137">		registerOn(StereotypedBeansRegistrar.class);</span>
+<span class="fc" id="L138">		registerOn(DefaultSpringLocator.class);</span>
+<span class="fc" id="L139">	}</span>
+
+	private void registerRequestScopedComponentsOn() {
+<span class="fc" id="L142">		registerComponents(BaseComponents.getRequestScoped().values());</span>
+
+<span class="fc" id="L144">		registerComponents(BaseComponents.getBundledConverters());</span>
+
+<span class="fc" id="L146">		registerOn(VRaptorRequestProvider.class, true);</span>
+<span class="fc" id="L147">		registerOn(HttpServletRequestProvider.class, true);</span>
+<span class="fc" id="L148">		registerOn(HttpServletResponseProvider.class, true);</span>
+<span class="fc" id="L149">		registerOn(HttpSessionProvider.class, true);</span>
+
+<span class="fc" id="L151">		beanFactory.registerSingleton(SpringBasedContainer.class.getName(), container);</span>
+<span class="fc" id="L152">	}</span>
+
+	private void registerVRaptorComponents() {
+<span class="fc" id="L155">		registerApplicationScopedComponentsOn();</span>
+<span class="fc" id="L156">		registerRequestScopedComponentsOn();</span>
+<span class="fc" id="L157">		registerPrototypeScopedComponentsOn();</span>
+<span class="fc" id="L158">	}</span>
+
+	private void registerCustomInjectionProcessor() {
+<span class="fc" id="L161">		RootBeanDefinition definition = new RootBeanDefinition(InjectionBeanPostProcessor.class);</span>
+<span class="fc" id="L162">		definition.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);</span>
+<span class="fc" id="L163">		definition.getPropertyValues().addPropertyValue(&quot;order&quot;, Ordered.LOWEST_PRECEDENCE);</span>
+<span class="fc" id="L164">		((BeanDefinitionRegistry) beanFactory).registerBeanDefinition(AnnotationConfigUtils.AUTOWIRED_ANNOTATION_PROCESSOR_BEAN_NAME, definition);</span>
+<span class="fc" id="L165">	}</span>
+
+	void registerCustomComponents(Collection&lt;Class&lt;?&gt;&gt; toRegister) {
+<span class="fc bfc" id="L168" title="All 2 branches covered.">		for (Class&lt;?&gt; type : toRegister) {</span>
+<span class="fc" id="L169">			register(type);</span>
+<span class="fc" id="L170">		}</span>
+<span class="fc" id="L171">	}</span>
+
+	private &lt;T&gt; void registerComponents(Collection&lt;Class&lt;? extends T&gt;&gt; toRegister) {
+<span class="fc bfc" id="L174" title="All 2 branches covered.">		for (Class&lt;?&gt; type : toRegister) {</span>
+<span class="fc" id="L175">			register(type, false);</span>
+<span class="fc" id="L176">		}</span>
+<span class="fc" id="L177">	}</span>
+
+	void configure() {
+<span class="fc" id="L180">		registerVRaptorComponents();</span>
+
+<span class="fc" id="L182">		AnnotationConfigUtils.registerAnnotationConfigProcessors((BeanDefinitionRegistry) beanFactory);</span>
+<span class="fc" id="L183">		AopConfigUtils.registerAspectJAnnotationAutoProxyCreatorIfNecessary((BeanDefinitionRegistry) beanFactory);</span>
+
+<span class="fc" id="L185">		registerCustomInjectionProcessor();</span>
+
+<span class="fc" id="L187">		registerCachedComponentsOn();</span>
+
+<span class="fc" id="L189">		WebApplicationContextUtils.registerWebApplicationScopes(beanFactory);</span>
+<span class="fc" id="L190">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

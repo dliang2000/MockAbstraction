@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GsonDeserialization.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.deserialization.gson</a> &gt; <span class="el_source">GsonDeserialization.java</span></div><h1>GsonDeserialization.java</h1><pre class="source lang-java linenums">package br.com.caelum.vraptor.deserialization.gson;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+import java.util.Collection;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import br.com.caelum.vraptor.deserialization.Deserializer;
+import br.com.caelum.vraptor.deserialization.Deserializes;
+import br.com.caelum.vraptor.http.ParameterNameProvider;
+import br.com.caelum.vraptor.resource.ResourceMethod;
+import br.com.caelum.vraptor.view.ResultException;
+
+import com.google.common.base.Objects;
+import com.google.common.base.Strings;
+import com.google.common.io.CharStreams;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+/**
+ *
+ * @author Renan Reis
+ * @author Guilherme Mangabeira
+ */
+
+@Deserializes({ &quot;application/json&quot;, &quot;json&quot; })
+@SuppressWarnings(&quot;rawtypes&quot;)
+public class GsonDeserialization implements Deserializer {
+
+<span class="fc" id="L44">	private static final Logger logger = LoggerFactory.getLogger(GsonDeserialization.class);</span>
+
+	private final ParameterNameProvider paramNameProvider;
+
+	private final Collection&lt;JsonDeserializer&gt; adapters;
+
+	private final HttpServletRequest request;
+
+<span class="fc" id="L52">	public GsonDeserialization(ParameterNameProvider paramNameProvider, JsonDeserializers adapters, HttpServletRequest request) {</span>
+<span class="fc" id="L53">		this.paramNameProvider = paramNameProvider;</span>
+<span class="fc" id="L54">		this.adapters = adapters.getDeserializers();</span>
+<span class="fc" id="L55">		this.request = request;</span>
+<span class="fc" id="L56">	}</span>
+
+	public Object[] deserialize(InputStream inputStream, ResourceMethod method) {
+<span class="fc" id="L59">		Class&lt;?&gt;[] types = getTypes(method);</span>
+
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">		if (types.length == 0) {</span>
+<span class="fc" id="L62">			throw new IllegalArgumentException(</span>
+					&quot;Methods that consumes representations must receive at least one argument&quot;);
+		}
+
+<span class="nc" id="L66">		Gson gson = getGson();</span>
+
+<span class="nc" id="L68">		Object[] params = new Object[types.length];</span>
+<span class="nc" id="L69">		String[] parameterNames = paramNameProvider.parameterNamesFor(method.getMethod());</span>
+
+		try {
+<span class="nc" id="L72">			String content = getContentOfStream(inputStream);</span>
+
+<span class="nc bnc" id="L74" title="All 2 branches missed.">			if (Strings.isNullOrEmpty(content)) {</span>
+<span class="nc" id="L75">				logger.debug(&quot;json with no content&quot;);</span>
+<span class="nc" id="L76">				return params;</span>
+			}
+
+<span class="nc" id="L79">			logger.debug(&quot;json retrieved: {}&quot;, content);</span>
+
+<span class="nc" id="L81">			JsonParser parser = new JsonParser();</span>
+<span class="nc" id="L82">			JsonElement jsonElement = parser.parse(content);</span>
+
+<span class="nc bnc" id="L84" title="All 2 branches missed.">			if (jsonElement.isJsonObject()) {</span>
+<span class="nc" id="L85">				JsonObject root = jsonElement.getAsJsonObject();</span>
+				
+<span class="nc bnc" id="L87" title="All 2 branches missed.">				for (int i = 0; i &lt; types.length; i++) {</span>
+<span class="nc" id="L88">					String name = parameterNames[i];</span>
+<span class="nc" id="L89">					JsonElement node = root.get(name);</span>
+					
+<span class="nc bnc" id="L91" title="All 2 branches missed.">					if (isWithoutRoot(parameterNames, root)) {</span>
+<span class="nc" id="L92">						params[i] = gson.fromJson(root, types[i]);</span>
+<span class="nc" id="L93">						logger.info(&quot;json without root deserialized&quot;);</span>
+<span class="nc" id="L94">						break;</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">					} else if (node != null) {</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">						if (node.isJsonArray()) {</span>
+<span class="nc" id="L97">							JsonArray jsonArray = node.getAsJsonArray();</span>
+							
+<span class="nc" id="L99">							Type type = method.getMethod().getGenericParameterTypes()[i];</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">							if (type instanceof ParameterizedType) {</span>
+<span class="nc" id="L101">								params[i] = gson.fromJson(jsonArray, type);</span>
+							} else {
+<span class="nc" id="L103">								params[i] = gson.fromJson(jsonArray, types[i]);</span>
+							}
+<span class="nc" id="L105">						} else {</span>
+<span class="nc" id="L106">							params[i] = gson.fromJson(node, types[i]);</span>
+						}
+					}
+				}
+<span class="nc bnc" id="L110" title="All 2 branches missed.">			} else if (jsonElement.isJsonArray()) {</span>
+<span class="nc bnc" id="L111" title="All 4 branches missed.">				if ((parameterNames.length != 1) || (!(method.getMethod().getGenericParameterTypes()[0] instanceof ParameterizedType))) {</span>
+<span class="nc" id="L112">			throw new IllegalArgumentException(&quot;Methods that consumes an array representation must receive only just one collection generic typed argument&quot;);</span>
+				}
+				
+<span class="nc" id="L115">				JsonArray jsonArray= jsonElement.getAsJsonArray();</span>
+<span class="nc" id="L116">				params[0] = gson.fromJson(jsonArray, method.getMethod().getGenericParameterTypes()[0]);</span>
+			}
+<span class="nc" id="L118">		} catch (Exception e) {</span>
+<span class="nc" id="L119">			throw new ResultException(&quot;Unable to deserialize data&quot;, e);</span>
+<span class="nc" id="L120">		}</span>
+
+<span class="nc" id="L122">		logger.debug(&quot;json deserialized: {}&quot;, (Object) params);</span>
+<span class="nc" id="L123">		return params;</span>
+	}
+
+	private boolean isWithoutRoot(String[] parameterNames, JsonObject root) {
+<span class="nc bnc" id="L127" title="All 2 branches missed.">		for(String parameterName : parameterNames) {</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">			if(root.get(parameterName) != null) return false;</span>
+		}
+<span class="nc" id="L130">		return true;</span>
+	}
+
+	protected Class&lt;?&gt;[] getTypes(ResourceMethod method) {
+<span class="fc" id="L134">		Class&lt;?&gt; genericType = getSuperClassTypeArgument(method);</span>
+
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">		if (genericType != null) {</span>
+<span class="nc" id="L137">			return parseGenericParameters(method.getMethod(), genericType);</span>
+		}
+
+<span class="fc" id="L140">		return method.getMethod().getParameterTypes();</span>
+	}
+
+	private Class&lt;?&gt;[] parseGenericParameters(Method method, Class&lt;?&gt; genericType) {
+<span class="nc" id="L144">		Class&lt;?&gt;[] paramClasses = method.getParameterTypes();</span>
+<span class="nc" id="L145">		Type[] paramTypes = method.getGenericParameterTypes();</span>
+
+<span class="nc" id="L147">		Class&lt;?&gt;[] result = new Class&lt;?&gt;[paramTypes.length];</span>
+
+<span class="nc bnc" id="L149" title="All 2 branches missed.">		for (int i = 0; i &lt; paramTypes.length; i++) {</span>
+<span class="nc" id="L150">			Type paramType = paramTypes[i];</span>
+
+<span class="nc bnc" id="L152" title="All 2 branches missed.">			if (paramType instanceof TypeVariable) {</span>
+<span class="nc" id="L153">				result[i] = genericType;</span>
+			} else {
+<span class="nc" id="L155">				result[i] = paramClasses[i];</span>
+			}
+		}
+
+<span class="nc" id="L159">		return result;</span>
+	}
+
+	private Class&lt;?&gt; getSuperClassTypeArgument(ResourceMethod method) {
+<span class="fc" id="L163">		Type genericType = method.getResource().getType().getGenericSuperclass();</span>
+
+<span class="pc bpc" id="L165" title="1 of 2 branches missed.">		if (genericType instanceof ParameterizedType) {</span>
+<span class="nc" id="L166">			return (Class&lt;?&gt;) ((ParameterizedType) genericType).getActualTypeArguments()[0];</span>
+		}
+
+<span class="fc" id="L169">		return null;</span>
+	}
+
+	protected Gson getGson() {
+<span class="nc" id="L173">		GsonBuilder builder = new GsonBuilder();</span>
+
+<span class="nc bnc" id="L175" title="All 2 branches missed.">		for (JsonDeserializer&lt;?&gt; adapter : adapters) {</span>
+<span class="nc" id="L176">			builder.registerTypeHierarchyAdapter(getAdapterType(adapter), adapter);</span>
+<span class="nc" id="L177">		}</span>
+
+<span class="nc" id="L179">		return builder.create();</span>
+	}
+
+	private Class&lt;?&gt; getAdapterType(JsonDeserializer&lt;?&gt; adapter) {
+<span class="nc" id="L183">		Type[] genericInterfaces = adapter.getClass().getGenericInterfaces();</span>
+<span class="nc" id="L184">		ParameterizedType type = (ParameterizedType) genericInterfaces[0];</span>
+<span class="nc" id="L185">		Type actualType = type.getActualTypeArguments()[0];</span>
+
+<span class="nc" id="L187">		return (Class&lt;?&gt;) actualType;</span>
+	}
+
+	private String getContentOfStream(InputStream input) throws IOException {
+<span class="nc" id="L191">		String charset = getRequestCharset();</span>
+<span class="nc" id="L192">		logger.debug(&quot;Using charset {}&quot;, charset);</span>
+<span class="nc" id="L193">		return CharStreams.toString(new InputStreamReader(input, charset));</span>
+	}
+
+	private String getRequestCharset() {
+<span class="nc" id="L197">		String charset = Objects.firstNonNull(request.getHeader(&quot;Accept-Charset&quot;), &quot;UTF-8&quot;);</span>
+<span class="nc" id="L198">		return charset.split(&quot;,&quot;)[0];</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>
