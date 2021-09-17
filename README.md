@@ -67,8 +67,11 @@ or if you want to run Mock Analysis for all benchmarks:
 Benchmarks with more reliable test coverages data: jsonschema2pojo-core-1.1.1, maven-core-3.8.1, microbenchmark, mybatis-3.5.6, vraptor-core-3.5.5
 
 bootique's "mvn clean test" has a selective list of test cases running (trying to figure out the configuration)
+
 quartz's run with test cases excluding intracproc mock objects would result in no test case running (likely configuration issue as well)
+
 commons-collections4-4.4 has many abstract test classes, so the selection of test cases without intraproc mock objects is inaccurate.
+
 flink-core-1.13.0-rc1's test run of test cases without intraproc mock objects produces errors not existing in "mvn clean test".
 
 ### Doop Tables
