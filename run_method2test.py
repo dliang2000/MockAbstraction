@@ -15,7 +15,7 @@ for subdir, dirs, files in os.walk(traindir):
             data = json.load(f)
             for benchmark in benchmarks:
                 if benchmark in data["repository"]["url"]:
-                    print(str[0] + "," + data["repository"]["url"])
+                    print("train" + "," + str[0] + "," + data["repository"]["url"])
             #print(str[0], data["repository"]["url"], data["test_case"]["class_method_signature"], data["focal_method"]["class_method_signature"])
 
 for subdir, dirs, files in os.walk(evaldir):
@@ -27,7 +27,7 @@ for subdir, dirs, files in os.walk(evaldir):
             data = json.load(f)
             for benchmark in benchmarks:
                 if benchmark in data["repository"]["url"]:
-                    print(str[0] + "," + data["repository"]["url"])
+                    print("eval" + "," + str[0] + "," + data["repository"]["url"])
 
 for subdir, dirs, files in os.walk(testdir):
     for file in files:
@@ -38,4 +38,4 @@ for subdir, dirs, files in os.walk(testdir):
             data = json.load(f)
             for benchmark in benchmarks:
                 if benchmark in data["repository"]["url"]:
-                    print(str[0] + "," + data["repository"]["url"])
+                    print("test" + "," + str[0] + "," + data["repository"]["url"])
