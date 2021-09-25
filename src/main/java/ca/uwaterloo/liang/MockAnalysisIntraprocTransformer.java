@@ -213,11 +213,62 @@ public class MockAnalysisIntraprocTransformer extends SceneTransformer {
         
         printMockInvocationToFile();
         
-        printTestsWithoutIntraprocMock();
+        printTestsWithIntraprocMock();
+        
+        //printTestsWithoutIntraprocMock();
         
         mainTimer.end();
         long runtime = mainTimer.getTime();
         System.out.println("" + "Soot has run MockAnalysisMainTransformer for " + runtime + " ms.");
+    }
+    
+    private void printTestsWithIntraprocMock() {
+        List<String[]> linesToAdd = new ArrayList<>();
+        
+        for(SootClass nc : Scene.v().getApplicationClasses()) {
+            if (!Util.isTestClass(nc))
+                continue;
+            
+            HashSet<SootMethod> mockMethods = Util.gatherMockTestMethods(nc, procSummaries);
+            
+            List<SootMethod> ncM = nc.getMethods();
+            
+            ProcSummary pSmy = null;
+            
+            for(SootMethod m : ncM) {
+                if ( !Util.isTestMethod(m) ) 
+                    continue;
+                
+                if (mockMethods.contains(m)) {
+                    
+                    linesToAdd.add(new String[]{m.getDeclaringClass().toString(), m.getName()});
+                    
+                    pSmy = procSummaries.get(m);
+                    if (pSmy == null) 
+                        continue;
+                    
+                    ArrayList<InvokeExpr> invokeOnMocks = pSmy.getInvokeExprsOnMocks();
+                    
+                    if (!invokeOnMocks.isEmpty()) {
+                        for (InvokeExpr invkExpr : invokeOnMocks) {
+                            linesToAdd.add(new String[]{"InvokeExpr method:", invkExpr.getMethod().getName(), invkExpr.getMethod().getReturnType().toString()});
+                        }
+                    }
+                }
+            }
+               
+        }
+        
+        // Collections.sort(linesToAdd, new SortStringArrayList());
+        
+        File outputFile = new File(Runner.output_path + "/" + Runner.benchmark + "-test-cases-with-intraproc-mocks");
+        try (PrintWriter pw = new PrintWriter(outputFile)) {
+            linesToAdd.stream().map(this::convertToCSV).forEach(pw::println);
+        } catch (FileNotFoundException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        
     }
     
     private void printTestsWithoutIntraprocMock() {
