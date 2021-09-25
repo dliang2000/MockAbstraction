@@ -87,7 +87,7 @@ Repository: https://github.com/microsoft/methods2test
 | bootique-2.0-B1/bootique | 129 | 228 | 0.57 |
 | jsonschema2pojo-1.1.1/jsonschema2pojo-core | 120 | 382 | 0.31 |
 | maven-maven-3.8.1/maven-core | 150 | 332 | 0.45 |
-| vraptor-vraptor-parent-3.5.5/vraptor-core | 1089 | 2081 | 0.61 |
+| vraptor-vraptor-parent-3.5.5/vraptor-core | 690 | 1139 | 0.61 |
 | Overall | 1089 | 2081 | 0.52 |
 
 
