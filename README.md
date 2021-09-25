@@ -52,6 +52,7 @@ or if you want to run Mock Analysis for all benchmarks:
 ./runall_MutatedFieldAnalysis.sh
 ```
 
+
 ### Test Coverages
 
 | Benchmark | Code Coverage - All Tests | Code Coverage - Test Cases without Intraproc Mocks | Branch Coverage - All Tests | Branch Coverage - Test Cases without Intraproc Mocks |
@@ -73,6 +74,37 @@ quartz's run with test cases excluding intracproc mock objects would result in n
 commons-collections4-4.4 has many abstract test classes, so the selection of test cases without intraproc mock objects is inaccurate.
 
 flink-core-1.13.0-rc1's test run of test cases without intraproc mock objects produces errors not existing in "mvn clean test".
+
+
+### Focal Method Algorithms/Analysis
+
+### methods2test Recall data
+
+Repository: https://github.com/microsoft/methods2test
+
+| Benchmark | methods2test reported focal methods | Total Number of Tests (Obtained from “mvn clean test”) | Recall (Assuming each test case has one focal method) |
+| --- | --: | --: | --: |
+| bootique-2.0-B1/bootique | 129 | 228 | 0.57 |
+| jsonschema2pojo-1.1.1/jsonschema2pojo-core | 120 | 382 | 0.31 |
+| maven-maven-3.8.1/maven-core | 150 | 332 | 0.45 |
+| vraptor-vraptor-parent-3.5.5/vraptor-core | 1089 | 2081 | 0.61 |
+| Overall | 1089 | 2081 | 0.52 |
+
+
+### Ghafari's Recall data
+
+(No open-source repository found for the benchmark)
+
+Paper: https://www.researchgate.net/publication/295918716_Automatically_Identifying_Focal_Methods_Under_Test_in_Unit_Test_Cases
+
+| Benchmark |  Ghafari's reported focal methods | Total Number of Tests (Obtained from “mvn clean test”) | Recall (Assuming each test case has one focal method) |
+| --- | --: | --: | --: |
+| Commons Email (1.3.3) | 90 | 130 | 0.69 |
+| JGAP (3.4.4) | 1015 | 1390 | 0.73 |
+| PureMVC (1.0.8) | 34 | 43 | 0.79 |
+| XStream (1.4.4) | 513 | 968 | 0.53 |
+| Overall | 1652 | 2531 | 0.65 |
+
 
 ### Doop Tables
 
