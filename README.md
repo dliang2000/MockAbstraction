@@ -82,13 +82,13 @@ flink-core-1.13.0-rc1's test run of test cases without intraproc mock objects pr
 
 Repository: https://github.com/microsoft/methods2test
 
-| Benchmark | methods2test reported focal methods | Total Number of Tests (Obtained from “mvn clean test”) | Recall (Assuming each test case has one focal method) |
+| Benchmark | methods2test reported focal methods | Total Number of Tests (Obtained from “mvn clean test”) | percentage of test cases with focal methods detected |
 | --- | --: | --: | --: |
-| bootique-2.0-B1/bootique | 129 | 228 | 0.57 |
-| jsonschema2pojo-1.1.1/jsonschema2pojo-core | 120 | 382 | 0.31 |
-| maven-maven-3.8.1/maven-core | 150 | 332 | 0.45 |
-| vraptor-vraptor-parent-3.5.5/vraptor-core | 690 | 1139 | 0.61 |
-| Overall | 1089 | 2081 | 0.52 |
+| bootique-2.0-B1/bootique | 129 | 228 | 57% |
+| jsonschema2pojo-1.1.1/jsonschema2pojo-core | 120 | 382 | 31% |
+| maven-maven-3.8.1/maven-core | 150 | 332 | 45% |
+| vraptor-vraptor-parent-3.5.5/vraptor-core | 690 | 1139 | 61% |
+| Geometric Mean | N/A | N/A | 47% |
 
 
 ### Ghafari's Recall data
@@ -97,13 +97,13 @@ Repository: https://github.com/microsoft/methods2test
 
 Paper: https://www.researchgate.net/publication/295918716_Automatically_Identifying_Focal_Methods_Under_Test_in_Unit_Test_Cases
 
-| Benchmark |  Ghafari's reported focal methods | Total Number of Tests (Obtained from “mvn clean test”) | Recall (Assuming each test case has one focal method) |
+| Benchmark |  Ghafari's reported focal methods | Total Number of Tests (Obtained from “mvn clean test”) | percentage of test cases with focal methods detected |
 | --- | --: | --: | --: |
-| Commons Email (1.3.3) | 90 | 130 | 0.69 |
-| JGAP (3.4.4) | 1015 | 1390 | 0.73 |
-| PureMVC (1.0.8) | 34 | 43 | 0.79 |
-| XStream (1.4.4) | 513 | 968 | 0.53 |
-| Overall | 1652 | 2531 | 0.65 |
+| Commons Email (1.3.3) | 90 | 130 | 69% |
+| JGAP (3.4.4) | 1015 | 1390 | 73% |
+| PureMVC (1.0.8) | 34 | 43 | 79% |
+| XStream (1.4.4) | 513 | 968 | 53% |
+| Geometric Mean | N/A | N/A | 68% |
 
 
 ### Doop Tables
