@@ -213,7 +213,7 @@ public class MockAnalysisIntraprocTransformer extends SceneTransformer {
         
         printMockInvocationToFile();
         
-        printTestsWithIntraprocMock();
+        printTestsWithIntraprocMockInvocations();
         
         //printTestsWithoutIntraprocMock();
         
@@ -222,7 +222,7 @@ public class MockAnalysisIntraprocTransformer extends SceneTransformer {
         System.out.println("" + "Soot has run MockAnalysisMainTransformer for " + runtime + " ms.");
     }
     
-    private void printTestsWithIntraprocMock() {
+    private void printTestsWithIntraprocMockInvocations() {
         List<String[]> linesToAdd = new ArrayList<>();
         
         for(SootClass nc : Scene.v().getApplicationClasses()) {
@@ -240,18 +240,19 @@ public class MockAnalysisIntraprocTransformer extends SceneTransformer {
                     continue;
                 
                 if (mockMethods.contains(m)) {
-                    
-                    linesToAdd.add(new String[]{m.getDeclaringClass().toString(), m.getName()});
-                    
                     pSmy = procSummaries.get(m);
                     if (pSmy == null) 
                         continue;
                     
                     ArrayList<InvokeExpr> invokeOnMocks = pSmy.getInvokeExprsOnMocks();
                     
+                    if (invokeOnMocks.isEmpty())
+                        continue;
+                    
                     if (!invokeOnMocks.isEmpty()) {
+                        linesToAdd.add(new String[]{m.getDeclaringClass().toString(), m.getName()});
                         for (InvokeExpr invkExpr : invokeOnMocks) {
-                            linesToAdd.add(new String[]{"InvokeExpr method:", invkExpr.getMethod().getName(), invkExpr.getMethod().getReturnType().toString()});
+                            linesToAdd.add(new String[]{"InvokeExpr method:", invkExpr.getMethod().getDeclaringClass().toString(), invkExpr.getMethod().getName(), invkExpr.getMethod().getReturnType().toString()});
                         }
                     }
                 }
