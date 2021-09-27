@@ -85,7 +85,7 @@ Repository: https://github.com/microsoft/methods2test
 | Benchmark | KLoC (Source Code) | methods2test reported focal methods | Total Number of Tests (Obtained from “mvn clean test”) | percentage of test cases with focal methods detected |
 | --- | --: | --: | --: | --: |
 | GojaFramework/goja/goja-core | 11.52 | 27 | 80 | 34% |
-| optiq/core | 93.94 | 26 | 1346 | 2%% |
+| optiq/core | 93.94 | 26 | 1346 | 2% |
 | mock-socket | 1.09 | 4 | 34 | 12% |
 | project-sunbird/sunbird-lms-service | 45.36 | 310 | 984 | 31% |
 | Geometric Mean | N/A | N/A | N/A | 12% |
@@ -93,8 +93,11 @@ Repository: https://github.com/microsoft/methods2test
 methods2test dataset ID:
 
 GojaFramework/goja/goja-core : 41280112 (use grep to search 'goja-core')
+
 optiq/core: 5320077 (use grep to search 'core')
+
 mock-socket: 1814028
+
 project-sunbird/sunbird-lms-service: 96121797
 
 ### Ghafari's Recall data
