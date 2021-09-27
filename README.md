@@ -83,7 +83,7 @@ flink-core-1.13.0-rc1's test run of test cases without intraproc mock objects pr
 Repository: https://github.com/microsoft/methods2test
 
 | Benchmark | KLoC (Source Code) | methods2test reported focal methods | Total Number of Tests (Obtained from “mvn clean test”) | percentage of test cases with focal methods detected |
-| --- | --: | --: | --: |
+| --- | --: | --: | --: | --: |
 | GojaFramework/goja/goja-core | 11.52 | 27 | 80 | 34% |
 | optiq/core | 93.94 | 26 | 1346 | 2%% |
 | mock-socket | 1.09 | 4 | 34 | 12% |
@@ -104,7 +104,7 @@ project-sunbird/sunbird-lms-service: 96121797
 Paper: https://www.researchgate.net/publication/295918716_Automatically_Identifying_Focal_Methods_Under_Test_in_Unit_Test_Cases
 
 | Benchmark | KLoC (Source Code) | Ghafari's reported focal methods | Total Number of Tests (Obtained from “mvn clean test”) | percentage of test cases with focal methods detected |
-| --- | --: | --: | --: |
+| --- | --: | --: | --: | --: |
 | Commons Email (1.3.3) | 8.78 | 90 | 130 | 69% |
 | JGAP (3.4.4) | 73.96 | 1015 | 1390 | 73% |
 | PureMVC (1.0.8) | 19.46 | 34 | 43 | 79% |
