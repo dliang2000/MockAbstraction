@@ -82,14 +82,20 @@ flink-core-1.13.0-rc1's test run of test cases without intraproc mock objects pr
 
 Repository: https://github.com/microsoft/methods2test
 
-| Benchmark | methods2test reported focal methods | Total Number of Tests (Obtained from “mvn clean test”) | percentage of test cases with focal methods detected |
+| Benchmark | KLoC (Source Code) | methods2test reported focal methods | Total Number of Tests (Obtained from “mvn clean test”) | percentage of test cases with focal methods detected |
 | --- | --: | --: | --: |
-| bootique-2.0-B1/bootique | 129 | 228 | 57% |
-| jsonschema2pojo-1.1.1/jsonschema2pojo-core | 120 | 382 | 31% |
-| maven-maven-3.8.1/maven-core | 150 | 332 | 45% |
-| vraptor-vraptor-parent-3.5.5/vraptor-core | 690 | 1139 | 61% |
-| Geometric Mean | N/A | N/A | 47% |
+| GojaFramework/goja/goja-core | 11.52 | 27 | 80 | 34% |
+| optiq/core | 93.94 | 26 | 1346 | 2%% |
+| mock-socket | 1.09 | 4 | 34 | 12% |
+| project-sunbird/sunbird-lms-service | 45.36 | 310 | 984 | 31% |
+| Geometric Mean | N/A | N/A | N/A | 12% |
 
+methods2test dataset ID:
+
+GojaFramework/goja/goja-core : 41280112 (use grep to search 'goja-core')
+optiq/core: 5320077 (use grep to search 'core')
+mock-socket: 1814028
+project-sunbird/sunbird-lms-service: 96121797
 
 ### Ghafari's Recall data
 
@@ -97,13 +103,13 @@ Repository: https://github.com/microsoft/methods2test
 
 Paper: https://www.researchgate.net/publication/295918716_Automatically_Identifying_Focal_Methods_Under_Test_in_Unit_Test_Cases
 
-| Benchmark |  Ghafari's reported focal methods | Total Number of Tests (Obtained from “mvn clean test”) | percentage of test cases with focal methods detected |
+| Benchmark | KLoC (Source Code) | Ghafari's reported focal methods | Total Number of Tests (Obtained from “mvn clean test”) | percentage of test cases with focal methods detected |
 | --- | --: | --: | --: |
-| Commons Email (1.3.3) | 90 | 130 | 69% |
-| JGAP (3.4.4) | 1015 | 1390 | 73% |
-| PureMVC (1.0.8) | 34 | 43 | 79% |
-| XStream (1.4.4) | 513 | 968 | 53% |
-| Geometric Mean | N/A | N/A | 68% |
+| Commons Email (1.3.3) | 8.78 | 90 | 130 | 69% |
+| JGAP (3.4.4) | 73.96 | 1015 | 1390 | 73% |
+| PureMVC (1.0.8) | 19.46 | 34 | 43 | 79% |
+| XStream (1.4.4) | 54.93 | 513 | 968 | 53% |
+| Geometric Mean | N/A | N/A | N/A | 68% |
 
 
 ### Doop Tables
