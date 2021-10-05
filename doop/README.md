@@ -2,7 +2,7 @@
 
 ## Install souffle
 
-* git clone git@github.com:patricklam/souffle.git
+* git clone git@github.com:souffle-lang/souffle.git
 * cd souffle; ./configure --prefix=~/pkgs/souffle; make; make install
 * export PATH=~/pkgs/souffle/bin (every time you log in, or add it to .profile)
 
