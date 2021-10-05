@@ -20,23 +20,25 @@ or if you want to generate driver classes for all benchmarks:
 ./runall_driver.sh
 ```
 
-### Mock Analysis:
+### Intraprocedural Mock Analysis (Soot):
 
 Make sure the driver classes are generated before running Mock Analysis.
 
 Run the following:
 
 ```console
-./bin/scripts/BENCHMARK/MockFlowAnalysis_BENCHMARK.sh
+./bin/scripts/BENCHMARK/MockFlowAnalysis_Intra_BENCHMARK.sh
 ```
 
-or if you want to run Mock Analysis for all benchmarks:
+or if you want to run intraprocedural Mock Analysis for all benchmarks:
 
 ```console
-./runall_MockAnalysis.sh
+./runall_MockAnalysis_Intra.sh
 ```
 
 ### Mutated Field Analysis:
+
+This is the preliminary analysis.
 
 Make sure the driver classes are generated before running Mutated Field Analysis.
 
@@ -46,7 +48,7 @@ Run the following:
 ./bin/scripts/BENCHMARK/MutatedFieldAnalysis_BENCHMARK.sh
 ```
 
-or if you want to run Mock Analysis for all benchmarks:
+or if you want to run Mutated Field Analysis for all benchmarks:
 
 ```console
 ./runall_MutatedFieldAnalysis.sh
