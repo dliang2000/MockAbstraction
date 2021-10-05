@@ -67,6 +67,9 @@ or if you want to run Mutated Field Analysis for all benchmarks:
 | mybatis-3.5.6 | 85% | 81% | 82% | 76% |
 | vraptor-core-3.5.5 | 87% | 59% | 81% | 56% |
 
+The Test Coverage reports are saved under directory named "TestCoverageReport" for each benchmark.
+The pom.xml files were updated with maven-surefire-plugin and jacoco-maven-plugin to generate the coverage reports.
+
 Benchmarks with more reliable test coverages data: jsonschema2pojo-core-1.1.1, maven-core-3.8.1, microbenchmark, mybatis-3.5.6, vraptor-core-3.5.5
 
 bootique's "mvn clean test" has a selective list of test cases running (trying to figure out the configuration)
