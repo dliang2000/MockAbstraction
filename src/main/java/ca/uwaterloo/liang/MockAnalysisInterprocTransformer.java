@@ -20,6 +20,7 @@ import soot.Unit;
 import soot.Value;
 import soot.jimple.DefinitionStmt;
 import soot.jimple.toolkits.callgraph.CallGraph;
+import soot.jimple.toolkits.ide.JimpleIFDSSolver;
 import soot.jimple.toolkits.ide.exampleproblems.IFDSReachingDefinitions;
 import soot.jimple.toolkits.ide.icfg.JimpleBasedInterproceduralCFG;
 import soot.toolkits.scalar.Pair;
@@ -68,17 +69,16 @@ public class MockAnalysisInterprocTransformer extends SceneTransformer {
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
         JimpleBasedInterproceduralCFG icfg= new JimpleBasedInterproceduralCFG();
-        IFDSTabulationProblem<Unit, Pair<Value, 
-                Set<DefinitionStmt>>, SootMethod, 
-                InterproceduralCFG<Unit, SootMethod>> problem = new IFDSReachingDefinitions(icfg);
+        
+        IFDSTabulationProblem<Unit, Map<Value, MockStatus>, SootMethod, 
+                InterproceduralCFG<Unit, SootMethod>> problem = new IFDSProblem(icfg);
 
-        IFDSSolver<Unit, Pair<Value, Set<DefinitionStmt>>, 
-                SootMethod, InterproceduralCFG<Unit, SootMethod>> solver = 
-                    new IFDSSolver<Unit, Pair<Value, Set<DefinitionStmt>>, SootMethod, 
-                                   InterproceduralCFG<Unit, SootMethod>>(problem);
+        JimpleIFDSSolver<Map<Value, MockStatus>, 
+                InterproceduralCFG<Unit, SootMethod>> solver = new JimpleIFDSSolver<>(problem);
 
         System.out.println("Starting solver");
         solver.solve();
+        solver.dumpResults();
         System.out.println("Done");
     }
 
