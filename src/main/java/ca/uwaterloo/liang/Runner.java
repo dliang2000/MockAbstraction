@@ -88,8 +88,9 @@ public class Runner {
         System.out.println("args[5]: " + output_path);
         
         if (interproc) {
-            PackManager.v().getPack("wjtp").add(new Transform("wjtp.herosifds", new MockAnalysisInterprocTransformer()));
+            //PackManager.v().getPack("wjtp").add(new Transform("wjtp.ifdsTransform", new MockAnalysisInterprocTransformer()));
             
+            System.out.println("In interproc mode.");
             // Call-graph options
             Options.v().setPhaseOption("cg", "safe-newinstance:true");
             Options.v().setPhaseOption("cg.cha","enabled:false");
@@ -105,12 +106,19 @@ public class Runner {
             // Load the main class
             SootClass c = Scene.v().loadClass(driver, SootClass.BODIES);
             c.setApplicationClass();
+            
+            for (SootMethod sc : c.getMethods()) {
+                System.out.println(sc.getName());
+            }
 
             // Load the "main" method of the main class and set it as a Soot entry point
             SootMethod entryPoint = c.getMethodByName("main");
             List<SootMethod> entryPoints = new ArrayList<SootMethod>();
             entryPoints.add(entryPoint);
             Scene.v().setEntryPoints(entryPoints);
+            
+            PackManager.v().getPack("wjtp").add(new Transform("wjtp.ifdsTransform", new MockAnalysisInterprocTransformer()));
+            PackManager.v().runPacks();
         } else {
             PackManager.v().getPack("wjtp").add(new Transform("wjtp.myTransform", new MockAnalysisIntraprocTransformer()) {
             });
