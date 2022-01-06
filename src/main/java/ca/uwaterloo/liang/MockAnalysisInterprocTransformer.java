@@ -63,23 +63,22 @@ public class MockAnalysisInterprocTransformer extends SceneTransformer {
     
     private long startNano;
     
-    private long finishNano;
-    
     public Timer interTimer = new soot.Timer();
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
-        JimpleBasedInterproceduralCFG icfg= new JimpleBasedInterproceduralCFG();
+        InterproceduralCFG<Unit, SootMethod> icfg= new JimpleBasedInterproceduralCFG();
         
         IFDSTabulationProblem<Unit, Map<Value, MockStatus>, SootMethod, 
                 InterproceduralCFG<Unit, SootMethod>> problem = new IFDSProblem(icfg);
 
-        JimpleIFDSSolver<Map<Value, MockStatus>, 
-                InterproceduralCFG<Unit, SootMethod>> solver = new JimpleIFDSSolver<>(problem);
-
+        IFDSSolver<Unit, Map<Value, MockStatus>, SootMethod, InterproceduralCFG<Unit, SootMethod>> 
+            solver = new IFDSSolver<Unit, Map<Value, MockStatus>, SootMethod, 
+                                    InterproceduralCFG<Unit, SootMethod>>(problem);  
+        
+        startNano = System.nanoTime();
         System.out.println("Starting solver");
         solver.solve();
-        solver.dumpResults();
-        System.out.println("Done");
+        System.out.println("Solver done in " + (System.nanoTime() - startNano) / 10E9 + " seconds.");
     }
 
 }

@@ -1,30 +1,28 @@
 package ca.uwaterloo.liang;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import heros.DefaultSeeds;
 import heros.FlowFunction;
 import heros.FlowFunctions;
 import heros.InterproceduralCFG;
+import soot.NullType;
+import soot.Scene;
 import soot.SootMethod;
 import soot.Unit;
 import soot.Value;
+import soot.jimple.DefinitionStmt;
+import soot.jimple.internal.JimpleLocal;
 import soot.jimple.toolkits.ide.DefaultJimpleIFDSTabulationProblem;
+import soot.toolkits.scalar.Pair;
 
 public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, MockStatus>, InterproceduralCFG<Unit,SootMethod>> {
     
-    InterproceduralCFG<Unit,SootMethod> icfg;
-    
     public IFDSProblem(InterproceduralCFG<Unit, SootMethod> icfg) {
         super(icfg);
-        this.icfg = icfg;
-    }
-
-    @Override
-    public Map<Unit, Set<Map<Value, MockStatus>>> initialSeeds() {
-        // TODO Auto-generated method stub
-        return null;
     }
 
     @Override
@@ -72,10 +70,18 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
         
         return null;
     }
+    
+    @Override
+    public Map<Unit, Set<Map<Value, MockStatus>>> initialSeeds() {
+          return DefaultSeeds.make(Collections.singleton(Scene.v().getMainMethod().getActiveBody().getUnits().getFirst()),
+                zeroValue());
+    }
 
     @Override
     protected Map<Value, MockStatus> createZeroValue() {
-        Map<Value, MockStatus> initMap = new HashMap<Value, MockStatus>();
+        Map<Value, MockStatus> initMap = new HashMap<Value, MockStatus>() {{
+        }};
+        initMap.put(new JimpleLocal("<<zero>>", NullType.v()), new MockStatus(false, false, false));
         return initMap;
     }
 

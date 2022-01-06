@@ -113,17 +113,20 @@ public class Runner {
 
             // Load the "main" method of the main class and set it as a Soot entry point
             SootMethod entryPoint = c.getMethodByName("main");
+            System.out.println("Entry point: " + entryPoint.getSubSignature());
             List<SootMethod> entryPoints = new ArrayList<SootMethod>();
             entryPoints.add(entryPoint);
             Scene.v().setEntryPoints(entryPoints);
             
-            PackManager.v().getPack("wjtp").add(new Transform("wjtp.ifdsTransform", new MockAnalysisInterprocTransformer()));
+            PackManager.v().getPack("wjtp").add(new Transform("wjtp.ifdsTransform", new MockAnalysisInterprocTransformer()) {
+            });
+            Options.v().set_whole_program(true);
+            Scene.v().loadNecessaryClasses();
             PackManager.v().runPacks();
         } else {
             PackManager.v().getPack("wjtp").add(new Transform("wjtp.myTransform", new MockAnalysisIntraprocTransformer()) {
             });
+            soot.Main.main(pd.toArray(new String[0]));
         }
-        
-        soot.Main.main(pd.toArray(new String[0]));
     }
 }
