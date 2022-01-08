@@ -1,8 +1,10 @@
 package ca.uwaterloo.liang;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -23,6 +25,12 @@ import soot.jimple.CastExpr;
 import soot.jimple.DefinitionStmt;
 import soot.jimple.FieldRef;
 import soot.jimple.InstanceFieldRef;
+import soot.jimple.InterfaceInvokeExpr;
+import soot.jimple.InvokeExpr;
+import soot.jimple.SpecialInvokeExpr;
+import soot.jimple.StaticFieldRef;
+import soot.jimple.Stmt;
+import soot.jimple.VirtualInvokeExpr;
 import soot.jimple.internal.JimpleLocal;
 import soot.jimple.toolkits.ide.DefaultJimpleIFDSTabulationProblem;
 import soot.toolkits.scalar.Pair;
@@ -121,8 +129,68 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
     }
 
     protected FlowFunction<Map<Value, MockStatus>> getCallFlow(Unit callStmt, SootMethod destinationMethod) {
+        if ("<clinit>".equals(destinationMethod.getName())) {
+            return KillAll.v();
+        }
+
+        Stmt stmt = (Stmt) callStmt;
+        InvokeExpr ie = stmt.getInvokeExpr();
         
-        return null;
+        final List<Value> callArgs = ie.getArgs();
+        final List<Value> paramLocals = new ArrayList<Value>();
+        for (int i=0;i<destinationMethod.getParameterCount();i++) {
+            paramLocals.add(destinationMethod.getActiveBody().getParameterLocal(i));
+        }
+        
+        final boolean isIccMethod = IFDSDummyMainCreator.iccMethods.contains(destinationMethod);
+        
+        Value base = null;
+        if (ie instanceof VirtualInvokeExpr) {
+            VirtualInvokeExpr vie = (VirtualInvokeExpr) ie;
+            base = vie.getBase();
+        }
+        else if (ie instanceof InterfaceInvokeExpr) {
+            InterfaceInvokeExpr iie = (InterfaceInvokeExpr) ie;
+            base = iie.getBase();
+        }
+        else if (ie instanceof SpecialInvokeExpr) {
+            SpecialInvokeExpr iie = (SpecialInvokeExpr) ie;
+            base = iie.getBase();
+        }
+        final Value baseF = base;
+
+        return new FlowFunction<Map<Value, MockStatus>>() {
+            @Override
+            public Set<Map<Value, MockStatus>> computeTargets(Map<Value, MockStatus> source) {
+                Set<Map<Value, MockStatus>> ret = new HashSet<>();
+//                if (source instanceof StaticFieldRef) {
+//                    ret.add(source);
+//                }
+                for (int i=0; i<callArgs.size(); i++) {
+                    Set<Value> keys = source.keySet();
+                    for (Value key : keys) {
+                        if (callArgs.get(i).equivTo(key) && i < paramLocals.size()) {
+                            Map<Value, MockStatus> hm_local = new HashMap<Value, MockStatus>();
+                            hm_local.put(paramLocals.get(i), source.get(key));
+                            ret.add(hm_local);
+                        }
+                    }
+                }
+                if (source.containsKey(zeroValue()) && isIccMethod) {
+                    Map<Value, MockStatus> hm_zeroVal = new HashMap<Value, MockStatus>();
+                    for (int i=0; i<callArgs.size(); i++) {
+                        hm_zeroVal.put(paramLocals.get(i), source.get(zeroValue()));
+                    }
+                    ret.add(hm_zeroVal);
+                }
+                if (baseF != null && source.containsKey(baseF) && !isIccMethod) {
+                    Map<Value, MockStatus> hm_base = new HashMap<Value, MockStatus>();
+                    hm_base.put(destinationMethod.retrieveActiveBody().getThisLocal(), source.get(baseF));
+                    ret.add(hm_base);
+                }
+                return ret;
+            }
+        };
     }
     
     @Override

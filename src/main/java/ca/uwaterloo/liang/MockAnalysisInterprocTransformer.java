@@ -68,8 +68,7 @@ public class MockAnalysisInterprocTransformer extends SceneTransformer {
     protected void internalTransform(String phaseName, Map<String, String> options) {
         InterproceduralCFG<Unit, SootMethod> icfg= new JimpleBasedInterproceduralCFG();
         
-        IFDSTabulationProblem<Unit, Map<Value, MockStatus>, SootMethod, 
-                InterproceduralCFG<Unit, SootMethod>> problem = new IFDSProblem(icfg);
+        IFDSTabulationProblem<Unit, Map<Value, MockStatus>, SootMethod, InterproceduralCFG<Unit, SootMethod>> problem = new IFDSProblem(icfg);
 
         IFDSSolver<Unit, Map<Value, MockStatus>, SootMethod, InterproceduralCFG<Unit, SootMethod>> 
             solver = new IFDSSolver<Unit, Map<Value, MockStatus>, SootMethod, 
