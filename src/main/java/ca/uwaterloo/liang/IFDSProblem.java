@@ -72,6 +72,60 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
     }
 
     protected FlowFunction<Map<Value, MockStatus>> getCallToReturnFlow(Unit callSite, Unit returnSite) {
+        Stmt stmt = (Stmt) callSite;
+        InvokeExpr ie = stmt.getInvokeExpr();
+        final List<Value> callArgs = ie.getArgs();
+
+        Value base = null;
+        Value leftOp = null;
+
+        if (ie instanceof VirtualInvokeExpr) {
+            VirtualInvokeExpr vie = (VirtualInvokeExpr) ie;
+            base = vie.getBase();
+        }
+        else if (ie instanceof InterfaceInvokeExpr) {
+            InterfaceInvokeExpr iie = (InterfaceInvokeExpr) ie;
+            base = iie.getBase();
+        }
+        else if (ie instanceof SpecialInvokeExpr) {
+            SpecialInvokeExpr iie = (SpecialInvokeExpr) ie;
+            base = iie.getBase();
+        }
+        
+        if (callSite instanceof DefinitionStmt) {
+            DefinitionStmt defnStmt = (DefinitionStmt) callSite;
+            leftOp = defnStmt.getLeftOp();
+        }
+
+        final Value baseF = base;
+        final Value leftOpF = leftOp;
+        
+        // use assumption if no callees to analyze
+        if (icfg.getCalleesOfCallAt(callSite).isEmpty()) {
+            return new FlowFunction<Map<Value, MockStatus>>() {
+                @Override
+                public Set<Map<Value, MockStatus>> computeTargets(Map<Value, MockStatus> source) {
+                    Set<Map<Value, MockStatus>> ret = new HashSet<Map<Value, MockStatus>>();
+                    ret.add(source);
+                    if (baseF != null && leftOpF != null && source.containsKey(baseF)) {
+                        Map<Value, MockStatus> hm_ret = new HashMap<Value, MockStatus>();
+                        hm_ret.put(leftOpF, source.get(baseF));
+                        ret.add(hm_ret);
+                    }
+                    if (leftOpF != null && source.containsKey(leftOpF) && callArgs.contains(leftOpF)) {
+                        Map<Value, MockStatus> hm_ret = new HashMap<Value, MockStatus>();
+                        hm_ret.put(leftOpF, source.get(leftOpF));
+                        ret.add(hm_ret);
+                    }
+                    if (baseF != null && source.containsKey(baseF) && callArgs.contains(baseF)) {
+                        Map<Value, MockStatus> hm_ret = new HashMap<Value, MockStatus>();
+                        hm_ret.put(baseF, source.get(baseF));
+                        ret.add(hm_ret);
+                    }
+                    return ret;
+                }
+            };
+        }
         return Identity.v();
     }
 
