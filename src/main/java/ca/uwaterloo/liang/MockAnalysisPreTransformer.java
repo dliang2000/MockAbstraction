@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.Map;
 
 import ca.uwaterloo.liang.util.Util;
+import soot.G;
 import soot.PointsToAnalysis;
 import soot.Scene;
 import soot.SceneTransformer;
@@ -121,9 +122,13 @@ public class MockAnalysisPreTransformer extends SceneTransformer {
         
         preTimer.end();
         long runtime = preTimer.getTime();
-        System.out.println("" + "Soot has run MockAnalysisPreTransformer for " + runtime + " ms.");
+        //System.out.println("" + "Soot has run MockAnalysisPreTransformer for " + runtime + " ms.");
         
-        System.out.println("Total Number of Mocks defined in @Before in the benchmark: " + totalNumberOfMocksInBeforeMethod);
+        StringBuffer msg = new StringBuffer();
+        msg.append("Soot has run MockAnalysisPreTransformer for ").append(runtime).append(" ms.").append("\n");
+        msg.append("Total Number of Mocks defined in @Before in the benchmark: ").append(totalNumberOfMocksInBeforeMethod).append("\n");
+        G.v().out.println(msg);
+        //System.out.println("Total Number of Mocks defined in @Before in the benchmark: " + totalNumberOfMocksInBeforeMethod);
     }
     
     public static HashMap<SootClass, HashMap<SootField, MockStatus>> getFieldMocks() {

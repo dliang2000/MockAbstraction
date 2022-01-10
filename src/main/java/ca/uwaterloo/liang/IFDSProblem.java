@@ -27,6 +27,8 @@ import soot.jimple.FieldRef;
 import soot.jimple.InstanceFieldRef;
 import soot.jimple.InterfaceInvokeExpr;
 import soot.jimple.InvokeExpr;
+import soot.jimple.ReturnStmt;
+import soot.jimple.ReturnVoidStmt;
 import soot.jimple.SpecialInvokeExpr;
 import soot.jimple.StaticFieldRef;
 import soot.jimple.Stmt;
@@ -75,6 +77,70 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
 
     protected FlowFunction<Map<Value, MockStatus>> getReturnFlow(Unit callSite, SootMethod calleeMethod, Unit exitStmt,
             Unit returnSite) {
+        Stmt stmt = (Stmt) callSite;
+        InvokeExpr ie = stmt.getInvokeExpr();
+        
+        if (IFDSDummyMainCreator.iccMethods.contains(calleeMethod)) {
+            return KillAll.v();
+        }
+
+        Value base = null;
+        if (ie instanceof VirtualInvokeExpr) {
+            VirtualInvokeExpr vie = (VirtualInvokeExpr) ie;
+            base = vie.getBase();
+        }
+        else if (ie instanceof InterfaceInvokeExpr) {
+            InterfaceInvokeExpr iie = (InterfaceInvokeExpr) ie;
+            base = iie.getBase();
+        }
+        else if (ie instanceof SpecialInvokeExpr) {
+            SpecialInvokeExpr iie = (SpecialInvokeExpr) ie;
+            base = iie.getBase();
+        }
+        final Value baseF = base;
+
+        if (exitStmt instanceof ReturnStmt) {                               
+            ReturnStmt returnStmt = (ReturnStmt) exitStmt;
+            final Value retOp = returnStmt.getOp();
+            return new FlowFunction<Map<Value, MockStatus>>() {
+                @Override
+                public Set<Map<Value, MockStatus>> computeTargets(Map<Value, MockStatus> source) {
+                    Set<Map<Value, MockStatus>> ret = new HashSet<Map<Value, MockStatus>>();
+//                    if (source instanceof StaticFieldRef) {
+//                        ret.add(source);
+//                    }
+                    if (callSite instanceof DefinitionStmt && source.containsKey(retOp)) {
+                        DefinitionStmt defnStmt = (DefinitionStmt) callSite;
+                        Map<Value, MockStatus> hm_def = new HashMap<Value, MockStatus>();
+                        hm_def.put(defnStmt.getLeftOp(), source.get(retOp));
+                        ret.add(hm_def);
+                    }
+                    if (baseF != null && source.containsKey(calleeMethod.retrieveActiveBody().getThisLocal())) {
+                        Map<Value, MockStatus> hm_ret = new HashMap<Value, MockStatus>();
+                        hm_ret.put(baseF, source.get(calleeMethod.retrieveActiveBody().getThisLocal()));
+                        ret.add(hm_ret);
+                    }
+                    return ret;
+                }
+            };
+        }
+        if (exitStmt instanceof ReturnVoidStmt) {
+            return new FlowFunction<Map<Value, MockStatus>>() {
+                @Override
+                public Set<Map<Value, MockStatus>> computeTargets(Map<Value, MockStatus> source) {
+                    Set<Map<Value, MockStatus>> ret = new HashSet<Map<Value, MockStatus>>();
+//                    if (source instanceof StaticFieldRef) {
+//                        ret.add(source);
+//                    }
+                    if (baseF != null && source.containsKey(calleeMethod.retrieveActiveBody().getThisLocal())) {
+                        Map<Value, MockStatus> hm_ret = new HashMap<Value, MockStatus>();
+                        hm_ret.put(baseF, source.get(calleeMethod.retrieveActiveBody().getThisLocal()));
+                        ret.add(hm_ret);
+                    }
+                    return ret;
+                }
+            };
+        } 
         return KillAll.v();
     }
 
