@@ -8,17 +8,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import ca.uwaterloo.liang.util.Util;
 import heros.DefaultSeeds;
 import heros.FlowFunction;
 import heros.FlowFunctions;
 import heros.InterproceduralCFG;
+import heros.flowfunc.Gen;
 import heros.flowfunc.Identity;
 import heros.flowfunc.KillAll;
+import soot.Local;
 import soot.NullType;
 import soot.Scene;
+import soot.SootField;
 import soot.SootMethod;
 import soot.Unit;
 import soot.Value;
+import soot.ValueBox;
 import soot.jimple.ArrayRef;
 import soot.jimple.AssignStmt;
 import soot.jimple.CastExpr;
@@ -27,6 +32,7 @@ import soot.jimple.FieldRef;
 import soot.jimple.InstanceFieldRef;
 import soot.jimple.InterfaceInvokeExpr;
 import soot.jimple.InvokeExpr;
+import soot.jimple.InvokeStmt;
 import soot.jimple.ReturnStmt;
 import soot.jimple.ReturnVoidStmt;
 import soot.jimple.SpecialInvokeExpr;
@@ -163,14 +169,19 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
 //                    if (source instanceof StaticFieldRef) {
 //                        ret.add(source);
 //                    }
+                    ret.add(source);
                     if (callSite instanceof DefinitionStmt && source.containsKey(retOp)) {
                         DefinitionStmt defnStmt = (DefinitionStmt) callSite;
                         Map<Value, MockStatus> hm_def = new HashMap<Value, MockStatus>();
+                        System.out.println("Definition Statement Op: " + defnStmt.getLeftOp());
+                        System.out.println("MockStatus: " + source.get(retOp));
                         hm_def.put(defnStmt.getLeftOp(), source.get(retOp));
                         ret.add(hm_def);
                     }
                     if (baseF != null && source.containsKey(calleeMethod.retrieveActiveBody().getThisLocal())) {
                         Map<Value, MockStatus> hm_ret = new HashMap<Value, MockStatus>();
+                        System.out.println("Base final value: " + baseF);
+                        System.out.println("MockStatus: " + source.get(calleeMethod.retrieveActiveBody().getThisLocal()));
                         hm_ret.put(baseF, source.get(calleeMethod.retrieveActiveBody().getThisLocal()));
                         ret.add(hm_ret);
                     }
@@ -211,24 +222,24 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
                         return Collections.emptySet();
                     }
                     
+                    
                     Set<Map<Value, MockStatus>> res = new HashSet<>();
                     res.add(source);
                     
                     if (source.containsKey(rightOp)) {
                         Map<Value, MockStatus> hm = new HashMap<>();
                         hm.put(leftOp, source.get(rightOp));
+                        System.out.println("Left_val: " + leftOp);
+                        System.out.println("MockStatus: " + source.get(rightOp));
                         res.add(hm);
                     }
-                    // FieldRef to be worked out
-//                    if (rightOp instanceof FieldRef) {
-//                        Value base = ((InstanceFieldRef)rightOp).getBase();
-//                        if (source.containsKey(base)) res.add(leftOp);
-//                    }
                     if (rightOp instanceof ArrayRef) {
                         Value base = ((ArrayRef)rightOp).getBase();
                         if (source.containsKey(base)) {
                             Map<Value, MockStatus> hm_arr = new HashMap<>();
-                            hm_arr.put(leftOp, source.get(rightOp));
+                            System.out.println("Left_val: " + leftOp);
+                            System.out.println("MockStatus: " + source.get(base));
+                            hm_arr.put(leftOp, source.get(base));
                             res.add(hm_arr);
                         }
                     }
@@ -236,6 +247,8 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
                         Value right_val = ((CastExpr) rightOp).getOp();
                         if (source.containsKey(right_val)) {
                             Map<Value, MockStatus> hm_cast = new HashMap<>();
+                            System.out.println("Left_val: " + leftOp);
+                            System.out.println("MockStatus: " + source.get(right_val));
                             hm_cast.put(leftOp, source.get(right_val));
                             res.add(hm_cast);
                         }
@@ -243,7 +256,51 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
                     return res;
                 }
             };
+        }
+        /*Stmt aStmt = (Stmt) curr;
+        if (aStmt.containsFieldRef()) {
+            Map<Value, MockStatus> fieldMockMap = new HashMap<>();
+            SootField sf = aStmt.getFieldRef().getField();
+            // First way to create mock: Mock Annotation
+            if (AnnotatedAndInitMockTransformer.getAnnotatedMocks().contains(sf)) {
+                //System.out.println("myAnnotatedMocks contain the mock wanted");
+                List<ValueBox> defBoxes = curr.getDefBoxes();
+                for (ValueBox vb: defBoxes) {
+                    Value v = vb.getValue();
+                    MockStatus status = new MockStatus(true);
+                    fieldMockMap.put(v, status);
+                }
+            }
+            return new Gen<Map<Value, MockStatus>>(fieldMockMap);
+        }*/
+          
+        if (curr instanceof InvokeStmt) {
+            final InvokeStmt invoke = (InvokeStmt) curr;
+            final InvokeExpr invkExpr = invoke.getInvokeExpr();
+            final SootMethod sootMethod = invkExpr.getMethod();
             
+            return new FlowFunction<Map<Value, MockStatus>>(){
+                @Override
+                public Set<Map<Value, MockStatus>> computeTargets(Map<Value, MockStatus> source){
+                // Third way to create mock: Mock libraries' API. Example: mock(A.class)
+                // x = mock(X);
+                    Set<Map<Value, MockStatus>> res = new HashSet<>();
+                    res.add(source);
+                    
+                    Map<Value, MockStatus> hm_mockSource = new HashMap<>();
+                    if (Util.isMockAPI(sootMethod)) {
+                        List<ValueBox> defBoxes = curr.getDefBoxes();
+                        for (ValueBox vb: defBoxes) {
+                            System.out.println("Unit: " + curr);
+                            Value v =  vb.getValue();
+                            MockStatus status = new MockStatus(true);
+                            hm_mockSource.put(v, status);
+                        }
+                    }
+                    res.add(hm_mockSource);
+                    return res;
+                }
+           };
         }
         return Identity.v();
     }
@@ -261,8 +318,6 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
         for (int i=0;i<destinationMethod.getParameterCount();i++) {
             paramLocals.add(destinationMethod.getActiveBody().getParameterLocal(i));
         }
-        
-        final boolean isIccMethod = IFDSDummyMainCreator.iccMethods.contains(destinationMethod);
         
         Value base = null;
         if (ie instanceof VirtualInvokeExpr) {
@@ -286,6 +341,7 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
 //                if (source instanceof StaticFieldRef) {
 //                    ret.add(source);
 //                }
+                ret.add(source);
                 for (int i=0; i<callArgs.size(); i++) {
                     Set<Value> keys = source.keySet();
                     for (Value key : keys) {
@@ -296,14 +352,14 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
                         }
                     }
                 }
-                if (source.containsKey(zeroValue()) && isIccMethod) {
+                if (source.containsKey(zeroValue())) {
                     Map<Value, MockStatus> hm_zeroVal = new HashMap<Value, MockStatus>();
                     for (int i=0; i<callArgs.size(); i++) {
                         hm_zeroVal.put(paramLocals.get(i), source.get(zeroValue()));
                     }
                     ret.add(hm_zeroVal);
                 }
-                if (baseF != null && source.containsKey(baseF) && !isIccMethod) {
+                if (baseF != null && source.containsKey(baseF)) {
                     Map<Value, MockStatus> hm_base = new HashMap<Value, MockStatus>();
                     hm_base.put(destinationMethod.retrieveActiveBody().getThisLocal(), source.get(baseF));
                     ret.add(hm_base);
