@@ -107,9 +107,9 @@ public class Runner {
             SootClass c = Scene.v().loadClass(driver, SootClass.BODIES);
             c.setApplicationClass();
             
-            for (SootMethod sc : c.getMethods()) {
-                System.out.println(sc.getName());
-            }
+            //for (SootMethod sc : c.getMethods()) {
+            //    System.out.println(sc.getName());
+            //}
 
             // Load the "main" method of the main class and set it as a Soot entry point
             SootMethod entryPoint = c.getMethodByName("main");
@@ -122,7 +122,9 @@ public class Runner {
             });
             Options.v().set_whole_program(true);
             Scene.v().loadNecessaryClasses();
+            soot.Main.v().autoSetOptions();
             PackManager.v().runPacks();
+            PackManager.v().writeOutput();
         } else {
             PackManager.v().getPack("wjtp").add(new Transform("wjtp.myTransform", new MockAnalysisIntraprocTransformer()) {
             });
