@@ -31,6 +31,7 @@ public class PayRollMockTest {
     // Contains Mock object
     @Before
     public void init() {
+        System.out.println("Run init() in PayRollMockTest.");
         employees = new ArrayList<Employee>();
 
         employeeDB = mock(EmployeeDB.class);
@@ -46,6 +47,7 @@ public class PayRollMockTest {
     @Category(MockTests.class)
     @Test
     public void testMerge() {
+        System.out.println("Run testMerge() in PayRollMockTest.");
         Object m = mock(Object.class);
         if (flag) {
             m = null;
@@ -69,6 +71,7 @@ public class PayRollMockTest {
     @Category(MockTests.class)
     @Test
     public void testNoEmployeesIntra() {
+        System.out.println("Run testNoEmployeesIntra() in PayRollMockTest.");
         List<Employee> employees_intra = new ArrayList<Employee>();
 
         EmployeeDB employeeDB_intra = mock(EmployeeDB.class);
@@ -89,6 +92,7 @@ public class PayRollMockTest {
     @Category(MockTests.class)
     @Test
     public void testAddAll() {
+        System.out.println("Run testAddAll() in PayRollMockTest.");
         List<Employee> employees1_intra = new ArrayList<Employee>();
         List<Employee> employees2_intra = new ArrayList<Employee>();
 
@@ -115,6 +119,7 @@ public class PayRollMockTest {
     @Category(MockTests.class)
     @Test
     public void testIteration() {
+        System.out.println("Run testIteration() in PayRollMockTest.");
         List<Employee> employees1_intra = new ArrayList<Employee>();
 
         Employee e = mock(Employee.class);
@@ -149,6 +154,7 @@ public class PayRollMockTest {
     @Category(MockTests.class)
     @Test
     public void testVector() {
+        System.out.println("Run testVector() in PayRollMockTest.");
         Vector<Employee> employees0_intra = new Vector<Employee>();
         Employee e0 = mock(Employee.class);
         // *mock* call below
@@ -167,6 +173,7 @@ public class PayRollMockTest {
     @Category(MockTests.class)
     @Test
     public void testVector2() {
+        System.out.println("Run testVector2() in PayRollMockTest.");
         Employee e = mock(Employee.class);
         // *mock* call below
         when(e.getName()).thenReturn("J. Doe");
@@ -197,6 +204,7 @@ public class PayRollMockTest {
     @Category(MockTests.class)
     @Test
     public void testVectorToArray() {
+        System.out.println("Run testVectorToArray() in PayRollMockTest.");
         Employee e = mock(Employee.class);
         // *mock* call below
         when(e.getName()).thenReturn("J. Doe");
@@ -219,6 +227,7 @@ public class PayRollMockTest {
     @Category(MockTests.class)
     @Test
     public void testArrayToVector() {
+        System.out.println("Run testArrayToVector() in PayRollMockTest.");
         Employee e = mock(Employee.class);
         // *mock* call below
         when(e.getName()).thenReturn("J. Doe");
@@ -237,6 +246,7 @@ public class PayRollMockTest {
 
     @Test
     public void testSingleEmployee() {
+        System.out.println("Run testSingleEmployee() in PayRollMockTest.");
         // not a mock call on employees
         employees.add(createTestEmployee("Test Employee", "ID0", 1000));
         assertNumberOfPayments(1);
@@ -247,6 +257,7 @@ public class PayRollMockTest {
     @Category(MockTests.class)
     @Test
     public void testSingleEmployeeMockInter() {
+        System.out.println("Run testSingleEmployeeMockInter() in PayRollMockTest.");
         Employee e = createMockEmployee();
         assertEquals(e.getName(), "J. Doe");
     }
@@ -256,6 +267,7 @@ public class PayRollMockTest {
     @Category(MockTests.class)
     @Test
     public void testSingleEmployeeMockCallout() {
+        System.out.println("Run testSingleEmployeeMockCallout() in PayRollMockTest.");
         Employee e = createMockEmployee();
         Employee ee = invokedWithMockParameter(e);
         assertEquals(ee.getName(), "J. Doe");
@@ -264,6 +276,7 @@ public class PayRollMockTest {
 
     // Invoked with a mock object parameter; not a test method
     public Employee invokedWithMockParameter(Employee e) {
+        System.out.println("Run invokedWithMockParameter() in PayRollMockTest.");
         assertEquals(e.getName(), "J. Doe");
         return e;
     }
@@ -273,6 +286,7 @@ public class PayRollMockTest {
     @Category(MockTests.class)
     @Test
     public void testEmployeeIsPaid() {
+        System.out.println("Run testEmployeeIsPaid() in PayRollMockTest.");
         String bankId = "ID0";
         int salary = 1000;
 
@@ -290,6 +304,7 @@ public class PayRollMockTest {
     @Category(MockTests.class)
     @Test
     public void testEmployeeIsPaid_singleVerify() {
+        System.out.println("Run testEmployeeIsPaid_singleVerify() in PayRollMockTest.");
         String bankId = "ID0";
         int salary = 1000;
 
@@ -307,6 +322,7 @@ public class PayRollMockTest {
     @Category(MockTests.class)
     @Test
     public void testInteractionOrder() {
+        System.out.println("Run testInteractionOrder() in PayRollMockTest.");
         String bankId = "ID0";
         int salary = 1000;
 
