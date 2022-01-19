@@ -69,5 +69,17 @@ public class RootDriver {
 //		ca.liang.DirtyTest class8 = new ca.liang.DirtyTest();
 //		class8.init();
 //		class8.testSingleEmployeeFieldArrayNomock();
+
+		B objB = new B();
+		C objC = new C();
+		D objD = new D();
+		//All classes can access the method of class A
+		objB.methodA();
+		objC.methodA();
+		objD.methodA();
+
+        objB.methodB();
+		objC.methodC();
+		objD.methodD();
 	}
 }
