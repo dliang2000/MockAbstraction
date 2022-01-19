@@ -78,8 +78,11 @@ public class RootDriver {
 		objC.methodA();
 		objD.methodA();
 
-        objB.methodB();
+		objB.methodB();
 		objC.methodC();
 		objD.methodD();
+
+		// static invoke
+		objB.printMessage();
 	}
 }
