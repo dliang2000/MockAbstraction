@@ -94,11 +94,6 @@ public class Runner {
             // Call-graph options
             Options.v().setPhaseOption("cg", "safe-newinstance:true");
             Options.v().setPhaseOption("cg.cha","enabled:false");
-
-            // Enable SPARK call-graph construction
-            Options.v().setPhaseOption("cg.spark","enabled:true");
-            Options.v().setPhaseOption("cg.spark","verbose:true");
-            Options.v().setPhaseOption("cg.spark","on-fly-cg:true");
             
             // Set the main class of the application to be analysed
             //Options.v().set_main_class(driver);
@@ -121,9 +116,13 @@ public class Runner {
             PackManager.v().getPack("wjtp").add(new Transform("wjtp.ifdsTransform", new MockAnalysisInterprocTransformer()) {
             });
             Options.v().set_whole_program(true);
+         // Enable SPARK call-graph construction
+            Options.v().setPhaseOption("cg.spark","enabled:true");
             Scene.v().loadNecessaryClasses();
-            soot.Main.v().autoSetOptions();
+            //soot.Main.v().autoSetOptions();
+            Options.v().set_main_class(driver);
             PackManager.v().runPacks();
+            System.out.println("CallGraph size: "  + Scene.v().getCallGraph().size());
             PackManager.v().writeOutput();
         } else {
             PackManager.v().getPack("wjtp").add(new Transform("wjtp.myTransform", new MockAnalysisIntraprocTransformer()) {

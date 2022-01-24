@@ -62,25 +62,25 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
 
             @Override
             public FlowFunction<Map<Value, MockStatus>> getNormalFlowFunction(Unit curr, Unit succ){
-                System.out.println("In getNormalFlowFunction; ");
+                //System.out.println("In getNormalFlowFunction; ");
                 return getNormalFlow(curr, succ);
             }
 
             @Override
             public FlowFunction<Map<Value, MockStatus>> getCallFlowFunction(Unit callStmt, SootMethod destinationMethod) {
-                System.out.println("In getCallFlowFunction; ");
+                //System.out.println("In getCallFlowFunction; ");
                 return getCallFlow(callStmt, destinationMethod);
             }
 
             @Override
             public FlowFunction<Map<Value, MockStatus>> getReturnFlowFunction(Unit callSite, SootMethod calleeMethod, Unit exitStmt, Unit returnSite){
-                System.out.println("In getReturnFlowFunction; ");
+                //System.out.println("In getReturnFlowFunction; ");
                 return getReturnFlow(callSite, calleeMethod, exitStmt, returnSite);
             }
 
             @Override
             public FlowFunction<Map<Value, MockStatus>> getCallToReturnFlowFunction(Unit callSite, Unit returnSite) {
-                System.out.println("In getCallToReturnFlowFunction; ");
+                //System.out.println("In getCallToReturnFlowFunction; ");
                 return getCallToReturnFlow(callSite, returnSite);
             }
 
@@ -88,16 +88,16 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
     }
 
     protected FlowFunction<Map<Value, MockStatus>> getCallToReturnFlow(Unit callSite, Unit returnSite) {
-        System.out.println("In getCallToReturnFlow; ");
-        System.out.println("Unit callSite: " + callSite);
-        System.out.println("Unit returnSite: " + returnSite);
+        //System.out.println("In getCallToReturnFlow; ");
+        //System.out.println("Unit callSite: " + callSite);
+        //System.out.println("Unit returnSite: " + returnSite);
         
         Stmt stmt = (Stmt) callSite;
         InvokeExpr ie = stmt.getInvokeExpr();
         final List<Value> callArgs = ie.getArgs();
         final SootMethod method = ie.getMethod();
         
-        System.out.println("SootMethod Invoked: " + method.getSignature());
+        //System.out.println("SootMethod Invoked: " + method.getSignature());
         
         Value base = null;
         Value leftOp = null;
@@ -123,12 +123,12 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
         final Value baseF = base;
         final Value leftOpF = leftOp;
         
-        System.out.println("baseF: " + baseF);
-        System.out.println("leftOp: " + leftOpF);
+        //System.out.println("baseF: " + baseF);
+        //System.out.println("leftOp: " + leftOpF);
         // use assumption if no callees to analyze
         if (icfg.getCalleesOfCallAt(callSite).isEmpty() ) {
-            System.out.println("No callees to analyze");
-            System.out.println();
+            //System.out.println("No callees to analyze");
+            //System.out.println();
             return new FlowFunction<Map<Value, MockStatus>>() {
                 @Override
                 public Set<Map<Value, MockStatus>> computeTargets(Map<Value, MockStatus> source) {
@@ -155,7 +155,7 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
                 }
             };
         }
-        System.out.println();
+        //System.out.println();
         return Identity.v();
     }
 
@@ -168,12 +168,12 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
 //            return KillAll.v();
 //        }
         
-        System.out.println("In getReturnFlow; ");
-        System.out.println("Unit callSite: " + callSite);
-        System.out.println("SootMethod calleeMethod: " + calleeMethod);
-        System.out.println("Unit exitStmt: " + exitStmt);
-        System.out.println("Unit returnSite: " + returnSite);
-        System.out.println();
+       // System.out.println("In getReturnFlow; ");
+       // System.out.println("Unit callSite: " + callSite);
+       // System.out.println("SootMethod calleeMethod: " + calleeMethod);
+       // System.out.println("Unit exitStmt: " + exitStmt);
+       // System.out.println("Unit returnSite: " + returnSite);
+       // System.out.println();
         Value base = null;
         if (ie instanceof VirtualInvokeExpr) {
             VirtualInvokeExpr vie = (VirtualInvokeExpr) ie;
@@ -203,15 +203,15 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
                     if (callSite instanceof DefinitionStmt && source.containsKey(retOp)) {
                         DefinitionStmt defnStmt = (DefinitionStmt) callSite;
                         Map<Value, MockStatus> hm_def = new HashMap<Value, MockStatus>();
-                        System.out.println("Definition Statement Op: " + defnStmt.getLeftOp());
-                        System.out.println("MockStatus: " + source.get(retOp));
+                        //System.out.println("Definition Statement Op: " + defnStmt.getLeftOp());
+                        //System.out.println("MockStatus: " + source.get(retOp));
                         hm_def.put(defnStmt.getLeftOp(), source.get(retOp));
                         ret.add(hm_def);
                     }
                     if (baseF != null && source.containsKey(calleeMethod.retrieveActiveBody().getThisLocal())) {
                         Map<Value, MockStatus> hm_ret = new HashMap<Value, MockStatus>();
-                        System.out.println("Base final value: " + baseF);
-                        System.out.println("MockStatus: " + source.get(calleeMethod.retrieveActiveBody().getThisLocal()));
+                        //System.out.println("Base final value: " + baseF);
+                        //System.out.println("MockStatus: " + source.get(calleeMethod.retrieveActiveBody().getThisLocal()));
                         hm_ret.put(baseF, source.get(calleeMethod.retrieveActiveBody().getThisLocal()));
                         ret.add(hm_ret);
                     }
@@ -240,10 +240,10 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
     }
 
     protected FlowFunction<Map<Value, MockStatus>> getNormalFlow(Unit curr, Unit succ) {
-        System.out.println("In getNormalFlow; ");
-        System.out.println("Unit curr: " + curr);
-        System.out.println("Unit succ: " + succ);
-        System.out.println();
+        //System.out.println("In getNormalFlow; ");
+        //System.out.println("Unit curr: " + curr);
+        //System.out.println("Unit succ: " + succ);
+        //System.out.println();
         if (curr instanceof AssignStmt) {
             final AssignStmt assign = (AssignStmt) curr;
             final Value leftOp = assign.getLeftOp();
@@ -341,13 +341,13 @@ public class IFDSProblem extends DefaultJimpleIFDSTabulationProblem<Map<Value, M
     }
 
     protected FlowFunction<Map<Value, MockStatus>> getCallFlow(Unit callStmt, SootMethod destinationMethod) {
-        System.out.println("In getCallFlow; ");
+        //System.out.println("In getCallFlow; ");
         if ("<clinit>".equals(destinationMethod.getName())) {
             return KillAll.v();
         }
-        System.out.println("Unit callStmt: " + callStmt);
-        System.out.println("SootMethod destinationMethod: " + destinationMethod);
-        System.out.println();
+        //System.out.println("Unit callStmt: " + callStmt);
+        //System.out.println("SootMethod destinationMethod: " + destinationMethod);
+        //System.out.println();
         Stmt stmt = (Stmt) callStmt;
         InvokeExpr ie = stmt.getInvokeExpr();
         

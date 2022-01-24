@@ -2,15 +2,18 @@ package ca.uwaterloo.liang;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import ca.uwaterloo.liang.util.Util;
 import heros.IFDSTabulationProblem;
 import heros.InterproceduralCFG;
 import heros.solver.IFDSSolver;
+import soot.G;
 import soot.PackManager;
 import soot.PointsToAnalysis;
 import soot.Scene;
@@ -21,7 +24,9 @@ import soot.Timer;
 import soot.Unit;
 import soot.Value;
 import soot.jimple.DefinitionStmt;
+import soot.jimple.JimpleBody;
 import soot.jimple.toolkits.callgraph.CallGraph;
+import soot.jimple.toolkits.callgraph.Edge;
 import soot.jimple.toolkits.ide.JimpleIFDSSolver;
 import soot.jimple.toolkits.ide.exampleproblems.IFDSReachingDefinitions;
 import soot.jimple.toolkits.ide.icfg.JimpleBasedInterproceduralCFG;
@@ -69,13 +74,41 @@ public class MockAnalysisInterprocTransformer extends SceneTransformer {
     public Timer interTimer = new soot.Timer();
     @Override
     protected void internalTransform(String phaseName, Map<String, String> options) {
-        Options.v().setPhaseOption("cg", "enabled:true");
-        Options.v().setPhaseOption("cg.spark", "enabled:true");
-        Options.v().setPhaseOption("cg.spark", "string-constants:true");
-        PackManager.v().getPack("cg").apply();
-//        for (SootClass sc : Scene.v().getApplicationClasses())
-//            for (SootMethod sm : sc.getMethods())
-//                sm.retrieveActiveBody();
+        callGraph = Scene.v().getCallGraph();
+        System.out.println("CallGraph size : " + callGraph.size());
+        
+        //Compute summaries of all methods present in the call graph
+        
+        for (SootClass sc : Scene.v().getApplicationClasses()) {
+            if ( sc.getName().contains("RootDriver") ) {
+                System.out.println("SootClass: " + sc);
+                for (SootMethod method : sc.getMethods()) {
+                    Iterator<Edge> edges = callGraph.edgesOutOf(method);
+                    
+                    while (edges.hasNext()) {
+                        Edge e = edges.next();
+                        
+                        SootMethod targetMethod = e.getTgt().method();
+                        System.out.println("Method in SootClass: " + method.getSignature());
+                        System.out.println("Target Method: " + targetMethod.getSignature());
+                    }
+                }
+            }
+        }
+            
+            
+        //Options.v().setPhaseOption("cg", "enabled:true");
+        //Options.v().setPhaseOption("cg.spark", "enabled:true");
+        //Options.v().setPhaseOption("cg.spark", "string-constants:true");
+        //PackManager.v().getPack("cg").apply();
+        /*for (SootClass sc : Scene.v().getApplicationClasses()) {
+            for (SootMethod sm : sc.getMethods()) {
+                if ( sm.getName().contains("testNoEmployeesIntra") ) {
+                    JimpleBody body = (JimpleBody) sm.getActiveBody();
+                    G.v().out.println(body);
+                }
+            }
+        }*/
         
         InterproceduralCFG<Unit, SootMethod> icfg= new JimpleBasedInterproceduralCFG();
         
