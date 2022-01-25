@@ -2,6 +2,7 @@ package ca.uwaterloo.liang;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import com.beust.jcommander.JCommander;
@@ -115,7 +116,13 @@ public class Runner {
             
             PackManager.v().getPack("wjtp").add(new Transform("wjtp.ifdsTransform", new MockAnalysisInterprocTransformer()) {
             });
+            
             Options.v().set_whole_program(true);
+            
+            List<String> excludePackagesList = Arrays.asList("java.*", "com.google.*", "com.*", "javax.*");
+            Options.v().set_exclude(excludePackagesList);
+            Options.v().set_allow_phantom_refs(true);
+            Options.v().set_no_bodies_for_excluded(true);
          // Enable SPARK call-graph construction
             Options.v().setPhaseOption("cg.spark","enabled:true");
             Scene.v().loadNecessaryClasses();
