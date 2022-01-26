@@ -118,13 +118,9 @@ public class Runner {
             });
             
             Options.v().set_whole_program(true);
-            
-            List<String> excludePackagesList = Arrays.asList("java.*", "com.google.*", "com.*", "javax.*");
-            Options.v().set_exclude(excludePackagesList);
-            Options.v().set_allow_phantom_refs(true);
-            Options.v().set_no_bodies_for_excluded(true);
+
          // Enable SPARK call-graph construction
-            Options.v().setPhaseOption("cg.spark","enabled:true");
+            Options.v().setPhaseOption("cg.spark", "enabled:true");
             Scene.v().loadNecessaryClasses();
             //soot.Main.v().autoSetOptions();
             Options.v().set_main_class(driver);
