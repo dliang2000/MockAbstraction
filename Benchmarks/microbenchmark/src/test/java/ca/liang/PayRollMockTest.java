@@ -106,6 +106,22 @@ public class PayRollMockTest {
     // Contains mock object
     @Category(MockTests.class)
     @Test
+    public void testMockCallInsideLambda() {
+        List<Employee> employees_intra = new ArrayList<Employee>();
+
+        EmployeeDB employeeDB_intra = mock(EmployeeDB.class);
+
+        // *mock* call below, wrapped in a lambda
+        java.util.function.Consumer<EmployeeDB> c = (EmployeeDB e) -> when(e.getAllEmployees()).thenReturn(employees_intra);
+
+        // call the lambda
+        c.accept(employeeDB_intra);
+    }
+    // total mock calls: 1, but in a lambda
+
+    // Contains mock object
+    @Category(MockTests.class)
+    @Test
     public void testAddAll() {
         System.out.println("Run testAddAll() in PayRollMockTest.");
         List<Employee> employees1_intra = new ArrayList<Employee>();
