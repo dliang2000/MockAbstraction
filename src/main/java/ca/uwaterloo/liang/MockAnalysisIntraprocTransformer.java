@@ -113,16 +113,10 @@ public class MockAnalysisIntraprocTransformer extends SceneTransformer {
             for (SootMethod method : sc.getMethods()) {   
                 if (method.hasActiveBody()) {
                     
-                    /*JimpleBody body = (JimpleBody) method.getActiveBody();
-                    if ( method.getName().contains("canCreateCompositeAnnotator") ) {
+                    JimpleBody body = (JimpleBody) method.getActiveBody();
+                    if ( method.getName().contains("addAllForIterable") ) {
                         G.v().out.println(body);
-                    }*/
-                    // For testing
-                    /*JimpleBody body = (JimpleBody) method.getActiveBody();
-                    
-                    if ( method.getDeclaringClass().getName().contains("ParametersProviderTest") ) {
-                        G.v().out.println(body);
-                    }*/
+                    }
 
 
                     /*Iterator<Edge> edges = callGraph.edgesOutOf(method);
@@ -167,6 +161,12 @@ public class MockAnalysisIntraprocTransformer extends SceneTransformer {
                     mockSummary.setTotalInvokeExprs( mockAnalysis.getTotalInvokeExprs() );
                     
                     mockSummary.setInvokeExprsOnMocks( mockAnalysis.getInvokeExprsOnMocks() );
+                    
+                    mockSummary.setMockCounter( mockAnalysis.getMockCounter() );
+                    
+                    mockSummary.setArrayMockCounter( mockAnalysis.getArrayMockCounter() );
+                    
+                    mockSummary.setCollectionMockCounter( mockAnalysis.getCollectionMockCounter() );
                     
                     procSummaries.put(method, mockSummary);
                     
@@ -215,11 +215,53 @@ public class MockAnalysisIntraprocTransformer extends SceneTransformer {
         
         printTestsWithIntraprocMockInvocations();
         
+        printCounters();
+        
         //printTestsWithoutIntraprocMock();
         
         mainTimer.end();
         long runtime = mainTimer.getTime();
         System.out.println("" + "Soot has run MockAnalysisMainTransformer for " + runtime + " ms.");
+    }
+    
+    private void printCounters() {
+        int totalMockCounter = 0;
+        int totalArrayMockCounter = 0;
+        int totalCollectionMockCounter = 0;
+        for(SootClass nc : Scene.v().getApplicationClasses()) {
+            if (!Util.isTestClass(nc))
+                continue;
+            
+            HashSet<SootMethod> mockMethods = Util.gatherMockTestMethods(nc, procSummaries);
+            
+            List<SootMethod> ncM = nc.getMethods();
+            
+            ProcSummary pSmy = null;
+            
+            for(SootMethod m : ncM) {
+                
+                if (mockMethods.contains(m)) {
+                    pSmy = procSummaries.get(m);
+                    if (pSmy == null) 
+                        continue;
+                    
+                    totalMockCounter += pSmy.getMockCounter();
+                    totalArrayMockCounter += pSmy.getArrayMockCounter();
+                    totalCollectionMockCounter += pSmy.getCollectionMockCounter();
+                }
+            }      
+        }
+        
+        StringBuffer msg = new StringBuffer();
+        msg.append(" ====================================== \n")
+        .append("Imprecision Counters ").append("\n");
+        msg.append("Total mock counter at conflow-flow merge: ").append(totalMockCounter)
+        .append("\n");
+        msg.append("Total array mock counter at conflow-flow merge: ").append(totalArrayMockCounter)
+        .append("\n");
+        msg.append("Total collection mock counter at conflow-flow merge: ").append(totalCollectionMockCounter)
+        .append("\n");
+        G.v().out.println(msg);
     }
     
     private void printTestsWithIntraprocMockInvocations() {
