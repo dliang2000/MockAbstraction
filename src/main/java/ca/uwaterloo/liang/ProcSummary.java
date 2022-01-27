@@ -29,6 +29,13 @@ public class ProcSummary {
     
     private SootMethod mySootMethod;
     
+    // Imprecision Counters
+    private int myMockCounter;
+    
+    private int myArrayMockCounter;
+    
+    private int myCollectionMockCounter;
+    
     public ProcSummary(SootMethod aSootMethod) {
         mySootMethod = aSootMethod;
         
@@ -37,6 +44,12 @@ public class ProcSummary {
         myTotalInvokeExprs = emptyInvokeExprs;
         
         myInvokeExprsOnMocks = emptyInvokeExprsOnMocks;
+        
+        myMockCounter = 0;
+        
+        myArrayMockCounter = 0;
+        
+        myCollectionMockCounter = 0;
     }
     
     public SootMethod getSootMethod() {
@@ -69,5 +82,29 @@ public class ProcSummary {
 
     public void setInvokeExprsOnMocks(ArrayList<InvokeExpr> myInvokeExprsOnMocks) {
         this.myInvokeExprsOnMocks = myInvokeExprsOnMocks;
+    }
+    
+    public int getMockCounter() {
+        return myMockCounter;
+    }
+    
+    public void setMockCounter(int myMockCounter) {
+        this.myMockCounter = myMockCounter;
+    }
+    
+    public int getArrayMockCounter() {
+        return myArrayMockCounter;
+    }
+    
+    public void setArrayMockCounter(int myArrayMockCounter) {
+        this.myArrayMockCounter = myArrayMockCounter;
+    }
+    
+    public int getCollectionMockCounter() {
+        return myCollectionMockCounter;
+    }
+    
+    public void setCollectionMockCounter(int myCollectionMockCounter) {
+        this.myCollectionMockCounter = myCollectionMockCounter;
     }
 }

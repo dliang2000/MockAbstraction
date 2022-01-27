@@ -76,6 +76,11 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
     // Flag to determine if the analysis is from MockAnalysisPreTransformer
     private boolean isInPreAnalysis;
     
+    // Counters for imprecision at control-flow merge
+    private int mockCounter;
+    private int arrayMockCounter;
+    private int collectionMockCounter;
+    
     @SuppressWarnings("unchecked")
     public MockAnalysis(ExceptionalUnitGraph graph, SootMethod aCurrentSootMethod, boolean isPre) {
         super(graph);
@@ -91,6 +96,12 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
         this.invokeExprsOnMocks = (ArrayList<InvokeExpr>) emptyInvokeExprsOnMocks.clone();
         
         this.localFieldRefMap = (HashMap<Value, Value>) emptyLocalFieldRefMap.clone();
+        
+        this.mockCounter = 0;
+        
+        this.arrayMockCounter = 0;
+        
+        this.collectionMockCounter = 0;
         
         //System.out.println("unitToAfterFlow size before doAnalysis: " + unitToAfterFlow.keySet().size());
         
@@ -647,6 +658,19 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
         return this.unitToAfterFlow;
     }
     
+    public int getMockCounter() {
+        return mockCounter;
+    }
+    
+    public int getArrayMockCounter() {
+        return arrayMockCounter;
+    }
+    
+    public int getCollectionMockCounter() {
+        //System.out.println("In getMocks(), method: " + method.getSignature());
+        return collectionMockCounter;
+    }
+    
     /*public HashMap<SootField, MockStatus> getFieldMocks() {
         return fieldMocks;
     }*/
@@ -656,6 +680,7 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
         ArrayList<Value> mergeList = new ArrayList<Value>();
         mergeList.addAll(in1.keySet());
         mergeList.addAll(in2.keySet());
+        
         for (Value val : mergeList) {
             MockStatus status1 = in1.get(val);
             
@@ -671,14 +696,23 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
                 // when either status1 or status2 is a mayMock
                 MockStatus statusMock = new MockStatus(true);
                 out.put(val, statusMock);
+                
+                if (status1.getMock() != status2.getMock()) 
+                    mockCounter++;
             } else if ( status1.getArrayMock() || status2.getArrayMock() ) {
                 // when either status1 or status2 is an arrayMock
                 MockStatus statusArrayMock = new MockStatus(false, true, false);
                 out.put(val, statusArrayMock);
+                
+                if (status1.getArrayMock() != status2.getArrayMock()) 
+                    arrayMockCounter++;
             } else if ( status1.getCollectionMock() || status2.getCollectionMock() ) {
              // when either status1 or status2 is an collectionMock
                 MockStatus statusCollectionyMock = new MockStatus(false, false, true);
                 out.put(val, statusCollectionyMock);
+                
+                if (status1.getCollectionMock() != status2.getCollectionMock()) 
+                    collectionMockCounter++;
             }
         }
     }
