@@ -12,4 +12,7 @@ public class EmployeeDB {
     public List<Employee> getAllEmployees() {
         return employees;
     }
+    public int getEmployeeCount() {
+        return employees.size();
+    }
 }

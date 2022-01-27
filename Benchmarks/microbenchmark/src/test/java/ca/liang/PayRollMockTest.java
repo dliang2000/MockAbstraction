@@ -267,6 +267,16 @@ public class PayRollMockTest {
         assertNumberOfPayments(1);
     }
     // total mock calls: 0
+
+    @Test
+    public void testTransitiveCall() {
+        EmployeeDB db = new EmployeeDB(mock(java.util.ArrayList.class));
+        // db.getEmployeeCount() calls .size() on the mock ArrayList.
+        // a context-insensitive analysis is going to say that every call to EmployeeDB.getEmployeeCount() might be a mock because of the line just above
+        assertEquals(0, db.getEmployeeCount());
+    }
+    // total mock calls: 0
+    // total transitive mock calls: 1
     
     // Contains inter-procedural mock object 
     @Category(MockTests.class)
