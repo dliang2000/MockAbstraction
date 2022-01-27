@@ -36,6 +36,8 @@ public class PayRollMockTest {
 
         employeeDB = mock(EmployeeDB.class);
         bankService = mock(BankService.class);
+        
+        flag = true;
 
         // *mock* call below, employeeDB.getAllEmployees()
         when(employeeDB.getAllEmployees()).thenReturn(employees);
@@ -48,6 +50,19 @@ public class PayRollMockTest {
     @Test
     public void testMerge() {
         System.out.println("Run testMerge() in PayRollMockTest.");
+        Object m = new Object();
+        if (flag) {
+            m = mock(Object.class);
+        }
+        // *mock* call below
+        assertFalse(m.equals(null));
+    }
+    // total mock calls: 1
+    
+    @Category(MockTests.class)
+    @Test
+    public void testMerge2() {
+        System.out.println("Run testMerge2() in PayRollMockTest.");
         Object m = mock(Object.class);
         if (flag) {
             m = null;
