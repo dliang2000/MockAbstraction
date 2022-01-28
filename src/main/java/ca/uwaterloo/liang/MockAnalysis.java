@@ -677,25 +677,47 @@ public class MockAnalysis extends ForwardFlowAnalysis<Unit, Map<Value, MockStatu
     
     @Override
     protected void merge(Map<Value, MockStatus> in1, Map<Value, MockStatus> in2, Map<Value, MockStatus> out) {
-        ArrayList<Value> mergeList = new ArrayList<Value>();
-        mergeList.addAll(in1.keySet());
-        mergeList.addAll(in2.keySet());
+        Set<Value> mergeSet = new HashSet<Value>();
+        mergeSet.addAll(in1.keySet());
+        mergeSet.addAll(in2.keySet());
         
-        for (Value val : mergeList) {
+        for (Value val : mergeSet) {
             MockStatus status1 = in1.get(val);
             
             MockStatus status2 = in2.get(val);
             
+            System.out.println("KeySet: " + val);
+            
             if (status2 == null) { 
-                // when status2 is null
                 out.put(val, status1);
+                System.out.println("status2 is null.");
+                System.out.println("Status1: " + status1.getMock());
+                
+                if (status1.getMock()) {
+                    mockCounter++;
+                } else if (status1.getArrayMock()) {
+                    arrayMockCounter++;
+                } else if (status1.getCollectionMock()) {
+                    collectionMockCounter++;
+                }
             } else if (status1 == null) {
-                // when status1 is null
                 out.put(val, status2);
+                System.out.println("status1 is null.");
+                System.out.println("Status2: " + status2.getMock());
+                if (status2.getMock()) {
+                    mockCounter++;
+                } else if (status2.getArrayMock()) {
+                    arrayMockCounter++;
+                } else if (status2.getCollectionMock()) {
+                    collectionMockCounter++;
+                }
             } else if ( status1.getMock() || status2.getMock() ) {
-                // when either status1 or status2 is a mayMock
+                // when either status1 or status2 is a mayMock 
+                // (the other branch has the original mock object redefined to non-mock)
                 MockStatus statusMock = new MockStatus(true);
                 out.put(val, statusMock);
+                System.out.println("Status1: " + status1.getMock());
+                System.out.println("Status2: " + status2.getMock());
                 
                 if (status1.getMock() != status2.getMock()) 
                     mockCounter++;
