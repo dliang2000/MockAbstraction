@@ -114,7 +114,7 @@ public class MockAnalysisIntraprocTransformer extends SceneTransformer {
                 if (method.hasActiveBody()) {
                     
                     JimpleBody body = (JimpleBody) method.getActiveBody();
-                    if ( method.getName().contains("addAllForIterable") ) {
+                    if ( method.getName().contains("testMerge") ) {
                         G.v().out.println(body);
                     }
 
@@ -228,6 +228,9 @@ public class MockAnalysisIntraprocTransformer extends SceneTransformer {
         int totalMockCounter = 0;
         int totalArrayMockCounter = 0;
         int totalCollectionMockCounter = 0;
+        
+        StringBuffer msg = new StringBuffer();
+        
         for(SootClass nc : Scene.v().getApplicationClasses()) {
             if (!Util.isTestClass(nc))
                 continue;
@@ -248,11 +251,25 @@ public class MockAnalysisIntraprocTransformer extends SceneTransformer {
                     totalMockCounter += pSmy.getMockCounter();
                     totalArrayMockCounter += pSmy.getArrayMockCounter();
                     totalCollectionMockCounter += pSmy.getCollectionMockCounter();
+                    
+                    if (pSmy.getMockCounter() > 0 || pSmy.getArrayMockCounter() > 0 
+                            || pSmy.getCollectionMockCounter() > 0) {
+                        msg.append("\n\n========== method  ").append(m.getName()).append(" ========: \n\n");
+                        
+                        if (pSmy.getMockCounter() > 0)
+                            msg.append("\tMock Counter: ").append(pSmy.getMockCounter()).append("; \n\n");
+                        
+                        if (pSmy.getArrayMockCounter() > 0)
+                            msg.append("\tArray Mock Counter: ").append(pSmy.getArrayMockCounter()).append("; \n\n");
+                        
+                        if (pSmy.getCollectionMockCounter() > 0)
+                            msg.append("\tCollection Mock Counter: ").append(pSmy.getCollectionMockCounter()).append(";\n\n");
+                    
+                    }
                 }
             }      
         }
         
-        StringBuffer msg = new StringBuffer();
         msg.append(" ====================================== \n")
         .append("Imprecision Counters ").append("\n");
         msg.append("Total mock counter at conflow-flow merge: ").append(totalMockCounter)
@@ -422,7 +439,7 @@ public class MockAnalysisIntraprocTransformer extends SceneTransformer {
                 if (!invokeOnMocks.isEmpty()) {
                     mocks_count += invokeOnMocks.size();
                     msg.append("\n\n========== method  ").append(m.getName()).append(" ========: \n\n");
-                    msg.append("\tTotal invocations on Mocks ").append(invokeOnMocks.size()).append(" : \n\n");
+                    msg.append("\tTotal invocations on Mocks ").append(invokeOnMocks.size()).append(" ; \n\n");
                     for (InvokeExpr invkExpr : invokeOnMocks)
                        msg.append("\tInvokeExpr: ").append(invkExpr).append("\n\n");
                 }

@@ -50,9 +50,10 @@ public class PayRollMockTest {
     @Test
     public void testMerge() {
         System.out.println("Run testMerge() in PayRollMockTest.");
-        Object m = new Object();
+        Object m = mock(Object.class);
+        
         if (flag) {
-            m = mock(Object.class);
+            m = new Object();
         }
         // *mock* call below
         assertFalse(m.equals(null));
@@ -63,6 +64,20 @@ public class PayRollMockTest {
     @Test
     public void testMerge2() {
         System.out.println("Run testMerge2() in PayRollMockTest.");
+        Object m = new Object();
+        
+        if (flag) {
+            m = mock(Object.class);
+        }
+        // *mock* call below
+        assertFalse(m.equals(null));
+    }
+    // total mock calls: 1
+    
+    @Category(MockTests.class)
+    @Test
+    public void testMerge3() {
+        System.out.println("Run testMerge3() in PayRollMockTest.");
         Object m = mock(Object.class);
         if (flag) {
             m = null;

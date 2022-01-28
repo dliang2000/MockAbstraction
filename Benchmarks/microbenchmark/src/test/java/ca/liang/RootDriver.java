@@ -25,8 +25,10 @@ public class RootDriver {
 		class5.init();
 		class5.testMerge();
 		class5.testMerge2();
+		class5.testMerge3();
 		class5.testNoEmployees();
 		class5.testNoEmployeesIntra();
+		class5.testMockCallInsideLambda();
 		class5.testAddAll();
 		class5.testIteration();
 		class5.testVector();
@@ -34,6 +36,7 @@ public class RootDriver {
 		class5.testVectorToArray();
 		class5.testArrayToVector();
 		class5.testSingleEmployee();
+		class5.testTransitiveCall();
 		class5.testSingleEmployeeMockInter();
 		class5.testSingleEmployeeMockCallout();
 		class5.testEmployeeIsPaid();
