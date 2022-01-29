@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultProjectRealmCache.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.project</a> &gt; <span class="el_source">DefaultProjectRealmCache.java</span></div><h1>DefaultProjectRealmCache.java</h1><pre class="source lang-java linenums">package org.apache.maven.project;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.codehaus.plexus.classworlds.realm.ClassRealm;
+import org.codehaus.plexus.classworlds.realm.NoSuchRealmException;
+import org.codehaus.plexus.component.annotations.Component;
+import org.codehaus.plexus.personality.plexus.lifecycle.phase.Disposable;
+import org.eclipse.aether.graph.DependencyFilter;
+
+/**
+ * Default project realm cache implementation. Assumes cached data does not change.
+ */
+@Component( role = ProjectRealmCache.class )
+<span class="nc" id="L38">public class DefaultProjectRealmCache</span>
+    implements ProjectRealmCache, Disposable
+{
+    /**
+     * CacheKey
+     */
+    protected static class CacheKey
+        implements Key
+    {
+
+        private final List&lt;? extends ClassRealm&gt; extensionRealms;
+
+        private final int hashCode;
+
+        public CacheKey( List&lt;? extends ClassRealm&gt; extensionRealms )
+<span class="nc" id="L53">        {</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">            this.extensionRealms = ( extensionRealms != null )</span>
+<span class="nc" id="L55">                                       ? Collections.unmodifiableList( extensionRealms )</span>
+<span class="nc" id="L56">                                       : Collections.&lt;ClassRealm&gt;emptyList();</span>
+
+<span class="nc" id="L58">            this.hashCode = this.extensionRealms.hashCode();</span>
+<span class="nc" id="L59">        }</span>
+
+        @Override
+        public int hashCode()
+        {
+<span class="nc" id="L64">            return hashCode;</span>
+        }
+
+        @Override
+        public boolean equals( Object o )
+        {
+<span class="nc bnc" id="L70" title="All 2 branches missed.">            if ( o == this )</span>
+            {
+<span class="nc" id="L72">                return true;</span>
+            }
+
+<span class="nc bnc" id="L75" title="All 2 branches missed.">            if ( !( o instanceof CacheKey ) )</span>
+            {
+<span class="nc" id="L77">                return false;</span>
+            }
+
+<span class="nc" id="L80">            CacheKey other = (CacheKey) o;</span>
+
+<span class="nc" id="L82">            return extensionRealms.equals( other.extensionRealms );</span>
+        }
+
+        @Override
+        public String toString()
+        {
+<span class="nc" id="L88">            return extensionRealms.toString();</span>
+        }
+    }
+
+<span class="nc" id="L92">    protected final Map&lt;Key, CacheRecord&gt; cache = new ConcurrentHashMap&lt;&gt;();</span>
+
+    @Override
+    public Key createKey( List&lt;? extends ClassRealm&gt; extensionRealms )
+    {
+<span class="nc" id="L97">        return new CacheKey( extensionRealms );</span>
+    }
+
+    public CacheRecord get( Key key )
+    {
+<span class="nc" id="L102">        return cache.get( key );</span>
+    }
+
+    public CacheRecord put( Key key, ClassRealm projectRealm, DependencyFilter extensionArtifactFilter )
+    {
+<span class="nc" id="L107">        Objects.requireNonNull( projectRealm, &quot;projectRealm cannot be null&quot; );</span>
+
+<span class="nc bnc" id="L109" title="All 2 branches missed.">        if ( cache.containsKey( key ) )</span>
+        {
+<span class="nc" id="L111">            throw new IllegalStateException( &quot;Duplicate project realm for extensions &quot; + key );</span>
+        }
+
+<span class="nc" id="L114">        CacheRecord record = new CacheRecord( projectRealm, extensionArtifactFilter );</span>
+
+<span class="nc" id="L116">        cache.put( key, record );</span>
+
+<span class="nc" id="L118">        return record;</span>
+    }
+
+    public void flush()
+    {
+<span class="nc bnc" id="L123" title="All 2 branches missed.">        for ( CacheRecord record : cache.values() )</span>
+        {
+<span class="nc" id="L125">            ClassRealm realm = record.getRealm();</span>
+            try
+            {
+<span class="nc" id="L128">                realm.getWorld().disposeRealm( realm.getId() );</span>
+            }
+<span class="nc" id="L130">            catch ( NoSuchRealmException e )</span>
+            {
+                // ignore
+<span class="nc" id="L133">            }</span>
+<span class="nc" id="L134">        }</span>
+<span class="nc" id="L135">        cache.clear();</span>
+<span class="nc" id="L136">    }</span>
+
+    public void register( MavenProject project, Key key, CacheRecord record )
+    {
+        // default cache does not track record usage
+<span class="nc" id="L141">    }</span>
+
+    @Override
+    public void dispose()
+    {
+<span class="nc" id="L146">        flush();</span>
+<span class="nc" id="L147">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

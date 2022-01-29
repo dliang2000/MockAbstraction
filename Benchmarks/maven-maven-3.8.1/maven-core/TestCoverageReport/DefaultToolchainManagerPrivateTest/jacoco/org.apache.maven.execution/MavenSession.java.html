@@ -1,0 +1,443 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MavenSession.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.execution</a> &gt; <span class="el_source">MavenSession.java</span></div><h1>MavenSession.java</h1><pre class="source lang-java linenums">package org.apache.maven.execution;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.io.File;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.apache.maven.artifact.repository.RepositoryCache;
+import org.apache.maven.monitor.event.EventDispatcher;
+import org.apache.maven.plugin.descriptor.PluginDescriptor;
+import org.apache.maven.project.MavenProject;
+import org.apache.maven.project.ProjectBuildingRequest;
+import org.apache.maven.settings.Settings;
+import org.codehaus.plexus.PlexusContainer;
+import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
+import org.eclipse.aether.RepositorySystemSession;
+
+/**
+ * A Maven execution session.
+ *
+ * @author Jason van Zyl
+ */
+public class MavenSession
+    implements Cloneable
+{
+    private MavenExecutionRequest request;
+
+    private MavenExecutionResult result;
+
+    private RepositorySystemSession repositorySession;
+
+    private Properties executionProperties;
+
+    private MavenProject currentProject;
+
+    /**
+     * These projects have already been topologically sorted in the {@link org.apache.maven.Maven} component before
+     * being passed into the session. This is also the potentially constrained set of projects by using --projects
+     * on the command line.
+     */
+    private List&lt;MavenProject&gt; projects;
+
+    /**
+     * The full set of projects before any potential constraining by --projects. Useful in the case where you want to
+     * build a smaller set of projects but perform other operations in the context of your reactor.
+     */
+    private List&lt;MavenProject&gt; allProjects;
+
+    private MavenProject topLevelProject;
+
+    private ProjectDependencyGraph projectDependencyGraph;
+
+    private boolean parallel;
+
+<span class="nc" id="L78">    private final Map&lt;String, Map&lt;String, Map&lt;String, Object&gt;&gt;&gt; pluginContextsByProjectAndPluginKey =</span>
+        new ConcurrentHashMap&lt;&gt;();
+
+
+    public void setProjects( List&lt;MavenProject&gt; projects )
+    {
+<span class="nc bnc" id="L84" title="All 2 branches missed.">        if ( !projects.isEmpty() )</span>
+        {
+<span class="nc" id="L86">            this.currentProject = projects.get( 0 );</span>
+<span class="nc" id="L87">            this.topLevelProject = currentProject;</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">            for ( MavenProject project : projects )</span>
+            {
+<span class="nc bnc" id="L90" title="All 2 branches missed.">                if ( project.isExecutionRoot() )</span>
+                {
+<span class="nc" id="L92">                    topLevelProject = project;</span>
+<span class="nc" id="L93">                    break;</span>
+                }
+<span class="nc" id="L95">            }</span>
+        }
+        else
+        {
+<span class="nc" id="L99">            this.currentProject = null;</span>
+<span class="nc" id="L100">            this.topLevelProject = null;</span>
+        }
+<span class="nc" id="L102">        this.projects = projects;</span>
+<span class="nc" id="L103">    }</span>
+
+    public ArtifactRepository getLocalRepository()
+    {
+<span class="nc" id="L107">        return request.getLocalRepository();</span>
+    }
+
+    public List&lt;String&gt; getGoals()
+    {
+<span class="nc" id="L112">        return request.getGoals();</span>
+    }
+
+    /**
+     * Gets the user properties to use for interpolation and profile activation. The user properties have been
+     * configured directly by the user on his discretion, e.g. via the {@code -Dkey=value} parameter on the command
+     * line.
+     *
+     * @return The user properties, never {@code null}.
+     */
+    public Properties getUserProperties()
+    {
+<span class="nc" id="L124">        return request.getUserProperties();</span>
+    }
+
+    /**
+     * Gets the system properties to use for interpolation and profile activation. The system properties are collected
+     * from the runtime environment like {@link System#getProperties()} and environment variables.
+     *
+     * @return The system properties, never {@code null}.
+     */
+    public Properties getSystemProperties()
+    {
+<span class="nc" id="L135">        return request.getSystemProperties();</span>
+    }
+
+    public Settings getSettings()
+    {
+<span class="nc" id="L140">        return settings;</span>
+    }
+
+    public List&lt;MavenProject&gt; getProjects()
+    {
+<span class="nc" id="L145">        return projects;</span>
+    }
+
+    public String getExecutionRootDirectory()
+    {
+<span class="nc" id="L150">        return request.getBaseDirectory();</span>
+    }
+
+    public MavenExecutionRequest getRequest()
+    {
+<span class="nc" id="L155">        return request;</span>
+    }
+
+    public void setCurrentProject( MavenProject currentProject )
+    {
+<span class="nc" id="L160">        this.currentProject = currentProject;</span>
+<span class="nc" id="L161">    }</span>
+
+    public MavenProject getCurrentProject()
+    {
+<span class="nc" id="L165">        return currentProject;</span>
+    }
+
+    public ProjectBuildingRequest getProjectBuildingRequest()
+    {
+<span class="nc" id="L170">        return request.getProjectBuildingRequest().setRepositorySession( getRepositorySession() );</span>
+    }
+
+    public List&lt;String&gt; getPluginGroups()
+    {
+<span class="nc" id="L175">        return request.getPluginGroups();</span>
+    }
+
+    public boolean isOffline()
+    {
+<span class="nc" id="L180">        return request.isOffline();</span>
+    }
+
+    public MavenProject getTopLevelProject()
+    {
+<span class="nc" id="L185">        return topLevelProject;</span>
+    }
+
+    public MavenExecutionResult getResult()
+    {
+<span class="nc" id="L190">        return result;</span>
+    }
+
+    // Backward compat
+
+    public Map&lt;String, Object&gt; getPluginContext( PluginDescriptor plugin, MavenProject project )
+    {
+<span class="nc" id="L197">        String projectKey = project.getId();</span>
+
+<span class="nc" id="L199">        Map&lt;String, Map&lt;String, Object&gt;&gt; pluginContextsByKey = pluginContextsByProjectAndPluginKey.get( projectKey );</span>
+
+<span class="nc bnc" id="L201" title="All 2 branches missed.">        if ( pluginContextsByKey == null )</span>
+        {
+<span class="nc" id="L203">            pluginContextsByKey = new ConcurrentHashMap&lt;&gt;();</span>
+
+<span class="nc" id="L205">            pluginContextsByProjectAndPluginKey.put( projectKey, pluginContextsByKey );</span>
+        }
+
+<span class="nc" id="L208">        String pluginKey = plugin.getPluginLookupKey();</span>
+
+<span class="nc" id="L210">        Map&lt;String, Object&gt; pluginContext = pluginContextsByKey.get( pluginKey );</span>
+
+<span class="nc bnc" id="L212" title="All 2 branches missed.">        if ( pluginContext == null )</span>
+        {
+<span class="nc" id="L214">            pluginContext = new ConcurrentHashMap&lt;&gt;();</span>
+
+<span class="nc" id="L216">            pluginContextsByKey.put( pluginKey, pluginContext );</span>
+        }
+
+<span class="nc" id="L219">        return pluginContext;</span>
+    }
+
+    public ProjectDependencyGraph getProjectDependencyGraph()
+    {
+<span class="nc" id="L224">        return projectDependencyGraph;</span>
+    }
+
+    public void setProjectDependencyGraph( ProjectDependencyGraph projectDependencyGraph )
+    {
+<span class="nc" id="L229">        this.projectDependencyGraph = projectDependencyGraph;</span>
+<span class="nc" id="L230">    }</span>
+
+    public String getReactorFailureBehavior()
+    {
+<span class="nc" id="L234">        return request.getReactorFailureBehavior();</span>
+    }
+
+    @Override
+    public MavenSession clone()
+    {
+        try
+        {
+<span class="nc" id="L242">            return (MavenSession) super.clone();</span>
+        }
+<span class="nc" id="L244">        catch ( CloneNotSupportedException e )</span>
+        {
+<span class="nc" id="L246">            throw new RuntimeException( &quot;Bug&quot;, e );</span>
+        }
+    }
+
+    public Date getStartTime()
+    {
+<span class="nc" id="L252">        return request.getStartTime();</span>
+    }
+
+    public boolean isParallel()
+    {
+<span class="nc" id="L257">        return parallel;</span>
+    }
+
+    public void setParallel( boolean parallel )
+    {
+<span class="nc" id="L262">        this.parallel = parallel;</span>
+<span class="nc" id="L263">    }</span>
+
+    public RepositorySystemSession getRepositorySession()
+    {
+<span class="nc" id="L267">        return repositorySession;</span>
+    }
+
+    private Map&lt;String, MavenProject&gt; projectMap;
+
+    public void setProjectMap( Map&lt;String, MavenProject&gt; projectMap )
+    {
+<span class="nc" id="L274">        this.projectMap = projectMap;</span>
+<span class="nc" id="L275">    }</span>
+    
+    /** This is a provisional method and may be removed */
+    public List&lt;MavenProject&gt; getAllProjects()
+    {
+<span class="nc" id="L280">        return allProjects;</span>
+    }
+
+    /** This is a provisional method and may be removed */
+    public void setAllProjects( List&lt;MavenProject&gt; allProjects )
+    {
+<span class="nc" id="L286">        this.allProjects = allProjects;</span>
+<span class="nc" id="L287">    }</span>
+    
+    /*if_not[MAVEN4]*/
+
+    //
+    // Deprecated 
+    //
+        
+    private PlexusContainer container;    
+    
+    private final Settings settings;
+    
+    @Deprecated
+    /** @deprecated This appears to only be used in the ReactorReader and we can do any processing required there */
+    public Map&lt;String, MavenProject&gt; getProjectMap() 
+    {
+<span class="nc" id="L303">        return projectMap;</span>
+    }
+    
+    @Deprecated
+    public MavenSession( PlexusContainer container, RepositorySystemSession repositorySession,
+                         MavenExecutionRequest request, MavenExecutionResult result )
+<span class="nc" id="L309">    {</span>
+<span class="nc" id="L310">        this.container = container;</span>
+<span class="nc" id="L311">        this.request = request;</span>
+<span class="nc" id="L312">        this.result = result;</span>
+<span class="nc" id="L313">        this.settings = new SettingsAdapter( request );</span>
+<span class="nc" id="L314">        this.repositorySession = repositorySession;</span>
+<span class="nc" id="L315">    }</span>
+    
+    @Deprecated
+    public MavenSession( PlexusContainer container, MavenExecutionRequest request, MavenExecutionResult result,
+                         MavenProject project )
+    {
+<span class="nc" id="L321">        this( container, request, result, Arrays.asList( new MavenProject[]{project} ) );</span>
+<span class="nc" id="L322">    }</span>
+
+    @Deprecated
+    @SuppressWarnings( &quot;checkstyle:parameternumber&quot; )
+    public MavenSession( PlexusContainer container, Settings settings, ArtifactRepository localRepository,
+                         EventDispatcher eventDispatcher, ReactorManager unused, List&lt;String&gt; goals,
+                         String executionRootDir, Properties executionProperties, Date startTime )
+    {
+<span class="nc" id="L330">        this( container, settings, localRepository, eventDispatcher, unused, goals, executionRootDir,</span>
+              executionProperties, null, startTime );
+<span class="nc" id="L332">    }</span>
+
+    @Deprecated
+    @SuppressWarnings( &quot;checkstyle:parameternumber&quot; )
+    public MavenSession( PlexusContainer container, Settings settings, ArtifactRepository localRepository,
+                         EventDispatcher eventDispatcher, ReactorManager unused, List&lt;String&gt; goals,
+                         String executionRootDir, Properties executionProperties, Properties userProperties,
+                         Date startTime )
+<span class="nc" id="L340">    {</span>
+<span class="nc" id="L341">        this.container = container;</span>
+<span class="nc" id="L342">        this.settings = settings;</span>
+<span class="nc" id="L343">        this.executionProperties = executionProperties;</span>
+<span class="nc" id="L344">        this.request = new DefaultMavenExecutionRequest();</span>
+<span class="nc" id="L345">        this.request.setUserProperties( userProperties );</span>
+<span class="nc" id="L346">        this.request.setLocalRepository( localRepository );</span>
+<span class="nc" id="L347">        this.request.setGoals( goals );</span>
+<span class="nc bnc" id="L348" title="All 2 branches missed.">        this.request.setBaseDirectory( ( executionRootDir != null ) ? new File( executionRootDir ) : null );</span>
+<span class="nc" id="L349">        this.request.setStartTime( startTime );</span>
+<span class="nc" id="L350">    }</span>
+
+    @Deprecated
+    public MavenSession( PlexusContainer container, MavenExecutionRequest request, MavenExecutionResult result,
+                         List&lt;MavenProject&gt; projects )
+<span class="nc" id="L355">    {</span>
+<span class="nc" id="L356">        this.container = container;</span>
+<span class="nc" id="L357">        this.request = request;</span>
+<span class="nc" id="L358">        this.result = result;</span>
+<span class="nc" id="L359">        this.settings = new SettingsAdapter( request );</span>
+<span class="nc" id="L360">        setProjects( projects );</span>
+<span class="nc" id="L361">    }</span>
+
+    @Deprecated
+    public List&lt;MavenProject&gt; getSortedProjects()
+    {
+<span class="nc" id="L366">        return getProjects();</span>
+    }
+    
+    @Deprecated
+    //
+    // Used by Tycho and will break users and force them to upgrade to Maven 3.1 so we should really leave
+    // this here, possibly indefinitely.
+    //
+    public RepositoryCache getRepositoryCache()
+    {
+<span class="nc" id="L376">        return null;</span>
+    }
+
+    @Deprecated
+    public EventDispatcher getEventDispatcher()
+    {
+<span class="nc" id="L382">        return null;</span>
+    }
+
+    @Deprecated
+    public boolean isUsingPOMsFromFilesystem()
+    {
+<span class="nc" id="L388">        return request.isProjectPresent();</span>
+    }
+
+    /**
+     * @deprecated Use either {@link #getUserProperties()} or {@link #getSystemProperties()}.
+     */
+    @Deprecated
+    public Properties getExecutionProperties()
+    {
+<span class="nc bnc" id="L397" title="All 2 branches missed.">        if ( executionProperties == null )</span>
+        {
+<span class="nc" id="L399">            executionProperties = new Properties();</span>
+<span class="nc" id="L400">            executionProperties.putAll( request.getSystemProperties() );</span>
+<span class="nc" id="L401">            executionProperties.putAll( request.getUserProperties() );</span>
+        }
+
+<span class="nc" id="L404">        return executionProperties;</span>
+    }
+    
+    @Deprecated
+    public PlexusContainer getContainer()
+    {
+<span class="nc" id="L410">        return container;</span>
+    }
+
+    @Deprecated
+    public Object lookup( String role )
+        throws ComponentLookupException
+    {
+<span class="nc" id="L417">        return container.lookup( role );</span>
+    }
+
+    @Deprecated
+    public Object lookup( String role, String roleHint )
+        throws ComponentLookupException
+    {
+<span class="nc" id="L424">        return container.lookup( role, roleHint );</span>
+    }
+
+    @Deprecated
+    public List&lt;Object&gt; lookupList( String role )
+        throws ComponentLookupException
+    {
+<span class="nc" id="L431">        return container.lookupList( role );</span>
+    }
+
+    @Deprecated
+    public Map&lt;String, Object&gt; lookupMap( String role )
+        throws ComponentLookupException
+    {
+<span class="nc" id="L438">        return container.lookupMap( role );</span>
+    }   
+    
+    /*end[MAVEN4]*/
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

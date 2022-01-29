@@ -1,0 +1,442 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LegacyLocalRepositoryManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.artifact.repository</a> &gt; <span class="el_source">LegacyLocalRepositoryManager.java</span></div><h1>LegacyLocalRepositoryManager.java</h1><pre class="source lang-java linenums">package org.apache.maven.artifact.repository;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.io.File;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+
+import org.apache.maven.RepositoryUtils;
+import org.apache.maven.artifact.metadata.ArtifactMetadata;
+import org.apache.maven.artifact.repository.layout.ArtifactRepositoryLayout;
+import org.apache.maven.artifact.repository.layout.DefaultRepositoryLayout;
+import org.apache.maven.artifact.repository.metadata.RepositoryMetadataStoreException;
+import org.apache.maven.repository.Proxy;
+import org.eclipse.aether.DefaultRepositorySystemSession;
+import org.eclipse.aether.RepositorySystem;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.artifact.Artifact;
+import org.eclipse.aether.metadata.Metadata;
+import org.eclipse.aether.repository.LocalArtifactRegistration;
+import org.eclipse.aether.repository.LocalArtifactRequest;
+import org.eclipse.aether.repository.LocalArtifactResult;
+import org.eclipse.aether.repository.LocalMetadataRegistration;
+import org.eclipse.aether.repository.LocalMetadataRequest;
+import org.eclipse.aether.repository.LocalMetadataResult;
+import org.eclipse.aether.repository.LocalRepository;
+import org.eclipse.aether.repository.LocalRepositoryManager;
+import org.eclipse.aether.repository.RemoteRepository;
+
+/**
+ * &lt;strong&gt;Warning:&lt;/strong&gt; This is an internal utility class that is only public for technical reasons, it is not part
+ * of the public API. In particular, this class can be changed or deleted without prior notice.
+ *
+ * @author Benjamin Bentmann
+ */
+public class LegacyLocalRepositoryManager
+    implements LocalRepositoryManager
+{
+
+    private final ArtifactRepository delegate;
+
+    private final LocalRepository repo;
+
+    private final boolean realLocalRepo;
+
+    public static RepositorySystemSession overlay( ArtifactRepository repository, RepositorySystemSession session,
+                                                   RepositorySystem system )
+    {
+<span class="nc bnc" id="L67" title="All 4 branches missed.">        if ( repository == null || repository.getBasedir() == null )</span>
+        {
+<span class="nc" id="L69">            return session;</span>
+        }
+
+<span class="nc bnc" id="L72" title="All 2 branches missed.">        if ( session != null )</span>
+        {
+<span class="nc" id="L74">            LocalRepositoryManager lrm = session.getLocalRepositoryManager();</span>
+<span class="nc bnc" id="L75" title="All 4 branches missed.">            if ( lrm != null &amp;&amp; lrm.getRepository().getBasedir().equals( new File( repository.getBasedir() ) ) )</span>
+            {
+<span class="nc" id="L77">                return session;</span>
+            }
+<span class="nc" id="L79">        }</span>
+        else
+        {
+<span class="nc" id="L82">            session = new DefaultRepositorySystemSession();</span>
+        }
+
+<span class="nc" id="L85">        final LocalRepositoryManager llrm = new LegacyLocalRepositoryManager( repository );</span>
+
+<span class="nc" id="L87">        return new DefaultRepositorySystemSession( session ).setLocalRepositoryManager( llrm );</span>
+    }
+
+    private LegacyLocalRepositoryManager( ArtifactRepository delegate )
+<span class="nc" id="L91">    {</span>
+<span class="nc" id="L92">        this.delegate = Objects.requireNonNull( delegate, &quot;delegate cannot be null&quot; );</span>
+
+<span class="nc" id="L94">        ArtifactRepositoryLayout layout = delegate.getLayout();</span>
+<span class="nc" id="L95">        repo =</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">            new LocalRepository( new File( delegate.getBasedir() ),</span>
+<span class="nc" id="L97">                                 ( layout != null ) ? layout.getClass().getSimpleName() : &quot;legacy&quot; );</span>
+
+        /*
+         * NOTE: &quot;invoker:install&quot; vs &quot;appassembler:assemble&quot;: Both mojos use the artifact installer to put an artifact
+         * into a repository. In the first case, the result needs to be a proper local repository that one can use for
+         * local artifact resolution. In the second case, the result needs to precisely obey the path information of the
+         * repository's layout to allow pointing at artifacts within the repository. Unfortunately,
+         * DefaultRepositoryLayout does not correctly describe the layout of a local repository which unlike a remote
+         * repository never uses timestamps in the filename of a snapshot artifact. The discrepancy gets notable when a
+         * remotely resolved snapshot artifact gets passed into pathOf(). So producing a proper local artifact path
+         * using DefaultRepositoryLayout requires us to enforce usage of the artifact's base version. This
+         * transformation however contradicts the other use case of precisely obeying the repository's layout. The below
+         * flag tries to detect which use case applies to make both plugins happy.
+         */
+<span class="nc bnc" id="L111" title="All 4 branches missed.">        realLocalRepo = ( layout instanceof DefaultRepositoryLayout ) &amp;&amp; &quot;local&quot;.equals( delegate.getId() );</span>
+<span class="nc" id="L112">    }</span>
+
+    public LocalRepository getRepository()
+    {
+<span class="nc" id="L116">        return repo;</span>
+    }
+
+    public String getPathForLocalArtifact( Artifact artifact )
+    {
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        if ( realLocalRepo )</span>
+        {
+<span class="nc" id="L123">            return delegate.pathOf( RepositoryUtils.toArtifact( artifact.setVersion( artifact.getBaseVersion() ) ) );</span>
+        }
+<span class="nc" id="L125">        return delegate.pathOf( RepositoryUtils.toArtifact( artifact ) );</span>
+    }
+
+    public String getPathForRemoteArtifact( Artifact artifact, RemoteRepository repository, String context )
+    {
+<span class="nc" id="L130">        return delegate.pathOf( RepositoryUtils.toArtifact( artifact ) );</span>
+    }
+
+    public String getPathForLocalMetadata( Metadata metadata )
+    {
+<span class="nc" id="L135">        return delegate.pathOfLocalRepositoryMetadata( new ArtifactMetadataAdapter( metadata ), delegate );</span>
+    }
+
+    public String getPathForRemoteMetadata( Metadata metadata, RemoteRepository repository, String context )
+    {
+<span class="nc" id="L140">        return delegate.pathOfLocalRepositoryMetadata( new ArtifactMetadataAdapter( metadata ),</span>
+                                                       new ArtifactRepositoryAdapter( repository ) );
+    }
+
+    public LocalArtifactResult find( RepositorySystemSession session, LocalArtifactRequest request )
+    {
+<span class="nc" id="L146">        String path = getPathForLocalArtifact( request.getArtifact() );</span>
+<span class="nc" id="L147">        File file = new File( getRepository().getBasedir(), path );</span>
+
+<span class="nc" id="L149">        LocalArtifactResult result = new LocalArtifactResult( request );</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">        if ( file.isFile() )</span>
+        {
+<span class="nc" id="L152">            result.setFile( file );</span>
+<span class="nc" id="L153">            result.setAvailable( true );</span>
+        }
+
+<span class="nc" id="L156">        return result;</span>
+    }
+
+    public LocalMetadataResult find( RepositorySystemSession session, LocalMetadataRequest request )
+    {
+<span class="nc" id="L161">        Metadata metadata = request.getMetadata();</span>
+
+        String path;
+<span class="nc bnc" id="L164" title="All 2 branches missed.">        if ( request.getRepository() == null )</span>
+        {
+<span class="nc" id="L166">            path = getPathForLocalMetadata( metadata );</span>
+        }
+        else
+        {
+<span class="nc" id="L170">            path = getPathForRemoteMetadata( metadata, request.getRepository(), request.getContext() );</span>
+        }
+
+<span class="nc" id="L173">        File file = new File( getRepository().getBasedir(), path );</span>
+
+<span class="nc" id="L175">        LocalMetadataResult result = new LocalMetadataResult( request );</span>
+<span class="nc bnc" id="L176" title="All 2 branches missed.">        if ( file.isFile() )</span>
+        {
+<span class="nc" id="L178">            result.setFile( file );</span>
+        }
+
+<span class="nc" id="L181">        return result;</span>
+    }
+
+    public void add( RepositorySystemSession session, LocalArtifactRegistration request )
+    {
+        // noop
+<span class="nc" id="L187">    }</span>
+
+    public void add( RepositorySystemSession session, LocalMetadataRegistration request )
+    {
+        // noop
+<span class="nc" id="L192">    }</span>
+
+    static class ArtifactMetadataAdapter
+        implements ArtifactMetadata
+    {
+
+        private final Metadata metadata;
+
+        ArtifactMetadataAdapter( Metadata metadata )
+<span class="nc" id="L201">        {</span>
+<span class="nc" id="L202">            this.metadata = metadata;</span>
+<span class="nc" id="L203">        }</span>
+
+        public boolean storedInArtifactVersionDirectory()
+        {
+<span class="nc bnc" id="L207" title="All 2 branches missed.">            return metadata.getVersion().length() &gt; 0;</span>
+        }
+
+        public boolean storedInGroupDirectory()
+        {
+<span class="nc bnc" id="L212" title="All 2 branches missed.">            return metadata.getArtifactId().length() &lt;= 0;</span>
+        }
+
+        public String getGroupId()
+        {
+<span class="nc" id="L217">            return nullify( metadata.getGroupId() );</span>
+        }
+
+        public String getArtifactId()
+        {
+<span class="nc" id="L222">            return nullify( metadata.getArtifactId() );</span>
+        }
+
+        public String getBaseVersion()
+        {
+<span class="nc" id="L227">            return nullify( metadata.getVersion() );</span>
+        }
+
+        private String nullify( String str )
+        {
+<span class="nc bnc" id="L232" title="All 4 branches missed.">            return ( str == null || str.length() &lt;= 0 ) ? null : str;</span>
+        }
+
+        public Object getKey()
+        {
+<span class="nc" id="L237">            return metadata.toString();</span>
+        }
+
+        public String getRemoteFilename()
+        {
+<span class="nc" id="L242">            return metadata.getType();</span>
+        }
+
+        public String getLocalFilename( ArtifactRepository repository )
+        {
+<span class="nc" id="L247">            return insertRepositoryKey( getRemoteFilename(), repository.getKey() );</span>
+        }
+
+        private String insertRepositoryKey( String filename, String repositoryKey )
+        {
+            String result;
+<span class="nc" id="L253">            int idx = filename.indexOf( '.' );</span>
+<span class="nc bnc" id="L254" title="All 2 branches missed.">            if ( idx &lt; 0 )</span>
+            {
+<span class="nc" id="L256">                result = filename + '-' + repositoryKey;</span>
+            }
+            else
+            {
+<span class="nc" id="L260">                result = filename.substring( 0, idx ) + '-' + repositoryKey + filename.substring( idx );</span>
+            }
+<span class="nc" id="L262">            return result;</span>
+        }
+
+        public void merge( org.apache.maven.repository.legacy.metadata.ArtifactMetadata metadata )
+        {
+            // not used
+<span class="nc" id="L268">        }</span>
+
+        public void merge( ArtifactMetadata metadata )
+        {
+            // not used
+<span class="nc" id="L273">        }</span>
+
+        public void storeInLocalRepository( ArtifactRepository localRepository, ArtifactRepository remoteRepository )
+            throws RepositoryMetadataStoreException
+        {
+            // not used
+<span class="nc" id="L279">        }</span>
+
+        public String extendedToString()
+        {
+<span class="nc" id="L283">            return metadata.toString();</span>
+        }
+
+    }
+
+    static class ArtifactRepositoryAdapter
+        implements ArtifactRepository
+    {
+
+        private final RemoteRepository repository;
+
+        ArtifactRepositoryAdapter( RemoteRepository repository )
+<span class="nc" id="L295">        {</span>
+<span class="nc" id="L296">            this.repository = repository;</span>
+<span class="nc" id="L297">        }</span>
+
+        public String pathOf( org.apache.maven.artifact.Artifact artifact )
+        {
+<span class="nc" id="L301">            return null;</span>
+        }
+
+        public String pathOfRemoteRepositoryMetadata( ArtifactMetadata artifactMetadata )
+        {
+<span class="nc" id="L306">            return null;</span>
+        }
+
+        public String pathOfLocalRepositoryMetadata( ArtifactMetadata metadata, ArtifactRepository repository )
+        {
+<span class="nc" id="L311">            return null;</span>
+        }
+
+        public String getUrl()
+        {
+<span class="nc" id="L316">            return repository.getUrl();</span>
+        }
+
+        public void setUrl( String url )
+        {
+<span class="nc" id="L321">        }</span>
+
+        public String getBasedir()
+        {
+<span class="nc" id="L325">            return null;</span>
+        }
+
+        public String getProtocol()
+        {
+<span class="nc" id="L330">            return repository.getProtocol();</span>
+        }
+
+        public String getId()
+        {
+<span class="nc" id="L335">            return repository.getId();</span>
+        }
+
+        public void setId( String id )
+        {
+<span class="nc" id="L340">        }</span>
+
+        public ArtifactRepositoryPolicy getSnapshots()
+        {
+<span class="nc" id="L344">            return null;</span>
+        }
+
+        public void setSnapshotUpdatePolicy( ArtifactRepositoryPolicy policy )
+        {
+<span class="nc" id="L349">        }</span>
+
+        public ArtifactRepositoryPolicy getReleases()
+        {
+<span class="nc" id="L353">            return null;</span>
+        }
+
+        public void setReleaseUpdatePolicy( ArtifactRepositoryPolicy policy )
+        {
+<span class="nc" id="L358">        }</span>
+
+        public ArtifactRepositoryLayout getLayout()
+        {
+<span class="nc" id="L362">            return null;</span>
+        }
+
+        public void setLayout( ArtifactRepositoryLayout layout )
+        {
+<span class="nc" id="L367">        }</span>
+
+        public String getKey()
+        {
+<span class="nc" id="L371">            return getId();</span>
+        }
+
+        public boolean isUniqueVersion()
+        {
+<span class="nc" id="L376">            return true;</span>
+        }
+
+        public boolean isBlacklisted()
+        {
+<span class="nc" id="L381">            return false;</span>
+        }
+
+        public void setBlacklisted( boolean blackListed )
+        {
+<span class="nc" id="L386">        }</span>
+
+        public org.apache.maven.artifact.Artifact find( org.apache.maven.artifact.Artifact artifact )
+        {
+<span class="nc" id="L390">            return null;</span>
+        }
+
+        public List&lt;String&gt; findVersions( org.apache.maven.artifact.Artifact artifact )
+        {
+<span class="nc" id="L395">            return Collections.emptyList();</span>
+        }
+
+        public boolean isProjectAware()
+        {
+<span class="nc" id="L400">            return false;</span>
+        }
+
+        public void setAuthentication( Authentication authentication )
+        {
+<span class="nc" id="L405">        }</span>
+
+        public Authentication getAuthentication()
+        {
+<span class="nc" id="L409">            return null;</span>
+        }
+
+        public void setProxy( Proxy proxy )
+        {
+<span class="nc" id="L414">        }</span>
+
+        public Proxy getProxy()
+        {
+<span class="nc" id="L418">            return null;</span>
+        }
+
+        public List&lt;ArtifactRepository&gt; getMirroredRepositories()
+        {
+<span class="nc" id="L423">            return Collections.emptyList();</span>
+        }
+
+        public void setMirroredRepositories( List&lt;ArtifactRepository&gt; mirroredRepositories )
+        {
+<span class="nc" id="L428">        }</span>
+
+        public boolean isBlocked()
+        {
+<span class="nc" id="L432">            return false;</span>
+        }
+
+        public void setBlocked( boolean blocked )
+        {
+<span class="nc" id="L437">        }</span>
+
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PluginRealmCache.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.plugin</a> &gt; <span class="el_source">PluginRealmCache.java</span></div><h1>PluginRealmCache.java</h1><pre class="source lang-java linenums">package org.apache.maven.plugin;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.util.List;
+import java.util.Map;
+
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.classworlds.realm.ClassRealm;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.graph.DependencyFilter;
+import org.eclipse.aether.repository.RemoteRepository;
+
+/**
+ * Caches plugin class realms. &lt;strong&gt;Warning:&lt;/strong&gt; This is an internal utility interface that is only public for
+ * technical reasons, it is not part of the public API. In particular, this interface can be changed or deleted without
+ * prior notice.
+ *
+ * @author Igor Fedorenko
+ * @author Benjamin Bentmann
+ */
+public interface PluginRealmCache
+{
+    /**
+     * CacheRecord
+     */
+    class CacheRecord
+    {
+        public ClassRealm getRealm()
+        {
+<span class="nc" id="L50">            return realm;</span>
+        }
+
+        public List&lt;Artifact&gt; getArtifacts()
+        {
+<span class="nc" id="L55">            return artifacts;</span>
+        }
+
+        private final ClassRealm realm;
+
+        private final List&lt;Artifact&gt; artifacts;
+
+        public CacheRecord( ClassRealm realm, List&lt;Artifact&gt; artifacts )
+<span class="nc" id="L63">        {</span>
+<span class="nc" id="L64">            this.realm = realm;</span>
+<span class="nc" id="L65">            this.artifacts = artifacts;</span>
+<span class="nc" id="L66">        }</span>
+    }
+
+    /**
+     * A cache key.
+     */
+    interface Key
+    {
+        // marker interface for cache keys
+    }
+
+    Key createKey( Plugin plugin, ClassLoader parentRealm, Map&lt;String, ClassLoader&gt; foreignImports,
+                   DependencyFilter dependencyFilter, List&lt;RemoteRepository&gt; repositories,
+                   RepositorySystemSession session );
+
+    CacheRecord get( Key key );
+
+    CacheRecord put( Key key, ClassRealm pluginRealm, List&lt;Artifact&gt; pluginArtifacts );
+
+    void flush();
+
+    /**
+     * Registers the specified cache record for usage with the given project. Integrators can use the information
+     * collected from this method in combination with a custom cache implementation to dispose unused records from the
+     * cache.
+     *
+     * @param project The project that employs the plugin realm, must not be {@code null}.
+     * @param record The cache record being used for the project, must not be {@code null}.
+     */
+    void register( MavenProject project, Key key, CacheRecord record );
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

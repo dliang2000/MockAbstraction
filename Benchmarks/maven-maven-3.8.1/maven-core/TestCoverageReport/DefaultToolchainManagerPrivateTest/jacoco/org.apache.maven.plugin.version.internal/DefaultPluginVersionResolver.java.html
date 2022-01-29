@@ -1,0 +1,407 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultPluginVersionResolver.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.plugin.version.internal</a> &gt; <span class="el_source">DefaultPluginVersionResolver.java</span></div><h1>DefaultPluginVersionResolver.java</h1><pre class="source lang-java linenums">package org.apache.maven.plugin.version.internal;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeSet;
+
+import org.apache.maven.artifact.repository.metadata.Metadata;
+import org.apache.maven.artifact.repository.metadata.Versioning;
+import org.apache.maven.artifact.repository.metadata.io.MetadataReader;
+import org.apache.maven.model.Build;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.plugin.MavenPluginManager;
+import org.apache.maven.plugin.PluginResolutionException;
+import org.apache.maven.plugin.descriptor.PluginDescriptor;
+import org.apache.maven.plugin.version.PluginVersionRequest;
+import org.apache.maven.plugin.version.PluginVersionResolutionException;
+import org.apache.maven.plugin.version.PluginVersionResolver;
+import org.apache.maven.plugin.version.PluginVersionResult;
+import org.codehaus.plexus.component.annotations.Component;
+import org.codehaus.plexus.component.annotations.Requirement;
+import org.codehaus.plexus.logging.Logger;
+import org.codehaus.plexus.util.StringUtils;
+import org.eclipse.aether.RepositoryEvent.EventType;
+import org.eclipse.aether.RepositoryEvent;
+import org.eclipse.aether.RepositoryListener;
+import org.eclipse.aether.RepositorySystem;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.RequestTrace;
+import org.eclipse.aether.metadata.DefaultMetadata;
+import org.eclipse.aether.repository.ArtifactRepository;
+import org.eclipse.aether.repository.RemoteRepository;
+import org.eclipse.aether.resolution.MetadataRequest;
+import org.eclipse.aether.resolution.MetadataResult;
+import org.eclipse.aether.util.version.GenericVersionScheme;
+import org.eclipse.aether.version.InvalidVersionSpecificationException;
+import org.eclipse.aether.version.Version;
+import org.eclipse.aether.version.VersionScheme;
+
+/**
+ * Resolves a version for a plugin.
+ *
+ * @since 3.0
+ * @author Benjamin Bentmann
+ */
+@Component( role = PluginVersionResolver.class )
+<span class="nc" id="L69">public class DefaultPluginVersionResolver</span>
+    implements PluginVersionResolver
+{
+
+    private static final String REPOSITORY_CONTEXT = &quot;plugin&quot;;
+
+    @Requirement
+    private Logger logger;
+
+    @Requirement
+    private RepositorySystem repositorySystem;
+
+    @Requirement
+    private MetadataReader metadataReader;
+
+    @Requirement
+    private MavenPluginManager pluginManager;
+
+    public PluginVersionResult resolve( PluginVersionRequest request )
+        throws PluginVersionResolutionException
+    {
+<span class="nc" id="L90">        PluginVersionResult result = resolveFromProject( request );</span>
+
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        if ( result == null )</span>
+        {
+<span class="nc" id="L94">            result = resolveFromRepository( request );</span>
+
+<span class="nc bnc" id="L96" title="All 2 branches missed.">            if ( logger.isDebugEnabled() )</span>
+            {
+<span class="nc" id="L98">                logger.debug( &quot;Resolved plugin version for &quot; + request.getGroupId() + &quot;:&quot; + request.getArtifactId()</span>
+<span class="nc" id="L99">                    + &quot; to &quot; + result.getVersion() + &quot; from repository &quot; + result.getRepository() );</span>
+            }
+        }
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        else if ( logger.isDebugEnabled() )</span>
+        {
+<span class="nc" id="L104">            logger.debug( &quot;Resolved plugin version for &quot; + request.getGroupId() + &quot;:&quot; + request.getArtifactId() + &quot; to &quot;</span>
+<span class="nc" id="L105">                + result.getVersion() + &quot; from POM &quot; + request.getPom() );</span>
+        }
+
+<span class="nc" id="L108">        return result;</span>
+    }
+
+    private PluginVersionResult resolveFromRepository( PluginVersionRequest request )
+        throws PluginVersionResolutionException
+    {
+<span class="nc" id="L114">        RequestTrace trace = RequestTrace.newChild( null, request );</span>
+
+<span class="nc" id="L116">        DefaultPluginVersionResult result = new DefaultPluginVersionResult();</span>
+
+<span class="nc" id="L118">        org.eclipse.aether.metadata.Metadata metadata =</span>
+<span class="nc" id="L119">            new DefaultMetadata( request.getGroupId(), request.getArtifactId(), &quot;maven-metadata.xml&quot;,</span>
+                                 DefaultMetadata.Nature.RELEASE_OR_SNAPSHOT );
+
+<span class="nc" id="L122">        List&lt;MetadataRequest&gt; requests = new ArrayList&lt;&gt;();</span>
+
+<span class="nc" id="L124">        requests.add( new MetadataRequest( metadata, null, REPOSITORY_CONTEXT ).setTrace( trace ) );</span>
+
+<span class="nc bnc" id="L126" title="All 2 branches missed.">        for ( RemoteRepository repository : request.getRepositories() )</span>
+        {
+<span class="nc" id="L128">            requests.add( new MetadataRequest( metadata, repository, REPOSITORY_CONTEXT ).setTrace( trace ) );</span>
+<span class="nc" id="L129">        }</span>
+
+<span class="nc" id="L131">        List&lt;MetadataResult&gt; results = repositorySystem.resolveMetadata( request.getRepositorySession(), requests );</span>
+
+<span class="nc" id="L133">        Versions versions = new Versions();</span>
+
+<span class="nc bnc" id="L135" title="All 2 branches missed.">        for ( MetadataResult res : results )</span>
+        {
+<span class="nc" id="L137">            ArtifactRepository repository = res.getRequest().getRepository();</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">            if ( repository == null )</span>
+            {
+<span class="nc" id="L140">                repository = request.getRepositorySession().getLocalRepository();</span>
+            }
+
+<span class="nc" id="L143">            mergeMetadata( request.getRepositorySession(), trace, versions, res.getMetadata(), repository );</span>
+<span class="nc" id="L144">        }</span>
+
+<span class="nc" id="L146">        selectVersion( result, request, versions );</span>
+
+<span class="nc" id="L148">        return result;</span>
+    }
+
+    private void selectVersion( DefaultPluginVersionResult result, PluginVersionRequest request, Versions versions )
+        throws PluginVersionResolutionException
+    {
+<span class="nc" id="L154">        String version = null;</span>
+<span class="nc" id="L155">        ArtifactRepository repo = null;</span>
+
+<span class="nc bnc" id="L157" title="All 2 branches missed.">        if ( StringUtils.isNotEmpty( versions.releaseVersion ) )</span>
+        {
+<span class="nc" id="L159">            version = versions.releaseVersion;</span>
+<span class="nc" id="L160">            repo = versions.releaseRepository;</span>
+        }
+<span class="nc bnc" id="L162" title="All 2 branches missed.">        else if ( StringUtils.isNotEmpty( versions.latestVersion ) )</span>
+        {
+<span class="nc" id="L164">            version = versions.latestVersion;</span>
+<span class="nc" id="L165">            repo = versions.latestRepository;</span>
+        }
+<span class="nc bnc" id="L167" title="All 4 branches missed.">        if ( version != null &amp;&amp; !isCompatible( request, version ) )</span>
+        {
+<span class="nc" id="L169">            versions.versions.remove( version );</span>
+<span class="nc" id="L170">            version = null;</span>
+        }
+
+<span class="nc bnc" id="L173" title="All 2 branches missed.">        if ( version == null )</span>
+        {
+<span class="nc" id="L175">            VersionScheme versionScheme = new GenericVersionScheme();</span>
+
+<span class="nc" id="L177">            TreeSet&lt;Version&gt; releases = new TreeSet&lt;&gt;( Collections.reverseOrder() );</span>
+<span class="nc" id="L178">            TreeSet&lt;Version&gt; snapshots = new TreeSet&lt;&gt;( Collections.reverseOrder() );</span>
+
+<span class="nc bnc" id="L180" title="All 2 branches missed.">            for ( String ver : versions.versions.keySet() )</span>
+            {
+                try
+                {
+<span class="nc" id="L184">                    Version v = versionScheme.parseVersion( ver );</span>
+
+<span class="nc bnc" id="L186" title="All 2 branches missed.">                    if ( ver.endsWith( &quot;-SNAPSHOT&quot; ) )</span>
+                    {
+<span class="nc" id="L188">                        snapshots.add( v );</span>
+                    }
+                    else
+                    {
+<span class="nc" id="L192">                        releases.add( v );</span>
+                    }
+                }
+<span class="nc" id="L195">                catch ( InvalidVersionSpecificationException e )</span>
+                {
+                    // ignore
+<span class="nc" id="L198">                }</span>
+<span class="nc" id="L199">            }</span>
+
+<span class="nc bnc" id="L201" title="All 2 branches missed.">            for ( Version v : releases )</span>
+            {
+<span class="nc" id="L203">                String ver = v.toString();</span>
+<span class="nc bnc" id="L204" title="All 2 branches missed.">                if ( isCompatible( request, ver ) )</span>
+                {
+<span class="nc" id="L206">                    version = ver;</span>
+<span class="nc" id="L207">                    repo = versions.versions.get( version );</span>
+<span class="nc" id="L208">                    break;</span>
+                }
+<span class="nc" id="L210">            }</span>
+
+<span class="nc bnc" id="L212" title="All 2 branches missed.">            if ( version == null )</span>
+            {
+<span class="nc bnc" id="L214" title="All 2 branches missed.">                for ( Version v : snapshots )</span>
+                {
+<span class="nc" id="L216">                    String ver = v.toString();</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">                    if ( isCompatible( request, ver ) )</span>
+                    {
+<span class="nc" id="L219">                        version = ver;</span>
+<span class="nc" id="L220">                        repo = versions.versions.get( version );</span>
+<span class="nc" id="L221">                        break;</span>
+                    }
+<span class="nc" id="L223">                }</span>
+            }
+        }
+
+<span class="nc bnc" id="L227" title="All 2 branches missed.">        if ( version != null )</span>
+        {
+<span class="nc" id="L229">            result.setVersion( version );</span>
+<span class="nc" id="L230">            result.setRepository( repo );</span>
+        }
+        else
+        {
+<span class="nc" id="L234">            throw new PluginVersionResolutionException( request.getGroupId(), request.getArtifactId(),</span>
+<span class="nc" id="L235">                                                        request.getRepositorySession().getLocalRepository(),</span>
+<span class="nc" id="L236">                                                        request.getRepositories(),</span>
+                                                        &quot;Plugin not found in any plugin repository&quot; );
+        }
+<span class="nc" id="L239">    }</span>
+
+    private boolean isCompatible( PluginVersionRequest request, String version )
+    {
+<span class="nc" id="L243">        Plugin plugin = new Plugin();</span>
+<span class="nc" id="L244">        plugin.setGroupId( request.getGroupId() );</span>
+<span class="nc" id="L245">        plugin.setArtifactId( request.getArtifactId() );</span>
+<span class="nc" id="L246">        plugin.setVersion( version );</span>
+
+        PluginDescriptor pluginDescriptor;
+
+        try
+        {
+<span class="nc" id="L252">            pluginDescriptor =</span>
+<span class="nc" id="L253">                pluginManager.getPluginDescriptor( plugin, request.getRepositories(), request.getRepositorySession() );</span>
+        }
+<span class="nc" id="L255">        catch ( PluginResolutionException e )</span>
+        {
+<span class="nc" id="L257">            logger.debug( &quot;Ignoring unresolvable plugin version &quot; + version, e );</span>
+<span class="nc" id="L258">            return false;</span>
+        }
+<span class="nc" id="L260">        catch ( Exception e )</span>
+        {
+            // ignore for now and delay failure to higher level processing
+<span class="nc" id="L263">            return true;</span>
+<span class="nc" id="L264">        }</span>
+
+        try
+        {
+<span class="nc" id="L268">            pluginManager.checkRequiredMavenVersion( pluginDescriptor );</span>
+        }
+<span class="nc" id="L270">        catch ( Exception e )</span>
+        {
+<span class="nc" id="L272">            logger.debug( &quot;Ignoring incompatible plugin version &quot; + version + &quot;: &quot; + e.getMessage() );</span>
+<span class="nc" id="L273">            return false;</span>
+<span class="nc" id="L274">        }</span>
+
+<span class="nc" id="L276">        return true;</span>
+    }
+
+    private void mergeMetadata( RepositorySystemSession session, RequestTrace trace, Versions versions,
+                                org.eclipse.aether.metadata.Metadata metadata, ArtifactRepository repository )
+    {
+<span class="nc bnc" id="L282" title="All 6 branches missed.">        if ( metadata != null &amp;&amp; metadata.getFile() != null &amp;&amp; metadata.getFile().isFile() )</span>
+        {
+            try
+            {
+<span class="nc" id="L286">                Map&lt;String, ?&gt; options = Collections.singletonMap( MetadataReader.IS_STRICT, Boolean.FALSE );</span>
+
+<span class="nc" id="L288">                Metadata repoMetadata = metadataReader.read( metadata.getFile(), options );</span>
+
+<span class="nc" id="L290">                mergeMetadata( versions, repoMetadata, repository );</span>
+            }
+<span class="nc" id="L292">            catch ( IOException e )</span>
+            {
+<span class="nc" id="L294">                invalidMetadata( session, trace, metadata, repository, e );</span>
+<span class="nc" id="L295">            }</span>
+        }
+<span class="nc" id="L297">    }</span>
+
+    private void invalidMetadata( RepositorySystemSession session, RequestTrace trace,
+                                  org.eclipse.aether.metadata.Metadata metadata, ArtifactRepository repository,
+                                  Exception exception )
+    {
+<span class="nc" id="L303">        RepositoryListener listener = session.getRepositoryListener();</span>
+<span class="nc bnc" id="L304" title="All 2 branches missed.">        if ( listener != null )</span>
+        {
+<span class="nc" id="L306">            RepositoryEvent.Builder event = new RepositoryEvent.Builder( session, EventType.METADATA_INVALID );</span>
+<span class="nc" id="L307">            event.setTrace( trace );</span>
+<span class="nc" id="L308">            event.setMetadata( metadata );</span>
+<span class="nc" id="L309">            event.setException( exception );</span>
+<span class="nc" id="L310">            event.setRepository( repository );</span>
+<span class="nc" id="L311">            listener.metadataInvalid( event.build() );</span>
+        }
+<span class="nc" id="L313">    }</span>
+
+    private void mergeMetadata( Versions versions, Metadata source, ArtifactRepository repository )
+    {
+<span class="nc" id="L317">        Versioning versioning = source.getVersioning();</span>
+<span class="nc bnc" id="L318" title="All 2 branches missed.">        if ( versioning != null )</span>
+        {
+<span class="nc" id="L320">            String timestamp = StringUtils.clean( versioning.getLastUpdated() );</span>
+
+<span class="nc bnc" id="L322" title="All 2 branches missed.">            if ( StringUtils.isNotEmpty( versioning.getRelease() )</span>
+<span class="nc bnc" id="L323" title="All 2 branches missed.">                &amp;&amp; timestamp.compareTo( versions.releaseTimestamp ) &gt; 0 )</span>
+            {
+<span class="nc" id="L325">                versions.releaseVersion = versioning.getRelease();</span>
+<span class="nc" id="L326">                versions.releaseTimestamp = timestamp;</span>
+<span class="nc" id="L327">                versions.releaseRepository = repository;</span>
+            }
+
+<span class="nc bnc" id="L330" title="All 2 branches missed.">            if ( StringUtils.isNotEmpty( versioning.getLatest() )</span>
+<span class="nc bnc" id="L331" title="All 2 branches missed.">                &amp;&amp; timestamp.compareTo( versions.latestTimestamp ) &gt; 0 )</span>
+            {
+<span class="nc" id="L333">                versions.latestVersion = versioning.getLatest();</span>
+<span class="nc" id="L334">                versions.latestTimestamp = timestamp;</span>
+<span class="nc" id="L335">                versions.latestRepository = repository;</span>
+            }
+
+<span class="nc bnc" id="L338" title="All 2 branches missed.">            for ( String version : versioning.getVersions() )</span>
+            {
+<span class="nc bnc" id="L340" title="All 2 branches missed.">                if ( !versions.versions.containsKey( version ) )</span>
+                {
+<span class="nc" id="L342">                    versions.versions.put( version, repository );</span>
+                }
+<span class="nc" id="L344">            }</span>
+        }
+<span class="nc" id="L346">    }</span>
+
+    private PluginVersionResult resolveFromProject( PluginVersionRequest request )
+    {
+<span class="nc" id="L350">        PluginVersionResult result = null;</span>
+
+<span class="nc bnc" id="L352" title="All 4 branches missed.">        if ( request.getPom() != null &amp;&amp; request.getPom().getBuild() != null )</span>
+        {
+<span class="nc" id="L354">            Build build = request.getPom().getBuild();</span>
+
+<span class="nc" id="L356">            result = resolveFromProject( request, build.getPlugins() );</span>
+
+<span class="nc bnc" id="L358" title="All 4 branches missed.">            if ( result == null &amp;&amp; build.getPluginManagement() != null )</span>
+            {
+<span class="nc" id="L360">                result = resolveFromProject( request, build.getPluginManagement().getPlugins() );</span>
+            }
+        }
+
+<span class="nc" id="L364">        return result;</span>
+    }
+
+    private PluginVersionResult resolveFromProject( PluginVersionRequest request, List&lt;Plugin&gt; plugins )
+    {
+<span class="nc bnc" id="L369" title="All 2 branches missed.">        for ( Plugin plugin : plugins )</span>
+        {
+<span class="nc bnc" id="L371" title="All 2 branches missed.">            if ( request.getGroupId().equals( plugin.getGroupId() )</span>
+<span class="nc bnc" id="L372" title="All 2 branches missed.">                &amp;&amp; request.getArtifactId().equals( plugin.getArtifactId() ) )</span>
+            {
+<span class="nc bnc" id="L374" title="All 2 branches missed.">                if ( plugin.getVersion() != null )</span>
+                {
+<span class="nc" id="L376">                    return new DefaultPluginVersionResult( plugin.getVersion() );</span>
+                }
+                else
+                {
+<span class="nc" id="L380">                    return null;</span>
+                }
+            }
+<span class="nc" id="L383">        }</span>
+<span class="nc" id="L384">        return null;</span>
+    }
+
+<span class="nc" id="L387">    static class Versions</span>
+    {
+
+<span class="nc" id="L390">        String releaseVersion = &quot;&quot;;</span>
+
+<span class="nc" id="L392">        String releaseTimestamp = &quot;&quot;;</span>
+
+        ArtifactRepository releaseRepository;
+
+<span class="nc" id="L396">        String latestVersion = &quot;&quot;;</span>
+
+<span class="nc" id="L398">        String latestTimestamp = &quot;&quot;;</span>
+
+        ArtifactRepository latestRepository;
+
+<span class="nc" id="L402">        Map&lt;String, ArtifactRepository&gt; versions = new LinkedHashMap&lt;&gt;();</span>
+
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

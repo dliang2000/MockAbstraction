@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PluginParameterException.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.plugin</a> &gt; <span class="el_source">PluginParameterException.java</span></div><h1>PluginParameterException.java</h1><pre class="source lang-java linenums">package org.apache.maven.plugin;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+
+import org.apache.maven.plugin.descriptor.MojoDescriptor;
+import org.apache.maven.plugin.descriptor.Parameter;
+import org.codehaus.plexus.util.StringUtils;
+
+/**
+ * PluginParameterException
+ */
+public class PluginParameterException
+    extends PluginConfigurationException
+{
+
+    private final List&lt;Parameter&gt; parameters;
+
+    private final MojoDescriptor mojo;
+
+    public PluginParameterException( MojoDescriptor mojo, List&lt;Parameter&gt; parameters )
+    {
+<span class="nc" id="L45">        super( mojo.getPluginDescriptor(), &quot;The parameters &quot; + format( parameters ) + &quot; for goal &quot;</span>
+<span class="nc" id="L46">            + mojo.getRoleHint() + &quot; are missing or invalid&quot; );</span>
+
+<span class="nc" id="L48">        this.mojo = mojo;</span>
+
+<span class="nc" id="L50">        this.parameters = parameters;</span>
+<span class="nc" id="L51">    }</span>
+
+    private static String format( List&lt;Parameter&gt; parameters )
+    {
+<span class="nc" id="L55">        StringBuilder buffer = new StringBuilder( 128 );</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        if ( parameters != null )</span>
+        {
+<span class="nc bnc" id="L58" title="All 2 branches missed.">            for ( Parameter parameter : parameters )</span>
+            {
+<span class="nc bnc" id="L60" title="All 2 branches missed.">                if ( buffer.length() &gt; 0 )</span>
+                {
+<span class="nc" id="L62">                    buffer.append( &quot;, &quot; );</span>
+                }
+<span class="nc" id="L64">                buffer.append( '\'' ).append( parameter.getName() ).append( '\'' );</span>
+<span class="nc" id="L65">            }</span>
+        }
+<span class="nc" id="L67">        return buffer.toString();</span>
+    }
+
+    public MojoDescriptor getMojoDescriptor()
+    {
+<span class="nc" id="L72">        return mojo;</span>
+    }
+
+    public List&lt;Parameter&gt; getParameters()
+    {
+<span class="nc" id="L77">        return parameters;</span>
+    }
+
+    private static void decomposeParameterIntoUserInstructions( MojoDescriptor mojo, Parameter param,
+                                                                StringBuilder messageBuffer )
+    {
+<span class="nc" id="L83">        String expression = param.getExpression();</span>
+
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        if ( param.isEditable() )</span>
+        {
+<span class="nc" id="L87">            boolean isArray = param.getType().endsWith( &quot;[]&quot; );</span>
+<span class="nc" id="L88">            boolean isCollection = false;</span>
+<span class="nc" id="L89">            boolean isMap = false;</span>
+<span class="nc" id="L90">            boolean isProperties = false;</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">            if ( !isArray )</span>
+            {
+                try
+                {
+                    //assuming Type is available in current ClassLoader
+<span class="nc" id="L96">                    isCollection = Collection.class.isAssignableFrom( Class.forName( param.getType() ) );</span>
+<span class="nc" id="L97">                    isMap = Map.class.isAssignableFrom( Class.forName( param.getType() ) );</span>
+<span class="nc" id="L98">                    isProperties = Properties.class.isAssignableFrom( Class.forName( param.getType() ) );</span>
+                }
+<span class="nc" id="L100">                catch ( ClassNotFoundException e )</span>
+                {
+                    // assume it is not assignable from Collection or Map
+<span class="nc" id="L103">                }</span>
+            }
+
+<span class="nc" id="L106">            messageBuffer.append( &quot;Inside the definition for plugin \'&quot; );</span>
+<span class="nc" id="L107">            messageBuffer.append( mojo.getPluginDescriptor().getArtifactId() );</span>
+<span class="nc" id="L108">            messageBuffer.append( &quot;\', specify the following:\n\n&lt;configuration&gt;\n  ...\n&quot; );</span>
+<span class="nc" id="L109">            messageBuffer.append( &quot;  &lt;&quot; ).append( param.getName() ).append( '&gt;' );</span>
+<span class="nc bnc" id="L110" title="All 4 branches missed.">            if ( isArray || isCollection )</span>
+            {
+<span class="nc" id="L112">                messageBuffer.append( '\n' );</span>
+<span class="nc" id="L113">                messageBuffer.append( &quot;    &lt;item&gt;&quot; );</span>
+            }
+<span class="nc bnc" id="L115" title="All 2 branches missed.">            else if ( isProperties )</span>
+            {
+<span class="nc" id="L117">                messageBuffer.append( '\n' );</span>
+<span class="nc" id="L118">                messageBuffer.append( &quot;    &lt;property&gt;\n&quot; );</span>
+<span class="nc" id="L119">                messageBuffer.append( &quot;      &lt;name&gt;KEY&lt;/name&gt;\n&quot; );</span>
+<span class="nc" id="L120">                messageBuffer.append( &quot;      &lt;value&gt;&quot; );</span>
+            }
+<span class="nc bnc" id="L122" title="All 2 branches missed.">            else if ( isMap )</span>
+            {
+<span class="nc" id="L124">                messageBuffer.append( '\n' );</span>
+<span class="nc" id="L125">                messageBuffer.append( &quot;    &lt;KEY&gt;&quot; );</span>
+            }
+<span class="nc" id="L127">            messageBuffer.append( &quot;VALUE&quot; );</span>
+<span class="nc bnc" id="L128" title="All 4 branches missed.">            if ( isArray || isCollection )</span>
+            {
+<span class="nc" id="L130">                messageBuffer.append( &quot;&lt;/item&gt;\n&quot; );</span>
+<span class="nc" id="L131">                messageBuffer.append( &quot;  &quot; );</span>
+            }
+<span class="nc bnc" id="L133" title="All 2 branches missed.">            else if ( isProperties )</span>
+            {
+<span class="nc" id="L135">                messageBuffer.append( &quot;&lt;/value&gt;\n&quot; );</span>
+<span class="nc" id="L136">                messageBuffer.append( &quot;    &lt;/property&gt;\n&quot; );</span>
+<span class="nc" id="L137">                messageBuffer.append( &quot;  &quot; );</span>
+            }
+<span class="nc bnc" id="L139" title="All 2 branches missed.">            else if ( isMap )</span>
+            {
+<span class="nc" id="L141">                messageBuffer.append( &quot;&lt;/KEY&gt;\n&quot; );</span>
+<span class="nc" id="L142">                messageBuffer.append( &quot;  &quot; );</span>
+            }
+<span class="nc" id="L144">            messageBuffer.append( &quot;&lt;/&quot; ).append( param.getName() ).append( &quot;&gt;\n&quot; );</span>
+<span class="nc" id="L145">            messageBuffer.append( &quot;&lt;/configuration&gt;&quot; );</span>
+
+<span class="nc" id="L147">            String alias = param.getAlias();</span>
+<span class="nc bnc" id="L148" title="All 4 branches missed.">            if ( StringUtils.isNotEmpty( alias ) &amp;&amp; !alias.equals( param.getName() ) )</span>
+            {
+<span class="nc" id="L150">                messageBuffer.append( &quot;\n\n-OR-\n\n&lt;configuration&gt;\n  ...\n  &lt;&quot; ).append( alias ).append(</span>
+<span class="nc" id="L151">                    &quot;&gt;VALUE&lt;/&quot; ).append( alias ).append( &quot;&gt;\n&lt;/configuration&gt;\n&quot; );</span>
+            }
+        }
+
+<span class="nc bnc" id="L155" title="All 2 branches missed.">        if ( StringUtils.isEmpty( expression ) )</span>
+        {
+<span class="nc" id="L157">            messageBuffer.append( '.' );</span>
+        }
+        else
+        {
+<span class="nc bnc" id="L161" title="All 2 branches missed.">            if ( param.isEditable() )</span>
+            {
+<span class="nc" id="L163">                messageBuffer.append( &quot;\n\n-OR-\n\n&quot; );</span>
+            }
+
+            //addParameterUsageInfo( expression, messageBuffer );
+        }
+<span class="nc" id="L168">    }</span>
+
+    public String buildDiagnosticMessage()
+    {
+<span class="nc" id="L172">        StringBuilder messageBuffer = new StringBuilder( 256 );</span>
+
+<span class="nc" id="L174">        List&lt;Parameter&gt; params = getParameters();</span>
+<span class="nc" id="L175">        MojoDescriptor mojo = getMojoDescriptor();</span>
+
+<span class="nc" id="L177">        messageBuffer.append( &quot;One or more required plugin parameters are invalid/missing for \'&quot; )</span>
+<span class="nc" id="L178">            .append( mojo.getPluginDescriptor().getGoalPrefix() ).append( ':' ).append( mojo.getGoal() )</span>
+<span class="nc" id="L179">            .append( &quot;\'\n&quot; );</span>
+
+<span class="nc" id="L181">        int idx = 0;</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">        for ( Iterator&lt;Parameter&gt; it = params.iterator(); it.hasNext(); idx++ )</span>
+        {
+<span class="nc" id="L184">            Parameter param = it.next();</span>
+
+<span class="nc" id="L186">            messageBuffer.append( &quot;\n[&quot; ).append( idx ).append( &quot;] &quot; );</span>
+
+<span class="nc" id="L188">            decomposeParameterIntoUserInstructions( mojo, param, messageBuffer );</span>
+
+<span class="nc" id="L190">            messageBuffer.append( '\n' );</span>
+        }
+
+<span class="nc" id="L193">        return messageBuffer.toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

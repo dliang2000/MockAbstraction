@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultPluginManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.plugin.internal</a> &gt; <span class="el_source">DefaultPluginManager.java</span></div><h1>DefaultPluginManager.java</h1><pre class="source lang-java linenums">package org.apache.maven.plugin.internal;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.apache.maven.artifact.resolver.ArtifactNotFoundException;
+import org.apache.maven.artifact.resolver.ArtifactResolutionException;
+import org.apache.maven.artifact.versioning.InvalidVersionSpecificationException;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.plugin.InvalidPluginDescriptorException;
+import org.apache.maven.plugin.InvalidPluginException;
+import org.apache.maven.plugin.LegacySupport;
+import org.apache.maven.plugin.MavenPluginManager;
+import org.apache.maven.plugin.MojoExecution;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugin.PluginConfigurationException;
+import org.apache.maven.plugin.PluginDescriptorParsingException;
+import org.apache.maven.plugin.PluginManager;
+import org.apache.maven.plugin.PluginManagerException;
+import org.apache.maven.plugin.PluginNotFoundException;
+import org.apache.maven.plugin.PluginResolutionException;
+import org.apache.maven.plugin.descriptor.PluginDescriptor;
+import org.apache.maven.plugin.prefix.DefaultPluginPrefixRequest;
+import org.apache.maven.plugin.prefix.NoPluginFoundForPrefixException;
+import org.apache.maven.plugin.prefix.PluginPrefixRequest;
+import org.apache.maven.plugin.prefix.PluginPrefixResolver;
+import org.apache.maven.plugin.prefix.PluginPrefixResult;
+import org.apache.maven.plugin.version.DefaultPluginVersionRequest;
+import org.apache.maven.plugin.version.PluginVersionNotFoundException;
+import org.apache.maven.plugin.version.PluginVersionRequest;
+import org.apache.maven.plugin.version.PluginVersionResolutionException;
+import org.apache.maven.plugin.version.PluginVersionResolver;
+import org.apache.maven.project.MavenProject;
+import org.apache.maven.project.artifact.InvalidDependencyVersionException;
+import org.apache.maven.settings.Settings;
+import org.codehaus.plexus.PlexusContainer;
+import org.codehaus.plexus.component.annotations.Component;
+import org.codehaus.plexus.component.annotations.Requirement;
+import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
+
+import java.util.Map;
+
+/**
+ * @author Benjamin Bentmann
+ */
+@Component( role = PluginManager.class )
+<span class="nc" id="L66">public class DefaultPluginManager</span>
+    implements PluginManager
+{
+
+    @Requirement
+    private PlexusContainer container;
+
+    @Requirement
+    private MavenPluginManager pluginManager;
+
+    @Requirement
+    private PluginVersionResolver pluginVersionResolver;
+
+    @Requirement
+    private PluginPrefixResolver pluginPrefixResolver;
+
+    @Requirement
+    private LegacySupport legacySupport;
+
+    public void executeMojo( MavenProject project, MojoExecution execution, MavenSession session )
+        throws MojoExecutionException, ArtifactResolutionException, MojoFailureException, ArtifactNotFoundException,
+        InvalidDependencyVersionException, PluginManagerException, PluginConfigurationException
+    {
+<span class="nc" id="L89">        throw new UnsupportedOperationException();</span>
+    }
+
+    public Object getPluginComponent( Plugin plugin, String role, String roleHint )
+        throws PluginManagerException, ComponentLookupException
+    {
+<span class="nc" id="L95">        MavenSession session = legacySupport.getSession();</span>
+
+        PluginDescriptor pluginDescriptor;
+        try
+        {
+<span class="nc" id="L100">            pluginDescriptor =</span>
+<span class="nc" id="L101">                pluginManager.getPluginDescriptor( plugin, session.getCurrentProject().getRemotePluginRepositories(),</span>
+<span class="nc" id="L102">                                                   session.getRepositorySession() );</span>
+
+<span class="nc" id="L104">            pluginManager.setupPluginRealm( pluginDescriptor, session, null, null, null );</span>
+        }
+<span class="nc" id="L106">        catch ( Exception e )</span>
+        {
+<span class="nc" id="L108">            throw new PluginManagerException( plugin, e.getMessage(), e );</span>
+<span class="nc" id="L109">        }</span>
+
+<span class="nc" id="L111">        ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();</span>
+        try
+        {
+<span class="nc" id="L114">            Thread.currentThread().setContextClassLoader( pluginDescriptor.getClassRealm() );</span>
+
+<span class="nc" id="L116">            return container.lookup( role, roleHint );</span>
+        }
+        finally
+        {
+<span class="nc" id="L120">            Thread.currentThread().setContextClassLoader( oldClassLoader );</span>
+        }
+    }
+
+    public Map&lt;String, Object&gt; getPluginComponents( Plugin plugin, String role )
+        throws ComponentLookupException, PluginManagerException
+    {
+<span class="nc" id="L127">        MavenSession session = legacySupport.getSession();</span>
+
+        PluginDescriptor pluginDescriptor;
+        try
+        {
+<span class="nc" id="L132">            pluginDescriptor =</span>
+<span class="nc" id="L133">                pluginManager.getPluginDescriptor( plugin, session.getCurrentProject().getRemotePluginRepositories(),</span>
+<span class="nc" id="L134">                                                   session.getRepositorySession() );</span>
+
+<span class="nc" id="L136">            pluginManager.setupPluginRealm( pluginDescriptor, session, null, null, null );</span>
+        }
+<span class="nc" id="L138">        catch ( Exception e )</span>
+        {
+<span class="nc" id="L140">            throw new PluginManagerException( plugin, e.getMessage(), e );</span>
+<span class="nc" id="L141">        }</span>
+
+<span class="nc" id="L143">        ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();</span>
+        try
+        {
+<span class="nc" id="L146">            Thread.currentThread().setContextClassLoader( pluginDescriptor.getClassRealm() );</span>
+
+<span class="nc" id="L148">            return container.lookupMap( role );</span>
+        }
+        finally
+        {
+<span class="nc" id="L152">            Thread.currentThread().setContextClassLoader( oldClassLoader );</span>
+        }
+    }
+
+    public Plugin getPluginDefinitionForPrefix( String prefix, MavenSession session, MavenProject project )
+    {
+<span class="nc" id="L158">        PluginPrefixRequest request = new DefaultPluginPrefixRequest( prefix, session );</span>
+<span class="nc" id="L159">        request.setPom( project.getModel() );</span>
+
+        try
+        {
+<span class="nc" id="L163">            PluginPrefixResult result = pluginPrefixResolver.resolve( request );</span>
+
+<span class="nc" id="L165">            Plugin plugin = new Plugin();</span>
+<span class="nc" id="L166">            plugin.setGroupId( result.getGroupId() );</span>
+<span class="nc" id="L167">            plugin.setArtifactId( result.getArtifactId() );</span>
+
+<span class="nc" id="L169">            return plugin;</span>
+        }
+<span class="nc" id="L171">        catch ( NoPluginFoundForPrefixException e )</span>
+        {
+<span class="nc" id="L173">            return null;</span>
+        }
+    }
+
+    public PluginDescriptor getPluginDescriptorForPrefix( String prefix )
+    {
+<span class="nc" id="L179">        MavenSession session = legacySupport.getSession();</span>
+
+<span class="nc" id="L181">        PluginPrefixRequest request = new DefaultPluginPrefixRequest( prefix, session );</span>
+
+        try
+        {
+<span class="nc" id="L185">            PluginPrefixResult result = pluginPrefixResolver.resolve( request );</span>
+
+<span class="nc" id="L187">            Plugin plugin = new Plugin();</span>
+<span class="nc" id="L188">            plugin.setGroupId( result.getGroupId() );</span>
+<span class="nc" id="L189">            plugin.setArtifactId( result.getArtifactId() );</span>
+
+<span class="nc" id="L191">            return loadPluginDescriptor( plugin, session.getCurrentProject(), session );</span>
+        }
+<span class="nc" id="L193">        catch ( Exception e )</span>
+        {
+<span class="nc" id="L195">            return null;</span>
+        }
+    }
+
+    public PluginDescriptor loadPluginDescriptor( Plugin plugin, MavenProject project, MavenSession session )
+        throws ArtifactResolutionException, PluginVersionResolutionException, ArtifactNotFoundException,
+        InvalidVersionSpecificationException, InvalidPluginException, PluginManagerException, PluginNotFoundException,
+        PluginVersionNotFoundException
+    {
+<span class="nc" id="L204">        return verifyPlugin( plugin, project, session.getSettings(), session.getLocalRepository() );</span>
+    }
+
+    public PluginDescriptor loadPluginFully( Plugin plugin, MavenProject project, MavenSession session )
+        throws ArtifactResolutionException, PluginVersionResolutionException, ArtifactNotFoundException,
+        InvalidVersionSpecificationException, InvalidPluginException, PluginManagerException, PluginNotFoundException,
+        PluginVersionNotFoundException
+    {
+<span class="nc" id="L212">        PluginDescriptor pluginDescriptor = loadPluginDescriptor( plugin, project, session );</span>
+
+        try
+        {
+<span class="nc" id="L216">            pluginManager.setupPluginRealm( pluginDescriptor, session, null, null, null );</span>
+        }
+<span class="nc" id="L218">        catch ( PluginResolutionException e )</span>
+        {
+<span class="nc" id="L220">            throw new PluginManagerException( plugin, e.getMessage(), e );</span>
+<span class="nc" id="L221">        }</span>
+
+<span class="nc" id="L223">        return pluginDescriptor;</span>
+    }
+
+    public PluginDescriptor verifyPlugin( Plugin plugin, MavenProject project, Settings settings,
+                                          ArtifactRepository localRepository )
+        throws ArtifactResolutionException, PluginVersionResolutionException, ArtifactNotFoundException,
+        InvalidVersionSpecificationException, InvalidPluginException, PluginManagerException, PluginNotFoundException,
+        PluginVersionNotFoundException
+    {
+<span class="nc" id="L232">        MavenSession session = legacySupport.getSession();</span>
+
+<span class="nc bnc" id="L234" title="All 2 branches missed.">        if ( plugin.getVersion() == null )</span>
+        {
+<span class="nc" id="L236">            PluginVersionRequest versionRequest =</span>
+<span class="nc" id="L237">                new DefaultPluginVersionRequest( plugin, session.getRepositorySession(),</span>
+<span class="nc" id="L238">                                                 project.getRemotePluginRepositories() );</span>
+<span class="nc" id="L239">            plugin.setVersion( pluginVersionResolver.resolve( versionRequest ).getVersion() );</span>
+        }
+
+        try
+        {
+<span class="nc" id="L244">            return pluginManager.getPluginDescriptor( plugin, project.getRemotePluginRepositories(),</span>
+<span class="nc" id="L245">                                                      session.getRepositorySession() );</span>
+        }
+<span class="nc" id="L247">        catch ( PluginResolutionException e )</span>
+        {
+<span class="nc" id="L249">            throw new PluginNotFoundException( plugin, project.getPluginArtifactRepositories() );</span>
+        }
+<span class="nc" id="L251">        catch ( PluginDescriptorParsingException | InvalidPluginDescriptorException e )</span>
+        {
+<span class="nc" id="L253">            throw new PluginManagerException( plugin, e.getMessage(), e );</span>
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

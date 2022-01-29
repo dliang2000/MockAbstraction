@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultLifecycleBindingsInjector.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.model.plugin</a> &gt; <span class="el_source">DefaultLifecycleBindingsInjector.java</span></div><h1>DefaultLifecycleBindingsInjector.java</h1><pre class="source lang-java linenums">package org.apache.maven.model.plugin;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.maven.lifecycle.LifeCyclePluginAnalyzer;
+import org.apache.maven.model.Build;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.model.PluginContainer;
+import org.apache.maven.model.PluginExecution;
+import org.apache.maven.model.PluginManagement;
+import org.apache.maven.model.building.ModelBuildingRequest;
+import org.apache.maven.model.building.ModelProblemCollector;
+import org.apache.maven.model.building.ModelProblem.Severity;
+import org.apache.maven.model.building.ModelProblem.Version;
+import org.apache.maven.model.building.ModelProblemCollectorRequest;
+import org.apache.maven.model.merge.MavenModelMerger;
+import org.codehaus.plexus.component.annotations.Component;
+import org.codehaus.plexus.component.annotations.Requirement;
+
+/**
+ * Handles injection of plugin executions induced by the lifecycle bindings for a packaging.
+ *
+ * @author Benjamin Bentmann
+ */
+@Component( role = LifecycleBindingsInjector.class )
+<span class="nc" id="L51">public class DefaultLifecycleBindingsInjector</span>
+    implements LifecycleBindingsInjector
+{
+
+<span class="nc" id="L55">    private LifecycleBindingsMerger merger = new LifecycleBindingsMerger();</span>
+
+    @Requirement
+    private LifeCyclePluginAnalyzer lifecycle;
+
+    public void injectLifecycleBindings( Model model, ModelBuildingRequest request, ModelProblemCollector problems )
+    {
+<span class="nc" id="L62">        String packaging = model.getPackaging();</span>
+
+<span class="nc" id="L64">        Collection&lt;Plugin&gt; defaultPlugins = lifecycle.getPluginsBoundByDefaultToAllLifecycles( packaging );</span>
+
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        if ( defaultPlugins == null )</span>
+        {
+<span class="nc" id="L68">            problems.add( new ModelProblemCollectorRequest( Severity.ERROR, Version.BASE )</span>
+<span class="nc" id="L69">                    .setMessage( &quot;Unknown packaging: &quot; + packaging )</span>
+<span class="nc" id="L70">                    .setLocation( model.getLocation( &quot;packaging&quot; ) ) );</span>
+        }
+<span class="nc bnc" id="L72" title="All 2 branches missed.">        else if ( !defaultPlugins.isEmpty() )</span>
+        {
+<span class="nc" id="L74">            Model lifecycleModel = new Model();</span>
+<span class="nc" id="L75">            lifecycleModel.setBuild( new Build() );</span>
+<span class="nc" id="L76">            lifecycleModel.getBuild().getPlugins().addAll( defaultPlugins );</span>
+
+<span class="nc" id="L78">            merger.merge( model, lifecycleModel );</span>
+        }
+<span class="nc" id="L80">    }</span>
+
+    /**
+     *  The domain-specific model merger for lifecycle bindings
+     */
+<span class="nc" id="L85">    protected static class LifecycleBindingsMerger</span>
+        extends MavenModelMerger
+    {
+
+        private static final String PLUGIN_MANAGEMENT = &quot;plugin-management&quot;;
+
+        public void merge( Model target, Model source )
+        {
+<span class="nc bnc" id="L93" title="All 2 branches missed.">            if ( target.getBuild() == null )</span>
+            {
+<span class="nc" id="L95">                target.setBuild( new Build() );</span>
+            }
+
+<span class="nc" id="L98">            Map&lt;Object, Object&gt; context =</span>
+<span class="nc" id="L99">                Collections.&lt;Object, Object&gt;singletonMap( PLUGIN_MANAGEMENT, target.getBuild().getPluginManagement() );</span>
+
+<span class="nc" id="L101">            mergePluginContainer_Plugins( target.getBuild(), source.getBuild(), false, context );</span>
+<span class="nc" id="L102">        }</span>
+
+        @SuppressWarnings( { &quot;checkstyle:methodname&quot; } )
+        @Override
+        protected void mergePluginContainer_Plugins( PluginContainer target, PluginContainer source,
+                                                     boolean sourceDominant, Map&lt;Object, Object&gt; context )
+        {
+<span class="nc" id="L109">            List&lt;Plugin&gt; src = source.getPlugins();</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">            if ( !src.isEmpty() )</span>
+            {
+<span class="nc" id="L112">                List&lt;Plugin&gt; tgt = target.getPlugins();</span>
+
+<span class="nc" id="L114">                Map&lt;Object, Plugin&gt; merged = new LinkedHashMap&lt;&gt;( ( src.size() + tgt.size() ) * 2 );</span>
+
+<span class="nc bnc" id="L116" title="All 2 branches missed.">                for ( Plugin element : tgt )</span>
+                {
+<span class="nc" id="L118">                    Object key = getPluginKey( element );</span>
+<span class="nc" id="L119">                    merged.put( key, element );</span>
+<span class="nc" id="L120">                }</span>
+
+<span class="nc" id="L122">                Map&lt;Object, Plugin&gt; added = new LinkedHashMap&lt;&gt;();</span>
+
+<span class="nc bnc" id="L124" title="All 2 branches missed.">                for ( Plugin element : src )</span>
+                {
+<span class="nc" id="L126">                    Object key = getPluginKey( element );</span>
+<span class="nc" id="L127">                    Plugin existing = merged.get( key );</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">                    if ( existing != null )</span>
+                    {
+<span class="nc" id="L130">                        mergePlugin( existing, element, sourceDominant, context );</span>
+                    }
+                    else
+                    {
+<span class="nc" id="L134">                        merged.put( key, element );</span>
+<span class="nc" id="L135">                        added.put( key, element );</span>
+                    }
+<span class="nc" id="L137">                }</span>
+
+<span class="nc bnc" id="L139" title="All 2 branches missed.">                if ( !added.isEmpty() )</span>
+                {
+<span class="nc" id="L141">                    PluginManagement pluginMgmt = (PluginManagement) context.get( PLUGIN_MANAGEMENT );</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">                    if ( pluginMgmt != null )</span>
+                    {
+<span class="nc bnc" id="L144" title="All 2 branches missed.">                        for ( Plugin managedPlugin : pluginMgmt.getPlugins() )</span>
+                        {
+<span class="nc" id="L146">                            Object key = getPluginKey( managedPlugin );</span>
+<span class="nc" id="L147">                            Plugin addedPlugin = added.get( key );</span>
+<span class="nc bnc" id="L148" title="All 2 branches missed.">                            if ( addedPlugin != null )</span>
+                            {
+<span class="nc" id="L150">                                Plugin plugin = managedPlugin.clone();</span>
+<span class="nc" id="L151">                                mergePlugin( plugin, addedPlugin, sourceDominant, Collections.emptyMap() );</span>
+<span class="nc" id="L152">                                merged.put( key, plugin );</span>
+                            }
+<span class="nc" id="L154">                        }</span>
+                    }
+                }
+
+<span class="nc" id="L158">                List&lt;Plugin&gt; result = new ArrayList&lt;&gt;( merged.values() );</span>
+
+<span class="nc" id="L160">                target.setPlugins( result );</span>
+            }
+<span class="nc" id="L162">        }</span>
+
+        @Override
+        protected void mergePluginExecution( PluginExecution target, PluginExecution source, boolean sourceDominant,
+                                             Map&lt;Object, Object&gt; context )
+        {
+<span class="nc" id="L168">            super.mergePluginExecution( target, source, sourceDominant, context );</span>
+
+<span class="nc" id="L170">            target.setPriority( Math.min( target.getPriority(), source.getPriority() ) );</span>
+<span class="nc" id="L171">        }</span>
+
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LifecycleStarter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.lifecycle.internal</a> &gt; <span class="el_source">LifecycleStarter.java</span></div><h1>LifecycleStarter.java</h1><pre class="source lang-java linenums">package org.apache.maven.lifecycle.internal;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.util.List;
+import java.util.Map;
+
+import org.apache.maven.execution.ExecutionEvent;
+import org.apache.maven.execution.MavenExecutionResult;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.lifecycle.DefaultLifecycles;
+import org.apache.maven.lifecycle.MissingProjectException;
+import org.apache.maven.lifecycle.NoGoalSpecifiedException;
+import org.apache.maven.lifecycle.internal.builder.Builder;
+import org.apache.maven.lifecycle.internal.builder.BuilderNotFoundException;
+import org.apache.maven.session.scope.internal.SessionScope;
+import org.codehaus.plexus.component.annotations.Component;
+import org.codehaus.plexus.component.annotations.Requirement;
+import org.codehaus.plexus.logging.Logger;
+
+/**
+ * Starts the build life cycle
+ *
+ * @author Jason van Zyl
+ * @author Benjamin Bentmann
+ * @author Kristian Rosenvold
+ */
+@Component( role = LifecycleStarter.class )
+<span class="nc" id="L46">public class LifecycleStarter</span>
+{
+    @Requirement
+    private ExecutionEventCatapult eventCatapult;
+
+    @Requirement
+    private DefaultLifecycles defaultLifeCycles;
+
+    @Requirement
+    private Logger logger;
+
+    @Requirement
+    private BuildListCalculator buildListCalculator;
+
+    @Requirement
+    private LifecycleDebugLogger lifecycleDebugLogger;
+
+    @Requirement
+    private LifecycleTaskSegmentCalculator lifecycleTaskSegmentCalculator;
+
+    @Requirement
+    private Map&lt;String, Builder&gt; builders;
+    
+    @Requirement
+    private SessionScope sessionScope;
+
+    public void execute( MavenSession session )
+    {
+<span class="nc" id="L74">        eventCatapult.fire( ExecutionEvent.Type.SessionStarted, session, null );</span>
+
+<span class="nc" id="L76">        ReactorContext reactorContext = null;</span>
+<span class="nc" id="L77">        ProjectBuildList projectBuilds = null;</span>
+<span class="nc" id="L78">        MavenExecutionResult result = session.getResult();</span>
+
+        try
+        {
+<span class="nc bnc" id="L82" title="All 4 branches missed.">            if ( buildExecutionRequiresProject( session ) &amp;&amp; projectIsNotPresent( session ) )</span>
+            {
+<span class="nc" id="L84">                throw new MissingProjectException( &quot;The goal you specified requires a project to execute&quot;</span>
+<span class="nc" id="L85">                    + &quot; but there is no POM in this directory (&quot; + session.getExecutionRootDirectory() + &quot;).&quot;</span>
+                    + &quot; Please verify you invoked Maven from the correct directory.&quot; );
+            }
+
+<span class="nc" id="L89">            List&lt;TaskSegment&gt; taskSegments = lifecycleTaskSegmentCalculator.calculateTaskSegments( session );</span>
+<span class="nc" id="L90">            projectBuilds = buildListCalculator.calculateProjectBuilds( session, taskSegments );</span>
+
+<span class="nc bnc" id="L92" title="All 2 branches missed.">            if ( projectBuilds.isEmpty() )</span>
+            {
+<span class="nc" id="L94">                throw new NoGoalSpecifiedException( &quot;No goals have been specified for this build.&quot;</span>
+                    + &quot; You must specify a valid lifecycle phase or a goal in the format &lt;plugin-prefix&gt;:&lt;goal&gt; or&quot;
+                    + &quot; &lt;plugin-group-id&gt;:&lt;plugin-artifact-id&gt;[:&lt;plugin-version&gt;]:&lt;goal&gt;.&quot;
+<span class="nc" id="L97">                    + &quot; Available lifecycle phases are: &quot; + defaultLifeCycles.getLifecyclePhaseList() + &quot;.&quot; );</span>
+            }
+
+<span class="nc" id="L100">            ProjectIndex projectIndex = new ProjectIndex( session.getProjects() );</span>
+
+<span class="nc bnc" id="L102" title="All 2 branches missed.">            if ( logger.isDebugEnabled() )</span>
+            {
+<span class="nc" id="L104">                lifecycleDebugLogger.debugReactorPlan( projectBuilds );</span>
+            }
+
+<span class="nc" id="L107">            ClassLoader oldContextClassLoader = Thread.currentThread().getContextClassLoader();</span>
+<span class="nc" id="L108">            ReactorBuildStatus reactorBuildStatus = new ReactorBuildStatus( session.getProjectDependencyGraph() );</span>
+<span class="nc" id="L109">            reactorContext =</span>
+                new ReactorContext( result, projectIndex, oldContextClassLoader, reactorBuildStatus,
+<span class="nc" id="L111">                                    sessionScope.memento() );</span>
+
+<span class="nc" id="L113">            String builderId = session.getRequest().getBuilderId();</span>
+<span class="nc" id="L114">            Builder builder = builders.get( builderId );</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">            if ( builder == null )</span>
+            {
+<span class="nc" id="L117">                throw new BuilderNotFoundException( String.format( &quot;The builder requested using id = %s cannot be&quot;</span>
+                    + &quot; found&quot;, builderId ) );
+            }
+
+<span class="nc" id="L121">            int degreeOfConcurrency = session.getRequest().getDegreeOfConcurrency();</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">            if ( degreeOfConcurrency &gt;= 2 )</span>
+            {
+<span class="nc" id="L124">                logger.info( &quot;&quot; );</span>
+<span class="nc" id="L125">                logger.info( String.format( &quot;Using the %s implementation with a thread count of %d&quot;,</span>
+<span class="nc" id="L126">                                            builder.getClass().getSimpleName(), degreeOfConcurrency ) );</span>
+            }
+<span class="nc" id="L128">            builder.build( session, reactorContext, projectBuilds, taskSegments, reactorBuildStatus );</span>
+
+        }
+<span class="nc" id="L131">        catch ( Exception e )</span>
+        {
+<span class="nc" id="L133">            result.addException( e );</span>
+        }
+        finally
+        {
+<span class="nc" id="L137">            eventCatapult.fire( ExecutionEvent.Type.SessionEnded, session, null );</span>
+        }
+<span class="nc" id="L139">    }</span>
+
+    private boolean buildExecutionRequiresProject( MavenSession session )
+    {
+<span class="nc" id="L143">        return lifecycleTaskSegmentCalculator.requiresProject( session );</span>
+    }
+
+    private boolean projectIsNotPresent( MavenSession session )
+    {
+<span class="nc bnc" id="L148" title="All 2 branches missed.">        return !session.getRequest().isProjectPresent();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

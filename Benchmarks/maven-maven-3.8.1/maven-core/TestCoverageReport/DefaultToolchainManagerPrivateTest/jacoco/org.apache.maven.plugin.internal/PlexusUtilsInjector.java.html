@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PlexusUtilsInjector.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.plugin.internal</a> &gt; <span class="el_source">PlexusUtilsInjector.java</span></div><h1>PlexusUtilsInjector.java</h1><pre class="source lang-java linenums">package org.apache.maven.plugin.internal;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import org.eclipse.aether.RepositoryException;
+import org.eclipse.aether.artifact.Artifact;
+import org.eclipse.aether.artifact.DefaultArtifact;
+import org.eclipse.aether.collection.DependencyGraphTransformationContext;
+import org.eclipse.aether.collection.DependencyGraphTransformer;
+import org.eclipse.aether.graph.DefaultDependencyNode;
+import org.eclipse.aether.graph.Dependency;
+import org.eclipse.aether.graph.DependencyNode;
+import org.eclipse.aether.util.artifact.JavaScopes;
+
+/**
+ * Injects plexus-utils:1.1 into a plugin's class path if it doesn't already declare a dependency on plexus-utils. This
+ * is another legacy bit to provide backward-compat with Maven 2.x.
+ *
+ * @author Benjamin Bentmann
+ */
+<span class="nc" id="L38">class PlexusUtilsInjector</span>
+    implements DependencyGraphTransformer
+{
+
+    private static final String GID = &quot;org.codehaus.plexus&quot;;
+
+    private static final String AID = &quot;plexus-utils&quot;;
+
+    private static final String VER = &quot;1.1&quot;;
+
+    private static final String EXT = &quot;jar&quot;;
+
+    public DependencyNode transformGraph( DependencyNode node, DependencyGraphTransformationContext context )
+        throws RepositoryException
+    {
+<span class="nc bnc" id="L53" title="All 2 branches missed.">        if ( findPlexusUtils( node ) == null )</span>
+        {
+<span class="nc" id="L55">            Artifact pu = new DefaultArtifact( GID, AID, null, EXT, VER );</span>
+<span class="nc" id="L56">            DefaultDependencyNode child = new DefaultDependencyNode( new Dependency( pu, JavaScopes.RUNTIME ) );</span>
+<span class="nc" id="L57">            child.setRepositories( node.getRepositories() );</span>
+<span class="nc" id="L58">            child.setRequestContext( node.getRequestContext() );</span>
+<span class="nc" id="L59">            node.getChildren().add( child );</span>
+        }
+
+<span class="nc" id="L62">        return node;</span>
+    }
+
+    private DependencyNode findPlexusUtils( DependencyNode node )
+    {
+<span class="nc" id="L67">        Artifact artifact = node.getDependency().getArtifact();</span>
+
+<span class="nc bnc" id="L69" title="All 4 branches missed.">        if ( AID.equals( artifact.getArtifactId() ) &amp;&amp; GID.equals( artifact.getGroupId() )</span>
+<span class="nc bnc" id="L70" title="All 4 branches missed.">            &amp;&amp; EXT.equals( artifact.getExtension() ) &amp;&amp; &quot;&quot;.equals( artifact.getClassifier() ) )</span>
+        {
+<span class="nc" id="L72">            return node;</span>
+        }
+
+<span class="nc bnc" id="L75" title="All 2 branches missed.">        for ( DependencyNode child : node.getChildren() )</span>
+        {
+<span class="nc" id="L77">            DependencyNode result = findPlexusUtils( child );</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">            if ( result != null )</span>
+            {
+<span class="nc" id="L80">                return result;</span>
+            }
+<span class="nc" id="L82">        }</span>
+
+<span class="nc" id="L84">        return null;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>
