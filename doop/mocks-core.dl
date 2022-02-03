@@ -46,7 +46,7 @@ isMockInvocation(mi, signature, inmethod, line, receiver) :-
 // propagate back to caller in m = returnsMock()
 isInterprocMockVar(v) :-
   AssignReturnValue(mi, v),
-  CallGraphEdge(_, mi, _, callee),
+  CallGraphEdgeNotLambda(_, mi, _, callee),
   ReturnVar(v_callee, callee),
   isMockVar(v_callee).
 
@@ -55,7 +55,17 @@ isInterprocMockVar(v_callee) :-
   isMockVar(v),
   ActualParam(n, mi, v),
   FormalParam(n, callee, v_callee),
-  CallGraphEdge(_, mi, _, callee),
+  CallGraphEdgeNotLambda(_, mi, _, callee),
+  Method_DeclaringType(callee, callee_class),
+  ApplicationClass(callee_class).
+
+// lambda case
+isInterprocMockVar(v_callee) :-
+  isMockVar(v),
+  ActualParam(_, mi, v),
+  FormalParam(_, callee, v_callee),
+  mainAnalysis.LambdaArg(_, v_callee, _, v, _),
+  mainAnalysis.LambdaCallGraphEdge(_, mi, _, callee, _),
   Method_DeclaringType(callee, callee_class),
   ApplicationClass(callee_class).
 
@@ -118,7 +128,7 @@ isCollectionFieldThatContainsMocks(f) :-
 #ifndef NO_INTERPROC
 isInterprocArrayLocalThatContainsMocks(v) :-
   AssignReturnValue(mi, v),
-  CallGraphEdge(_, mi, _, callee),
+  CallGraphEdgeNotLambda(_, mi, _, callee),
   ReturnVar(v_callee, callee),
   isArrayLocalThatContainsMocks(v_callee).
 #endif
