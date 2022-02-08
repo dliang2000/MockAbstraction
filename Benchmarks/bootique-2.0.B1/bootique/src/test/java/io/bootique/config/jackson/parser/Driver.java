@@ -9,7 +9,7 @@ public class Driver {
 		catch (java.net.MalformedURLException err1) {
 			err1.printStackTrace();
 		}
-		io.bootique.config.jackson.parser.JsonConfigurationFormatParserTest class2 = new io.bootique.config.jackson.parser.JsonConfigurationFormatParserTest();
+		io.bootique.config.jackson.parser.YamlConfigurationFormatParserTest class2 = new io.bootique.config.jackson.parser.YamlConfigurationFormatParserTest();
 		class2.testParse();
 		try {
 			class2.testShouldParse();
@@ -17,7 +17,7 @@ public class Driver {
 		catch (java.net.MalformedURLException err2) {
 			err2.printStackTrace();
 		}
-		io.bootique.config.jackson.parser.YamlConfigurationFormatParserTest class3 = new io.bootique.config.jackson.parser.YamlConfigurationFormatParserTest();
+		io.bootique.config.jackson.parser.JsonConfigurationFormatParserTest class3 = new io.bootique.config.jackson.parser.JsonConfigurationFormatParserTest();
 		class3.testParse();
 		try {
 			class3.testShouldParse();
