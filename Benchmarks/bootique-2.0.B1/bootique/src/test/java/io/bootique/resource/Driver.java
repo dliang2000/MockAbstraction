@@ -45,69 +45,69 @@ public class Driver {
 		catch (java.io.IOException err7) {
 			err7.printStackTrace();
 		}
-		io.bootique.resource.ResourceFactoryTest class2 = new io.bootique.resource.ResourceFactoryTest();
+		io.bootique.resource.ResourceFactory_WebConfigSourceIT class2 = new io.bootique.resource.ResourceFactory_WebConfigSourceIT();
 		try {
-			class2.testGetCanonicalFile();
+			class2.after();
 		}
-		catch (java.io.IOException err8) {
+		catch (java.lang.Exception err8) {
 			err8.printStackTrace();
 		}
 		try {
-			class2.testGetUrl_File();
+			class2.before();
 		}
-		catch (java.io.IOException err9) {
+		catch (java.lang.Exception err9) {
 			err9.printStackTrace();
 		}
 		try {
-			class2.testGetUrl_File_DotSlash();
+			class2.testReadConfig_HttpUrl();
 		}
 		catch (java.io.IOException err10) {
 			err10.printStackTrace();
 		}
+		io.bootique.resource.ResourceFactoryTest class3 = new io.bootique.resource.ResourceFactoryTest();
 		try {
-			class2.testGetUrl_FileUrl();
+			class3.testGetCanonicalFile();
 		}
 		catch (java.io.IOException err11) {
 			err11.printStackTrace();
 		}
 		try {
-			class2.testGetUrl_JarUrl();
+			class3.testGetUrl_File();
 		}
 		catch (java.io.IOException err12) {
 			err12.printStackTrace();
 		}
 		try {
-			class2.testGetUrl_ClasspathUrl();
+			class3.testGetUrl_File_DotSlash();
 		}
 		catch (java.io.IOException err13) {
 			err13.printStackTrace();
 		}
 		try {
-			class2.testGetUrl_ClasspathUrlWithSlash();
+			class3.testGetUrl_FileUrl();
 		}
 		catch (java.io.IOException err14) {
 			err14.printStackTrace();
 		}
-		class2.testGetUrls_ClasspathUrl();
-		class2.testGetUrls_File();
-		io.bootique.resource.ResourceFactory_WebConfigSourceIT class3 = new io.bootique.resource.ResourceFactory_WebConfigSourceIT();
 		try {
-			class3.after();
+			class3.testGetUrl_JarUrl();
 		}
-		catch (java.lang.Exception err15) {
+		catch (java.io.IOException err15) {
 			err15.printStackTrace();
 		}
 		try {
-			class3.before();
+			class3.testGetUrl_ClasspathUrl();
 		}
-		catch (java.lang.Exception err16) {
+		catch (java.io.IOException err16) {
 			err16.printStackTrace();
 		}
 		try {
-			class3.testReadConfig_HttpUrl();
+			class3.testGetUrl_ClasspathUrlWithSlash();
 		}
 		catch (java.io.IOException err17) {
 			err17.printStackTrace();
 		}
+		class3.testGetUrls_ClasspathUrl();
+		class3.testGetUrls_File();
 	}
 }

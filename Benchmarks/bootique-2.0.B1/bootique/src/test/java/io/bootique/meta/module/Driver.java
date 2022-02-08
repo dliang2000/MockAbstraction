@@ -2,14 +2,14 @@ package io.bootique.meta.module;
 
 public class Driver {
 	public void runall() {
-		io.bootique.meta.module.ModuleMetadataTest class1 = new io.bootique.meta.module.ModuleMetadataTest();
-		class1.testFindConfig_NotFound();
-		class1.testFindConfig();
-		class1.testFindConfig_Inheritance();
-		io.bootique.meta.module.ModuleMetadataIT class2 = new io.bootique.meta.module.ModuleMetadataIT();
-		class2.testDefault();
-		class2.testCustomModule();
-		class2.testCustomNamedModule();
-		class2.testProvider();
+		io.bootique.meta.module.ModuleMetadataIT class1 = new io.bootique.meta.module.ModuleMetadataIT();
+		class1.testDefault();
+		class1.testCustomModule();
+		class1.testCustomNamedModule();
+		class1.testProvider();
+		io.bootique.meta.module.ModuleMetadataTest class2 = new io.bootique.meta.module.ModuleMetadataTest();
+		class2.testFindConfig_NotFound();
+		class2.testFindConfig();
+		class2.testFindConfig_Inheritance();
 	}
 }
