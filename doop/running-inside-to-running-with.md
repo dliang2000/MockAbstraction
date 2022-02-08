@@ -66,3 +66,11 @@ with souffle's -M flag.
 A typical Souffle command line therefore looks like this:
 
 ```time souffle -F last-analysis -M NO_FIELDS souffle-logic/analyses/mocks/mocks-after.dl```
+
+## Harmless errors
+
+I think I had this the first time and then forgot about them and then they came back and I got worried. Results are the same as the first time, so apparently I don't need to worry.
+
+```Error loading RootCodeElement data: Cannot open fact file RootCodeElement.facts```
+
+for a bunch of different missing .facts files.
