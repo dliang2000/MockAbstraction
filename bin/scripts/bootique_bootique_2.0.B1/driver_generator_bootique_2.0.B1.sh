@@ -28,9 +28,12 @@ find . -name "RootDriver.java" -type f -delete
 # touch is_maven in the benchmark directory to indicate that a benchmark is mvn
 if [ -a is_maven ]; then
   echo "it is a maven project"
-  mvn clean test package
+  mvn clean test
 fi
 
 echo java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$TEXT_PATH
 java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$TEXT_PATH
 # rm -rf "sootOutput/"
+
+mvn package
+
