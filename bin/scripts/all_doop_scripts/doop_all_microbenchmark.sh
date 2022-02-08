@@ -13,6 +13,7 @@ export MACHINE_SPECIFIC_PATH
 export BENCHMARK="microbenchmark"
 export JVM=java_8
 export COMPILED_JAR_PREFIX="payroll-test-0.0.1-SNAPSHOT"
+export MAIN_CLASS="ca.liang.RootDriver"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 $SCRIPT_DIR/doop_all.sh

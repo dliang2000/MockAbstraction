@@ -1,33 +1,20 @@
 #!/bin/bash
 
-# doop runs for bootique, $base_analysis
+# this script has to be invoked from the doop directory
+# be sure to first 1) copy the .dl files from MockAbstraction/doop to souffle-logic/analyses/mocks
+# and 2) run the driver-generator script (e.g. found in bin/scripts/$BENCHMARK)
 
-BENCHMARK="bootique-2.0.B1"
+# sample contents of config.sh:
+#MACHINE_SPECIFIC_PATH="$HOME/hacking/MockAbstraction"
+#JCOMMANDER_JAR="$MACHINE_SPECIFIC_PATH/jcommand_jar/jcommander-1.81.jar"
 
-for base_analysis in basic-only context-insensitive context-insensitive-plusplus 1-object-sensitive; do
-  if [[ "$base_analysis" -eq "basic-only" ]]; then
-    USE_WHAT=USE_BASIC
-  else
-    USE_WHAT=USE_CALLGRAPH
-  fi
+. ./config.sh
+export MACHINE_SPECIFIC_PATH
+export BENCHMARK="bootique-2.0.B1"
+export EXTRA_BENCHMARK="/bootique"
+export JVM=java_8
+export COMPILED_JAR_PREFIX=bootique-2.0.B1
+export MAIN_CLASS="io.bootique.RootDriver"
 
-  echo ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/bootique/target/bootique-2.0.B1.jar -i $HOME/Benchmarks/$BENCHMARK/bootique/target/bootique-2.0.B1-tests.jar -i $HOME/Benchmarks/$BENCHMARK/bootique/mvn_dependencies --id bootique-$base_analysis-NORMAL --souffle-jobs 32 --main io.bootique.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &>> $HOME/results/bootique-results/bootique-$base_analysis-NORMAL.log
-  ./doop -a $base_analysis -i $HOME/Benchmarks/$BENCHMARK/bootique/target/bootique-2.0.B1.jar -i $HOME/Benchmarks/$BENCHMARK/bootique/target/bootique-2.0.B1-tests.jar -i $HOME/Benchmarks/$BENCHMARK/bootique/mvn_dependencies --id bootique-$base_analysis-NORMAL --souffle-jobs 32 --main io.bootique.RootDriver --define-cpp-macro $USE_WHAT --extra-logic souffle-logic/analyses/mocks/mocks.dl &>> $HOME/results/bootique-results/bootique-$base_analysis-NORMAL.log
-
-  for n in NORMAL NO_INTERPROC; do
-    echo rm -rf results/$BENCHMARK/$base_analysis/java_8/bootique-$base_analysis-$n
-    rm -rf results/$BENCHMARK/$base_analysis/java_8/bootique-$base_analysis-$n
-
-    echo mkdir -p results/$BENCHMARK/$base_analysis/java_8/bootique-$base_analysis-$n
-    mkdir -p results/$BENCHMARK/$base_analysis/java_8/bootique-$base_analysis-$n
-
-#    echo cp -a out/bootique-$base_analysis-NORMAL/database/* results/$BENCHMARK/$base_analysis/java_8/bootique-$base_analysis-$n
-#    cp -a out/bootique-$base_analysis-NORMAL/database/* results/$BENCHMARK/$base_analysis/java_8/bootique-$base_analysis-$n
-
-    echo /usr/bin/time -o $HOME/souffle-$base_analysis-$BENCHMARK-$n souffle -F out/bootique-$base_analysis-NORMAL/database/ -M $n souffle-logic/analyses/mocks/mocks-after.dl -D results/$BENCHMARK/$base_analysis/java_8/bootique-$base_analysis-$n/
-    /usr/bin/time -o $HOME/souffle-$base_analysis-$BENCHMARK-$n souffle -F out/bootique-$base_analysis-NORMAL/database/ -M $n souffle-logic/analyses/mocks/mocks-after.dl -D results/$BENCHMARK/$base_analysis/java_8/bootique-$base_analysis-$n/
-
-    echo ./count.py --file results/$BENCHMARK/$base_analysis/java_8/bootique-$base_analysis-$n/isMockInvocation.csv &> $HOME/results/bootique-results/$base_analysis-counts-$n
-    ./count.py --file results/$BENCHMARK/$base_analysis/java_8/bootique-$base_analysis-$n/isMockInvocation.csv &> $HOME/results/bootique-results/$base_analysis-counts-$n
-  done
-done
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+$SCRIPT_DIR/doop_all.sh
