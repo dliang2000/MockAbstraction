@@ -3,7 +3,7 @@
 source ./config.sh
 echo $MACHINE_SPECIFIC_PATH
 
-SOOT_JAR="$MACHINE_SPECIFIC_PATH/soot_jar/sootclasses-trunk-jar-with-dependencies.jar"
+SOOT_JAR="$MACHINE_SPECIFIC_PATH/soot_jar/sootclasses_j9-trunk-jar-with-dependencies.jar"
 JAVA_PATH="$MACHINE_SPECIFIC_PATH/target/classes"
 CC_CLASS="ca.uwaterloo.liang.RootDriverGenerator"
 BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/flink-release-1.13.0-rc1"
@@ -36,7 +36,11 @@ fi
 cd ..
 
 echo java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$ARGS_PATH.local
-java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$ARGS_PATH.local
+if ! java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$ARGS_PATH.local; then 
+  echo "soot failed"
+  exit 1
+fi
+
 # rm -rf "sootOutput/"
 
 cd $BENCHMARK_PATH/$CORE

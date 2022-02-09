@@ -32,5 +32,11 @@ if [ -a is_maven ]; then
 fi
 
 echo java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$TEXT_PATH
-java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$TEXT_PATH
+if ! java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$TEXT_PATH; then
+  echo "soot failed"
+  exit 1
+fi
+
 # rm -rf "sootOutput/"
+
+mvn -Drat.skip=true package
