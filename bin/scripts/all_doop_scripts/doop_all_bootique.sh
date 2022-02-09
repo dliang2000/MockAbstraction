@@ -17,4 +17,4 @@ export COMPILED_JAR_PREFIX=bootique-2.0.B1
 export MAIN_CLASS="io.bootique.RootDriver"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-$SCRIPT_DIR/doop_all.sh
+$SCRIPT_DIR/_doop_all.sh

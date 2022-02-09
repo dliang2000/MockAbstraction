@@ -16,4 +16,4 @@ export COMPILED_JAR_PREFIX="payroll-test-0.0.1-SNAPSHOT"
 export MAIN_CLASS="ca.liang.RootDriver"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-$SCRIPT_DIR/doop_all.sh
+$SCRIPT_DIR/_doop_all.sh
