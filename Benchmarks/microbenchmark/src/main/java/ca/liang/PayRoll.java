@@ -25,12 +25,14 @@ public class PayRoll {
     public int monthlyPayment() {
         // potentially a mock call
         List<Employee> employeeList = employees.getAllEmployees();
-        
+
+        // potentially a mock call to iterator
         for (Employee employee : employeeList) {
-            // 3 potentially mock calls, due to our tests making employee potentially mock.
+            // potentially a mock call
             bankService.makePayment(employee.getBankId(), employee.getSalary());
         }
 
+        // potentially a mock call
         return employeeList.size();
     }
     // total mock calls: 4
