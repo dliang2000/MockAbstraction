@@ -24,144 +24,144 @@ public class RootDriver {
 		class2.runall();
 		org.jsonschema2pojo.rules.Driver class3 = new org.jsonschema2pojo.rules.Driver();
 		class3.runall();
-		org.jsonschema2pojo.SchemaStoreTest class4 = new org.jsonschema2pojo.SchemaStoreTest();
+		org.jsonschema2pojo.FragmentResolverTest class4 = new org.jsonschema2pojo.FragmentResolverTest();
+		class4.hashResolvesToRoot();
+		class4.slashDelimitedWordsResolveToChildNodes();
+		class4.pathCanReferToArrayContentsByIndex();
+		class4.pathCanReferToArrayContentsAtTheDocumentRoot();
+		class4.missingPathThrowsIllegalArgumentException();
+		class4.attemptToUsePropertyNameOnArrayNodeThrowsIllegalArgumentException();
+		org.jsonschema2pojo.SourceSortOrderTest class5 = new org.jsonschema2pojo.SourceSortOrderTest();
 		try {
-			class4.createWithAbsolutePath();
+			class5.testTwoFilesAreCompared_FILES_FIRST();
 		}
-		catch (java.net.URISyntaxException err1) {
+		catch (java.io.IOException err1) {
 			err1.printStackTrace();
 		}
 		try {
-			class4.createWithRelativePath();
+			class5.twoDirectoriesAreCompared_FILES_FIRST();
 		}
-		catch (java.net.URISyntaxException err2) {
+		catch (java.io.IOException err2) {
 			err2.printStackTrace();
 		}
 		try {
-			class4.createWithRelativeSegmentsInPath();
+			class5.testTwoFilesAreCompared_SUBDIRS_FIRST();
 		}
-		catch (java.net.URISyntaxException err3) {
+		catch (java.io.IOException err3) {
 			err3.printStackTrace();
 		}
 		try {
-			class4.createWithSelfRef();
+			class5.twoDirectoriesAreCompared_SUBDIRS_FIRST();
 		}
-		catch (java.net.URISyntaxException err4) {
+		catch (java.io.IOException err4) {
 			err4.printStackTrace();
 		}
-		try {
-			class4.createWithEmbeddedSelfRef();
-		}
-		catch (java.net.URISyntaxException err5) {
-			err5.printStackTrace();
-		}
-		try {
-			class4.createWithFragmentResolution();
-		}
-		catch (java.net.URISyntaxException err6) {
-			err6.printStackTrace();
-		}
-		try {
-			class4.schemaAlreadyReadIsReused();
-		}
-		catch (java.net.URISyntaxException err7) {
-			err7.printStackTrace();
-		}
-		try {
-			class4.setIfEmptyOnlySetsIfEmpty();
-		}
-		catch (java.net.URISyntaxException err8) {
-			err8.printStackTrace();
-		}
-		org.jsonschema2pojo.FragmentResolverTest class5 = new org.jsonschema2pojo.FragmentResolverTest();
-		class5.hashResolvesToRoot();
-		class5.slashDelimitedWordsResolveToChildNodes();
-		class5.pathCanReferToArrayContentsByIndex();
-		class5.pathCanReferToArrayContentsAtTheDocumentRoot();
-		class5.missingPathThrowsIllegalArgumentException();
-		class5.attemptToUsePropertyNameOnArrayNodeThrowsIllegalArgumentException();
-		org.jsonschema2pojo.AnnotatorFactoryTest class6 = new org.jsonschema2pojo.AnnotatorFactoryTest();
-		class6.canCreateCorrectAnnotatorFromAnnotationStyle();
-		class6.canCreateCorrectAnnotatorFromClass();
-		class6.canCreateCompositeAnnotator();
-		try {
-			class6.attemptToCreateAnnotatorFromIncompatibleClassCausesIllegalArgumentException();
-		}
-		catch (java.lang.NoSuchMethodException err9) {
-			err9.printStackTrace();
-		}
-		catch (java.lang.IllegalAccessException err10) {
-			err10.printStackTrace();
-		}
-		catch (java.lang.reflect.InvocationTargetException err11) {
-			err11.printStackTrace();
-		}
+		class5.filesBeforeDirectories_FILES_FIRST();
+		class5.filesBeforeDirectories_SUBDIRS_FIRST();
+		org.jsonschema2pojo.ContentResolverNetworkTest class6 = new org.jsonschema2pojo.ContentResolverNetworkTest();
+		class6.before();
+		class6.after();
+		class6.brokenLinkCausesIllegalArgumentException();
+		class6.serverErrorCausesIllegalArgumentException();
+		class6.httpLinkIsResolvedToContent();
 		org.jsonschema2pojo.SchemaMapperTest class7 = new org.jsonschema2pojo.SchemaMapperTest();
 		try {
 			class7.generateReadsSchemaAsObject();
 		}
-		catch (java.io.IOException err12) {
-			err12.printStackTrace();
+		catch (java.io.IOException err5) {
+			err5.printStackTrace();
 		}
 		try {
 			class7.generateCreatesSchemaFromExampleJsonWhenInJsonMode();
 		}
-		catch (java.io.IOException err13) {
-			err13.printStackTrace();
+		catch (java.io.IOException err6) {
+			err6.printStackTrace();
 		}
 		try {
 			class7.generateCreatesSchemaFromExampleJSONAsStringInput();
 		}
-		catch (java.io.IOException err14) {
-			err14.printStackTrace();
+		catch (java.io.IOException err7) {
+			err7.printStackTrace();
 		}
 		try {
 			class7.generateCreatesSchemaFromSchemaAsStringInput();
 		}
-		catch (java.io.IOException err15) {
+		catch (java.io.IOException err8) {
+			err8.printStackTrace();
+		}
+		org.jsonschema2pojo.SchemaStoreTest class8 = new org.jsonschema2pojo.SchemaStoreTest();
+		try {
+			class8.createWithAbsolutePath();
+		}
+		catch (java.net.URISyntaxException err9) {
+			err9.printStackTrace();
+		}
+		try {
+			class8.createWithRelativePath();
+		}
+		catch (java.net.URISyntaxException err10) {
+			err10.printStackTrace();
+		}
+		try {
+			class8.createWithRelativeSegmentsInPath();
+		}
+		catch (java.net.URISyntaxException err11) {
+			err11.printStackTrace();
+		}
+		try {
+			class8.createWithSelfRef();
+		}
+		catch (java.net.URISyntaxException err12) {
+			err12.printStackTrace();
+		}
+		try {
+			class8.createWithEmbeddedSelfRef();
+		}
+		catch (java.net.URISyntaxException err13) {
+			err13.printStackTrace();
+		}
+		try {
+			class8.createWithFragmentResolution();
+		}
+		catch (java.net.URISyntaxException err14) {
+			err14.printStackTrace();
+		}
+		try {
+			class8.schemaAlreadyReadIsReused();
+		}
+		catch (java.net.URISyntaxException err15) {
 			err15.printStackTrace();
 		}
-		org.jsonschema2pojo.ContentResolverTest class8 = new org.jsonschema2pojo.ContentResolverTest();
-		class8.wrongProtocolCausesIllegalArgumentException();
 		try {
-			class8.fileLinkIsResolvedToContent();
+			class8.setIfEmptyOnlySetsIfEmpty();
 		}
-		catch (java.io.IOException err16) {
+		catch (java.net.URISyntaxException err16) {
 			err16.printStackTrace();
 		}
-		class8.classpathLinkIsResolvedToContent();
-		org.jsonschema2pojo.ContentResolverNetworkTest class9 = new org.jsonschema2pojo.ContentResolverNetworkTest();
-		class9.before();
-		class9.after();
-		class9.brokenLinkCausesIllegalArgumentException();
-		class9.serverErrorCausesIllegalArgumentException();
-		class9.httpLinkIsResolvedToContent();
-		org.jsonschema2pojo.SourceSortOrderTest class10 = new org.jsonschema2pojo.SourceSortOrderTest();
+		org.jsonschema2pojo.ContentResolverTest class9 = new org.jsonschema2pojo.ContentResolverTest();
+		class9.wrongProtocolCausesIllegalArgumentException();
 		try {
-			class10.testTwoFilesAreCompared_FILES_FIRST();
+			class9.fileLinkIsResolvedToContent();
 		}
 		catch (java.io.IOException err17) {
 			err17.printStackTrace();
 		}
+		class9.classpathLinkIsResolvedToContent();
+		org.jsonschema2pojo.AnnotatorFactoryTest class10 = new org.jsonschema2pojo.AnnotatorFactoryTest();
+		class10.canCreateCorrectAnnotatorFromAnnotationStyle();
+		class10.canCreateCorrectAnnotatorFromClass();
+		class10.canCreateCompositeAnnotator();
 		try {
-			class10.twoDirectoriesAreCompared_FILES_FIRST();
+			class10.attemptToCreateAnnotatorFromIncompatibleClassCausesIllegalArgumentException();
 		}
-		catch (java.io.IOException err18) {
+		catch (java.lang.NoSuchMethodException err18) {
 			err18.printStackTrace();
 		}
-		try {
-			class10.testTwoFilesAreCompared_SUBDIRS_FIRST();
-		}
-		catch (java.io.IOException err19) {
+		catch (java.lang.IllegalAccessException err19) {
 			err19.printStackTrace();
 		}
-		try {
-			class10.twoDirectoriesAreCompared_SUBDIRS_FIRST();
-		}
-		catch (java.io.IOException err20) {
+		catch (java.lang.reflect.InvocationTargetException err20) {
 			err20.printStackTrace();
 		}
-		class10.filesBeforeDirectories_FILES_FIRST();
-		class10.filesBeforeDirectories_SUBDIRS_FIRST();
 	}
 }

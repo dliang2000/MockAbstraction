@@ -3,7 +3,7 @@
 source ./config.sh
 echo $MACHINE_SPECIFIC_PATH
 
-SOOT_JAR="$MACHINE_SPECIFIC_PATH/soot_jar/sootclasses-trunk-jar-with-dependencies.jar"
+SOOT_JAR="$MACHINE_SPECIFIC_PATH/soot_jar/sootclasses_j9-trunk-jar-with-dependencies.jar"
 JAVA_PATH="$MACHINE_SPECIFIC_PATH/target/classes"
 CC_CLASS="ca.uwaterloo.liang.RootDriverGenerator"
 BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/jsonschema2pojo-1.1.1"
@@ -28,9 +28,14 @@ find . -name "RootDriver.java" -type f -delete
 # touch is_maven in the benchmark directory to indicate that a benchmark is mvn
 if [ -a is_maven ]; then
   echo "it is a maven project"
-  mvn clean test
+  cd jsonschema2pojo-core
+  mvn test
+  cd ..
 fi
 
 echo java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$TEXT_PATH
 java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$TEXT_PATH
 # rm -rf "sootOutput/"
+
+cd jsonschema2pojo-core
+mvn package
