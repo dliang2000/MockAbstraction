@@ -5,10 +5,11 @@
 * git clone git@github.com:souffle-lang/souffle.git
 * cd souffle; ./configure --prefix=~/pkgs/souffle; make; make install
 * export PATH=~/pkgs/souffle/bin (every time you log in, or add it to .profile)
+(oh no, souffle went cmake so that doesn't work anymore)
 
 ## Install doop
 * git clone https://bitbucket.org/yanniss/doop.git
-* copy MockAbstraction/doop/mocks.dl to ~/doop/souffle-logic/analyses/mocks/mocks.dl
+* copy MockAbstraction/doop/logic/*.dl to ..//doop/souffle-logic/analyses/mocks/
 
 ## Run doop
 * command line:
