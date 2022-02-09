@@ -81,34 +81,34 @@ public class Driver {
 		catch (java.lang.Exception err13) {
 			err13.printStackTrace();
 		}
-		org.apache.maven.lifecycle.DefaultLifecyclesTest class2 = new org.apache.maven.lifecycle.DefaultLifecyclesTest();
+		org.apache.maven.lifecycle.MavenExecutionPlanTest class2 = new org.apache.maven.lifecycle.MavenExecutionPlanTest();
 		try {
-			class2.testLifecycle();
+			class2.testFindLastInPhase();
 		}
 		catch (java.lang.Exception err14) {
 			err14.printStackTrace();
 		}
-		org.apache.maven.lifecycle.MavenExecutionPlanTest class3 = new org.apache.maven.lifecycle.MavenExecutionPlanTest();
 		try {
-			class3.testFindLastInPhase();
+			class2.testThreadSafeMojos();
 		}
 		catch (java.lang.Exception err15) {
 			err15.printStackTrace();
 		}
 		try {
-			class3.testThreadSafeMojos();
+			class2.testFindLastWhenFirst();
 		}
 		catch (java.lang.Exception err16) {
 			err16.printStackTrace();
 		}
 		try {
-			class3.testFindLastWhenFirst();
+			class2.testFindLastInPhaseMisc();
 		}
 		catch (java.lang.Exception err17) {
 			err17.printStackTrace();
 		}
+		org.apache.maven.lifecycle.DefaultLifecyclesTest class3 = new org.apache.maven.lifecycle.DefaultLifecyclesTest();
 		try {
-			class3.testFindLastInPhaseMisc();
+			class3.testLifecycle();
 		}
 		catch (java.lang.Exception err18) {
 			err18.printStackTrace();

@@ -14,9 +14,9 @@ public class RootDriver {
 		class5.runall();
 		org.apache.maven.execution.scope.internal.Driver class6 = new org.apache.maven.execution.scope.internal.Driver();
 		class6.runall();
-		org.apache.maven.project.canonical.Driver class7 = new org.apache.maven.project.canonical.Driver();
+		org.apache.maven.execution.Driver class7 = new org.apache.maven.execution.Driver();
 		class7.runall();
-		org.apache.maven.execution.Driver class8 = new org.apache.maven.execution.Driver();
+		org.apache.maven.project.canonical.Driver class8 = new org.apache.maven.project.canonical.Driver();
 		class8.runall();
 		org.apache.maven.toolchain.merge.Driver class9 = new org.apache.maven.toolchain.merge.Driver();
 		class9.runall();
@@ -63,29 +63,29 @@ public class RootDriver {
 		catch (java.lang.Exception err2) {
 			err2.printStackTrace();
 		}
-		org.apache.maven.MavenLifecycleParticipantTest class26 = new org.apache.maven.MavenLifecycleParticipantTest();
+		org.apache.maven.MavenTest class26 = new org.apache.maven.MavenTest();
 		try {
-			class26.testDependencyInjection();
+			class26.testLifecycleExecutionUsingADefaultLifecyclePhase();
 		}
 		catch (java.lang.Exception err3) {
 			err3.printStackTrace();
 		}
+		org.apache.maven.DefaultMavenTest class27 = new org.apache.maven.DefaultMavenTest();
 		try {
-			class26.testReactorDependencyInjection();
+			class27.testThatErrorDuringProjectDependencyGraphCreationAreStored();
 		}
 		catch (java.lang.Exception err4) {
 			err4.printStackTrace();
 		}
-		org.apache.maven.MavenTest class27 = new org.apache.maven.MavenTest();
+		org.apache.maven.MavenLifecycleParticipantTest class28 = new org.apache.maven.MavenLifecycleParticipantTest();
 		try {
-			class27.testLifecycleExecutionUsingADefaultLifecyclePhase();
+			class28.testDependencyInjection();
 		}
 		catch (java.lang.Exception err5) {
 			err5.printStackTrace();
 		}
-		org.apache.maven.DefaultMavenTest class28 = new org.apache.maven.DefaultMavenTest();
 		try {
-			class28.testThatErrorDuringProjectDependencyGraphCreationAreStored();
+			class28.testReactorDependencyInjection();
 		}
 		catch (java.lang.Exception err6) {
 			err6.printStackTrace();

@@ -2,69 +2,39 @@ package org.apache.maven.lifecycle.internal;
 
 public class Driver {
 	public void runall() {
-		org.apache.maven.lifecycle.internal.LifecycleTaskSegmentCalculatorImplTest class1 = new org.apache.maven.lifecycle.internal.LifecycleTaskSegmentCalculatorImplTest();
+		org.apache.maven.lifecycle.internal.ConcurrencyDependencyGraphTest class1 = new org.apache.maven.lifecycle.internal.ConcurrencyDependencyGraphTest();
 		try {
-			class1.testCalculateProjectBuilds();
+			class1.testConcurrencyGraphPrimaryVersion();
 		}
-		catch (java.lang.Exception err1) {
+		catch (org.apache.maven.plugin.InvalidPluginDescriptorException err1) {
 			err1.printStackTrace();
 		}
-		org.apache.maven.lifecycle.internal.BuilderCommonTest class2 = new org.apache.maven.lifecycle.internal.BuilderCommonTest();
-		try {
-			class2.testResolveBuildPlan();
-		}
-		catch (java.lang.Exception err2) {
+		catch (org.apache.maven.plugin.version.PluginVersionResolutionException err2) {
 			err2.printStackTrace();
 		}
-		try {
-			class2.testHandleBuildError();
-		}
-		catch (java.lang.Exception err3) {
+		catch (org.apache.maven.plugin.PluginDescriptorParsingException err3) {
 			err3.printStackTrace();
 		}
-		try {
-			class2.testAttachToThread();
-		}
-		catch (java.lang.Exception err4) {
+		catch (org.apache.maven.plugin.prefix.NoPluginFoundForPrefixException err4) {
 			err4.printStackTrace();
 		}
-		try {
-			class2.testGetKey();
-		}
-		catch (java.lang.Exception err5) {
+		catch (org.apache.maven.plugin.MojoNotFoundException err5) {
 			err5.printStackTrace();
 		}
-		org.apache.maven.lifecycle.internal.LifecycleDependencyResolverTest class3 = new org.apache.maven.lifecycle.internal.LifecycleDependencyResolverTest();
-		try {
-			class3.testCachedReactorProjectDependencies();
-		}
-		catch (java.lang.Exception err6) {
+		catch (org.apache.maven.plugin.PluginNotFoundException err6) {
 			err6.printStackTrace();
 		}
-		org.apache.maven.lifecycle.internal.ProjectBuildListTest class4 = new org.apache.maven.lifecycle.internal.ProjectBuildListTest();
-		try {
-			class4.testGetByTaskSegment();
-		}
-		catch (java.lang.Exception err7) {
+		catch (org.apache.maven.plugin.PluginResolutionException err7) {
 			err7.printStackTrace();
 		}
-		org.apache.maven.lifecycle.internal.BuildListCalculatorTest class5 = new org.apache.maven.lifecycle.internal.BuildListCalculatorTest();
-		try {
-			class5.testCalculateProjectBuilds();
-		}
-		catch (java.lang.Exception err8) {
+		catch (org.apache.maven.lifecycle.LifecyclePhaseNotFoundException err8) {
 			err8.printStackTrace();
 		}
-		org.apache.maven.lifecycle.internal.LifecycleExecutionPlanCalculatorTest class6 = new org.apache.maven.lifecycle.internal.LifecycleExecutionPlanCalculatorTest();
-		try {
-			class6.testCalculateExecutionPlanWithGoalTasks();
-		}
-		catch (java.lang.Exception err9) {
+		catch (org.apache.maven.lifecycle.LifecycleNotFoundException err9) {
 			err9.printStackTrace();
 		}
-		org.apache.maven.lifecycle.internal.ConcurrencyDependencyGraphTest class7 = new org.apache.maven.lifecycle.internal.ConcurrencyDependencyGraphTest();
 		try {
-			class7.testConcurrencyGraphPrimaryVersion();
+			class1.testConcurrencyGraphDifferentCompletionOrder();
 		}
 		catch (org.apache.maven.plugin.InvalidPluginDescriptorException err10) {
 			err10.printStackTrace();
@@ -93,39 +63,69 @@ public class Driver {
 		catch (org.apache.maven.lifecycle.LifecycleNotFoundException err18) {
 			err18.printStackTrace();
 		}
+		org.apache.maven.lifecycle.internal.BuildListCalculatorTest class2 = new org.apache.maven.lifecycle.internal.BuildListCalculatorTest();
 		try {
-			class7.testConcurrencyGraphDifferentCompletionOrder();
+			class2.testCalculateProjectBuilds();
 		}
-		catch (org.apache.maven.plugin.InvalidPluginDescriptorException err19) {
+		catch (java.lang.Exception err19) {
 			err19.printStackTrace();
 		}
-		catch (org.apache.maven.plugin.version.PluginVersionResolutionException err20) {
+		org.apache.maven.lifecycle.internal.LifecycleExecutionPlanCalculatorTest class3 = new org.apache.maven.lifecycle.internal.LifecycleExecutionPlanCalculatorTest();
+		try {
+			class3.testCalculateExecutionPlanWithGoalTasks();
+		}
+		catch (java.lang.Exception err20) {
 			err20.printStackTrace();
 		}
-		catch (org.apache.maven.plugin.PluginDescriptorParsingException err21) {
+		org.apache.maven.lifecycle.internal.ProjectBuildListTest class4 = new org.apache.maven.lifecycle.internal.ProjectBuildListTest();
+		try {
+			class4.testGetByTaskSegment();
+		}
+		catch (java.lang.Exception err21) {
 			err21.printStackTrace();
 		}
-		catch (org.apache.maven.plugin.prefix.NoPluginFoundForPrefixException err22) {
+		org.apache.maven.lifecycle.internal.BuilderCommonTest class5 = new org.apache.maven.lifecycle.internal.BuilderCommonTest();
+		try {
+			class5.testResolveBuildPlan();
+		}
+		catch (java.lang.Exception err22) {
 			err22.printStackTrace();
 		}
-		catch (org.apache.maven.plugin.MojoNotFoundException err23) {
+		try {
+			class5.testHandleBuildError();
+		}
+		catch (java.lang.Exception err23) {
 			err23.printStackTrace();
 		}
-		catch (org.apache.maven.plugin.PluginNotFoundException err24) {
+		try {
+			class5.testAttachToThread();
+		}
+		catch (java.lang.Exception err24) {
 			err24.printStackTrace();
 		}
-		catch (org.apache.maven.plugin.PluginResolutionException err25) {
+		try {
+			class5.testGetKey();
+		}
+		catch (java.lang.Exception err25) {
 			err25.printStackTrace();
 		}
-		catch (org.apache.maven.lifecycle.LifecyclePhaseNotFoundException err26) {
+		org.apache.maven.lifecycle.internal.PhaseRecorderTest class6 = new org.apache.maven.lifecycle.internal.PhaseRecorderTest();
+		try {
+			class6.testObserveExecution();
+		}
+		catch (java.lang.Exception err26) {
 			err26.printStackTrace();
 		}
-		catch (org.apache.maven.lifecycle.LifecycleNotFoundException err27) {
+		org.apache.maven.lifecycle.internal.LifecycleDependencyResolverTest class7 = new org.apache.maven.lifecycle.internal.LifecycleDependencyResolverTest();
+		try {
+			class7.testCachedReactorProjectDependencies();
+		}
+		catch (java.lang.Exception err27) {
 			err27.printStackTrace();
 		}
-		org.apache.maven.lifecycle.internal.PhaseRecorderTest class8 = new org.apache.maven.lifecycle.internal.PhaseRecorderTest();
+		org.apache.maven.lifecycle.internal.LifecycleTaskSegmentCalculatorImplTest class8 = new org.apache.maven.lifecycle.internal.LifecycleTaskSegmentCalculatorImplTest();
 		try {
-			class8.testObserveExecution();
+			class8.testCalculateProjectBuilds();
 		}
 		catch (java.lang.Exception err28) {
 			err28.printStackTrace();

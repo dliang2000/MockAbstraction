@@ -2,16 +2,16 @@ package org.apache.maven.project.artifact;
 
 public class Driver {
 	public void runall() {
-		org.apache.maven.project.artifact.DefaultProjectArtifactsCacheTest class1 = new org.apache.maven.project.artifact.DefaultProjectArtifactsCacheTest();
+		org.apache.maven.project.artifact.DefaultMavenMetadataCacheTest class1 = new org.apache.maven.project.artifact.DefaultMavenMetadataCacheTest();
 		try {
-			class1.testProjectDependencyOrder();
+			class1.testCacheKey();
 		}
 		catch (java.lang.Exception err1) {
 			err1.printStackTrace();
 		}
-		org.apache.maven.project.artifact.DefaultMavenMetadataCacheTest class2 = new org.apache.maven.project.artifact.DefaultMavenMetadataCacheTest();
+		org.apache.maven.project.artifact.DefaultProjectArtifactsCacheTest class2 = new org.apache.maven.project.artifact.DefaultProjectArtifactsCacheTest();
 		try {
-			class2.testCacheKey();
+			class2.testProjectDependencyOrder();
 		}
 		catch (java.lang.Exception err2) {
 			err2.printStackTrace();
