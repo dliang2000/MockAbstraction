@@ -2,40 +2,40 @@ package org.apache.commons.collections4.functors;
 
 public class Driver {
 	public void runall() {
-		org.apache.commons.collections4.functors.EqualPredicateTest class1 = new org.apache.commons.collections4.functors.EqualPredicateTest();
+		org.apache.commons.collections4.functors.ComparatorPredicateTest class1 = new org.apache.commons.collections4.functors.ComparatorPredicateTest();
+		class1.compareEquals();
+		class1.compareGreater();
+		class1.compareLess();
+		class1.compareGreaterOrEqual();
+		class1.compareLessOrEqual();
+		org.apache.commons.collections4.functors.AllPredicateTest class2 = new org.apache.commons.collections4.functors.AllPredicateTest();
+		class2.emptyArrayToGetInstance();
+		class2.emptyCollectionToGetInstance();
+		class2.oneTruePredicate();
+		class2.oneFalsePredicate();
+		class2.allTrue();
+		class2.trueAndFalseCombined();
+		org.apache.commons.collections4.functors.EqualPredicateTest class3 = new org.apache.commons.collections4.functors.EqualPredicateTest();
 		try {
-			class1.testNullArgumentEqualsNullPredicate();
+			class3.testNullArgumentEqualsNullPredicate();
 		}
 		catch (java.lang.Exception err1) {
 			err1.printStackTrace();
 		}
 		try {
-			class1.objectFactoryUsesEqualsForTest();
+			class3.objectFactoryUsesEqualsForTest();
 		}
 		catch (java.lang.Exception err2) {
 			err2.printStackTrace();
 		}
 		try {
-			class1.testPredicateTypeCanBeSuperClassOfObject();
+			class3.testPredicateTypeCanBeSuperClassOfObject();
 		}
 		catch (java.lang.Exception err3) {
 			err3.printStackTrace();
 		}
-		org.apache.commons.collections4.functors.ComparatorPredicateTest class2 = new org.apache.commons.collections4.functors.ComparatorPredicateTest();
-		class2.compareEquals();
-		class2.compareGreater();
-		class2.compareLess();
-		class2.compareGreaterOrEqual();
-		class2.compareLessOrEqual();
-		org.apache.commons.collections4.functors.CatchAndRethrowClosureTest class3 = new org.apache.commons.collections4.functors.CatchAndRethrowClosureTest();
-		class3.testThrowingClosure();
-		org.apache.commons.collections4.functors.AllPredicateTest class4 = new org.apache.commons.collections4.functors.AllPredicateTest();
-		class4.emptyArrayToGetInstance();
-		class4.emptyCollectionToGetInstance();
-		class4.oneTruePredicate();
-		class4.oneFalsePredicate();
-		class4.allTrue();
-		class4.trueAndFalseCombined();
+		org.apache.commons.collections4.functors.CatchAndRethrowClosureTest class4 = new org.apache.commons.collections4.functors.CatchAndRethrowClosureTest();
+		class4.testThrowingClosure();
 		org.apache.commons.collections4.functors.NullPredicateTest class5 = new org.apache.commons.collections4.functors.NullPredicateTest();
 		class5.testNullPredicate();
 		try {

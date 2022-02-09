@@ -34,4 +34,4 @@ fi
 java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$TEXT_PATH
 #rm -rf "sootOutput/"
 
-mvn package
+mvn -Drat.skip=true package
