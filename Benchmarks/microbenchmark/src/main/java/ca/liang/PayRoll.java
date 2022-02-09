@@ -27,11 +27,11 @@ public class PayRoll {
         List<Employee> employeeList = employees.getAllEmployees();
         
         for (Employee employee : employeeList) {
-            // potentially mock, due to our tests
+            // 3 potentially mock calls, due to our tests making employee potentially mock.
             bankService.makePayment(employee.getBankId(), employee.getSalary());
         }
 
         return employeeList.size();
     }
-    // total mock calls: 2
+    // total mock calls: 4
 }
