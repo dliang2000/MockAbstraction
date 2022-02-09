@@ -38,3 +38,6 @@ cd ..
 echo java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$ARGS_PATH.local
 java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$ARGS_PATH.local
 # rm -rf "sootOutput/"
+
+cd $BENCHMARK_PATH/$CORE
+mvn package
