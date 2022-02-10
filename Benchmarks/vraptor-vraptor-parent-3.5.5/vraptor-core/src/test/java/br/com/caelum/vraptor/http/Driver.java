@@ -2,174 +2,150 @@ package br.com.caelum.vraptor.http;
 
 public class Driver {
 	public void runall() {
-		br.com.caelum.vraptor.http.DefaultParameterNameProviderTest class1 = new br.com.caelum.vraptor.http.DefaultParameterNameProviderTest();
-		class1.setup();
+		br.com.caelum.vraptor.http.DefaultFormatResolverTest class1 = new br.com.caelum.vraptor.http.DefaultFormatResolverTest();
 		try {
-			class1.shouldNameObjectTypeAsItsSimpleName();
+			class1.setUp();
 		}
-		catch (java.lang.SecurityException err1) {
+		catch (java.lang.Exception err1) {
 			err1.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err2) {
+		try {
+			class1.if_formatIsSpecifiedReturnIt();
+		}
+		catch (java.lang.Exception err2) {
 			err2.printStackTrace();
 		}
 		try {
-			class1.shouldNamePrimitiveTypeAsItsSimpleName();
+			class1.if_formatIsSpecifiedReturnItEvenIfAcceptsHtml();
 		}
-		catch (java.lang.SecurityException err3) {
+		catch (java.lang.Exception err3) {
 			err3.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err4) {
+		class1.if_formatNotSpecifiedShouldReturnRequestAcceptFormat();
+		class1.if_formatNotSpecifiedAndNoAcceptsHaveFormat();
+		class1.ifAcceptHeaderIsNullShouldReturnDefault();
+		br.com.caelum.vraptor.http.WebXmlEncodingHandlerTest class2 = new br.com.caelum.vraptor.http.WebXmlEncodingHandlerTest();
+		try {
+			class2.setUp();
+		}
+		catch (java.lang.Exception err4) {
 			err4.printStackTrace();
 		}
 		try {
-			class1.shouldNameArrayAsItsSimpleTypeName();
+			class2.shouldSetEncodingToUTF8();
 		}
-		catch (java.lang.SecurityException err5) {
+		catch (java.lang.Exception err5) {
 			err5.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err6) {
+		try {
+			class2.shouldThrowExceptionWhenAnUnsupportedEncodingExceptionOccurs();
+		}
+		catch (java.lang.Exception err6) {
 			err6.printStackTrace();
 		}
+		br.com.caelum.vraptor.http.EncodingHandlerFactoryTest class3 = new br.com.caelum.vraptor.http.EncodingHandlerFactoryTest();
 		try {
-			class1.shouldNameGenericCollectionUsingOf();
+			class3.setUp();
 		}
-		catch (java.lang.SecurityException err7) {
+		catch (java.lang.Exception err7) {
 			err7.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err8) {
+		try {
+			class3.shouldReturnANullHandlerWhenThereIsNoEncodingInitParameter();
+		}
+		catch (java.lang.Exception err8) {
 			err8.printStackTrace();
 		}
-		br.com.caelum.vraptor.http.DefaultFormatResolverTest class2 = new br.com.caelum.vraptor.http.DefaultFormatResolverTest();
 		try {
-			class2.setUp();
+			class3.shouldReturnAWebXmlHandlerWhenThereIsAnEncodingInitParameter();
 		}
 		catch (java.lang.Exception err9) {
 			err9.printStackTrace();
 		}
+		br.com.caelum.vraptor.http.ParanamerNameProviderTest class4 = new br.com.caelum.vraptor.http.ParanamerNameProviderTest();
+		class4.setup();
 		try {
-			class2.if_formatIsSpecifiedReturnIt();
+			class4.shouldNameObjectTypeAsItsSimpleName();
 		}
-		catch (java.lang.Exception err10) {
+		catch (java.lang.SecurityException err10) {
 			err10.printStackTrace();
 		}
-		try {
-			class2.if_formatIsSpecifiedReturnItEvenIfAcceptsHtml();
-		}
-		catch (java.lang.Exception err11) {
+		catch (java.lang.NoSuchMethodException err11) {
 			err11.printStackTrace();
 		}
-		class2.if_formatNotSpecifiedShouldReturnRequestAcceptFormat();
-		class2.if_formatNotSpecifiedAndNoAcceptsHaveFormat();
-		class2.ifAcceptHeaderIsNullShouldReturnDefault();
-		br.com.caelum.vraptor.http.DefaultResourceTranslatorTest class3 = new br.com.caelum.vraptor.http.DefaultResourceTranslatorTest();
-		class3.setup();
-		class3.handlesInclude();
-		class3.canHandleTheCorrectMethod();
-		class3.shouldAcceptCaseInsensitiveRequestMethods();
-		class3.shouldAcceptCaseInsensitiveGetRequestUsingThe_methodParameter();
-		class3.shouldThrowExceptionWhenRequestANotKnownMethod();
-		class3.shouldOverrideTheHttpMethodByUsingThe_methodParameter();
-		class3.canHandleUrlIfRootContext();
-		class3.canHandleUrlIfNonRootContext();
-		class3.canHandleUrlIfPlainRootContext();
-		class3.canHandleComposedUrlIfPlainRootContext();
-		class3.canHandleComposedUrlIfNonRootContext();
-		class3.canHandleUrlWithAppendedJSessionID();
-		class3.canHandleUrlIfNonRootContextButPlainRequest();
-		br.com.caelum.vraptor.http.VRaptorRequestTest class4 = new br.com.caelum.vraptor.http.VRaptorRequestTest();
-		class4.setup();
-		class4.allowsParametersToBeOverriden();
-		class4.searchesOnTheFallbackRequest();
-		class4.searchesOnAddedParameters();
-		class4.returnsNullIfNotFound();
-		class4.supportsGreaterLengthArrays();
-		class4.returnsAllNamesOnlyOnce();
-		class4.returnsBothMapsWithFirstOverridingSecond();
-		br.com.caelum.vraptor.http.EncodingHandlerFactoryTest class5 = new br.com.caelum.vraptor.http.EncodingHandlerFactoryTest();
 		try {
-			class5.setUp();
+			class4.shouldNamePrimitiveTypeAsItsSimpleName();
 		}
-		catch (java.lang.Exception err12) {
+		catch (java.lang.SecurityException err12) {
 			err12.printStackTrace();
 		}
-		try {
-			class5.shouldReturnANullHandlerWhenThereIsNoEncodingInitParameter();
-		}
-		catch (java.lang.Exception err13) {
+		catch (java.lang.NoSuchMethodException err13) {
 			err13.printStackTrace();
 		}
 		try {
-			class5.shouldReturnAWebXmlHandlerWhenThereIsAnEncodingInitParameter();
+			class4.shouldNameArrayAsItsSimpleTypeName();
 		}
-		catch (java.lang.Exception err14) {
+		catch (java.lang.SecurityException err14) {
 			err14.printStackTrace();
 		}
-		br.com.caelum.vraptor.http.WebXmlEncodingHandlerTest class6 = new br.com.caelum.vraptor.http.WebXmlEncodingHandlerTest();
-		try {
-			class6.setUp();
-		}
-		catch (java.lang.Exception err15) {
+		catch (java.lang.NoSuchMethodException err15) {
 			err15.printStackTrace();
 		}
 		try {
-			class6.shouldSetEncodingToUTF8();
+			class4.shouldNameGenericCollectionUsingOf();
 		}
-		catch (java.lang.Exception err16) {
+		catch (java.lang.SecurityException err16) {
 			err16.printStackTrace();
 		}
-		try {
-			class6.shouldThrowExceptionWhenAnUnsupportedEncodingExceptionOccurs();
-		}
-		catch (java.lang.Exception err17) {
+		catch (java.lang.NoSuchMethodException err17) {
 			err17.printStackTrace();
 		}
-		br.com.caelum.vraptor.http.ParanamerNameProviderTest class7 = new br.com.caelum.vraptor.http.ParanamerNameProviderTest();
-		class7.setup();
 		try {
-			class7.shouldNameObjectTypeAsItsSimpleName();
+			class4.shouldIgnoreChangesToTheReturnedArrayInSubsequentCalls();
 		}
-		catch (java.lang.SecurityException err18) {
+		catch (java.lang.Exception err18) {
 			err18.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err19) {
+		try {
+			class4.shouldNameFieldsAnnotatedWithNamed();
+		}
+		catch (java.lang.SecurityException err19) {
 			err19.printStackTrace();
 		}
-		try {
-			class7.shouldNamePrimitiveTypeAsItsSimpleName();
-		}
-		catch (java.lang.SecurityException err20) {
+		catch (java.lang.NoSuchMethodException err20) {
 			err20.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err21) {
+		try {
+			class4.shouldNotNameFieldsByTheFieldNameWhenUsingAnnotation();
+		}
+		catch (java.lang.SecurityException err21) {
 			err21.printStackTrace();
 		}
-		try {
-			class7.shouldNameArrayAsItsSimpleTypeName();
-		}
-		catch (java.lang.SecurityException err22) {
+		catch (java.lang.NoSuchMethodException err22) {
 			err22.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err23) {
+		try {
+			class4.shouldNameMethodsFieldsWhenAnnotatedOrNot();
+		}
+		catch (java.lang.SecurityException err23) {
 			err23.printStackTrace();
 		}
-		try {
-			class7.shouldNameGenericCollectionUsingOf();
-		}
-		catch (java.lang.SecurityException err24) {
+		catch (java.lang.NoSuchMethodException err24) {
 			err24.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err25) {
+		try {
+			class4.shouldNameMethodsFieldsWhenAnnotatedOrNot2();
+		}
+		catch (java.lang.SecurityException err25) {
 			err25.printStackTrace();
 		}
-		try {
-			class7.shouldIgnoreChangesToTheReturnedArrayInSubsequentCalls();
-		}
-		catch (java.lang.Exception err26) {
+		catch (java.lang.NoSuchMethodException err26) {
 			err26.printStackTrace();
 		}
+		br.com.caelum.vraptor.http.DefaultParameterNameProviderTest class5 = new br.com.caelum.vraptor.http.DefaultParameterNameProviderTest();
+		class5.setup();
 		try {
-			class7.shouldNameFieldsAnnotatedWithNamed();
+			class5.shouldNameObjectTypeAsItsSimpleName();
 		}
 		catch (java.lang.SecurityException err27) {
 			err27.printStackTrace();
@@ -178,7 +154,7 @@ public class Driver {
 			err28.printStackTrace();
 		}
 		try {
-			class7.shouldNotNameFieldsByTheFieldNameWhenUsingAnnotation();
+			class5.shouldNamePrimitiveTypeAsItsSimpleName();
 		}
 		catch (java.lang.SecurityException err29) {
 			err29.printStackTrace();
@@ -187,7 +163,7 @@ public class Driver {
 			err30.printStackTrace();
 		}
 		try {
-			class7.shouldNameMethodsFieldsWhenAnnotatedOrNot();
+			class5.shouldNameArrayAsItsSimpleTypeName();
 		}
 		catch (java.lang.SecurityException err31) {
 			err31.printStackTrace();
@@ -196,7 +172,7 @@ public class Driver {
 			err32.printStackTrace();
 		}
 		try {
-			class7.shouldNameMethodsFieldsWhenAnnotatedOrNot2();
+			class5.shouldNameGenericCollectionUsingOf();
 		}
 		catch (java.lang.SecurityException err33) {
 			err33.printStackTrace();
@@ -204,5 +180,29 @@ public class Driver {
 		catch (java.lang.NoSuchMethodException err34) {
 			err34.printStackTrace();
 		}
+		br.com.caelum.vraptor.http.VRaptorRequestTest class6 = new br.com.caelum.vraptor.http.VRaptorRequestTest();
+		class6.setup();
+		class6.allowsParametersToBeOverriden();
+		class6.searchesOnTheFallbackRequest();
+		class6.searchesOnAddedParameters();
+		class6.returnsNullIfNotFound();
+		class6.supportsGreaterLengthArrays();
+		class6.returnsAllNamesOnlyOnce();
+		class6.returnsBothMapsWithFirstOverridingSecond();
+		br.com.caelum.vraptor.http.DefaultResourceTranslatorTest class7 = new br.com.caelum.vraptor.http.DefaultResourceTranslatorTest();
+		class7.setup();
+		class7.handlesInclude();
+		class7.canHandleTheCorrectMethod();
+		class7.shouldAcceptCaseInsensitiveRequestMethods();
+		class7.shouldAcceptCaseInsensitiveGetRequestUsingThe_methodParameter();
+		class7.shouldThrowExceptionWhenRequestANotKnownMethod();
+		class7.shouldOverrideTheHttpMethodByUsingThe_methodParameter();
+		class7.canHandleUrlIfRootContext();
+		class7.canHandleUrlIfNonRootContext();
+		class7.canHandleUrlIfPlainRootContext();
+		class7.canHandleComposedUrlIfPlainRootContext();
+		class7.canHandleComposedUrlIfNonRootContext();
+		class7.canHandleUrlWithAppendedJSessionID();
+		class7.canHandleUrlIfNonRootContextButPlainRequest();
 	}
 }

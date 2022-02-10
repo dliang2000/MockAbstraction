@@ -2,311 +2,285 @@ package br.com.caelum.vraptor.interceptor;
 
 public class Driver {
 	public void runall() {
-		br.com.caelum.vraptor.interceptor.ExceptionHandlerInterceptorTest class1 = new br.com.caelum.vraptor.interceptor.ExceptionHandlerInterceptorTest();
+		br.com.caelum.vraptor.interceptor.TopologicalSortedInterceptorRegistryTest class1 = new br.com.caelum.vraptor.interceptor.TopologicalSortedInterceptorRegistryTest();
 		try {
-			class1.setup();
+			class1.returnsRegisteredClasses();
 		}
 		catch (java.lang.Exception err1) {
 			err1.printStackTrace();
 		}
-		class1.shouldAlwaysAccept();
-		class1.withRootException();
-		class1.whenNotFoundException();
-		br.com.caelum.vraptor.interceptor.DefaultTypeNameExtractorTest class2 = new br.com.caelum.vraptor.interceptor.DefaultTypeNameExtractorTest();
 		try {
-			class2.setUp();
+			class1.respectsAfterAttribute();
 		}
 		catch (java.lang.Exception err2) {
 			err2.printStackTrace();
 		}
 		try {
-			class2.shouldDecapitalizeSomeCharsUntilItFindsOneUppercased();
+			class1.respectsBeforeAndAfterAttribute();
 		}
-		catch (java.lang.NoSuchMethodException err3) {
+		catch (java.lang.Exception err3) {
 			err3.printStackTrace();
 		}
 		try {
-			class2.shouldDecapitalizeSomeCharsUntilItFindsOneUppercasedForListsAndArrays();
+			class1.failsOnCycles();
 		}
-		catch (java.lang.NoSuchMethodException err4) {
+		catch (java.lang.Exception err4) {
 			err4.printStackTrace();
 		}
-		catch (java.lang.SecurityException err5) {
+		try {
+			class1.respectsInsertionOrderIfNoRelationIsSet();
+		}
+		catch (java.lang.Exception err5) {
 			err5.printStackTrace();
 		}
-		catch (java.lang.NoSuchFieldException err6) {
+		try {
+			class1.usesDefaultInterceptorsIfNoRelationIsSet();
+		}
+		catch (java.lang.Exception err6) {
 			err6.printStackTrace();
 		}
 		try {
-			class2.shouldDecapitalizeSomeCharsUntilItFindsOneUppercasedForListsAndArraysForBoundedGenericElements();
+			class1.respectsBeforeAttribute();
 		}
-		catch (java.lang.NoSuchMethodException err7) {
+		catch (java.lang.Exception err7) {
 			err7.printStackTrace();
 		}
-		catch (java.lang.SecurityException err8) {
+		br.com.caelum.vraptor.interceptor.OutjectResultTest class2 = new br.com.caelum.vraptor.interceptor.OutjectResultTest();
+		class2.setup();
+		try {
+			class2.shouldOutjectWithASimpleTypeName();
+		}
+		catch (java.lang.NoSuchMethodException err8) {
 			err8.printStackTrace();
 		}
-		catch (java.lang.NoSuchFieldException err9) {
+		try {
+			class2.shouldOutjectACollectionAsAList();
+		}
+		catch (java.lang.NoSuchMethodException err9) {
 			err9.printStackTrace();
 		}
 		try {
-			class2.shouldDiscoverGenericTypeParametersWhenThereIsInheritance();
+			class2.shouldNotOutjectIfThereIsNoReturnType();
 		}
-		catch (java.lang.Exception err10) {
+		catch (java.lang.NoSuchMethodException err10) {
 			err10.printStackTrace();
 		}
-		br.com.caelum.vraptor.interceptor.DeserializingInterceptorTest class3 = new br.com.caelum.vraptor.interceptor.DeserializingInterceptorTest();
 		try {
-			class3.setUp();
+			class2.shouldNotOutjectIfReturnIsVoid();
 		}
-		catch (java.lang.Exception err11) {
+		catch (java.lang.NoSuchMethodException err11) {
 			err11.printStackTrace();
 		}
+		br.com.caelum.vraptor.interceptor.DefaultInterceptorRegistryTest class3 = new br.com.caelum.vraptor.interceptor.DefaultInterceptorRegistryTest();
+		class3.shouldRegisterAllComponents();
+		br.com.caelum.vraptor.interceptor.InstantiateInterceptorTest class4 = new br.com.caelum.vraptor.interceptor.InstantiateInterceptorTest();
+		class4.setup();
+		class4.shouldAcceptAlways();
 		try {
-			class3.shouldOnlyAcceptMethodsWithConsumesAnnotation();
+			class4.shouldUseContainerForNewComponent();
 		}
-		catch (java.lang.Exception err12) {
+		catch (br.com.caelum.vraptor.InterceptionException err12) {
 			err12.printStackTrace();
 		}
-		try {
-			class3.willSetHttpStatusCode415IfTheResourceMethodDoesNotSupportTheGivenMediaTypes();
-		}
-		catch (java.lang.Exception err13) {
+		catch (java.io.IOException err13) {
 			err13.printStackTrace();
 		}
 		try {
-			class3.willSetHttpStatusCode415IfThereIsNoDeserializerButIsAccepted();
+			class4.shouldNotInstantiateIfThereIsAlreadyAResource();
 		}
-		catch (java.lang.Exception err14) {
+		catch (br.com.caelum.vraptor.InterceptionException err14) {
 			err14.printStackTrace();
 		}
-		class3.willSetMethodParametersWithDeserializationAndContinueStackAfterDeserialization();
-		class3.willSetMethodParametersWithDeserializationEvenIfTheContentTypeHasCharsetDeclaration();
-		try {
-			class3.willDeserializeForAnyContentTypeIfPossible();
-		}
-		catch (java.lang.Exception err15) {
+		catch (java.io.IOException err15) {
 			err15.printStackTrace();
 		}
+		br.com.caelum.vraptor.interceptor.FlashInterceptorTest class5 = new br.com.caelum.vraptor.interceptor.FlashInterceptorTest();
 		try {
-			class3.shouldNotDeserializeIfHasNoContentType();
+			class5.setUp();
 		}
 		catch (java.lang.Exception err16) {
 			err16.printStackTrace();
 		}
+		class5.shouldAcceptAlways();
 		try {
-			class3.willSetOnlyNonNullParameters();
+			class5.shouldDoNothingWhenThereIsNoFlashParameters();
 		}
 		catch (java.lang.Exception err17) {
 			err17.printStackTrace();
 		}
 		try {
-			class3.shouldThrowInterceptionExceptionIfAnIOExceptionOccurs();
+			class5.shouldAddAllFlashParametersToResult();
 		}
 		catch (java.lang.Exception err18) {
 			err18.printStackTrace();
 		}
-		br.com.caelum.vraptor.interceptor.TopologicalSortedInterceptorRegistryTest class4 = new br.com.caelum.vraptor.interceptor.TopologicalSortedInterceptorRegistryTest();
 		try {
-			class4.returnsRegisteredClasses();
+			class5.shouldRemoveFlashIncludedParameters();
 		}
 		catch (java.lang.Exception err19) {
 			err19.printStackTrace();
 		}
 		try {
-			class4.respectsAfterAttribute();
+			class5.shouldIncludeFlashParametersWhenARedirectHappens();
 		}
 		catch (java.lang.Exception err20) {
 			err20.printStackTrace();
 		}
 		try {
-			class4.respectsBeforeAndAfterAttribute();
+			class5.shouldNotIncludeFlashParametersWhenThereIsNoIncludedParameter();
 		}
 		catch (java.lang.Exception err21) {
 			err21.printStackTrace();
 		}
 		try {
-			class4.failsOnCycles();
+			class5.shouldNotCrashWhenSessionIsInvalid();
 		}
 		catch (java.lang.Exception err22) {
 			err22.printStackTrace();
 		}
+		br.com.caelum.vraptor.interceptor.ExceptionHandlerInterceptorTest class6 = new br.com.caelum.vraptor.interceptor.ExceptionHandlerInterceptorTest();
 		try {
-			class4.respectsInsertionOrderIfNoRelationIsSet();
+			class6.setup();
 		}
 		catch (java.lang.Exception err23) {
 			err23.printStackTrace();
 		}
-		try {
-			class4.usesDefaultInterceptorsIfNoRelationIsSet();
-		}
-		catch (java.lang.Exception err24) {
-			err24.printStackTrace();
-		}
-		try {
-			class4.respectsBeforeAttribute();
-		}
-		catch (java.lang.Exception err25) {
-			err25.printStackTrace();
-		}
-		br.com.caelum.vraptor.interceptor.DownloadInterceptorTest class5 = new br.com.caelum.vraptor.interceptor.DownloadInterceptorTest();
-		try {
-			class5.setup();
-		}
-		catch (java.lang.Exception err26) {
-			err26.printStackTrace();
-		}
-		try {
-			class5.whenResultIsADownloadShouldUseIt();
-		}
-		catch (java.lang.Exception err27) {
-			err27.printStackTrace();
-		}
-		try {
-			class5.whenResultIsAnInputStreamShouldCreateAInputStreamDownload();
-		}
-		catch (java.lang.Exception err28) {
-			err28.printStackTrace();
-		}
-		try {
-			class5.whenResultIsAnInputStreamShouldCreateAByteArrayDownload();
-		}
-		catch (java.lang.Exception err29) {
-			err29.printStackTrace();
-		}
-		try {
-			class5.whenResultIsAFileShouldCreateAFileDownload();
-		}
-		catch (java.lang.Exception err30) {
-			err30.printStackTrace();
-		}
-		try {
-			class5.whenResultIsNullAndResultWasUsedShouldDoNothing();
-		}
-		catch (java.lang.Exception err31) {
-			err31.printStackTrace();
-		}
-		try {
-			class5.whenResultIsNullAndResultWasNotUsedShouldThrowNPE();
-		}
-		catch (java.lang.Exception err32) {
-			err32.printStackTrace();
-		}
-		try {
-			class5.shouldThrowInterceptionExceptionIfIOExceptionOccurs();
-		}
-		catch (java.lang.Exception err33) {
-			err33.printStackTrace();
-		}
-		try {
-			class5.shouldNotAcceptStringReturn();
-		}
-		catch (java.lang.Exception err34) {
-			err34.printStackTrace();
-		}
-		try {
-			class5.shouldAcceptFile();
-		}
-		catch (java.lang.Exception err35) {
-			err35.printStackTrace();
-		}
-		try {
-			class5.shouldAcceptInput();
-		}
-		catch (java.lang.Exception err36) {
-			err36.printStackTrace();
-		}
-		try {
-			class5.shouldAcceptDownload();
-		}
-		catch (java.lang.Exception err37) {
-			err37.printStackTrace();
-		}
-		try {
-			class5.shouldAcceptByte();
-		}
-		catch (java.lang.Exception err38) {
-			err38.printStackTrace();
-		}
-		br.com.caelum.vraptor.interceptor.FlashInterceptorTest class6 = new br.com.caelum.vraptor.interceptor.FlashInterceptorTest();
-		try {
-			class6.setUp();
-		}
-		catch (java.lang.Exception err39) {
-			err39.printStackTrace();
-		}
-		class6.shouldAcceptAlways();
-		try {
-			class6.shouldDoNothingWhenThereIsNoFlashParameters();
-		}
-		catch (java.lang.Exception err40) {
-			err40.printStackTrace();
-		}
-		try {
-			class6.shouldAddAllFlashParametersToResult();
-		}
-		catch (java.lang.Exception err41) {
-			err41.printStackTrace();
-		}
-		try {
-			class6.shouldRemoveFlashIncludedParameters();
-		}
-		catch (java.lang.Exception err42) {
-			err42.printStackTrace();
-		}
-		try {
-			class6.shouldIncludeFlashParametersWhenARedirectHappens();
-		}
-		catch (java.lang.Exception err43) {
-			err43.printStackTrace();
-		}
-		try {
-			class6.shouldNotIncludeFlashParametersWhenThereIsNoIncludedParameter();
-		}
-		catch (java.lang.Exception err44) {
-			err44.printStackTrace();
-		}
-		try {
-			class6.shouldNotCrashWhenSessionIsInvalid();
-		}
-		catch (java.lang.Exception err45) {
-			err45.printStackTrace();
-		}
+		class6.shouldAlwaysAccept();
+		class6.withRootException();
+		class6.whenNotFoundException();
 		br.com.caelum.vraptor.interceptor.ParametersInstantiatorInterceptorTest class7 = new br.com.caelum.vraptor.interceptor.ParametersInstantiatorInterceptorTest();
 		try {
 			class7.setup();
 		}
-		catch (java.lang.Exception err46) {
-			err46.printStackTrace();
+		catch (java.lang.Exception err24) {
+			err24.printStackTrace();
 		}
 		class7.shouldAcceptIfMethodHasParameters();
 		class7.shouldNotAcceptIfMethodHasNoParameters();
 		try {
 			class7.shouldUseTheProvidedParameters();
 		}
-		catch (br.com.caelum.vraptor.InterceptionException err47) {
-			err47.printStackTrace();
+		catch (br.com.caelum.vraptor.InterceptionException err25) {
+			err25.printStackTrace();
 		}
-		catch (java.io.IOException err48) {
-			err48.printStackTrace();
+		catch (java.io.IOException err26) {
+			err26.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err49) {
-			err49.printStackTrace();
+		catch (java.lang.NoSuchMethodException err27) {
+			err27.printStackTrace();
 		}
 		try {
 			class7.shouldConvertArrayParametersToIndexParameters();
 		}
-		catch (java.lang.Exception err50) {
-			err50.printStackTrace();
+		catch (java.lang.Exception err28) {
+			err28.printStackTrace();
 		}
 		try {
 			class7.shouldThrowExceptionWhenThereIsAParameterContainingDotClass();
 		}
-		catch (java.lang.Exception err51) {
-			err51.printStackTrace();
+		catch (java.lang.Exception err29) {
+			err29.printStackTrace();
 		}
 		try {
 			class7.shouldUseAndDiscardFlashParameters();
+		}
+		catch (br.com.caelum.vraptor.InterceptionException err30) {
+			err30.printStackTrace();
+		}
+		catch (java.io.IOException err31) {
+			err31.printStackTrace();
+		}
+		catch (java.lang.NoSuchMethodException err32) {
+			err32.printStackTrace();
+		}
+		try {
+			class7.shouldValidateParameters();
+		}
+		catch (java.lang.Exception err33) {
+			err33.printStackTrace();
+		}
+		try {
+			class7.shouldThrowException();
+		}
+		catch (java.lang.Exception err34) {
+			err34.printStackTrace();
+		}
+		try {
+			class7.shouldAddHeaderInformationToRequestWhenHeaderParamAnnotationIsPresent();
+		}
+		catch (java.lang.Exception err35) {
+			err35.printStackTrace();
+		}
+		try {
+			class7.shouldAddHeaderInformationToRequestWhenHeaderParamAnnotationIsNotPresent();
+		}
+		catch (java.lang.Exception err36) {
+			err36.printStackTrace();
+		}
+		try {
+			class7.shouldAddVariousHeaderInformationsToRequestWhenHeaderParamAnnotationIsPresent();
+		}
+		catch (java.lang.Exception err37) {
+			err37.printStackTrace();
+		}
+		br.com.caelum.vraptor.interceptor.ExecuteMethodInterceptorTest class8 = new br.com.caelum.vraptor.interceptor.ExecuteMethodInterceptorTest();
+		try {
+			class8.setup();
+		}
+		catch (java.lang.NoSuchMethodException err38) {
+			err38.printStackTrace();
+		}
+		class8.shouldAcceptAlways();
+		try {
+			class8.shouldInvokeTheMethodAndNotProceedWithInterceptorStack();
+		}
+		catch (java.lang.SecurityException err39) {
+			err39.printStackTrace();
+		}
+		catch (java.lang.NoSuchMethodException err40) {
+			err40.printStackTrace();
+		}
+		catch (java.io.IOException err41) {
+			err41.printStackTrace();
+		}
+		catch (br.com.caelum.vraptor.InterceptionException err42) {
+			err42.printStackTrace();
+		}
+		try {
+			class8.shouldThrowMethodExceptionIfThereIsAnInvocationException();
+		}
+		catch (java.io.IOException err43) {
+			err43.printStackTrace();
+		}
+		catch (java.lang.SecurityException err44) {
+			err44.printStackTrace();
+		}
+		catch (java.lang.NoSuchMethodException err45) {
+			err45.printStackTrace();
+		}
+		try {
+			class8.shouldUseTheProvidedArguments();
+		}
+		catch (java.lang.SecurityException err46) {
+			err46.printStackTrace();
+		}
+		catch (java.lang.NoSuchMethodException err47) {
+			err47.printStackTrace();
+		}
+		catch (br.com.caelum.vraptor.InterceptionException err48) {
+			err48.printStackTrace();
+		}
+		catch (java.io.IOException err49) {
+			err49.printStackTrace();
+		}
+		try {
+			class8.shouldSetResultReturnedValueFromInvokedMethod();
+		}
+		catch (java.lang.SecurityException err50) {
+			err50.printStackTrace();
+		}
+		catch (java.lang.NoSuchMethodException err51) {
+			err51.printStackTrace();
 		}
 		catch (br.com.caelum.vraptor.InterceptionException err52) {
 			err52.printStackTrace();
@@ -314,44 +288,29 @@ public class Driver {
 		catch (java.io.IOException err53) {
 			err53.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err54) {
+		try {
+			class8.shouldSetNullWhenNullReturnedFromInvokedMethod();
+		}
+		catch (java.lang.SecurityException err54) {
 			err54.printStackTrace();
 		}
-		try {
-			class7.shouldValidateParameters();
-		}
-		catch (java.lang.Exception err55) {
+		catch (java.lang.NoSuchMethodException err55) {
 			err55.printStackTrace();
 		}
-		try {
-			class7.shouldThrowException();
-		}
-		catch (java.lang.Exception err56) {
+		catch (br.com.caelum.vraptor.InterceptionException err56) {
 			err56.printStackTrace();
 		}
-		try {
-			class7.shouldAddHeaderInformationToRequestWhenHeaderParamAnnotationIsPresent();
-		}
-		catch (java.lang.Exception err57) {
+		catch (java.io.IOException err57) {
 			err57.printStackTrace();
 		}
 		try {
-			class7.shouldAddHeaderInformationToRequestWhenHeaderParamAnnotationIsNotPresent();
+			class8.shouldSetOkWhenVoidReturnedFromInvokedMethod();
 		}
-		catch (java.lang.Exception err58) {
+		catch (java.lang.SecurityException err58) {
 			err58.printStackTrace();
 		}
-		try {
-			class7.shouldAddVariousHeaderInformationsToRequestWhenHeaderParamAnnotationIsPresent();
-		}
-		catch (java.lang.Exception err59) {
+		catch (java.lang.NoSuchMethodException err59) {
 			err59.printStackTrace();
-		}
-		br.com.caelum.vraptor.interceptor.InstantiateInterceptorTest class8 = new br.com.caelum.vraptor.interceptor.InstantiateInterceptorTest();
-		class8.setup();
-		class8.shouldAcceptAlways();
-		try {
-			class8.shouldUseContainerForNewComponent();
 		}
 		catch (br.com.caelum.vraptor.InterceptionException err60) {
 			err60.printStackTrace();
@@ -360,56 +319,40 @@ public class Driver {
 			err61.printStackTrace();
 		}
 		try {
-			class8.shouldNotInstantiateIfThereIsAlreadyAResource();
+			class8.shouldBeOkIfThereIsValidationErrorsAndYouSpecifiedWhereToGo();
 		}
-		catch (br.com.caelum.vraptor.InterceptionException err62) {
+		catch (java.lang.SecurityException err62) {
 			err62.printStackTrace();
 		}
-		catch (java.io.IOException err63) {
+		catch (java.lang.NoSuchMethodException err63) {
 			err63.printStackTrace();
 		}
-		br.com.caelum.vraptor.interceptor.OutjectResultTest class9 = new br.com.caelum.vraptor.interceptor.OutjectResultTest();
-		class9.setup();
-		try {
-			class9.shouldOutjectWithASimpleTypeName();
-		}
-		catch (java.lang.NoSuchMethodException err64) {
+		catch (br.com.caelum.vraptor.InterceptionException err64) {
 			err64.printStackTrace();
 		}
-		try {
-			class9.shouldOutjectACollectionAsAList();
-		}
-		catch (java.lang.NoSuchMethodException err65) {
+		catch (java.io.IOException err65) {
 			err65.printStackTrace();
 		}
 		try {
-			class9.shouldNotOutjectIfThereIsNoReturnType();
+			class8.shouldThrowExceptionIfYouHaventSpecifiedWhereToGoOnValidationError();
 		}
-		catch (java.lang.NoSuchMethodException err66) {
+		catch (java.lang.SecurityException err66) {
 			err66.printStackTrace();
-		}
-		try {
-			class9.shouldNotOutjectIfReturnIsVoid();
 		}
 		catch (java.lang.NoSuchMethodException err67) {
 			err67.printStackTrace();
 		}
-		br.com.caelum.vraptor.interceptor.DefaultInterceptorRegistryTest class10 = new br.com.caelum.vraptor.interceptor.DefaultInterceptorRegistryTest();
-		class10.shouldRegisterAllComponents();
-		br.com.caelum.vraptor.interceptor.ResourceLookupInterceptorTest class11 = new br.com.caelum.vraptor.interceptor.ResourceLookupInterceptorTest();
-		class11.config();
-		class11.shouldAcceptAlways();
-		try {
-			class11.shouldHandle404();
-		}
-		catch (java.io.IOException err68) {
+		catch (br.com.caelum.vraptor.InterceptionException err68) {
 			err68.printStackTrace();
 		}
-		catch (br.com.caelum.vraptor.InterceptionException err69) {
+		catch (java.io.IOException err69) {
 			err69.printStackTrace();
 		}
+		br.com.caelum.vraptor.interceptor.ResourceLookupInterceptorTest class9 = new br.com.caelum.vraptor.interceptor.ResourceLookupInterceptorTest();
+		class9.config();
+		class9.shouldAcceptAlways();
 		try {
-			class11.shouldHandle405();
+			class9.shouldHandle404();
 		}
 		catch (java.io.IOException err70) {
 			err70.printStackTrace();
@@ -418,7 +361,7 @@ public class Driver {
 			err71.printStackTrace();
 		}
 		try {
-			class11.shouldUseResourceMethodFoundWithNextInterceptor();
+			class9.shouldHandle405();
 		}
 		catch (java.io.IOException err72) {
 			err72.printStackTrace();
@@ -426,129 +369,186 @@ public class Driver {
 		catch (br.com.caelum.vraptor.InterceptionException err73) {
 			err73.printStackTrace();
 		}
-		br.com.caelum.vraptor.interceptor.ExecuteMethodInterceptorTest class12 = new br.com.caelum.vraptor.interceptor.ExecuteMethodInterceptorTest();
 		try {
-			class12.setup();
+			class9.shouldUseResourceMethodFoundWithNextInterceptor();
 		}
-		catch (java.lang.NoSuchMethodException err74) {
+		catch (java.io.IOException err74) {
 			err74.printStackTrace();
 		}
-		class12.shouldAcceptAlways();
-		try {
-			class12.shouldInvokeTheMethodAndNotProceedWithInterceptorStack();
-		}
-		catch (java.lang.SecurityException err75) {
+		catch (br.com.caelum.vraptor.InterceptionException err75) {
 			err75.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err76) {
+		br.com.caelum.vraptor.interceptor.DefaultTypeNameExtractorTest class10 = new br.com.caelum.vraptor.interceptor.DefaultTypeNameExtractorTest();
+		try {
+			class10.setUp();
+		}
+		catch (java.lang.Exception err76) {
 			err76.printStackTrace();
 		}
-		catch (java.io.IOException err77) {
+		try {
+			class10.shouldDecapitalizeSomeCharsUntilItFindsOneUppercased();
+		}
+		catch (java.lang.NoSuchMethodException err77) {
 			err77.printStackTrace();
 		}
-		catch (br.com.caelum.vraptor.InterceptionException err78) {
+		try {
+			class10.shouldDecapitalizeSomeCharsUntilItFindsOneUppercasedForListsAndArrays();
+		}
+		catch (java.lang.NoSuchMethodException err78) {
 			err78.printStackTrace();
 		}
-		try {
-			class12.shouldThrowMethodExceptionIfThereIsAnInvocationException();
-		}
-		catch (java.io.IOException err79) {
+		catch (java.lang.SecurityException err79) {
 			err79.printStackTrace();
 		}
-		catch (java.lang.SecurityException err80) {
+		catch (java.lang.NoSuchFieldException err80) {
 			err80.printStackTrace();
+		}
+		try {
+			class10.shouldDecapitalizeSomeCharsUntilItFindsOneUppercasedForListsAndArraysForBoundedGenericElements();
 		}
 		catch (java.lang.NoSuchMethodException err81) {
 			err81.printStackTrace();
 		}
-		try {
-			class12.shouldUseTheProvidedArguments();
-		}
 		catch (java.lang.SecurityException err82) {
 			err82.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err83) {
+		catch (java.lang.NoSuchFieldException err83) {
 			err83.printStackTrace();
 		}
-		catch (br.com.caelum.vraptor.InterceptionException err84) {
+		try {
+			class10.shouldDiscoverGenericTypeParametersWhenThereIsInheritance();
+		}
+		catch (java.lang.Exception err84) {
 			err84.printStackTrace();
 		}
-		catch (java.io.IOException err85) {
+		br.com.caelum.vraptor.interceptor.DeserializingInterceptorTest class11 = new br.com.caelum.vraptor.interceptor.DeserializingInterceptorTest();
+		try {
+			class11.setUp();
+		}
+		catch (java.lang.Exception err85) {
 			err85.printStackTrace();
 		}
 		try {
-			class12.shouldSetResultReturnedValueFromInvokedMethod();
+			class11.shouldOnlyAcceptMethodsWithConsumesAnnotation();
 		}
-		catch (java.lang.SecurityException err86) {
+		catch (java.lang.Exception err86) {
 			err86.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err87) {
+		try {
+			class11.willSetHttpStatusCode415IfTheResourceMethodDoesNotSupportTheGivenMediaTypes();
+		}
+		catch (java.lang.Exception err87) {
 			err87.printStackTrace();
 		}
-		catch (br.com.caelum.vraptor.InterceptionException err88) {
+		try {
+			class11.willSetHttpStatusCode415IfThereIsNoDeserializerButIsAccepted();
+		}
+		catch (java.lang.Exception err88) {
 			err88.printStackTrace();
 		}
-		catch (java.io.IOException err89) {
+		class11.willSetMethodParametersWithDeserializationAndContinueStackAfterDeserialization();
+		class11.willSetMethodParametersWithDeserializationEvenIfTheContentTypeHasCharsetDeclaration();
+		try {
+			class11.willDeserializeForAnyContentTypeIfPossible();
+		}
+		catch (java.lang.Exception err89) {
 			err89.printStackTrace();
 		}
 		try {
-			class12.shouldSetNullWhenNullReturnedFromInvokedMethod();
+			class11.shouldNotDeserializeIfHasNoContentType();
 		}
-		catch (java.lang.SecurityException err90) {
+		catch (java.lang.Exception err90) {
 			err90.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err91) {
+		try {
+			class11.willSetOnlyNonNullParameters();
+		}
+		catch (java.lang.Exception err91) {
 			err91.printStackTrace();
 		}
-		catch (br.com.caelum.vraptor.InterceptionException err92) {
+		try {
+			class11.shouldThrowInterceptionExceptionIfAnIOExceptionOccurs();
+		}
+		catch (java.lang.Exception err92) {
 			err92.printStackTrace();
 		}
-		catch (java.io.IOException err93) {
+		br.com.caelum.vraptor.interceptor.DownloadInterceptorTest class12 = new br.com.caelum.vraptor.interceptor.DownloadInterceptorTest();
+		try {
+			class12.setup();
+		}
+		catch (java.lang.Exception err93) {
 			err93.printStackTrace();
 		}
 		try {
-			class12.shouldSetOkWhenVoidReturnedFromInvokedMethod();
+			class12.whenResultIsADownloadShouldUseIt();
 		}
-		catch (java.lang.SecurityException err94) {
+		catch (java.lang.Exception err94) {
 			err94.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err95) {
+		try {
+			class12.whenResultIsAnInputStreamShouldCreateAInputStreamDownload();
+		}
+		catch (java.lang.Exception err95) {
 			err95.printStackTrace();
 		}
-		catch (br.com.caelum.vraptor.InterceptionException err96) {
+		try {
+			class12.whenResultIsAnInputStreamShouldCreateAByteArrayDownload();
+		}
+		catch (java.lang.Exception err96) {
 			err96.printStackTrace();
 		}
-		catch (java.io.IOException err97) {
+		try {
+			class12.whenResultIsAFileShouldCreateAFileDownload();
+		}
+		catch (java.lang.Exception err97) {
 			err97.printStackTrace();
 		}
 		try {
-			class12.shouldBeOkIfThereIsValidationErrorsAndYouSpecifiedWhereToGo();
+			class12.whenResultIsNullAndResultWasUsedShouldDoNothing();
 		}
-		catch (java.lang.SecurityException err98) {
+		catch (java.lang.Exception err98) {
 			err98.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err99) {
+		try {
+			class12.whenResultIsNullAndResultWasNotUsedShouldThrowNPE();
+		}
+		catch (java.lang.Exception err99) {
 			err99.printStackTrace();
 		}
-		catch (br.com.caelum.vraptor.InterceptionException err100) {
+		try {
+			class12.shouldThrowInterceptionExceptionIfIOExceptionOccurs();
+		}
+		catch (java.lang.Exception err100) {
 			err100.printStackTrace();
 		}
-		catch (java.io.IOException err101) {
+		try {
+			class12.shouldNotAcceptStringReturn();
+		}
+		catch (java.lang.Exception err101) {
 			err101.printStackTrace();
 		}
 		try {
-			class12.shouldThrowExceptionIfYouHaventSpecifiedWhereToGoOnValidationError();
+			class12.shouldAcceptFile();
 		}
-		catch (java.lang.SecurityException err102) {
+		catch (java.lang.Exception err102) {
 			err102.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err103) {
+		try {
+			class12.shouldAcceptInput();
+		}
+		catch (java.lang.Exception err103) {
 			err103.printStackTrace();
 		}
-		catch (br.com.caelum.vraptor.InterceptionException err104) {
+		try {
+			class12.shouldAcceptDownload();
+		}
+		catch (java.lang.Exception err104) {
 			err104.printStackTrace();
 		}
-		catch (java.io.IOException err105) {
+		try {
+			class12.shouldAcceptByte();
+		}
+		catch (java.lang.Exception err105) {
 			err105.printStackTrace();
 		}
 	}

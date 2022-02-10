@@ -3,7 +3,16 @@
 source ./config.sh
 echo $MACHINE_SPECIFIC_PATH
 
-SOOT_JAR="$MACHINE_SPECIFIC_PATH/soot_jar/sootclasses-trunk-jar-with-dependencies.jar"
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+ACTUAL_JAVA_VERSION=$(java -version 2>&1)
+EXPECTED_JAVA_VERSION=$( cat $SCRIPT_DIR/jdk8-version)
+if [ "$ACTUAL_JAVA_VERSION" != "$EXPECTED_JAVA_VERSION" ]; then
+    echo "java version mismatch; expecting java 8"
+    exit 1
+fi
+
+SOOT_JAR="$MACHINE_SPECIFIC_PATH/soot_jar/sootclasses_j9-trunk-jar-with-dependencies.jar"
 JAVA_PATH="$MACHINE_SPECIFIC_PATH/target/classes"
 CC_CLASS="ca.uwaterloo.liang.RootDriverGenerator"
 BENCHMARK_PATH="$MACHINE_SPECIFIC_PATH/Benchmarks/vraptor-vraptor-parent-3.5.5"

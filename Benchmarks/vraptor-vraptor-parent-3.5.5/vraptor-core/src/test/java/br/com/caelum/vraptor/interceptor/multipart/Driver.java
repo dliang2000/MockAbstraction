@@ -2,23 +2,23 @@ package br.com.caelum.vraptor.interceptor.multipart;
 
 public class Driver {
 	public void runall() {
-		br.com.caelum.vraptor.interceptor.multipart.DefaultUploadedFileTest class1 = new br.com.caelum.vraptor.interceptor.multipart.DefaultUploadedFileTest();
+		br.com.caelum.vraptor.interceptor.multipart.NullMultipartInterceptorTest class1 = new br.com.caelum.vraptor.interceptor.multipart.NullMultipartInterceptorTest();
+		class1.shouldNeverAccept();
+		class1.shouldThrowUnsuportedOperationExceptionWhenInvoked();
+		br.com.caelum.vraptor.interceptor.multipart.DefaultUploadedFileTest class2 = new br.com.caelum.vraptor.interceptor.multipart.DefaultUploadedFileTest();
 		try {
-			class1.usingUnixLikeSeparators();
+			class2.usingUnixLikeSeparators();
 		}
 		catch (java.lang.Exception err1) {
 			err1.printStackTrace();
 		}
 		try {
-			class1.usingWindowsLikeSeparators();
+			class2.usingWindowsLikeSeparators();
 		}
 		catch (java.lang.Exception err2) {
 			err2.printStackTrace();
 		}
-		class1.usingOnlyFilename();
-		br.com.caelum.vraptor.interceptor.multipart.NullMultipartInterceptorTest class2 = new br.com.caelum.vraptor.interceptor.multipart.NullMultipartInterceptorTest();
-		class2.shouldNeverAccept();
-		class2.shouldThrowUnsuportedOperationExceptionWhenInvoked();
+		class2.usingOnlyFilename();
 		br.com.caelum.vraptor.interceptor.multipart.CommonsUploadMultipartInterceptorTest class3 = new br.com.caelum.vraptor.interceptor.multipart.CommonsUploadMultipartInterceptorTest();
 		class3.setup();
 		class3.shouldNotAcceptFormURLEncoded();

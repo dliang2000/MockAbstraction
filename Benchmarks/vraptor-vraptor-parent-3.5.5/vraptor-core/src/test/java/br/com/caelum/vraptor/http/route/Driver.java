@@ -2,66 +2,64 @@ package br.com.caelum.vraptor.http.route;
 
 public class Driver {
 	public void runall() {
-		br.com.caelum.vraptor.http.route.RulesTest class1 = new br.com.caelum.vraptor.http.route.RulesTest();
+		br.com.caelum.vraptor.http.route.PathAnnotationRoutesParserTest class1 = new br.com.caelum.vraptor.http.route.PathAnnotationRoutesParserTest();
 		class1.setup();
-		class1.allowsAdditionOfRouteBuildersByDefaultWithNoStrategy();
-		br.com.caelum.vraptor.http.route.RouteBuilderTest class2 = new br.com.caelum.vraptor.http.route.RouteBuilderTest();
 		try {
-			class2.setUp();
+			class1.addsAPrefixToMethodsWhenTheControllerHasMoreThanOneAnnotatedPath();
 		}
 		catch (java.lang.Exception err1) {
 			err1.printStackTrace();
 		}
 		try {
-			class2.usePatternMatchinForPrimitiveParameters();
+			class1.addsAPrefixToMethodsWhenTheControllerAndTheMethodAreAnnotatedWithRelativePath();
 		}
 		catch (java.lang.Exception err2) {
 			err2.printStackTrace();
 		}
 		try {
-			class2.usePatternMatchingForRegexParameters();
+			class1.addsAPrefixToMethodsWhenTheControllerEndsWithSlashAndTheMethodAreAnnotatedWithRelativePath();
 		}
 		catch (java.lang.Exception err3) {
 			err3.printStackTrace();
 		}
 		try {
-			class2.usingRegexesWithCurlyBraces();
+			class1.addsAPrefixToMethodsWhenTheControllerEndsWithSlashAndTheMethodAreAnnotatedWithAbsolutePath();
 		}
 		catch (java.lang.Exception err4) {
 			err4.printStackTrace();
 		}
 		try {
-			class2.usingRegexesWithCurlyBracesNotOnTheEnd();
+			class1.addsAPrefixToMethodsWhenTheControllerEndsWithSlashAndTheMethodAreAnnotatedWithEmptyPath();
 		}
 		catch (java.lang.Exception err5) {
 			err5.printStackTrace();
 		}
 		try {
-			class2.usingRegexesWithCurlyBracesNotOnTheEndAndOtherVar();
+			class1.addsAPrefixToMethodsWhenTheControllerAndTheMethodAreAnnotatedWithAbsolutePath();
 		}
 		catch (java.lang.Exception err6) {
 			err6.printStackTrace();
 		}
 		try {
-			class2.usingRegexesWithCurlyBracesNotOnTheEndAndOtherVarAndManyOtherThings();
+			class1.addsAPrefixToMethodsWhenTheControllerAndTheMethodAreAnnotatedWithEmptyPath();
 		}
 		catch (java.lang.Exception err7) {
 			err7.printStackTrace();
 		}
 		try {
-			class2.usingRegexesWithAsterisksAtTheEnd();
+			class1.addsAPrefixToMethodsWhenTheControllerIsAnnotatedWithPath();
 		}
 		catch (java.lang.Exception err8) {
 			err8.printStackTrace();
 		}
 		try {
-			class2.fillingUriForPrimitiveParameters();
+			class1.findsTheCorrectAnnotatedMethodIfThereIsNoWebMethodAnnotationPresent();
 		}
 		catch (java.lang.Exception err9) {
 			err9.printStackTrace();
 		}
 		try {
-			class2.shouldSupportPathsWithDotsAndAsterisks();
+			class1.suportsTheDefaultNameForANonAnnotatedMethod();
 		}
 		catch (java.lang.SecurityException err10) {
 			err10.printStackTrace();
@@ -70,7 +68,7 @@ public class Driver {
 			err11.printStackTrace();
 		}
 		try {
-			class2.shouldUseGenericParameters();
+			class1.ignoresTheControllerSuffixForANonAnnotatedMethod();
 		}
 		catch (java.lang.SecurityException err12) {
 			err12.printStackTrace();
@@ -78,10 +76,8 @@ public class Driver {
 		catch (java.lang.NoSuchMethodException err13) {
 			err13.printStackTrace();
 		}
-		br.com.caelum.vraptor.http.route.DefaultParametersControlTest class3 = new br.com.caelum.vraptor.http.route.DefaultParametersControlTest();
-		class3.setup();
 		try {
-			class3.registerExtraParametersFromAcessedUrl();
+			class1.addsASlashWhenUserForgotIt();
 		}
 		catch (java.lang.SecurityException err14) {
 			err14.printStackTrace();
@@ -90,7 +86,7 @@ public class Driver {
 			err15.printStackTrace();
 		}
 		try {
-			class3.registerParametersWithAsterisks();
+			class1.matchesWhenUsingAWildcard();
 		}
 		catch (java.lang.SecurityException err16) {
 			err16.printStackTrace();
@@ -98,26 +94,34 @@ public class Driver {
 		catch (java.lang.NoSuchMethodException err17) {
 			err17.printStackTrace();
 		}
+		class1.dontRegisterRouteIfMethodIsNotPublic();
+		class1.dontRegisterRouteIfMethodIsStatic();
 		try {
-			class3.registerParametersWithRegexes();
+			class1.shouldThrowExceptionIfPathAnnotationHasEmptyArray();
 		}
-		catch (java.lang.SecurityException err18) {
+		catch (java.lang.Exception err18) {
 			err18.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err19) {
+		try {
+			class1.shouldFindNonAnnotatedNonStaticPublicMethodWithComponentNameInVariableCamelCaseConventionAsURI();
+		}
+		catch (java.lang.Exception err19) {
 			err19.printStackTrace();
 		}
 		try {
-			class3.registerParametersWithMultipleRegexes();
+			class1.shouldFindSeveralPathsForMethodWithManyValue();
 		}
-		catch (java.lang.SecurityException err20) {
+		catch (java.lang.Exception err20) {
 			err20.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err21) {
+		try {
+			class1.shouldNotMatchIfAResourceHasTheWrongWebMethod();
+		}
+		catch (java.lang.SecurityException err21) {
 			err21.printStackTrace();
 		}
 		try {
-			class3.worksAsRegexWhenUsingParameters();
+			class1.shouldAcceptAResultWithASpecificWebMethod();
 		}
 		catch (java.lang.SecurityException err22) {
 			err22.printStackTrace();
@@ -126,7 +130,7 @@ public class Driver {
 			err23.printStackTrace();
 		}
 		try {
-			class3.worksWithBasicRegexEvaluation();
+			class1.shouldAcceptAResultWithOptionsWebMethod();
 		}
 		catch (java.lang.SecurityException err24) {
 			err24.printStackTrace();
@@ -134,39 +138,26 @@ public class Driver {
 		catch (java.lang.NoSuchMethodException err25) {
 			err25.printStackTrace();
 		}
-		class3.shouldTranslateAsteriskAsEmpty();
-		class3.shouldTranslatePatternArgs();
-		class3.shouldTranslatePatternArgsWithRegex();
-		class3.shouldTranslatePatternArgsWithMultipleRegexes();
-		class3.shouldTranslatePatternArgNullAsEmpty();
-		class3.shouldUseConverterIfItExists();
-		class3.shouldTranslatePatternArgInternalNullAsEmpty();
 		try {
-			class3.shouldMatchPatternLazily();
+			class1.shouldAcceptAResultWithPatchWebMethod();
 		}
-		catch (java.lang.Exception err26) {
+		catch (java.lang.SecurityException err26) {
 			err26.printStackTrace();
 		}
-		try {
-			class3.shouldMatchMoreThanOneVariable();
-		}
-		catch (java.lang.Exception err27) {
+		catch (java.lang.NoSuchMethodException err27) {
 			err27.printStackTrace();
 		}
 		try {
-			class3.shouldBeGreedyWhenIPutAnAsteriskOnExpression();
+			class1.findsInheritedMethodsWithDefaultNames();
 		}
-		catch (java.lang.Exception err28) {
+		catch (java.lang.SecurityException err28) {
 			err28.printStackTrace();
 		}
-		try {
-			class3.shouldNotBeGreedyAtPatternCompiling();
-		}
-		catch (java.lang.Exception err29) {
+		catch (java.lang.NoSuchMethodException err29) {
 			err29.printStackTrace();
 		}
 		try {
-			class3.registerExtraParametersFromAcessedUrlWithGreedyParameters();
+			class1.supportMethodOverriding();
 		}
 		catch (java.lang.SecurityException err30) {
 			err30.printStackTrace();
@@ -175,7 +166,7 @@ public class Driver {
 			err31.printStackTrace();
 		}
 		try {
-			class3.registerExtraParametersFromAcessedUrlWithGreedyAndDottedParameters();
+			class1.supportTypeHttpMethodAnnotation();
 		}
 		catch (java.lang.SecurityException err32) {
 			err32.printStackTrace();
@@ -184,7 +175,7 @@ public class Driver {
 			err33.printStackTrace();
 		}
 		try {
-			class3.fillURLWithGreedyParameters();
+			class1.supportOverrideTypeHttpMethodAnnotation();
 		}
 		catch (java.lang.SecurityException err34) {
 			err34.printStackTrace();
@@ -193,169 +184,161 @@ public class Driver {
 			err35.printStackTrace();
 		}
 		try {
-			class3.fillURLWithoutGreedyParameters();
+			class1.addsAPrefixToMethodsWhenTheGetControllerAndTheMethodAreAnnotatedWithRelativePath();
 		}
-		catch (java.lang.SecurityException err36) {
+		catch (java.lang.Exception err36) {
 			err36.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err37) {
+		try {
+			class1.priorityForGetAnnotationShouldBeDefault();
+		}
+		catch (java.lang.Exception err37) {
 			err37.printStackTrace();
 		}
 		try {
-			class3.whenNoParameterPatternsAreGivenShouldMatchAnything();
+			class1.addsAPrefixToMethodsWhenTheGetControllerEndsWithSlashAndTheMethodAreAnnotatedWithRelativePath();
 		}
 		catch (java.lang.Exception err38) {
 			err38.printStackTrace();
 		}
 		try {
-			class3.whenParameterPatternsAreGivenShouldMatchAccordingToGivenPatterns();
+			class1.addsAPrefixToMethodsWhenTheGetControllerEndsWithSlashAndTheMethodAreAnnotatedWithAbsolutePath();
 		}
 		catch (java.lang.Exception err39) {
 			err39.printStackTrace();
 		}
 		try {
-			class3.shouldFillRequestWhenAPatternIsSpecified();
+			class1.addsAPrefixToMethodsWhenTheGetControllerAndTheMethodAreAnnotatedWithAbsolutePath();
 		}
 		catch (java.lang.Exception err40) {
 			err40.printStackTrace();
 		}
 		try {
-			class3.shouldDecodeUriParameters();
+			class1.addsAPrefixToMethodsWhenTheGetControllerIsAnnotatedWithPath();
 		}
 		catch (java.lang.Exception err41) {
 			err41.printStackTrace();
 		}
-		br.com.caelum.vraptor.http.route.JavaEvaluatorTest class4 = new br.com.caelum.vraptor.http.route.JavaEvaluatorTest();
-		class4.setup();
-		class4.shouldInvokeAGetter();
-		class4.shouldInvokeAIs();
-		class4.shouldAccessArray();
-		class4.shouldAccessList();
-		class4.shouldAccessCollection();
-		class4.shouldReturnEmptyStringIfNullWasFoundOnTheWay();
-		class4.shouldReturnEmptyStringIfTheResultIsNull();
-		class4.shouldInvokeAGetterDeclaredOnSuperClass();
-		class4.shouldInvokeAIsDeclaredOnSuperClass();
-		br.com.caelum.vraptor.http.route.PathAnnotationRoutesParserTest class5 = new br.com.caelum.vraptor.http.route.PathAnnotationRoutesParserTest();
-		class5.setup();
 		try {
-			class5.addsAPrefixToMethodsWhenTheControllerHasMoreThanOneAnnotatedPath();
+			class1.throwsExceptionWhenTheGetControllerHasAmbiguousDeclaration();
 		}
 		catch (java.lang.Exception err42) {
 			err42.printStackTrace();
 		}
+		br.com.caelum.vraptor.http.route.DefaultRouterTest class2 = new br.com.caelum.vraptor.http.route.DefaultRouterTest();
+		class2.setup();
 		try {
-			class5.addsAPrefixToMethodsWhenTheControllerAndTheMethodAreAnnotatedWithRelativePath();
+			class2.shouldThrowResourceNotFoundExceptionWhenNoRoutesMatchTheURI();
 		}
 		catch (java.lang.Exception err43) {
 			err43.printStackTrace();
 		}
 		try {
-			class5.addsAPrefixToMethodsWhenTheControllerEndsWithSlashAndTheMethodAreAnnotatedWithRelativePath();
+			class2.shouldThrowMethodNotAllowedExceptionWhenNoRoutesMatchTheURIWithGivenHttpMethod();
 		}
 		catch (java.lang.Exception err44) {
 			err44.printStackTrace();
 		}
 		try {
-			class5.addsAPrefixToMethodsWhenTheControllerEndsWithSlashAndTheMethodAreAnnotatedWithAbsolutePath();
+			class2.shouldObeyPriorityOfRoutes();
 		}
 		catch (java.lang.Exception err45) {
 			err45.printStackTrace();
 		}
 		try {
-			class5.addsAPrefixToMethodsWhenTheControllerEndsWithSlashAndTheMethodAreAnnotatedWithEmptyPath();
+			class2.acceptsASingleMappingRule();
 		}
-		catch (java.lang.Exception err46) {
+		catch (java.lang.SecurityException err46) {
 			err46.printStackTrace();
 		}
-		try {
-			class5.addsAPrefixToMethodsWhenTheControllerAndTheMethodAreAnnotatedWithAbsolutePath();
-		}
-		catch (java.lang.Exception err47) {
+		catch (java.lang.NoSuchMethodException err47) {
 			err47.printStackTrace();
 		}
 		try {
-			class5.addsAPrefixToMethodsWhenTheControllerAndTheMethodAreAnnotatedWithEmptyPath();
+			class2.passesTheWebMethod();
 		}
-		catch (java.lang.Exception err48) {
+		catch (java.lang.SecurityException err48) {
 			err48.printStackTrace();
 		}
-		try {
-			class5.addsAPrefixToMethodsWhenTheControllerIsAnnotatedWithPath();
-		}
-		catch (java.lang.Exception err49) {
+		catch (java.lang.NoSuchMethodException err49) {
 			err49.printStackTrace();
 		}
 		try {
-			class5.findsTheCorrectAnnotatedMethodIfThereIsNoWebMethodAnnotationPresent();
+			class2.usesTheFirstRegisteredRuleMatchingThePattern();
 		}
-		catch (java.lang.Exception err50) {
+		catch (java.lang.SecurityException err50) {
 			err50.printStackTrace();
 		}
-		try {
-			class5.suportsTheDefaultNameForANonAnnotatedMethod();
-		}
-		catch (java.lang.SecurityException err51) {
+		catch (java.lang.NoSuchMethodException err51) {
 			err51.printStackTrace();
+		}
+		class2.throwsExceptionIfMoreThanOneUriMatchesWithSamePriority();
+		try {
+			class2.acceptsAnHttpMethodLimitedMappingRule();
 		}
 		catch (java.lang.NoSuchMethodException err52) {
 			err52.printStackTrace();
 		}
 		try {
-			class5.ignoresTheControllerSuffixForANonAnnotatedMethod();
+			class2.acceptsAnHttpMethodLimitedMappingRuleWithBothMethods();
 		}
-		catch (java.lang.SecurityException err53) {
+		catch (java.lang.NoSuchMethodException err53) {
 			err53.printStackTrace();
+		}
+		try {
+			class2.usesAsteriskBothWays();
 		}
 		catch (java.lang.NoSuchMethodException err54) {
 			err54.printStackTrace();
 		}
 		try {
-			class5.addsASlashWhenUserForgotIt();
+			class2.canTranslateAInheritedResourceBothWays();
 		}
-		catch (java.lang.SecurityException err55) {
+		catch (java.lang.NoSuchMethodException err55) {
 			err55.printStackTrace();
+		}
+		try {
+			class2.canTranslateAnnotatedMethodBothWays();
 		}
 		catch (java.lang.NoSuchMethodException err56) {
 			err56.printStackTrace();
 		}
+		br.com.caelum.vraptor.http.route.DefaultTypeFinderTest class3 = new br.com.caelum.vraptor.http.route.DefaultTypeFinderTest();
+		class3.setup();
 		try {
-			class5.matchesWhenUsingAWildcard();
+			class3.shouldGetTypesCorrectly();
 		}
-		catch (java.lang.SecurityException err57) {
+		catch (java.lang.Exception err57) {
 			err57.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err58) {
+		try {
+			class3.shouldGetTypesCorrectlyOnInheritance();
+		}
+		catch (java.lang.Exception err58) {
 			err58.printStackTrace();
 		}
-		class5.dontRegisterRouteIfMethodIsNotPublic();
-		class5.dontRegisterRouteIfMethodIsStatic();
+		br.com.caelum.vraptor.http.route.DefaultParametersControlTest class4 = new br.com.caelum.vraptor.http.route.DefaultParametersControlTest();
+		class4.setup();
 		try {
-			class5.shouldThrowExceptionIfPathAnnotationHasEmptyArray();
+			class4.registerExtraParametersFromAcessedUrl();
 		}
-		catch (java.lang.Exception err59) {
+		catch (java.lang.SecurityException err59) {
 			err59.printStackTrace();
 		}
-		try {
-			class5.shouldFindNonAnnotatedNonStaticPublicMethodWithComponentNameInVariableCamelCaseConventionAsURI();
-		}
-		catch (java.lang.Exception err60) {
+		catch (java.lang.NoSuchMethodException err60) {
 			err60.printStackTrace();
 		}
 		try {
-			class5.shouldFindSeveralPathsForMethodWithManyValue();
+			class4.registerParametersWithAsterisks();
 		}
-		catch (java.lang.Exception err61) {
+		catch (java.lang.SecurityException err61) {
 			err61.printStackTrace();
 		}
-		try {
-			class5.shouldNotMatchIfAResourceHasTheWrongWebMethod();
-		}
-		catch (java.lang.SecurityException err62) {
+		catch (java.lang.NoSuchMethodException err62) {
 			err62.printStackTrace();
 		}
 		try {
-			class5.shouldAcceptAResultWithASpecificWebMethod();
+			class4.registerParametersWithRegexes();
 		}
 		catch (java.lang.SecurityException err63) {
 			err63.printStackTrace();
@@ -364,7 +347,7 @@ public class Driver {
 			err64.printStackTrace();
 		}
 		try {
-			class5.shouldAcceptAResultWithOptionsWebMethod();
+			class4.registerParametersWithMultipleRegexes();
 		}
 		catch (java.lang.SecurityException err65) {
 			err65.printStackTrace();
@@ -373,7 +356,7 @@ public class Driver {
 			err66.printStackTrace();
 		}
 		try {
-			class5.shouldAcceptAResultWithPatchWebMethod();
+			class4.worksAsRegexWhenUsingParameters();
 		}
 		catch (java.lang.SecurityException err67) {
 			err67.printStackTrace();
@@ -382,7 +365,7 @@ public class Driver {
 			err68.printStackTrace();
 		}
 		try {
-			class5.findsInheritedMethodsWithDefaultNames();
+			class4.worksWithBasicRegexEvaluation();
 		}
 		catch (java.lang.SecurityException err69) {
 			err69.printStackTrace();
@@ -390,26 +373,39 @@ public class Driver {
 		catch (java.lang.NoSuchMethodException err70) {
 			err70.printStackTrace();
 		}
+		class4.shouldTranslateAsteriskAsEmpty();
+		class4.shouldTranslatePatternArgs();
+		class4.shouldTranslatePatternArgsWithRegex();
+		class4.shouldTranslatePatternArgsWithMultipleRegexes();
+		class4.shouldTranslatePatternArgNullAsEmpty();
+		class4.shouldUseConverterIfItExists();
+		class4.shouldTranslatePatternArgInternalNullAsEmpty();
 		try {
-			class5.supportMethodOverriding();
+			class4.shouldMatchPatternLazily();
 		}
-		catch (java.lang.SecurityException err71) {
+		catch (java.lang.Exception err71) {
 			err71.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err72) {
+		try {
+			class4.shouldMatchMoreThanOneVariable();
+		}
+		catch (java.lang.Exception err72) {
 			err72.printStackTrace();
 		}
 		try {
-			class5.supportTypeHttpMethodAnnotation();
+			class4.shouldBeGreedyWhenIPutAnAsteriskOnExpression();
 		}
-		catch (java.lang.SecurityException err73) {
+		catch (java.lang.Exception err73) {
 			err73.printStackTrace();
 		}
-		catch (java.lang.NoSuchMethodException err74) {
+		try {
+			class4.shouldNotBeGreedyAtPatternCompiling();
+		}
+		catch (java.lang.Exception err74) {
 			err74.printStackTrace();
 		}
 		try {
-			class5.supportOverrideTypeHttpMethodAnnotation();
+			class4.registerExtraParametersFromAcessedUrlWithGreedyParameters();
 		}
 		catch (java.lang.SecurityException err75) {
 			err75.printStackTrace();
@@ -418,146 +414,150 @@ public class Driver {
 			err76.printStackTrace();
 		}
 		try {
-			class5.addsAPrefixToMethodsWhenTheGetControllerAndTheMethodAreAnnotatedWithRelativePath();
+			class4.registerExtraParametersFromAcessedUrlWithGreedyAndDottedParameters();
 		}
-		catch (java.lang.Exception err77) {
+		catch (java.lang.SecurityException err77) {
 			err77.printStackTrace();
 		}
-		try {
-			class5.priorityForGetAnnotationShouldBeDefault();
-		}
-		catch (java.lang.Exception err78) {
+		catch (java.lang.NoSuchMethodException err78) {
 			err78.printStackTrace();
 		}
 		try {
-			class5.addsAPrefixToMethodsWhenTheGetControllerEndsWithSlashAndTheMethodAreAnnotatedWithRelativePath();
+			class4.fillURLWithGreedyParameters();
 		}
-		catch (java.lang.Exception err79) {
+		catch (java.lang.SecurityException err79) {
 			err79.printStackTrace();
 		}
-		try {
-			class5.addsAPrefixToMethodsWhenTheGetControllerEndsWithSlashAndTheMethodAreAnnotatedWithAbsolutePath();
-		}
-		catch (java.lang.Exception err80) {
+		catch (java.lang.NoSuchMethodException err80) {
 			err80.printStackTrace();
 		}
 		try {
-			class5.addsAPrefixToMethodsWhenTheGetControllerAndTheMethodAreAnnotatedWithAbsolutePath();
+			class4.fillURLWithoutGreedyParameters();
 		}
-		catch (java.lang.Exception err81) {
+		catch (java.lang.SecurityException err81) {
 			err81.printStackTrace();
 		}
-		try {
-			class5.addsAPrefixToMethodsWhenTheGetControllerIsAnnotatedWithPath();
-		}
-		catch (java.lang.Exception err82) {
+		catch (java.lang.NoSuchMethodException err82) {
 			err82.printStackTrace();
 		}
 		try {
-			class5.throwsExceptionWhenTheGetControllerHasAmbiguousDeclaration();
+			class4.whenNoParameterPatternsAreGivenShouldMatchAnything();
 		}
 		catch (java.lang.Exception err83) {
 			err83.printStackTrace();
 		}
-		br.com.caelum.vraptor.http.route.DefaultRouterTest class6 = new br.com.caelum.vraptor.http.route.DefaultRouterTest();
-		class6.setup();
 		try {
-			class6.shouldThrowResourceNotFoundExceptionWhenNoRoutesMatchTheURI();
+			class4.whenParameterPatternsAreGivenShouldMatchAccordingToGivenPatterns();
 		}
 		catch (java.lang.Exception err84) {
 			err84.printStackTrace();
 		}
 		try {
-			class6.shouldThrowMethodNotAllowedExceptionWhenNoRoutesMatchTheURIWithGivenHttpMethod();
+			class4.shouldFillRequestWhenAPatternIsSpecified();
 		}
 		catch (java.lang.Exception err85) {
 			err85.printStackTrace();
 		}
 		try {
-			class6.shouldObeyPriorityOfRoutes();
+			class4.shouldDecodeUriParameters();
 		}
 		catch (java.lang.Exception err86) {
 			err86.printStackTrace();
 		}
-		try {
-			class6.acceptsASingleMappingRule();
-		}
-		catch (java.lang.SecurityException err87) {
-			err87.printStackTrace();
-		}
-		catch (java.lang.NoSuchMethodException err88) {
-			err88.printStackTrace();
-		}
-		try {
-			class6.passesTheWebMethod();
-		}
-		catch (java.lang.SecurityException err89) {
-			err89.printStackTrace();
-		}
-		catch (java.lang.NoSuchMethodException err90) {
-			err90.printStackTrace();
-		}
-		try {
-			class6.usesTheFirstRegisteredRuleMatchingThePattern();
-		}
-		catch (java.lang.SecurityException err91) {
-			err91.printStackTrace();
-		}
-		catch (java.lang.NoSuchMethodException err92) {
-			err92.printStackTrace();
-		}
-		class6.throwsExceptionIfMoreThanOneUriMatchesWithSamePriority();
-		try {
-			class6.acceptsAnHttpMethodLimitedMappingRule();
-		}
-		catch (java.lang.NoSuchMethodException err93) {
-			err93.printStackTrace();
-		}
-		try {
-			class6.acceptsAnHttpMethodLimitedMappingRuleWithBothMethods();
-		}
-		catch (java.lang.NoSuchMethodException err94) {
-			err94.printStackTrace();
-		}
-		try {
-			class6.usesAsteriskBothWays();
-		}
-		catch (java.lang.NoSuchMethodException err95) {
-			err95.printStackTrace();
-		}
-		try {
-			class6.canTranslateAInheritedResourceBothWays();
-		}
-		catch (java.lang.NoSuchMethodException err96) {
-			err96.printStackTrace();
-		}
-		try {
-			class6.canTranslateAnnotatedMethodBothWays();
-		}
-		catch (java.lang.NoSuchMethodException err97) {
-			err97.printStackTrace();
-		}
+		br.com.caelum.vraptor.http.route.JavaEvaluatorTest class5 = new br.com.caelum.vraptor.http.route.JavaEvaluatorTest();
+		class5.setup();
+		class5.shouldInvokeAGetter();
+		class5.shouldInvokeAIs();
+		class5.shouldAccessArray();
+		class5.shouldAccessList();
+		class5.shouldAccessCollection();
+		class5.shouldReturnEmptyStringIfNullWasFoundOnTheWay();
+		class5.shouldReturnEmptyStringIfTheResultIsNull();
+		class5.shouldInvokeAGetterDeclaredOnSuperClass();
+		class5.shouldInvokeAIsDeclaredOnSuperClass();
+		br.com.caelum.vraptor.http.route.RulesTest class6 = new br.com.caelum.vraptor.http.route.RulesTest();
+		class6.setup();
+		class6.allowsAdditionOfRouteBuildersByDefaultWithNoStrategy();
 		br.com.caelum.vraptor.http.route.FixedMethodStrategyTest class7 = new br.com.caelum.vraptor.http.route.FixedMethodStrategyTest();
 		class7.setup();
 		class7.canTranslate();
 		try {
 			class7.areEquals();
 		}
-		catch (java.lang.Exception err98) {
+		catch (java.lang.Exception err87) {
+			err87.printStackTrace();
+		}
+		br.com.caelum.vraptor.http.route.RouteBuilderTest class8 = new br.com.caelum.vraptor.http.route.RouteBuilderTest();
+		try {
+			class8.setUp();
+		}
+		catch (java.lang.Exception err88) {
+			err88.printStackTrace();
+		}
+		try {
+			class8.usePatternMatchinForPrimitiveParameters();
+		}
+		catch (java.lang.Exception err89) {
+			err89.printStackTrace();
+		}
+		try {
+			class8.usePatternMatchingForRegexParameters();
+		}
+		catch (java.lang.Exception err90) {
+			err90.printStackTrace();
+		}
+		try {
+			class8.usingRegexesWithCurlyBraces();
+		}
+		catch (java.lang.Exception err91) {
+			err91.printStackTrace();
+		}
+		try {
+			class8.usingRegexesWithCurlyBracesNotOnTheEnd();
+		}
+		catch (java.lang.Exception err92) {
+			err92.printStackTrace();
+		}
+		try {
+			class8.usingRegexesWithCurlyBracesNotOnTheEndAndOtherVar();
+		}
+		catch (java.lang.Exception err93) {
+			err93.printStackTrace();
+		}
+		try {
+			class8.usingRegexesWithCurlyBracesNotOnTheEndAndOtherVarAndManyOtherThings();
+		}
+		catch (java.lang.Exception err94) {
+			err94.printStackTrace();
+		}
+		try {
+			class8.usingRegexesWithAsterisksAtTheEnd();
+		}
+		catch (java.lang.Exception err95) {
+			err95.printStackTrace();
+		}
+		try {
+			class8.fillingUriForPrimitiveParameters();
+		}
+		catch (java.lang.Exception err96) {
+			err96.printStackTrace();
+		}
+		try {
+			class8.shouldSupportPathsWithDotsAndAsterisks();
+		}
+		catch (java.lang.SecurityException err97) {
+			err97.printStackTrace();
+		}
+		catch (java.lang.NoSuchMethodException err98) {
 			err98.printStackTrace();
 		}
-		br.com.caelum.vraptor.http.route.DefaultTypeFinderTest class8 = new br.com.caelum.vraptor.http.route.DefaultTypeFinderTest();
-		class8.setup();
 		try {
-			class8.shouldGetTypesCorrectly();
+			class8.shouldUseGenericParameters();
 		}
-		catch (java.lang.Exception err99) {
+		catch (java.lang.SecurityException err99) {
 			err99.printStackTrace();
 		}
-		try {
-			class8.shouldGetTypesCorrectlyOnInheritance();
-		}
-		catch (java.lang.Exception err100) {
+		catch (java.lang.NoSuchMethodException err100) {
 			err100.printStackTrace();
 		}
 	}

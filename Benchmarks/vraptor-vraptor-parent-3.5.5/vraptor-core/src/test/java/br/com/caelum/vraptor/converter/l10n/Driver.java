@@ -2,7 +2,7 @@ package br.com.caelum.vraptor.converter.l10n;
 
 public class Driver {
 	public void runall() {
-		br.com.caelum.vraptor.converter.l10n.LocaleBasedPrimitiveFloatConverterTest class1 = new br.com.caelum.vraptor.converter.l10n.LocaleBasedPrimitiveFloatConverterTest();
+		br.com.caelum.vraptor.converter.l10n.LocaleBasedDoubleConverterTest class1 = new br.com.caelum.vraptor.converter.l10n.LocaleBasedDoubleConverterTest();
 		class1.setup();
 		class1.shouldBeAbleToConvertWithPTBR();
 		class1.shouldBeAbleToConvertWithENUS();
@@ -15,7 +15,7 @@ public class Driver {
 		class1.shouldBeAbleToConvertEmpty();
 		class1.shouldBeAbleToConvertNull();
 		class1.shouldThrowExceptionWhenUnableToParse();
-		br.com.caelum.vraptor.converter.l10n.LocaleBasedFloatConverterTest class2 = new br.com.caelum.vraptor.converter.l10n.LocaleBasedFloatConverterTest();
+		br.com.caelum.vraptor.converter.l10n.LocaleBasedBigDecimalConverterTest class2 = new br.com.caelum.vraptor.converter.l10n.LocaleBasedBigDecimalConverterTest();
 		class2.setup();
 		class2.shouldBeAbleToConvertWithPTBR();
 		class2.shouldBeAbleToConvertWithENUS();
@@ -28,7 +28,7 @@ public class Driver {
 		class2.shouldBeAbleToConvertEmpty();
 		class2.shouldBeAbleToConvertNull();
 		class2.shouldThrowExceptionWhenUnableToParse();
-		br.com.caelum.vraptor.converter.l10n.LocaleBasedDoubleConverterTest class3 = new br.com.caelum.vraptor.converter.l10n.LocaleBasedDoubleConverterTest();
+		br.com.caelum.vraptor.converter.l10n.LocaleBasedPrimitiveFloatConverterTest class3 = new br.com.caelum.vraptor.converter.l10n.LocaleBasedPrimitiveFloatConverterTest();
 		class3.setup();
 		class3.shouldBeAbleToConvertWithPTBR();
 		class3.shouldBeAbleToConvertWithENUS();
@@ -41,7 +41,7 @@ public class Driver {
 		class3.shouldBeAbleToConvertEmpty();
 		class3.shouldBeAbleToConvertNull();
 		class3.shouldThrowExceptionWhenUnableToParse();
-		br.com.caelum.vraptor.converter.l10n.LocaleBasedBigDecimalConverterTest class4 = new br.com.caelum.vraptor.converter.l10n.LocaleBasedBigDecimalConverterTest();
+		br.com.caelum.vraptor.converter.l10n.LocaleBasedFloatConverterTest class4 = new br.com.caelum.vraptor.converter.l10n.LocaleBasedFloatConverterTest();
 		class4.setup();
 		class4.shouldBeAbleToConvertWithPTBR();
 		class4.shouldBeAbleToConvertWithENUS();

@@ -2,92 +2,92 @@ package br.com.caelum.vraptor.config;
 
 public class Driver {
 	public void runall() {
-		br.com.caelum.vraptor.config.BasicConfigurationTest class1 = new br.com.caelum.vraptor.config.BasicConfigurationTest();
-		class1.config();
+		br.com.caelum.vraptor.config.ApplicationConfigurationTest class1 = new br.com.caelum.vraptor.config.ApplicationConfigurationTest();
 		try {
-			class1.shouldReadRootDirectoryAsWebinfClasses();
+			class1.setUp();
 		}
-		catch (javax.servlet.ServletException err1) {
+		catch (java.lang.Exception err1) {
 			err1.printStackTrace();
 		}
+		class1.shouldNotUsePortWhenPortIs80();
+		class1.shouldGiveFullUrlWithPortWhenPortIsNot80();
+		br.com.caelum.vraptor.config.BasicConfigurationTest class2 = new br.com.caelum.vraptor.config.BasicConfigurationTest();
+		class2.config();
 		try {
-			class1.shouldUseSpringContainerAsDefaultProvider();
+			class2.shouldReadRootDirectoryAsWebinfClasses();
 		}
 		catch (javax.servlet.ServletException err2) {
 			err2.printStackTrace();
 		}
 		try {
-			class1.shouldUseGuiceAs1stAlternative();
+			class2.shouldUseSpringContainerAsDefaultProvider();
 		}
 		catch (javax.servlet.ServletException err3) {
 			err3.printStackTrace();
 		}
 		try {
-			class1.shouldUsePicoAs2ndAlternative();
+			class2.shouldUseGuiceAs1stAlternative();
 		}
 		catch (javax.servlet.ServletException err4) {
 			err4.printStackTrace();
 		}
 		try {
-			class1.shouldThrowExceptionWhenProviderClassWasNotFound();
+			class2.shouldUsePicoAs2ndAlternative();
 		}
 		catch (javax.servlet.ServletException err5) {
 			err5.printStackTrace();
 		}
 		try {
-			class1.shouldThrowIllegalArgumentExceptionWhenProvidersWasNotFound();
+			class2.shouldThrowExceptionWhenProviderClassWasNotFound();
 		}
-		catch (java.lang.Exception err6) {
+		catch (javax.servlet.ServletException err6) {
 			err6.printStackTrace();
 		}
 		try {
-			class1.shouldReturnThatHasNoBasePackageWhenInitParamNull();
+			class2.shouldThrowIllegalArgumentExceptionWhenProvidersWasNotFound();
 		}
-		catch (javax.servlet.ServletException err7) {
+		catch (java.lang.Exception err7) {
 			err7.printStackTrace();
 		}
-		class1.shouldThrowMissingConfigurationExceptionIfHasNoBasePackages();
-		class1.testIfClasspathScanningIsEnabled();
-		class1.testIfHasBasePackages();
 		try {
-			class1.shouldReturnBasePackagesWhenInitParamNotNull();
+			class2.shouldReturnThatHasNoBasePackageWhenInitParamNull();
 		}
 		catch (javax.servlet.ServletException err8) {
 			err8.printStackTrace();
 		}
+		class2.shouldThrowMissingConfigurationExceptionIfHasNoBasePackages();
+		class2.testIfClasspathScanningIsEnabled();
+		class2.testIfHasBasePackages();
 		try {
-			class1.shouldReturnBasePackagesArrayWhenInitParamNotNullAndHasComas();
+			class2.shouldReturnBasePackagesWhenInitParamNotNull();
 		}
 		catch (javax.servlet.ServletException err9) {
 			err9.printStackTrace();
 		}
 		try {
-			class1.shouldReturnBasePackagesArrayWhenInitParamNotNullAndHasComasAndSpaces();
+			class2.shouldReturnBasePackagesArrayWhenInitParamNotNullAndHasComas();
 		}
 		catch (javax.servlet.ServletException err10) {
 			err10.printStackTrace();
 		}
 		try {
-			class1.shouldReturnBasePackagesArrayWhenInitParamHasLeadingAndTrailingSpaces();
+			class2.shouldReturnBasePackagesArrayWhenInitParamNotNullAndHasComasAndSpaces();
 		}
 		catch (javax.servlet.ServletException err11) {
 			err11.printStackTrace();
 		}
 		try {
-			class1.shouldAllowProviderOverriding();
+			class2.shouldReturnBasePackagesArrayWhenInitParamHasLeadingAndTrailingSpaces();
 		}
 		catch (javax.servlet.ServletException err12) {
 			err12.printStackTrace();
 		}
-		class1.shouldThrowInstantiationExceptionCauseIfThereIsSuchException();
-		br.com.caelum.vraptor.config.ApplicationConfigurationTest class2 = new br.com.caelum.vraptor.config.ApplicationConfigurationTest();
 		try {
-			class2.setUp();
+			class2.shouldAllowProviderOverriding();
 		}
-		catch (java.lang.Exception err13) {
+		catch (javax.servlet.ServletException err13) {
 			err13.printStackTrace();
 		}
-		class2.shouldNotUsePortWhenPortIs80();
-		class2.shouldGiveFullUrlWithPortWhenPortIsNot80();
+		class2.shouldThrowInstantiationExceptionCauseIfThereIsSuchException();
 	}
 }

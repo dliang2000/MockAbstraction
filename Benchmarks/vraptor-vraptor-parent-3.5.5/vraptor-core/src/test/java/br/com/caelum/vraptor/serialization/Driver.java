@@ -2,10 +2,10 @@ package br.com.caelum.vraptor.serialization;
 
 public class Driver {
 	public void runall() {
-		br.com.caelum.vraptor.serialization.PackageComparatorTest class1 = new br.com.caelum.vraptor.serialization.PackageComparatorTest();
-		class1.shouldSortBasedOnPackageNamesLessPriorityToCaelumInitialList3rdPartyFirst();
-		class1.shouldSortBasedOnPackageNamesLessPriorityToCaelumInitialList3rdPartyLast();
-		class1.shouldSortBasedOnPackageNamesLessPriorityToCaelumMoreToRestfulieInitialList3rdPartyLast();
+		br.com.caelum.vraptor.serialization.DefaultXMLConfigurationTest class1 = new br.com.caelum.vraptor.serialization.DefaultXMLConfigurationTest();
+		class1.setup();
+		class1.shouldUndernalizeAllCamelcase();
+		class1.shouldUndernalizeAllCamelcaseCharacters();
 		br.com.caelum.vraptor.serialization.HTMLSerializationTest class2 = new br.com.caelum.vraptor.serialization.HTMLSerializationTest();
 		try {
 			class2.setUp();
@@ -59,10 +59,10 @@ public class Driver {
 		class3.shouldCallXStreamJsonSerialization();
 		class3.shouldCallXStreamXmlSerialization();
 		class3.shouldCallXStreamSerializationWithParams();
-		br.com.caelum.vraptor.serialization.DefaultXMLConfigurationTest class4 = new br.com.caelum.vraptor.serialization.DefaultXMLConfigurationTest();
-		class4.setup();
-		class4.shouldUndernalizeAllCamelcase();
-		class4.shouldUndernalizeAllCamelcaseCharacters();
+		br.com.caelum.vraptor.serialization.PackageComparatorTest class4 = new br.com.caelum.vraptor.serialization.PackageComparatorTest();
+		class4.shouldSortBasedOnPackageNamesLessPriorityToCaelumInitialList3rdPartyFirst();
+		class4.shouldSortBasedOnPackageNamesLessPriorityToCaelumInitialList3rdPartyLast();
+		class4.shouldSortBasedOnPackageNamesLessPriorityToCaelumMoreToRestfulieInitialList3rdPartyLast();
 		br.com.caelum.vraptor.serialization.DefaultRepresentationResultTest class5 = new br.com.caelum.vraptor.serialization.DefaultRepresentationResultTest();
 		try {
 			class5.setUp();
