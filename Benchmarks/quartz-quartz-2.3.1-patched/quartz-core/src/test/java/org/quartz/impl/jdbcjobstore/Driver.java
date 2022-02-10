@@ -100,11 +100,9 @@ public class Driver {
 		catch (java.io.IOException err21) {
 			err21.printStackTrace();
 		}
-		org.quartz.impl.jdbcjobstore.JdbcJobStoreTest class3 = new org.quartz.impl.jdbcjobstore.JdbcJobStoreTest();
-		class3.testNothing();
-		org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphoreTest class4 = new org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphoreTest();
+		org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphoreTest class3 = new org.quartz.impl.jdbcjobstore.UpdateLockRowSemaphoreTest();
 		try {
-			class4.testSingleSuccessUsingUpdate();
+			class3.testSingleSuccessUsingUpdate();
 		}
 		catch (org.quartz.impl.jdbcjobstore.LockException err22) {
 			err22.printStackTrace();
@@ -113,7 +111,7 @@ public class Driver {
 			err23.printStackTrace();
 		}
 		try {
-			class4.testSingleFailureFollowedBySuccessUsingUpdate();
+			class3.testSingleFailureFollowedBySuccessUsingUpdate();
 		}
 		catch (org.quartz.impl.jdbcjobstore.LockException err24) {
 			err24.printStackTrace();
@@ -122,7 +120,7 @@ public class Driver {
 			err25.printStackTrace();
 		}
 		try {
-			class4.testDoubleFailureFollowedBySuccessUsingUpdate();
+			class3.testDoubleFailureFollowedBySuccessUsingUpdate();
 		}
 		catch (org.quartz.impl.jdbcjobstore.LockException err26) {
 			err26.printStackTrace();
@@ -131,7 +129,7 @@ public class Driver {
 			err27.printStackTrace();
 		}
 		try {
-			class4.testFallThroughToInsert();
+			class3.testFallThroughToInsert();
 		}
 		catch (java.sql.SQLException err28) {
 			err28.printStackTrace();
@@ -139,5 +137,7 @@ public class Driver {
 		catch (org.quartz.impl.jdbcjobstore.LockException err29) {
 			err29.printStackTrace();
 		}
+		org.quartz.impl.jdbcjobstore.JdbcJobStoreTest class4 = new org.quartz.impl.jdbcjobstore.JdbcJobStoreTest();
+		class4.testNothing();
 	}
 }

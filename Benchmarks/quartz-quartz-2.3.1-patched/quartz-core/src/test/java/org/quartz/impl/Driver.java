@@ -2,105 +2,105 @@ package org.quartz.impl;
 
 public class Driver {
 	public void runall() {
-		org.quartz.impl.DirectSchedulerFactoryTest class1 = new org.quartz.impl.DirectSchedulerFactoryTest();
+		org.quartz.impl.SchedulerDetailsSetterTest class1 = new org.quartz.impl.SchedulerDetailsSetterTest();
 		try {
-			class1.testPlugins();
+			class1.testSetter();
 		}
-		catch (java.lang.Exception err1) {
+		catch (org.quartz.SchedulerException err1) {
 			err1.printStackTrace();
 		}
-		try {
-			class1.testThreadName();
-		}
-		catch (java.lang.Throwable err2) {
+		catch (java.io.IOException err2) {
 			err2.printStackTrace();
 		}
-		org.quartz.impl.JobDetailImplTest class2 = new org.quartz.impl.JobDetailImplTest();
-		class2.testHashCode();
-		org.quartz.impl.SchedulerDetailsSetterTest class3 = new org.quartz.impl.SchedulerDetailsSetterTest();
 		try {
-			class3.testSetter();
+			class1.testMissingSetterMethods();
 		}
 		catch (org.quartz.SchedulerException err3) {
 			err3.printStackTrace();
 		}
-		catch (java.io.IOException err4) {
+		try {
+			class1.testUnimplementedMethods();
+		}
+		catch (java.lang.Exception err4) {
 			err4.printStackTrace();
 		}
+		org.quartz.impl.RemoteMBeanSchedulerTest class2 = new org.quartz.impl.RemoteMBeanSchedulerTest();
 		try {
-			class3.testMissingSetterMethods();
+			class2.setUp();
 		}
-		catch (org.quartz.SchedulerException err5) {
+		catch (java.lang.Exception err5) {
 			err5.printStackTrace();
 		}
 		try {
-			class3.testUnimplementedMethods();
+			class2.tearDown();
 		}
-		catch (java.lang.Exception err6) {
+		catch (org.quartz.SchedulerException err6) {
 			err6.printStackTrace();
 		}
-		org.quartz.impl.RemoteMBeanSchedulerTest class4 = new org.quartz.impl.RemoteMBeanSchedulerTest();
 		try {
-			class4.setUp();
+			class2.testJMXAttributesAccess();
 		}
 		catch (java.lang.Exception err7) {
 			err7.printStackTrace();
 		}
 		try {
-			class4.tearDown();
+			class2.testSchedulerMetaData();
 		}
-		catch (org.quartz.SchedulerException err8) {
+		catch (java.lang.Exception err8) {
 			err8.printStackTrace();
 		}
 		try {
-			class4.testJMXAttributesAccess();
+			class2.testCalendarOperations();
 		}
 		catch (java.lang.Exception err9) {
 			err9.printStackTrace();
 		}
 		try {
-			class4.testSchedulerMetaData();
+			class2.testTriggerOperations();
 		}
 		catch (java.lang.Exception err10) {
 			err10.printStackTrace();
 		}
 		try {
-			class4.testCalendarOperations();
+			class2.testJobOperations();
 		}
 		catch (java.lang.Exception err11) {
 			err11.printStackTrace();
 		}
 		try {
-			class4.testTriggerOperations();
+			class2.testLifecycleOperations();
 		}
-		catch (java.lang.Exception err12) {
+		catch (org.quartz.SchedulerException err12) {
 			err12.printStackTrace();
 		}
 		try {
-			class4.testJobOperations();
+			class2.testJMXOperations();
 		}
 		catch (java.lang.Exception err13) {
 			err13.printStackTrace();
 		}
+		class2.testUnsupportedMethods();
 		try {
-			class4.testLifecycleOperations();
+			class2.testListBrokenAttributes();
 		}
-		catch (org.quartz.SchedulerException err14) {
+		catch (java.lang.Exception err14) {
 			err14.printStackTrace();
 		}
+		org.quartz.impl.DirectSchedulerFactoryTest class3 = new org.quartz.impl.DirectSchedulerFactoryTest();
 		try {
-			class4.testJMXOperations();
+			class3.testPlugins();
 		}
 		catch (java.lang.Exception err15) {
 			err15.printStackTrace();
 		}
-		class4.testUnsupportedMethods();
 		try {
-			class4.testListBrokenAttributes();
+			class3.testThreadName();
 		}
-		catch (java.lang.Exception err16) {
+		catch (java.lang.Throwable err16) {
 			err16.printStackTrace();
 		}
+		org.quartz.impl.JobDetailImplTest class4 = new org.quartz.impl.JobDetailImplTest();
+		class4.testHashCode();
 		org.quartz.impl.StdSchedulerFactoryCustomConnectionProviderTest class5 = new org.quartz.impl.StdSchedulerFactoryCustomConnectionProviderTest();
 		try {
 			class5.loadAndInitializeCustomConnectionProviderTest();

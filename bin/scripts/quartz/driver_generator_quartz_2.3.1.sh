@@ -3,6 +3,15 @@
 source ./config.sh
 echo $MACHINE_SPECIFIC_PATH
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+ACTUAL_JAVA_VERSION=$(java -version 2>&1)
+EXPECTED_JAVA_VERSION=$( cat $SCRIPT_DIR/jdk8-version)
+if [ "$ACTUAL_JAVA_VERSION" != "$EXPECTED_JAVA_VERSION" ]; then
+    echo "java version mismatch; expecting java 8"
+    exit 1
+fi
+
 SOOT_JAR="$MACHINE_SPECIFIC_PATH/soot_jar/sootclasses_j9-trunk-jar-with-dependencies.jar"
 JAVA_PATH="$MACHINE_SPECIFIC_PATH/target/classes"
 CC_CLASS="ca.uwaterloo.liang.RootDriverGenerator"
@@ -38,4 +47,5 @@ if ! java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS $BENCHMARK_PATH/$TEXT_PATH; then
 fi
 # rm -rf "sootOutput/"
 
+cd quartz-core
 mvn -Drat.skip=true package
