@@ -1,6 +1,7 @@
 #!/bin/bash
 if ! [ -f "config.sh" ]; then
     echo "must create config.sh to proceed; see config.sh.template"
+    exit 1
 fi
 
 . ./config.sh
