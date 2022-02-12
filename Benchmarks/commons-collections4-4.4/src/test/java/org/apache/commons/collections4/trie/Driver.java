@@ -2,16 +2,16 @@ package org.apache.commons.collections4.trie;
 
 public class Driver {
 	public void runall() {
-		org.apache.commons.collections4.trie.UnmodifiableTrieTest class1 = new org.apache.commons.collections4.trie.UnmodifiableTrieTest(null);
-		class1.testUnmodifiable();
-		class1.testDecorateFactory();
-		org.apache.commons.collections4.trie.PatriciaTrieTest class2 = new org.apache.commons.collections4.trie.PatriciaTrieTest(null);
-		class2.testPrefixMap();
-		class2.testPrefixMapRemoval();
-		class2.testPrefixMapSizes();
-		class2.testPrefixMapSizes2();
-		class2.testPrefixMapClear();
-		class2.testPrefixMapClearNothing();
-		class2.testPrefixMapClearUsingRemove();
+		org.apache.commons.collections4.trie.PatriciaTrieTest class1 = new org.apache.commons.collections4.trie.PatriciaTrieTest(null);
+		class1.testPrefixMap();
+		class1.testPrefixMapRemoval();
+		class1.testPrefixMapSizes();
+		class1.testPrefixMapSizes2();
+		class1.testPrefixMapClear();
+		class1.testPrefixMapClearNothing();
+		class1.testPrefixMapClearUsingRemove();
+		org.apache.commons.collections4.trie.UnmodifiableTrieTest class2 = new org.apache.commons.collections4.trie.UnmodifiableTrieTest(null);
+		class2.testUnmodifiable();
+		class2.testDecorateFactory();
 	}
 }

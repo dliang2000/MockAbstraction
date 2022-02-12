@@ -18,19 +18,17 @@ package org.jsonschema2pojo.rules;
 
 public class Driver {
 	public void runall() {
-		org.jsonschema2pojo.rules.PatternRuleTest class1 = new org.jsonschema2pojo.rules.PatternRuleTest(false,null);
-		class1.setUp();
-		class1.testRegex();
-		class1.jsrDisable();
-		org.jsonschema2pojo.rules.MinimumMaximumRuleTest class2 = new org.jsonschema2pojo.rules.MinimumMaximumRuleTest(false,null);
-		class2.setUp();
-		class2.testMinimum();
-		class2.testMaximum();
-		class2.testMaximumAndMinimum();
-		class2.testNotUsed();
-		class2.jsrDisable();
-		org.jsonschema2pojo.rules.FormatRuleArraysTest class3 = new org.jsonschema2pojo.rules.FormatRuleArraysTest(null,null);
-		class3.useArraysWithCustomTypeMapping();
+		org.jsonschema2pojo.rules.FormatRuleArraysTest class1 = new org.jsonschema2pojo.rules.FormatRuleArraysTest(null,null);
+		class1.useArraysWithCustomTypeMapping();
+		org.jsonschema2pojo.rules.ArrayRuleTest class2 = new org.jsonschema2pojo.rules.ArrayRuleTest();
+		class2.arrayWithUniqueItemsProducesSet();
+		class2.arrayWithNonUniqueItemsProducesList();
+		class2.arrayOfPrimitivesProducesCollectionOfWrapperTypes();
+		class2.arrayDefaultsToNonUnique();
+		org.jsonschema2pojo.rules.PatternRuleTest class3 = new org.jsonschema2pojo.rules.PatternRuleTest(false,null);
+		class3.setUp();
+		class3.testRegex();
+		class3.jsrDisable();
 		org.jsonschema2pojo.rules.TypeRuleTest class4 = new org.jsonschema2pojo.rules.TypeRuleTest();
 		class4.wireUpConfig();
 		class4.applyGeneratesString();
@@ -69,150 +67,152 @@ public class Driver {
 		class4.applyGeneratesCustomObject();
 		class4.applyChoosesObjectOnUnrecognizedType();
 		class4.applyDefaultsToTypeAnyObject();
-		org.jsonschema2pojo.rules.DynamicPropertiesRuleTest class5 = new org.jsonschema2pojo.rules.DynamicPropertiesRuleTest();
+		org.jsonschema2pojo.rules.MinLengthMaxLengthRuleTest class5 = new org.jsonschema2pojo.rules.MinLengthMaxLengthRuleTest(false,null);
+		class5.setUp();
+		class5.testMinLength();
+		class5.testMaxLength();
+		class5.testMaxAndMinLength();
+		class5.testMaxAndMinLengthGenericsOnType();
+		class5.testNotUsed();
+		class5.jsrDisable();
+		org.jsonschema2pojo.rules.MinItemsMaxItemsRuleTest class6 = new org.jsonschema2pojo.rules.MinItemsMaxItemsRuleTest(false,null);
+		class6.setUp();
+		class6.testMinLength();
+		class6.testMaxLength();
+		class6.testMaxAndMinLength();
+		class6.testMaxAndMinLengthGenericsOnType();
+		class6.testNotUsed();
+		class6.jsrDisable();
+		org.jsonschema2pojo.rules.RequiredArrayRuleTest class7 = new org.jsonschema2pojo.rules.RequiredArrayRuleTest();
 		try {
-			class5.setUp();
+			class7.shouldUpdateJavaDoc();
 		}
 		catch (com.sun.codemodel.JClassAlreadyExistsException err1) {
 			err1.printStackTrace();
 		}
-		class5.shouldAddNotFoundField();
-		org.jsonschema2pojo.rules.TitleRuleTest class6 = new org.jsonschema2pojo.rules.TitleRuleTest();
 		try {
-			class6.applyAddsDescriptionToJavadoc();
+			class7.shouldUpdateAnnotations();
 		}
 		catch (com.sun.codemodel.JClassAlreadyExistsException err2) {
 			err2.printStackTrace();
 		}
-		org.jsonschema2pojo.rules.FormatRuleJodaTest class7 = new org.jsonschema2pojo.rules.FormatRuleJodaTest(null,null);
-		class7.setupConfig();
-		class7.applyGeneratesTypeFromFormatValue();
-		org.jsonschema2pojo.rules.RequiredArrayRuleTest class8 = new org.jsonschema2pojo.rules.RequiredArrayRuleTest();
+		org.jsonschema2pojo.rules.RuleFactoryImplTest class8 = new org.jsonschema2pojo.rules.RuleFactoryImplTest();
+		class8.factoryMethodsCreateRules();
+		class8.generationConfigIsReturned();
+		class8.generationRuleLoggerIsReturned();
+		class8.schemaStoreIsReturned();
+		org.jsonschema2pojo.rules.FormatRuleJodaTest class9 = new org.jsonschema2pojo.rules.FormatRuleJodaTest(null,null);
+		class9.setupConfig();
+		class9.applyGeneratesTypeFromFormatValue();
+		org.jsonschema2pojo.rules.DigitsRuleTest class10 = new org.jsonschema2pojo.rules.DigitsRuleTest(false,null);
+		class10.setUp();
+		class10.testHasIntegerAndFractionalDigits();
+		class10.testNotUsed();
+		class10.jsrDisable();
+		org.jsonschema2pojo.rules.PropertyRuleTest class11 = new org.jsonschema2pojo.rules.PropertyRuleTest();
+		class11.setup();
 		try {
-			class8.shouldUpdateJavaDoc();
+			class11.applyRequiredByTopArray();
 		}
 		catch (com.sun.codemodel.JClassAlreadyExistsException err3) {
 			err3.printStackTrace();
 		}
 		try {
-			class8.shouldUpdateAnnotations();
+			class11.applyNotRequiredByTopArray();
 		}
 		catch (com.sun.codemodel.JClassAlreadyExistsException err4) {
 			err4.printStackTrace();
 		}
-		org.jsonschema2pojo.rules.DescriptionRuleTest class9 = new org.jsonschema2pojo.rules.DescriptionRuleTest();
 		try {
-			class9.applyAddsDescriptionToJavadoc();
+			class11.applyRequiredByFlag();
 		}
 		catch (com.sun.codemodel.JClassAlreadyExistsException err5) {
 			err5.printStackTrace();
 		}
-		org.jsonschema2pojo.rules.ArrayRuleTest class10 = new org.jsonschema2pojo.rules.ArrayRuleTest();
-		class10.arrayWithUniqueItemsProducesSet();
-		class10.arrayWithNonUniqueItemsProducesList();
-		class10.arrayOfPrimitivesProducesCollectionOfWrapperTypes();
-		class10.arrayDefaultsToNonUnique();
-		org.jsonschema2pojo.rules.MinItemsMaxItemsRuleTest class11 = new org.jsonschema2pojo.rules.MinItemsMaxItemsRuleTest(false,null);
-		class11.setUp();
-		class11.testMinLength();
-		class11.testMaxLength();
-		class11.testMaxAndMinLength();
-		class11.testMaxAndMinLengthGenericsOnType();
-		class11.testNotUsed();
-		class11.jsrDisable();
-		org.jsonschema2pojo.rules.FormatRulePrimitivesTest class12 = new org.jsonschema2pojo.rules.FormatRulePrimitivesTest(null,null);
-		class12.usePrimitivesWithCustomTypeMapping();
-		org.jsonschema2pojo.rules.PropertyRuleTest class13 = new org.jsonschema2pojo.rules.PropertyRuleTest();
-		class13.setup();
 		try {
-			class13.applyRequiredByTopArray();
+			class11.applyNotRequiredByFlag();
 		}
 		catch (com.sun.codemodel.JClassAlreadyExistsException err6) {
 			err6.printStackTrace();
 		}
+		org.jsonschema2pojo.rules.DescriptionRuleTest class12 = new org.jsonschema2pojo.rules.DescriptionRuleTest();
 		try {
-			class13.applyNotRequiredByTopArray();
+			class12.applyAddsDescriptionToJavadoc();
 		}
 		catch (com.sun.codemodel.JClassAlreadyExistsException err7) {
 			err7.printStackTrace();
 		}
+		org.jsonschema2pojo.rules.EnumRuleTest class13 = new org.jsonschema2pojo.rules.EnumRuleTest();
+		class13.wireUpConfig();
+		class13.applyGeneratesUniqueEnumNamesForMultipleEnumNodesWithSameName();
+		org.jsonschema2pojo.rules.SchemaRuleTest class14 = new org.jsonschema2pojo.rules.SchemaRuleTest();
 		try {
-			class13.applyRequiredByFlag();
+			class14.refsToOtherSchemasAreLoaded();
 		}
-		catch (com.sun.codemodel.JClassAlreadyExistsException err8) {
+		catch (java.net.URISyntaxException err8) {
 			err8.printStackTrace();
-		}
-		try {
-			class13.applyNotRequiredByFlag();
 		}
 		catch (com.sun.codemodel.JClassAlreadyExistsException err9) {
 			err9.printStackTrace();
 		}
-		org.jsonschema2pojo.rules.RequiredRuleTest class14 = new org.jsonschema2pojo.rules.RequiredRuleTest();
 		try {
-			class14.applyAddsTextWhenRequired();
+			class14.enumAsRootIsGeneratedCorrectly();
 		}
 		catch (com.sun.codemodel.JClassAlreadyExistsException err10) {
 			err10.printStackTrace();
 		}
 		try {
-			class14.applySkipsTextWhenNotRequired();
+			class14.existingTypeIsUsedWhenTypeIsAlreadyGenerated();
 		}
-		catch (com.sun.codemodel.JClassAlreadyExistsException err11) {
+		catch (java.net.URISyntaxException err11) {
 			err11.printStackTrace();
 		}
-		org.jsonschema2pojo.rules.CommentRuleTest class15 = new org.jsonschema2pojo.rules.CommentRuleTest();
+		org.jsonschema2pojo.rules.MinimumMaximumRuleTest class15 = new org.jsonschema2pojo.rules.MinimumMaximumRuleTest(false,null);
+		class15.setUp();
+		class15.testMinimum();
+		class15.testMaximum();
+		class15.testMaximumAndMinimum();
+		class15.testNotUsed();
+		class15.jsrDisable();
+		org.jsonschema2pojo.rules.TitleRuleTest class16 = new org.jsonschema2pojo.rules.TitleRuleTest();
 		try {
-			class15.applyAddsCommentToJavadoc();
+			class16.applyAddsDescriptionToJavadoc();
 		}
 		catch (com.sun.codemodel.JClassAlreadyExistsException err12) {
 			err12.printStackTrace();
 		}
-		org.jsonschema2pojo.rules.DigitsRuleTest class16 = new org.jsonschema2pojo.rules.DigitsRuleTest(false,null);
-		class16.setUp();
-		class16.testHasIntegerAndFractionalDigits();
-		class16.testNotUsed();
-		class16.jsrDisable();
-		org.jsonschema2pojo.rules.RuleFactoryImplTest class17 = new org.jsonschema2pojo.rules.RuleFactoryImplTest();
-		class17.factoryMethodsCreateRules();
-		class17.generationConfigIsReturned();
-		class17.generationRuleLoggerIsReturned();
-		class17.schemaStoreIsReturned();
-		org.jsonschema2pojo.rules.SchemaRuleTest class18 = new org.jsonschema2pojo.rules.SchemaRuleTest();
+		org.jsonschema2pojo.rules.DynamicPropertiesRuleTest class17 = new org.jsonschema2pojo.rules.DynamicPropertiesRuleTest();
 		try {
-			class18.refsToOtherSchemasAreLoaded();
+			class17.setUp();
 		}
-		catch (java.net.URISyntaxException err13) {
+		catch (com.sun.codemodel.JClassAlreadyExistsException err13) {
 			err13.printStackTrace();
+		}
+		class17.shouldAddNotFoundField();
+		org.jsonschema2pojo.rules.CommentRuleTest class18 = new org.jsonschema2pojo.rules.CommentRuleTest();
+		try {
+			class18.applyAddsCommentToJavadoc();
 		}
 		catch (com.sun.codemodel.JClassAlreadyExistsException err14) {
 			err14.printStackTrace();
 		}
+		org.jsonschema2pojo.rules.RequiredRuleTest class19 = new org.jsonschema2pojo.rules.RequiredRuleTest();
 		try {
-			class18.enumAsRootIsGeneratedCorrectly();
+			class19.applyAddsTextWhenRequired();
 		}
 		catch (com.sun.codemodel.JClassAlreadyExistsException err15) {
 			err15.printStackTrace();
 		}
 		try {
-			class18.existingTypeIsUsedWhenTypeIsAlreadyGenerated();
+			class19.applySkipsTextWhenNotRequired();
 		}
-		catch (java.net.URISyntaxException err16) {
+		catch (com.sun.codemodel.JClassAlreadyExistsException err16) {
 			err16.printStackTrace();
 		}
-		org.jsonschema2pojo.rules.EnumRuleTest class19 = new org.jsonschema2pojo.rules.EnumRuleTest();
-		class19.wireUpConfig();
-		class19.applyGeneratesUniqueEnumNamesForMultipleEnumNodesWithSameName();
-		org.jsonschema2pojo.rules.MinLengthMaxLengthRuleTest class20 = new org.jsonschema2pojo.rules.MinLengthMaxLengthRuleTest(false,null);
-		class20.setUp();
-		class20.testMinLength();
-		class20.testMaxLength();
-		class20.testMaxAndMinLength();
-		class20.testMaxAndMinLengthGenericsOnType();
-		class20.testNotUsed();
-		class20.jsrDisable();
-		org.jsonschema2pojo.rules.FormatRuleTest class21 = new org.jsonschema2pojo.rules.FormatRuleTest(null,null);
-		class21.applyGeneratesTypeFromFormatValue();
-		class21.applyDefaultsToBaseType();
+		org.jsonschema2pojo.rules.FormatRuleTest class20 = new org.jsonschema2pojo.rules.FormatRuleTest(null,null);
+		class20.applyGeneratesTypeFromFormatValue();
+		class20.applyDefaultsToBaseType();
+		org.jsonschema2pojo.rules.FormatRulePrimitivesTest class21 = new org.jsonschema2pojo.rules.FormatRulePrimitivesTest(null,null);
+		class21.usePrimitivesWithCustomTypeMapping();
 	}
 }
