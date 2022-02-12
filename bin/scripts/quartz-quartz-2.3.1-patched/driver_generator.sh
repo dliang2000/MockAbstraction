@@ -6,7 +6,6 @@ echo $MACHINE_SPECIFIC_PATH
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 ACTUAL_JAVA_VERSION=$(java -version 2>&1 | sed -n ';s/.* version "\(.*\)\.\(.*\)\..*".*/\1\2/p;')
-EXPECTED_JAVA_VERSION=$( cat $SCRIPT_DIR/jdk8-version)
 if [ "$ACTUAL_JAVA_VERSION" != "18" ]; then
     echo $ACTUAL_JAVA_VERSION
     echo "java version mismatch; expecting java 8"
