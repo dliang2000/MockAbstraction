@@ -13,6 +13,8 @@ cd Benchmarks;
 for b in ${PACKED_BENCHMARKS//:/ }; do
   tar xJvf $b
 done;
+cp benchmark-info/flink-release-1.13.0-rc1-pom.xml flink-release-1.13.0-rc1/pom.xml
+cp benchmark-info/flink-release-1.13.0-rc1--flink-core-pom.xml flink-release-1.13.0-rc1/flink-core/pom.xml
 )
 
 for b in ${ALL_BENCHMARKS//:/ }; do
