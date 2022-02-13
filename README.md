@@ -168,6 +168,15 @@ Paper: https://www.researchgate.net/publication/295918716_Automatically_Identify
 | vraptor-core-3.5.5 | 49.27 | 2.5855 | 34.9573 | 0.7945 | 36.4874 | 1.8155 | 35.7696 | 1.9466 | 70.9163 | 2.8494 | 149.3771 | 5.7287 | 148.3501 | 2.615 | 138.4228 | 2.6788 |
 | Average | 31.8171 | 2.507 | 26.414 | 2.2886 | 26.1456 | 2.3953 | 23.2832 | 1.992 | 44.4693 | 2.4241 | 60.5007 | 8.2512 | 58.7818 | 2.7865 | 42.755 | 5.3503 |
 
+
+### Doop Mock counts data processing
+
+Run the following:
+
+```console
+./bin/python-scripts/runall_process_counts.sh &> CSV_FILE
+```
+
 #### Doop's Mock counts comparison (including Soot's)
 
 | Benchmark | Total Number of Invocations | Mock Invokes intraproc (Soot) | basic-only-intraproc | CI-intraproc | CIPP-intraproc | 1-object-sens-intraproc | basic-only-interproc | CI-interproc | CIPP-interproc | 1-object-sens-interproc |
