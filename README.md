@@ -17,13 +17,13 @@ To generate drivers for all benchmarks, use:
 bin/prepare-benchmarks.sh
 ```
 
-Two of our benchmarks run under JDK 8 and not JDK 11. We don't know if they
+Two of our benchmarks run (and hence can be mvn package'd) under JDK 8 and not JDK 11. We don't know if they
 run on any versions in between.
 
-You can also generate drivers for one benchmark at a time:
+You could also generate drivers for one benchmark at a time:
 
 ```console
-bin/doop-scripts/BENCHMARK/driver_generator_BENCHMARK.sh
+bin/prepare-scripts/BENCHMARK/driver_generator_BENCHMARK.sh
 ```
 
 However, the `prepare-benchmarks.sh` script takes care of unpacking flink and mybatis, and applies patches to flink to disable style checks.
@@ -55,6 +55,8 @@ However, you must run it from the main directory of a doop install and you must 
 the instructions in the comment at the top of `doop_all.sh`. This script puts results
 in the `results/` directory of your MockAbstraction tree.
 
+As always, there are scripts for running one benchmark at a time. You can figure those out.
+
 ### Mutated Field Analysis:
 
 Our paper describes a preliminary analysis to detect field mutations.
@@ -64,7 +66,7 @@ Make sure the driver classes are generated before running Mutated Field Analysis
 Run the following:
 
 ```console
-bin/scripts/BENCHMARK/MutatedFieldAnalysis_BENCHMARK.sh
+bin/soot-scripts/BENCHMARK/MutatedFieldAnalysis_BENCHMARK.sh
 ```
 
 or if you want to run Mutated Field Analysis for all benchmarks:
