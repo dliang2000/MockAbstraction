@@ -1,24 +1,32 @@
 # MockAnalysis
 
-This repository focuses on analyzing for mock objects created and used in unit test cases. The tool analyzes the mock objects through def-use chain and forward data flow analysis.
+This repository focuses on analyzing for mock objects created and used in unit test cases. There are two analyses: a Soot-based intraprocedural dataflow analysis and a Doop-based declarative analysis.
 
 ## Instructions
 
 ### Driver class generation
 
-Copying config.sh.template to config.sh with necessary customizations of the path.
+To analyze test cases, we must first produce Driver files that invoke those test cases.
 
-Run the following:
+All of our scripts use config.sh to indicate where things are.
+Copy config.sh.template to config.sh and customization the paths as necessary.
 
-```console
-./bin/scripts/BENCHMARK/driver_generator_BENCHMARK.sh
-```
-
-or if you want to generate driver classes for all benchmarks:
+To generate drivers for all benchmarks, use:
 
 ```console
-./runall_driver.sh
+bin/prepare-benchmarks.sh
 ```
+
+Two of our benchmarks run under JDK 8 and not JDK 11. We don't know if they
+run on any versions in between.
+
+You can also generate drivers for one benchmark at a time:
+
+```console
+bin/doop-scripts/BENCHMARK/driver_generator_BENCHMARK.sh
+```
+
+However, the `prepare-benchmarks.sh` script takes care of unpacking flink and mybatis, and applies patches to flink to disable style checks.
 
 ### Intraprocedural Mock Analysis (Soot):
 
@@ -27,33 +35,49 @@ Make sure the driver classes are generated before running Mock Analysis.
 Run the following:
 
 ```console
-./bin/scripts/BENCHMARK/MockFlowAnalysis_Intra_BENCHMARK.sh
+bin/soot-scripts/BENCHMARK/MockFlowAnalysis_Intra_BENCHMARK.sh
 ```
 
 or if you want to run intraprocedural Mock Analysis for all benchmarks:
 
 ```console
-./runall_MockAnalysis_Intra.sh
+bin/soot-scripts/runall_MockAnalysis_Intra.sh
 ```
+
+### Doop
+
+You can run all of the Doop variants on all of the benchmarks with:
+```console
+../MockAbstraction/bin/doop-scripts/doop_all.sh
+```
+
+However, you must run it from the main directory of a doop install and you must follow
+the instructions in the comment at the top of `doop_all.sh`. This script puts results
+in the `results/` directory of your MockAbstraction tree.
 
 ### Mutated Field Analysis:
 
-This is the preliminary analysis.
+Our paper describes a preliminary analysis to detect field mutations.
 
 Make sure the driver classes are generated before running Mutated Field Analysis.
 
 Run the following:
 
 ```console
-./bin/scripts/BENCHMARK/MutatedFieldAnalysis_BENCHMARK.sh
+bin/scripts/BENCHMARK/MutatedFieldAnalysis_BENCHMARK.sh
 ```
 
 or if you want to run Mutated Field Analysis for all benchmarks:
 
 ```console
-./runall_MutatedFieldAnalysis.sh
+bin/soot-scripts/runall_MutatedFieldAnalysis.sh
 ```
 
+### TODO
+
+Move below to RESULTS.md.
+
+Describe how to get the results once you've run the benchmarks.
 
 ### Test Coverages
 
