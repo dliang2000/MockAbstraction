@@ -11,4 +11,4 @@ export COMPILED_JAR_PREFIX="mybatis-3.5.6"
 export MAIN_CLASS="org.apache.ibatis.RootDriver"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-$SCRIPT_DIR/_doop_all.sh
+$SCRIPT_DIR/_doop_X.sh

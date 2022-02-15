@@ -11,4 +11,4 @@ export COMPILED_JAR_PREFIX="commons-collections4-4.4"
 export MAIN_CLASS="org.apache.commons.collections4.RootDriver"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-$SCRIPT_DIR/_doop_all.sh
+$SCRIPT_DIR/_doop_X.sh

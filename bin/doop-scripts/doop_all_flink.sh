@@ -11,4 +11,4 @@ export COMPILED_JAR_PREFIX="flink-core-1.13.0"
 export MAIN_CLASS="org.apache.flink.RootDriver"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-$SCRIPT_DIR/_doop_all.sh
+$SCRIPT_DIR/_doop_X.sh
