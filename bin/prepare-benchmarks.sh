@@ -23,7 +23,7 @@ for b in ${ALL_BENCHMARKS//:/ }; do
 done
 
 for b in ${ALL_BENCHMARKS//:/ }; do
-  if ! bin/doop-scripts/$b/driver_generator.sh; then
+  if ! bin/prepare-scripts/$b/driver_generator.sh; then
     echo "driver generator failed for $b"
     exit 1
   fi
