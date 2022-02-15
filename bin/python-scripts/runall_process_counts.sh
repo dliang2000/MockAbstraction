@@ -20,7 +20,7 @@ for benchmark in bootique-2.0.B1 commons-collections4-4.4 flink-release-1.13.0-r
     for base_analysis in basic-only context-insensitive context-insensitive-plusplus 1-object-sensitive; do
       # bootique
       #echo bootique-$base_analysis-$n
-      var=$( $MACHINE_SPECIFIC_PATH/doop/python-scripts/process-count.py --file $MACHINE_SPECIFIC_PATH/results/$benchmark-results/$base_analysis-counts-$n --package ${MYMAP[$benchmark]} )
+      var=$( $MACHINE_SPECIFIC_PATH/bin/python-scripts/process-count.py --file $MACHINE_SPECIFIC_PATH/results/$benchmark-results/$base_analysis-counts-$n --package ${MYMAP[$benchmark]} )
       line=$line$var','
     done
   done
