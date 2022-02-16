@@ -221,7 +221,7 @@ public class MockAnalysisIntraprocTransformer extends SceneTransformer {
         
         mainTimer.end();
         long runtime = mainTimer.getTime();
-        System.out.println("" + "Soot has run MockAnalysisMainTransformer for " + runtime + " ms.");
+        G.v().out.println("" + "Soot has run MockAnalysisMainTransformer for " + runtime + " ms.");
     }
     
     private void printCounters() {
