@@ -16,6 +16,7 @@ for b in ${PACKED_BENCHMARKS//:/ }; do
 done;
 cp benchmark-info/flink-release-1.13.0-rc1-pom.xml flink-release-1.13.0-rc1/pom.xml
 cp benchmark-info/flink-release-1.13.0-rc1--flink-core-pom.xml flink-release-1.13.0-rc1/flink-core/pom.xml
+cp benchmark-info/bootique-2.0.B1--bootique-pom.xml bootique-2.0.B1/bootique/pom.xml
 )
 
 for b in ${ALL_BENCHMARKS//:/ }; do
