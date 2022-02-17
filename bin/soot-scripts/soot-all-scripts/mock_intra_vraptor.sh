@@ -34,4 +34,4 @@ fi
 
 java -cp $SOOT_JAR:$JAVA_PATH $CC_CLASS --benchmark $BENCHMARK --output $OUTPUT_PATH --driver $DRIVER_PATH --target $BENCHMARK_PATH/$TARGET_PATH --target-tests $BENCHMARK_PATH/$TARGET_TEST_PATH --mvn-dependencies $jars`cat benchmark_class_path`:$JAR_PATH -v
 
-#rm -rf "sootOutput/"
+rm -rf "sootOutput/"

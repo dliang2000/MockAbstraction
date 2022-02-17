@@ -1,5 +1,7 @@
 #!/bin/bash
 
+. ./config.sh
+
 # Run all the Mock Flow Analysis
 ALL_BENCHMARKS_TRUNCATED=bootique:commons_collections4:flink:jsonschema2pojo:maven:microbenchmark:mybatis:quartz:vraptor
 
