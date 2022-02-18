@@ -1,10 +1,20 @@
 ### Focal Method Algorithms/Analysis
 
+Data Processing:
+
+```
+KLoC - use SLOCCOUNT
+methods2test reported focal methods - processed from their dataset tar file
+Ghafari's reported focal methods - Collected from their paper
+Total Number of Tests - Obtained from “mvn clean test”
+percentage of test cases with focal methods detected - reported focal methods / total number of tests
+```
+
 ### methods2test Recall data
 
 Repository: https://github.com/microsoft/methods2test
 
-| Benchmark | KLoC (Source Code) | methods2test reported focal methods | Total Number of Tests (Obtained from “mvn clean test”) | percentage of test cases with focal methods detected |
+| Benchmark | KLoC (Source Code) | methods2test reported focal methods | Total Number of Tests | percentage of test cases with focal methods detected |
 | --- | --: | --: | --: | --: |
 | GojaFramework/goja/goja-core | 11.52 | 27 | 80 | 34% |
 | optiq/core | 93.94 | 26 | 1346 | 2% |
@@ -22,13 +32,14 @@ mock-socket: 1814028
 
 project-sunbird/sunbird-lms-service: 96121797
 
+
 ### Ghafari's Recall data
 
 (No open-source repository found for the benchmark)
 
 Paper: https://www.researchgate.net/publication/295918716_Automatically_Identifying_Focal_Methods_Under_Test_in_Unit_Test_Cases
 
-| Benchmark | KLoC (Source Code) | Ghafari's reported focal methods | Total Number of Tests (Obtained from “mvn clean test”) | percentage of test cases with focal methods detected |
+| Benchmark | KLoC (Source Code) | Ghafari's reported focal methods | Total Number of Tests | percentage of test cases with focal methods detected |
 | --- | --: | --: | --: | --: |
 | Commons Email (1.3.3) | 8.78 | 90 | 130 | 69% |
 | JGAP (3.4.4) | 73.96 | 1015 | 1390 | 73% |
@@ -39,6 +50,24 @@ Paper: https://www.researchgate.net/publication/295918716_Automatically_Identify
 
 ### Test Coverages
 
+```
+The Test Coverage reports are saved under directory named "TestCoverageReport" for each benchmark.
+The pom.xml files were updated with maven-surefire-plugin and jacoco-maven-plugin to generate the coverage reports.
+
+With both plugins included in pom.xml file, "mvn clean test" will auto-generate coverage reports for all test cases.
+(Remember to save the coverage reports somewhere else or it will later be overwritten.)
+
+To generate coverages for test cases without intraproc mocks,
+uncomment "printTestsWithoutIntraprocMock();" in MockAnalysisIntraprocTransformer
+and run intraprocedural Soot mock analysis. It will output a file, MOCK_INTRAPROC_TEST_CASES, containing names for test cases with
+intraprocedural mocks. (Located in analysis_output/MockAnalysis/)
+
+Run the following command to generate the corresponding mvn command excluding test cases with intraprocedural mocks,
+then run the mvn command to generate a second coverage reports.
+
+python mvn_command_generator.py --file analysis_output/MockAnalysis/MOCK_INTRAPROC_TEST_CASES
+```
+
 | Benchmark | Code Coverage - All Tests | Code Coverage - Test Cases without Intraproc Mocks | Branch Coverage - All Tests | Branch Coverage - Test Cases without Intraproc Mocks |
 | --- | --: | --: | --: | --: |
 | commons-collections4-4.4 | 86% | 72% | 81% | 66% |
@@ -48,12 +77,6 @@ Paper: https://www.researchgate.net/publication/295918716_Automatically_Identify
 | microbenchmark | 78% | 51% | 100% | 100% |
 | mybatis-3.5.6 | 85% | 81% | 82% | 76% |
 | vraptor-core-3.5.5 | 87% | 59% | 81% | 56% |
-
-The Test Coverage reports are saved under directory named "TestCoverageReport" for each benchmark.
-The pom.xml files were updated with maven-surefire-plugin and jacoco-maven-plugin to generate the coverage reports.
-
-To generate coverages for test cases without intraproc mocks, we first output all test case names with intraprocedural mocks,
-and then manually exclude all of them in the mvn command.
 
 Benchmarks with more reliable test coverages data: jsonschema2pojo-core-1.1.1, maven-core-3.8.1, microbenchmark, mybatis-3.5.6, vraptor-core-3.5.5
 
@@ -70,6 +93,13 @@ flink-core-1.13.0-rc1's test run of test cases without intraproc mock objects pr
 
 #### Number of source classes in the call graph from CallGraphEdge.csv
 
+```
+# Located in doop/python-scripts, you may need to update or rewrite the path parameter
+if the results or the script is moved to other places.
+
+python callgraph-source-classes-count.py
+```
+
 | Benchmark | basic-only NORMAL | CI NORMAL | CIPP NORMAL | 1-object-sens NORMAL |
 | --- | --: | --: | --: | --: |
 | bootique-2.0.B1-bootique | 12187 | 3683 | 3678 | 3394 |
@@ -84,6 +114,10 @@ flink-core-1.13.0-rc1's test run of test cases without intraproc mock objects pr
 
 
 #### CallGraphEdge.csv size
+
+```
+Manually check their size
+```
 
 | Benchmark | basic-only-normal (MB) | CI-normal (MB) | CIPP-normal (MB) | 1-object-sens-NORMAL (MB) |
 | --- | --: | --: | --: | --: |
@@ -100,6 +134,14 @@ flink-core-1.13.0-rc1's test run of test cases without intraproc mock objects pr
 
 
 #### Doop's runtime on mock analysis (Different Base Analysis)
+```
+# Run hyperfine_BENCHMARK.sh files (after running doop scripts) will generate hyperfine results for each benchmark.
+
+# To process the hyperfine results into csv table (# Located in doop/python-scripts,
+you may need to update or rewrite the path parameter if the results or the script is moved to other places.):
+python process-hyperfine-runtime.py
+
+```
 
 | Benchmark |basic-only-intraproc (s)|stddev|CI-intraproc (s)|stddev|CIPP-intraproc (s)|stddev|1-object-sens-intraproc (s)|stddev|basic-only-interproc (s)|stddev|CI-interproc (s)|stddev |CIPP-interproc (s)|stddev|1-object-sens-interproc (s)|stddev |
 | --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |
@@ -117,6 +159,14 @@ flink-core-1.13.0-rc1's test run of test cases without intraproc mock objects pr
 
 #### Doop's Mock counts comparison (including Soot's)
 
+```
+Soot's mock counts were manually added from the output.
+
+# Run the following command in bin/python-scripts/ to generate mock counts for Doop's mock counts
+# You may need to update the keys for MYMAP so it recognize each benchmark's results folder
+./runall_process_counts.sh
+```
+
 | Benchmark | Total Number of Invocations | Mock Invokes intraproc (Soot) | basic-only-intraproc | CI-intraproc | CIPP-intraproc | 1-object-sens-intraproc | basic-only-interproc | CI-interproc | CIPP-interproc | 1-object-sens-interproc |
 | --- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |
 | bootique-2.0.B1-bootique | 3366 | 99 | 99 | 99 | 99 | 0 | 120 | 122 | 122 | 0 |
@@ -133,6 +183,10 @@ flink-core-1.13.0-rc1's test run of test cases without intraproc mock objects pr
 
 ## LOC and Runtime Information for benchmarks
 
+```
+LOC - SLOCCOUNT
+Runtime - Soot : built-in timer; Doop : from the log file
+```
 | Benchmark | LOC Total | LOC (Main) | LOC (Test) |
 | --- | --: | --: | --: |
 | bootique-2.0.B1-bootique | 15530 | 6935 | 8595 |
@@ -160,6 +214,9 @@ flink-core-1.13.0-rc1's test run of test cases without intraproc mock objects pr
 | Total | 0.766 | 0.222 | 2.125 | 3.123 | 1500 | 1298 | TBD | TBD |
 
 ## Field Mock Objects
+```
+Output from Soot's Mock Analysis
+```
 
 | Benchmark | Total Number of Annotated Field Mock Objects | Total Number of Field Mock Objects defined in Default Init | Total Number of Field Mock Objects defined in Before Methods |
 | --- | --: | --: | --: |
@@ -174,22 +231,13 @@ flink-core-1.13.0-rc1's test run of test cases without intraproc mock objects pr
 | vraptor-core-3.5.5 | 263 | 2 | 45 |
 | Total | 339 | 128 | 83 |
 
-
-## Field Mutation Data
-| Benchmark |  Total # of Fields Mutated in Test Cases / Total # of Fields |
-| --- | --: |
-| bootique-2.0.B1-bootique | 0 / 271 |
-| commons-collections4-4.4 | 3 / 697 |
-| flink-core-1.13.0-rc1 | 8 / 2675 |
-| jsonschema2pojo-core-1.1.1 | 0 / 228 |
-| maven-core-3.8.1 | 0 / 765 |
-| microbenchmark | 5 / 32 |
-| mybatis-3.5.6 | 0 / 2618 |
-| quartz-core-2.3.1 | 2 / 878 |
-| vraptor-core-3.5.5 | 10 / 1193 |
-| Total | 29 / 9352 |
-
 ## Mock Analysis table (May Analysis, Intraprocedural)
+
+```
+Output from Soot's Mock Analysis; manually compiled into table
+(results need to be updated with updated benchmarks and program)
+```
+
 | Benchmark | Total Number of Test/Before/After Methods Invoked | Number of Test/Before/After Methods with MayMock (Intra) | Number of Test/Before/After Methods with ArrayMock (Intra) | Number of Test/Before/After Methods with CollectionMock (Intra) | Total Number of Helper Methods | Total Number of Helper Methods with MayMock |  Total Number of Helper Methods with ArrayMock | Total Number of Helper Methods with CollectionMock |
 | --- | --: | --: | --: | --: | --: | --: | --: | --: |
 | bootique-2.0.B1-bootique | 420 | 32 | 7 | 0 | 223 | 6 | 0 | 0 |
@@ -205,6 +253,12 @@ flink-core-1.13.0-rc1's test run of test cases without intraproc mock objects pr
 
 
 ## Mock Analysis - Analyzing InvokeExpr results (May Analysis, Intraprocedural)
+
+```
+Output from Soot's Mock Analysis; manually compiled into table
+(results need to be updated with updated benchmarks and program)
+```
+
 | Benchmark | Total Number of Invocations | Number of Invocations on Mocks (Soot) | Number of Invocations on Mocks (Doop) |
 | --- | --: | --: | --: |
 | bootique-2.0.B1-bootique | 3366 | 99 | 99 |
@@ -218,21 +272,25 @@ flink-core-1.13.0-rc1's test run of test cases without intraproc mock objects pr
 | vraptor-core-3.5.51 | 26 | 942 | 962 |
 | Total | 63017 | 2095 | 2125 |
 
-## Doop's Mock Counts Comparison
 
-| Benchmark | Basic-only, Intraproc | Context-insensitive, Intraproc | Basic-only, Interproc | Context-Insensitive, Interproc |
-| --- | --: | --: | --: | --: |
-| bootique-2.0.B1-bootique | 122 | 122 | 120 | 122 |
-| commons-collections4-4.4 | 3 | 3 | 23 | 23 |
-| flink-core-1.13.0-rc1 | 40 | 40 | 1262 | 1389 |
-| jsonschema2pojo-core-1.1.1 | 282 | 282 | 462 | 604 |
-| maven-core-3.8.1 | 23 | 23 | 31 | 39 |
-| microbenchmark | 123 | 123 | 132 | 132 |
-| mybatis-3.5.6 |  |  |  |  |
-| quartz-core-2.3.1 | 21 | 21 | 23 | 31 |
-| vraptor-core-3.5.5 | 963 | 962 | 1301 | 1630 |
-| Total | N/A | N/A | N/A  | N/A |
+## Field Mutation Data (Appendix)
+```
+Output from
 
+./bin/soot-scripts/runall_MutatedFieldAnalysis.sh
+```
+| Benchmark |  Total # of Fields Mutated in Test Cases / Total # of Fields |
+| --- | --: |
+| bootique-2.0.B1-bootique | 0 / 271 |
+| commons-collections4-4.4 | 3 / 697 |
+| flink-core-1.13.0-rc1 | 8 / 2675 |
+| jsonschema2pojo-core-1.1.1 | 0 / 228 |
+| maven-core-3.8.1 | 0 / 765 |
+| microbenchmark | 5 / 32 |
+| mybatis-3.5.6 | 0 / 2618 |
+| quartz-core-2.3.1 | 2 / 878 |
+| vraptor-core-3.5.5 | 10 / 1193 |
+| Total | 29 / 9352 |
 
 ## Manual Inspection on microbenchmark  (Intraprocedural)
 
