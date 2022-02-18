@@ -62,7 +62,7 @@ As always, there are scripts for running one benchmark at a time. You can figure
 After doop finished running for benchmarks, you may run the following to process mock counts:
 
 ```console
-./bin/python-scripts/runall_process_counts.sh &> CSV_FILE
+./bin/python-scripts/runall_process_counts.sh > CSV_FILE
 ```
 
 
