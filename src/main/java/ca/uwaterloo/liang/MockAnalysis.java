@@ -1,6 +1,6 @@
 package ca.uwaterloo.liang;
-/* Soot - a J*va Optimization Framework
- * Copyright (C) 2003 Navindra Umanee <navindra@cs.mcgill.ca>
+/* MockAnalysis
+ * Copyright (C) 2021 Qian Liang <q8liang@uwaterloo.ca>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
