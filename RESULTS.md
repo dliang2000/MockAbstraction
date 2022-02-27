@@ -51,19 +51,15 @@ Paper: https://www.researchgate.net/publication/295918716_Automatically_Identify
 ### Test Coverages
 
 ```
-The Test Coverage reports are saved under directory named "TestCoverageReport" for each benchmark.
-The pom.xml files were updated with maven-surefire-plugin and jacoco-maven-plugin to generate the coverage reports.
+# The Test Coverage reports are saved under directory named "TestCoverageReport" for each benchmark.
+# The pom.xml files were updated with maven-surefire-plugin and jacoco-maven-plugin to generate the coverage reports.
 
-With both plugins included in pom.xml file, "mvn clean test" will auto-generate coverage reports for all test cases.
-(Remember to save the coverage reports somewhere else or it will later be overwritten.)
+# With both plugins included in pom.xml file, "mvn clean test" will auto-generate coverage reports for all test cases.
+# (Remember to save the coverage reports somewhere else or it will later be overwritten.)
 
-To generate coverages for test cases without intraproc mocks,
-uncomment "printTestsWithoutIntraprocMock();" in MockAnalysisIntraprocTransformer
-and run intraprocedural Soot mock analysis. It will output a file, MOCK_INTRAPROC_TEST_CASES, containing names for test cases with
-intraprocedural mocks. (Located in analysis_output/MockAnalysis/)
+# To generate coverages for test cases without intraproc mocks, uncomment "printTestsWithoutIntraprocMock();" in MockAnalysisIntraprocTransformer and run intraprocedural Soot mock analysis. It will output a file, MOCK_INTRAPROC_TEST_CASES, containing names for test cases with intraprocedural mocks. (Located in analysis_output/MockAnalysis/)
 
-Run the following command to generate the corresponding mvn command excluding test cases with intraprocedural mocks,
-then run the mvn command to generate a second coverage reports.
+# Run the following command to generate the corresponding mvn command excluding test cases with intraprocedural mocks, then run the mvn command to generate a second coverage reports.
 
 python mvn_command_generator.py --file analysis_output/MockAnalysis/MOCK_INTRAPROC_TEST_CASES
 ```
@@ -94,7 +90,7 @@ flink-core-1.13.0-rc1's test run of test cases without intraproc mock objects pr
 #### Number of source classes in the call graph from CallGraphEdge.csv
 
 ```
-# Located in doop/python-scripts, you may need to update or rewrite the path parameter
+# Located in bin/python-scripts, you may need to update or rewrite the path parameter
 if the results or the script is moved to other places.
 The output from the python script is in CSV format, you may redirect the output into a CSV file.
 
@@ -117,7 +113,7 @@ python callgraph-source-classes-count.py
 #### CallGraphEdge.csv size
 
 ```
-Manually checked the size for CallGraphEdge.csv file generated in each Doop run.
+# Manually checked the size of the CallGraphEdge.csv file generated in each Doop run. We report raw size (bytes) here.
 ```
 
 | Benchmark | basic-only-normal (MB) | CI-normal (MB) | CIPP-normal (MB) | 1-object-sens-NORMAL (MB) |
@@ -134,15 +130,14 @@ Manually checked the size for CallGraphEdge.csv file generated in each Doop run.
 | Average | 118.77 | 38.74 | 80.12 | 27.02 |
 
 
-#### Doop's runtime on mock analysis (Different Base Analysis)
+#### Doop's runtime on mock analysis (per analysis flavour)
 ```
-# Run hyperfine_BENCHMARK.sh files (after running doop scripts) will generate hyperfine results for each benchmark.
+# Run bin/doop-scripts/hyperfine_BENCHMARK.sh to generate hyperfine timing results for running the analysis itself on aech benchmark. You have to first generate relations for this to work, i.e. you've already run `bin/doop-scripts/doop_all_X.sh`. Hyperfine script may be out of date; you should probably compare to what's in `bin/doop-scripts/_doop_X.sh`, which is authoritative.
 
-# To process the hyperfine results into csv table (# Located in doop/python-scripts,
-you may need to update or rewrite the path parameter if the results or the script is moved to other places.):
-python process-hyperfine-runtime.py.
+# To process the hyperfine results into csv table (you may need to update the path parameter in the python script if the results or the script are moved):
+python bin/python-scripts/process-hyperfine-runtime.py.
 
-The output from the python script is in CSV format, you may redirect the output into a CSV file.
+# The output from the python script is in CSV format. You may redirect the output into a CSV file.
 
 ```
 
@@ -160,19 +155,19 @@ The output from the python script is in CSV format, you may redirect the output 
 | Average | 31.8171 | 2.507 | 26.414 | 2.2886 | 26.1456 | 2.3953 | 23.2832 | 1.992 | 44.4693 | 2.4241 | 60.5007 | 8.2512 | 58.7818 | 2.7865 | 42.755 | 5.3503 |
 
 
-#### Doop's Mock counts comparison (including Soot's)
+#### Soot and Doop Mock counts comparison
 
 ```
-Soot's mock counts were manually added from the output.
+Soot's mock counts were manually added from the output (in analysis_output), which you get after running `bin/soot-scripts/runall_MockAnalysis_Intra.sh`.
 
 Locate
 "Total Invocations"
 "Invocations On Mocks:"
 in the Soot output.
 
-# Run the following command in bin/python-scripts/ to generate mock counts for Doop's mock counts
-# You may need to update the keys for MYMAP so it recognize each benchmark's results folder
-./runall_process_counts.sh
+# Run the following command to generate mock counts for Doop's mock counts
+# You may need to update the keys for MYMAP so it recognizes each benchmark's results folder
+bin/python_scripts/runall_process_counts.sh
 ```
 
 | Benchmark | Total Number of Invocations | Mock Invokes intraproc (Soot) | basic-only-intraproc | CI-intraproc | CIPP-intraproc | 1-object-sens-intraproc | basic-only-interproc | CI-interproc | CIPP-interproc | 1-object-sens-interproc |
@@ -233,7 +228,7 @@ Locate
 "Total Number of Annotated Mocks in the benchmark"
 "Total Number of Mocks defined in default init<> in the benchmark"
 "Total Number of Mocks defined in @Before in the benchmark"
-in the output.
+in the Soot output.
 
 ```
 
