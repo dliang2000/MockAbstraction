@@ -96,6 +96,7 @@ flink-core-1.13.0-rc1's test run of test cases without intraproc mock objects pr
 ```
 # Located in doop/python-scripts, you may need to update or rewrite the path parameter
 if the results or the script is moved to other places.
+The output from the python script is in CSV format, you may redirect the output into a CSV file.
 
 python callgraph-source-classes-count.py
 ```
@@ -116,7 +117,7 @@ python callgraph-source-classes-count.py
 #### CallGraphEdge.csv size
 
 ```
-Manually check their size
+Manually checked the size for CallGraphEdge.csv file generated in each Doop run.
 ```
 
 | Benchmark | basic-only-normal (MB) | CI-normal (MB) | CIPP-normal (MB) | 1-object-sens-NORMAL (MB) |
@@ -139,7 +140,9 @@ Manually check their size
 
 # To process the hyperfine results into csv table (# Located in doop/python-scripts,
 you may need to update or rewrite the path parameter if the results or the script is moved to other places.):
-python process-hyperfine-runtime.py
+python process-hyperfine-runtime.py.
+
+The output from the python script is in CSV format, you may redirect the output into a CSV file.
 
 ```
 
@@ -161,6 +164,11 @@ python process-hyperfine-runtime.py
 
 ```
 Soot's mock counts were manually added from the output.
+
+Locate
+"Total Invocations"
+"Invocations On Mocks:"
+in the Soot output.
 
 # Run the following command in bin/python-scripts/ to generate mock counts for Doop's mock counts
 # You may need to update the keys for MYMAP so it recognize each benchmark's results folder
@@ -184,8 +192,12 @@ Soot's mock counts were manually added from the output.
 ## LOC and Runtime Information for benchmarks
 
 ```
-LOC - SLOCCOUNT
-Runtime - Soot : built-in timer; Doop : from the log file
+LOC - SLOCCOUNT command
+
+
+Soot Runtime : built-in timer output;
+              locate "Soot has run MockAnalysisMainTransformer for XXX ms in the output."
+Runtime Doop : from the corresponding log file
 ```
 | Benchmark | LOC Total | LOC (Main) | LOC (Test) |
 | --- | --: | --: | --: |
@@ -216,6 +228,13 @@ Runtime - Soot : built-in timer; Doop : from the log file
 ## Field Mock Objects
 ```
 Output from Soot's Mock Analysis
+
+Locate
+"Total Number of Annotated Mocks in the benchmark"
+"Total Number of Mocks defined in default init<> in the benchmark"
+"Total Number of Mocks defined in @Before in the benchmark"
+in the output.
+
 ```
 
 | Benchmark | Total Number of Annotated Field Mock Objects | Total Number of Field Mock Objects defined in Default Init | Total Number of Field Mock Objects defined in Before Methods |
@@ -236,6 +255,19 @@ Output from Soot's Mock Analysis
 ```
 Output from Soot's Mock Analysis; manually compiled into table
 (results need to be updated with updated benchmarks and program)
+
+Locate
+"Total Number of Test/Before/After Methods"
+"Total Number of Test/Before/After Methods with May Mock"
+"Total Number of Test/Before/After Methods with ArrayMock"
+"Total Number of Test/Before/After Methods with Collection"
+"Total Number of Helper Methods"
+"Total Number of Helper Methods with MayMock"
+"Total Number of Helper Methods with ArrayMock"
+"Total Number of Helper Methods with CollectionMock"
+in the output.
+
+
 ```
 
 | Benchmark | Total Number of Test/Before/After Methods Invoked | Number of Test/Before/After Methods with MayMock (Intra) | Number of Test/Before/After Methods with ArrayMock (Intra) | Number of Test/Before/After Methods with CollectionMock (Intra) | Total Number of Helper Methods | Total Number of Helper Methods with MayMock |  Total Number of Helper Methods with ArrayMock | Total Number of Helper Methods with CollectionMock |
@@ -252,32 +284,17 @@ Output from Soot's Mock Analysis; manually compiled into table
 | Total | 6310 | 1084 | 34 | 26 | 2854 | 45 | 3 | 0 |
 
 
-## Mock Analysis - Analyzing InvokeExpr results (May Analysis, Intraprocedural)
-
-```
-Output from Soot's Mock Analysis; manually compiled into table
-(results need to be updated with updated benchmarks and program)
-```
-
-| Benchmark | Total Number of Invocations | Number of Invocations on Mocks (Soot) | Number of Invocations on Mocks (Doop) |
-| --- | --: | --: | --: |
-| bootique-2.0.B1-bootique | 3366 | 99 | 99 |
-| commons-collections4-4.4 | 12753 | 11 | 3 |
-| flink-core-1.13.0-rc1 | 11923 | 40 | 40 |
-| jsonschema2pojo-core-1.1.1 | 1896 | 276 | 282 |
-| maven-core-3.8.1 | 4072 | 23 | 23 |
-| microbenchmark | 471 | 108 | 123 |
-| mybatis-3.5.6 | 19232 | 575 | 577 |
-| quartz-core-2.3.1 | 3436 | 21 | 21 |
-| vraptor-core-3.5.51 | 26 | 942 | 962 |
-| Total | 63017 | 2095 | 2125 |
-
-
 ## Field Mutation Data (Appendix)
 ```
 Output from
 
 ./bin/soot-scripts/runall_MutatedFieldAnalysis.sh
+
+The output would be in the format of following:
+
+======================================
+Benchmark 	 Total # of Fields Mutated in Test Cases / Total # of Fields
+jsonschema2pojo_core_1.1.1	 0 / 228
 ```
 | Benchmark |  Total # of Fields Mutated in Test Cases / Total # of Fields |
 | --- | --: |
