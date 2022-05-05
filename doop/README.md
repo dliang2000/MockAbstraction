@@ -12,9 +12,9 @@
 * copy MockAbstraction/doop/logic/*.dl to ..//doop/souffle-logic/analyses/mocks/
 
 ## Run doop
-* command line:
+* you could run from command line, but you should really use the scripts from `../bin/doop-scripts`
 
-```./doop -a context-insensitive -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT-tests.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/mvn_dependencies/ --id context-insensitive-with-mocks --souffle-jobs 32 --main ca.liang.RootDriver --extra-logic souffle-logic/analyses/mocks/mocks.dl```
+```./doop -a context-insensitive -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/target/payroll-test-0.0.1-SNAPSHOT-tests.jar -i ~/hacking/MockAbstraction/Benchmarks/microbenchmark/mvn_dependencies/ --id context-insensitive-with-mocks --souffle-jobs 32 --main ca.liang.RootDriver --define-cpp-macro USE_CALLGRAPH --extra-logic souffle-logic/analyses/mocks/mocks.dl```
 
 * run count.py to generate statistics from results in `last-analysis/`, you might want to redirect that to ~/MockAbstraction/doop/XXX-results
 
