@@ -1,1 +1,2 @@
-Static analysis to compute number of reachable nodes from test methods vs number of reachable nodes from mock invocations
+Static analysis to compute number of reachable nodes from test methods vs number of reachable nodes from mock invocations. 
+Benchmarks need to be copied to projects and projects/project-list.json needs to be updated accordingly.
