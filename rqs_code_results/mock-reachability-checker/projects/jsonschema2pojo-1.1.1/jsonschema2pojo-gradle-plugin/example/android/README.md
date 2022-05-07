@@ -1,1 +1,0 @@
-# Simply open it with Android Studio
