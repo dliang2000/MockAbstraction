@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Inflector.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jsonschema2pojo-core</a> &gt; <a href="index.source.html" class="el_package">org.jsonschema2pojo.util</a> &gt; <span class="el_source">Inflector.java</span></div><h1>Inflector.java</h1><pre class="source lang-java linenums">/**
+ * Copyright © 2007 Chu Yeow Cheah
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * Copied verbatim from http://dzone.com/snippets/java-inflections, used 
+ * and licensed with express permission from the author Chu Yeow Cheah.
+ */
+
+package org.jsonschema2pojo.util;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Transforms words (from singular to plural, from camelCase to under_score,
+ * etc.). I got bored of doing Real Work...
+ * 
+ * @author chuyeow
+ */
+public class Inflector {
+
+    private final List&lt;RuleAndReplacement&gt; plurals;
+    private final List&lt;RuleAndReplacement&gt; singulars;
+    private final List&lt;String&gt; uncountables;
+
+<span class="fc" id="L40">    private static Inflector instance  = createDefaultBuilder().build();</span>
+
+<span class="fc" id="L42">    private Inflector(Builder builder) {</span>
+<span class="fc" id="L43">        plurals = Collections.unmodifiableList(builder.plurals);</span>
+<span class="fc" id="L44">        singulars = Collections.unmodifiableList(builder.singulars);</span>
+<span class="fc" id="L45">        uncountables = Collections.unmodifiableList(builder.uncountables);</span>
+<span class="fc" id="L46">    }</span>
+
+    public static Inflector.Builder createDefaultBuilder()
+    {
+<span class="fc" id="L50">        Builder builder = builder();</span>
+
+<span class="fc" id="L52">        builder.plural(&quot;$&quot;, &quot;s&quot;)</span>
+<span class="fc" id="L53">            .plural(&quot;s$&quot;, &quot;s&quot;)</span>
+<span class="fc" id="L54">            .plural(&quot;(ax|test)is$&quot;, &quot;$1es&quot;)</span>
+<span class="fc" id="L55">            .plural(&quot;(octop|vir)us$&quot;, &quot;$1i&quot;)</span>
+<span class="fc" id="L56">            .plural(&quot;(alias|status)$&quot;, &quot;$1es&quot;)</span>
+<span class="fc" id="L57">            .plural(&quot;(bu)s$&quot;, &quot;$1es&quot;)</span>
+<span class="fc" id="L58">            .plural(&quot;(buffal|tomat)o$&quot;, &quot;$1oes&quot;)</span>
+<span class="fc" id="L59">            .plural(&quot;([ti])um$&quot;, &quot;$1a&quot;)</span>
+<span class="fc" id="L60">            .plural(&quot;sis$&quot;, &quot;ses&quot;)</span>
+<span class="fc" id="L61">            .plural(&quot;(?:([^f])fe|([lr])f)$&quot;, &quot;$1$2ves&quot;)</span>
+<span class="fc" id="L62">            .plural(&quot;(database|hive)$&quot;, &quot;$1s&quot;)</span>
+<span class="fc" id="L63">            .plural(&quot;([^aeiouy]|qu)y$&quot;, &quot;$1ies&quot;)</span>
+<span class="fc" id="L64">            .plural(&quot;([^aeiouy]|qu)ies$&quot;, &quot;$1y&quot;)</span>
+<span class="fc" id="L65">            .plural(&quot;(x|ch|ss|sh)$&quot;, &quot;$1es&quot;)</span>
+<span class="fc" id="L66">            .plural(&quot;(matr|vert|ind)ix|ex$&quot;, &quot;$1ices&quot;)</span>
+<span class="fc" id="L67">            .plural(&quot;([m|l])ouse$&quot;, &quot;$1ice&quot;)</span>
+<span class="fc" id="L68">            .plural(&quot;(ox)$&quot;, &quot;$1en&quot;)</span>
+<span class="fc" id="L69">            .plural(&quot;man$&quot;, &quot;men&quot;)</span>
+<span class="fc" id="L70">            .plural(&quot;(quiz)$&quot;, &quot;$1zes&quot;)</span>
+<span class="fc" id="L71">            .plural(&quot;specimen&quot;, &quot;specimens&quot;);</span>
+
+<span class="fc" id="L73">        builder.singular(&quot;s$&quot;, &quot;&quot;)</span>
+<span class="fc" id="L74">            .singular(&quot;(n)ews$&quot;, &quot;$1ews&quot;)</span>
+<span class="fc" id="L75">            .singular(&quot;([ti])a$&quot;, &quot;$1um&quot;)</span>
+<span class="fc" id="L76">            .singular(&quot;((a)naly|(b)a|(d)iagno|(p)arenthe|(p)rogno|(s)ynop|(t)he)ses$&quot;, &quot;$1$2sis&quot;)</span>
+<span class="fc" id="L77">            .singular(&quot;(^analy)ses$&quot;, &quot;$1sis&quot;)</span>
+<span class="fc" id="L78">            .singular(&quot;([^f])ves$&quot;, &quot;$1fe&quot;)</span>
+<span class="fc" id="L79">            .singular(&quot;(database|hive)s$&quot;, &quot;$1&quot;)</span>
+<span class="fc" id="L80">            .singular(&quot;(tive)s$&quot;, &quot;$1&quot;)</span>
+<span class="fc" id="L81">            .singular(&quot;([lr])ves$&quot;, &quot;$1f&quot;)</span>
+<span class="fc" id="L82">            .singular(&quot;([^aeiouy]|qu)ies$&quot;, &quot;$1y&quot;)</span>
+<span class="fc" id="L83">            .singular(&quot;(s)eries$&quot;, &quot;$1eries&quot;)</span>
+<span class="fc" id="L84">            .singular(&quot;(m)ovies$&quot;, &quot;$1ovie&quot;)</span>
+<span class="fc" id="L85">            .singular(&quot;(x|ch|ss|sh)es$&quot;, &quot;$1&quot;)</span>
+<span class="fc" id="L86">            .singular(&quot;([m|l])ice$&quot;, &quot;$1ouse&quot;)</span>
+<span class="fc" id="L87">            .singular(&quot;(bus)es$&quot;, &quot;$1&quot;)</span>
+<span class="fc" id="L88">            .singular(&quot;(o)es$&quot;, &quot;$1&quot;)</span>
+<span class="fc" id="L89">            .singular(&quot;(shoe)s$&quot;, &quot;$1&quot;)</span>
+<span class="fc" id="L90">            .singular(&quot;(cris|ax|test)es$&quot;, &quot;$1is&quot;)</span>
+<span class="fc" id="L91">            .singular(&quot;(tax)es$&quot;, &quot;$1&quot;)</span>
+<span class="fc" id="L92">            .singular(&quot;([octop|vir])i$&quot;, &quot;$1us&quot;)</span>
+<span class="fc" id="L93">            .singular(&quot;(alias|status)es$&quot;, &quot;$1&quot;)</span>
+<span class="fc" id="L94">            .singular(&quot;^(ox)en&quot;, &quot;$1&quot;)</span>
+<span class="fc" id="L95">            .singular(&quot;(vert|ind)ices$&quot;, &quot;$1ex&quot;)</span>
+<span class="fc" id="L96">            .singular(&quot;(matr)ices$&quot;, &quot;$1ix&quot;)</span>
+<span class="fc" id="L97">            .singular(&quot;(quiz)zes$&quot;, &quot;$1&quot;)</span>
+<span class="fc" id="L98">            .singular(&quot;(ess)$&quot;, &quot;$1&quot;)</span>
+<span class="fc" id="L99">            .singular(&quot;men$&quot;, &quot;man&quot;)</span>
+<span class="fc" id="L100">            .singular(&quot;(.+)list$&quot;, &quot;$1&quot;)</span>
+<span class="fc" id="L101">            .singular(&quot;specimen&quot;, &quot;specimen&quot;)</span>
+<span class="fc" id="L102">            .singular(&quot;status$&quot;, &quot;status&quot;)</span>
+<span class="fc" id="L103">            .singular(&quot;(slave)s$&quot;, &quot;$1&quot;);</span>
+
+<span class="fc" id="L105">        builder.irregular(&quot;curve&quot;, &quot;curves&quot;)</span>
+<span class="fc" id="L106">            .irregular(&quot;leaf&quot;, &quot;leaves&quot;)</span>
+<span class="fc" id="L107">            .irregular(&quot;roof&quot;, &quot;rooves&quot;)</span>
+<span class="fc" id="L108">            .irregular(&quot;person&quot;, &quot;people&quot;)</span>
+<span class="fc" id="L109">            .irregular(&quot;child&quot;, &quot;children&quot;)</span>
+<span class="fc" id="L110">            .irregular(&quot;sex&quot;, &quot;sexes&quot;)</span>
+<span class="fc" id="L111">            .irregular(&quot;move&quot;, &quot;moves&quot;);</span>
+
+<span class="fc" id="L113">        builder.uncountable(new String[] { &quot;equipment&quot;, &quot;information&quot;, &quot;rice&quot;, &quot;money&quot;, &quot;species&quot;, &quot;series&quot;, &quot;fish&quot;, &quot;sheep&quot;, &quot;s&quot; });</span>
+
+<span class="fc" id="L115">        return builder;</span>
+    }
+
+    public static Inflector getInstance() {
+<span class="fc" id="L119">        return instance;</span>
+    }
+
+    public String pluralize(String word) {
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">        if (uncountables.contains(word.toLowerCase())) {</span>
+<span class="nc" id="L124">            return word;</span>
+        }
+<span class="fc" id="L126">        return replaceWithFirstRule(word, plurals);</span>
+    }
+
+    public String singularize(String word) {
+<span class="fc bfc" id="L130" title="All 2 branches covered.">        if (uncountables.contains(word.toLowerCase())) {</span>
+<span class="fc" id="L131">            return word;</span>
+        }
+<span class="fc" id="L133">        return replaceWithFirstRule(word, singulars);</span>
+    }
+
+    private static String replaceWithFirstRule(String word, List&lt;RuleAndReplacement&gt; ruleAndReplacements) {
+
+<span class="fc bfc" id="L138" title="All 2 branches covered.">        for (RuleAndReplacement rar : ruleAndReplacements) {</span>
+<span class="fc" id="L139">            String replacement = rar.getReplacement();</span>
+
+            // Return if we find a match.
+<span class="fc" id="L142">            Matcher matcher = rar.getPattern().matcher(word);</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">            if (matcher.find()) {</span>
+<span class="fc" id="L144">                return matcher.replaceAll(replacement);</span>
+            }
+<span class="fc" id="L146">        }</span>
+<span class="fc" id="L147">        return word;</span>
+    }
+
+    public static Builder builder()
+    {
+<span class="fc" id="L152">        return new Builder();</span>
+    }
+
+    // Ugh, no open structs in Java (not-natively at least).
+    private static class RuleAndReplacement {
+        private final String replacement;
+        private final Pattern pattern;
+
+<span class="fc" id="L160">        public RuleAndReplacement(String rule, String replacement) {</span>
+<span class="fc" id="L161">            this.replacement = replacement;</span>
+<span class="fc" id="L162">            this.pattern = Pattern.compile(rule, Pattern.CASE_INSENSITIVE);</span>
+<span class="fc" id="L163">        }</span>
+
+        public String getReplacement() {
+<span class="fc" id="L166">            return replacement;</span>
+        }
+
+        public Pattern getPattern() {
+<span class="fc" id="L170">            return pattern;</span>
+        }
+    }
+
+<span class="fc" id="L174">    public static class Builder</span>
+    {
+<span class="fc" id="L176">        private List&lt;RuleAndReplacement&gt; plurals = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L177">        private List&lt;RuleAndReplacement&gt; singulars = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L178">        private List&lt;String&gt; uncountables = new ArrayList&lt;&gt;();</span>
+
+        public Builder plural(String rule, String replacement) {
+<span class="fc" id="L181">            plurals.add(0, new RuleAndReplacement(rule, replacement));</span>
+<span class="fc" id="L182">            return this;</span>
+        }
+
+        public Builder singular(String rule, String replacement) {
+<span class="fc" id="L186">            singulars.add(0, new RuleAndReplacement(rule, replacement));</span>
+<span class="fc" id="L187">            return this;</span>
+        }
+
+        public Builder irregular(String singular, String plural) {
+<span class="fc" id="L191">            plural(singular, plural);</span>
+<span class="fc" id="L192">            singular(plural, singular);</span>
+<span class="fc" id="L193">            return this;</span>
+        }
+
+        public Builder uncountable(String... words) {
+<span class="fc bfc" id="L197" title="All 2 branches covered.">            for (String word : words) {</span>
+<span class="fc" id="L198">                uncountables.add(word);</span>
+            }
+<span class="fc" id="L200">            return this;</span>
+        }
+
+        public Inflector build()
+        {
+<span class="fc" id="L205">            return new Inflector(this);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

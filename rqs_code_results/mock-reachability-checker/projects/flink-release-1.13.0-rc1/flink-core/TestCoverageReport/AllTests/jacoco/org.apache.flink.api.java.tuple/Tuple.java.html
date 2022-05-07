@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Tuple.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.java.tuple</a> &gt; <span class="el_source">Tuple.java</span></div><h1>Tuple.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.java.tuple;
+
+import org.apache.flink.annotation.Public;
+import org.apache.flink.types.NullFieldException;
+
+/**
+ * The base class of all tuples. Tuples have a fix length and contain a set of fields, which may all
+ * be of different types. Because Tuples are strongly typed, each distinct tuple length is
+ * represented by its own class. Tuples exists with up to 25 fields and are described in the classes
+ * {@link Tuple1} to {@link Tuple25}.
+ *
+ * &lt;p&gt;The fields in the tuples may be accessed directly a public fields, or via position (zero
+ * indexed) {@link #getField(int)}.
+ *
+ * &lt;p&gt;Tuples are in principle serializable. However, they may contain non-serializable fields, in
+ * which case serialization will fail.
+ */
+@Public
+<span class="fc" id="L37">public abstract class Tuple implements java.io.Serializable {</span>
+
+    private static final long serialVersionUID = 1L;
+
+    public static final int MAX_ARITY = 25;
+
+    /**
+     * Gets the field at the specified position.
+     *
+     * @param pos The position of the field, zero indexed.
+     * @return The field at the specified position.
+     * @throws IndexOutOfBoundsException Thrown, if the position is negative, or equal to, or larger
+     *     than the number of fields.
+     */
+    public abstract &lt;T&gt; T getField(int pos);
+
+    /**
+     * Gets the field at the specified position, throws NullFieldException if the field is null.
+     * Used for comparing key fields.
+     *
+     * @param pos The position of the field, zero indexed.
+     * @return The field at the specified position.
+     * @throws IndexOutOfBoundsException Thrown, if the position is negative, or equal to, or larger
+     *     than the number of fields.
+     * @throws NullFieldException Thrown, if the field at pos is null.
+     */
+    public &lt;T&gt; T getFieldNotNull(int pos) {
+<span class="fc" id="L64">        T field = getField(pos);</span>
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        if (field != null) {</span>
+<span class="fc" id="L66">            return field;</span>
+        } else {
+<span class="fc" id="L68">            throw new NullFieldException(pos);</span>
+        }
+    }
+
+    /**
+     * Sets the field at the specified position.
+     *
+     * @param value The value to be assigned to the field at the specified position.
+     * @param pos The position of the field, zero indexed.
+     * @throws IndexOutOfBoundsException Thrown, if the position is negative, or equal to, or larger
+     *     than the number of fields.
+     */
+    public abstract &lt;T&gt; void setField(T value, int pos);
+
+    /**
+     * Gets the number of field in the tuple (the tuple arity).
+     *
+     * @return The number of fields in the tuple.
+     */
+    public abstract int getArity();
+
+    /**
+     * Shallow tuple copy.
+     *
+     * @return A new Tuple with the same fields as this.
+     */
+    public abstract &lt;T extends Tuple&gt; T copy();
+
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Gets the class corresponding to the tuple of the given arity (dimensions). For example,
+     * {@code getTupleClass(3)} will return the {@code Tuple3.class}.
+     *
+     * @param arity The arity of the tuple class to get.
+     * @return The tuple class with the given arity.
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public static Class&lt;? extends Tuple&gt; getTupleClass(int arity) {
+<span class="pc bpc" id="L107" title="2 of 4 branches missed.">        if (arity &lt; 0 || arity &gt; MAX_ARITY) {</span>
+<span class="nc" id="L108">            throw new IllegalArgumentException(</span>
+                    &quot;The tuple arity must be in [0, &quot; + MAX_ARITY + &quot;].&quot;);
+        }
+<span class="fc" id="L111">        return (Class&lt;? extends Tuple&gt;) CLASSES[arity];</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // The following lines are generated.
+    // --------------------------------------------------------------------------------------------
+
+    // BEGIN_OF_TUPLE_DEPENDENT_CODE
+    // GENERATED FROM org.apache.flink.api.java.tuple.TupleGenerator.
+    public static Tuple newInstance(int arity) {
+<span class="nc bnc" id="L121" title="All 27 branches missed.">        switch (arity) {</span>
+            case 0:
+<span class="nc" id="L123">                return Tuple0.INSTANCE;</span>
+            case 1:
+<span class="nc" id="L125">                return new Tuple1();</span>
+            case 2:
+<span class="nc" id="L127">                return new Tuple2();</span>
+            case 3:
+<span class="nc" id="L129">                return new Tuple3();</span>
+            case 4:
+<span class="nc" id="L131">                return new Tuple4();</span>
+            case 5:
+<span class="nc" id="L133">                return new Tuple5();</span>
+            case 6:
+<span class="nc" id="L135">                return new Tuple6();</span>
+            case 7:
+<span class="nc" id="L137">                return new Tuple7();</span>
+            case 8:
+<span class="nc" id="L139">                return new Tuple8();</span>
+            case 9:
+<span class="nc" id="L141">                return new Tuple9();</span>
+            case 10:
+<span class="nc" id="L143">                return new Tuple10();</span>
+            case 11:
+<span class="nc" id="L145">                return new Tuple11();</span>
+            case 12:
+<span class="nc" id="L147">                return new Tuple12();</span>
+            case 13:
+<span class="nc" id="L149">                return new Tuple13();</span>
+            case 14:
+<span class="nc" id="L151">                return new Tuple14();</span>
+            case 15:
+<span class="nc" id="L153">                return new Tuple15();</span>
+            case 16:
+<span class="nc" id="L155">                return new Tuple16();</span>
+            case 17:
+<span class="nc" id="L157">                return new Tuple17();</span>
+            case 18:
+<span class="nc" id="L159">                return new Tuple18();</span>
+            case 19:
+<span class="nc" id="L161">                return new Tuple19();</span>
+            case 20:
+<span class="nc" id="L163">                return new Tuple20();</span>
+            case 21:
+<span class="nc" id="L165">                return new Tuple21();</span>
+            case 22:
+<span class="nc" id="L167">                return new Tuple22();</span>
+            case 23:
+<span class="nc" id="L169">                return new Tuple23();</span>
+            case 24:
+<span class="nc" id="L171">                return new Tuple24();</span>
+            case 25:
+<span class="nc" id="L173">                return new Tuple25();</span>
+            default:
+<span class="nc" id="L175">                throw new IllegalArgumentException(</span>
+                        &quot;The tuple arity must be in [0, &quot; + MAX_ARITY + &quot;].&quot;);
+        }
+    }
+
+<span class="fc" id="L180">    private static final Class&lt;?&gt;[] CLASSES =</span>
+            new Class&lt;?&gt;[] {
+                Tuple0.class,
+                Tuple1.class,
+                Tuple2.class,
+                Tuple3.class,
+                Tuple4.class,
+                Tuple5.class,
+                Tuple6.class,
+                Tuple7.class,
+                Tuple8.class,
+                Tuple9.class,
+                Tuple10.class,
+                Tuple11.class,
+                Tuple12.class,
+                Tuple13.class,
+                Tuple14.class,
+                Tuple15.class,
+                Tuple16.class,
+                Tuple17.class,
+                Tuple18.class,
+                Tuple19.class,
+                Tuple20.class,
+                Tuple21.class,
+                Tuple22.class,
+                Tuple23.class,
+                Tuple24.class,
+                Tuple25.class
+            };
+    // END_OF_TUPLE_DEPENDENT_CODE
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

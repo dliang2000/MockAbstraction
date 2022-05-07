@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultLifecycleTaskSegmentCalculator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.lifecycle.internal</a> &gt; <span class="el_source">DefaultLifecycleTaskSegmentCalculator.java</span></div><h1>DefaultLifecycleTaskSegmentCalculator.java</h1><pre class="source lang-java linenums">package org.apache.maven.lifecycle.internal;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.lifecycle.LifecycleNotFoundException;
+import org.apache.maven.lifecycle.LifecyclePhaseNotFoundException;
+import org.apache.maven.plugin.InvalidPluginDescriptorException;
+import org.apache.maven.plugin.MojoNotFoundException;
+import org.apache.maven.plugin.PluginDescriptorParsingException;
+import org.apache.maven.plugin.PluginNotFoundException;
+import org.apache.maven.plugin.PluginResolutionException;
+import org.apache.maven.plugin.descriptor.MojoDescriptor;
+import org.apache.maven.plugin.prefix.NoPluginFoundForPrefixException;
+import org.apache.maven.plugin.version.PluginVersionResolutionException;
+import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.component.annotations.Component;
+import org.codehaus.plexus.component.annotations.Requirement;
+import org.codehaus.plexus.util.StringUtils;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+/**
+ * &lt;p&gt;
+ * Calculates the task segments in the build
+ * &lt;/p&gt;
+ * &lt;strong&gt;NOTE:&lt;/strong&gt; This class is not part of any public api and can be changed or deleted without prior notice.
+ *
+ * @since 3.0
+ * @author Benjamin Bentmann
+ * @author Jason van Zyl
+ * @author jdcasey
+ * @author Kristian Rosenvold (extracted class)
+ */
+@Component( role = LifecycleTaskSegmentCalculator.class )
+public class DefaultLifecycleTaskSegmentCalculator
+    implements LifecycleTaskSegmentCalculator
+{
+    @Requirement
+    private MojoDescriptorCreator mojoDescriptorCreator;
+
+    @Requirement
+    private LifecyclePluginResolver lifecyclePluginResolver;
+
+    public DefaultLifecycleTaskSegmentCalculator()
+<span class="nc" id="L65">    {</span>
+<span class="nc" id="L66">    }</span>
+
+    public List&lt;TaskSegment&gt; calculateTaskSegments( MavenSession session )
+        throws PluginNotFoundException, PluginResolutionException, PluginDescriptorParsingException,
+        MojoNotFoundException, NoPluginFoundForPrefixException, InvalidPluginDescriptorException,
+        PluginVersionResolutionException, LifecyclePhaseNotFoundException, LifecycleNotFoundException
+    {
+
+<span class="nc" id="L74">        MavenProject rootProject = session.getTopLevelProject();</span>
+
+<span class="nc" id="L76">        List&lt;String&gt; tasks = session.getGoals();</span>
+
+<span class="nc bnc" id="L78" title="All 6 branches missed.">        if ( ( tasks == null || tasks.isEmpty() ) &amp;&amp; !StringUtils.isEmpty( rootProject.getDefaultGoal() ) )</span>
+        {
+<span class="nc" id="L80">            tasks = Arrays.asList( StringUtils.split( rootProject.getDefaultGoal() ) );</span>
+        }
+
+<span class="nc" id="L83">        return calculateTaskSegments( session, tasks );</span>
+    }
+
+    public List&lt;TaskSegment&gt; calculateTaskSegments( MavenSession session, List&lt;String&gt; tasks )
+        throws PluginNotFoundException, PluginResolutionException, PluginDescriptorParsingException,
+        MojoNotFoundException, NoPluginFoundForPrefixException, InvalidPluginDescriptorException,
+        PluginVersionResolutionException
+    {
+<span class="nc" id="L91">        List&lt;TaskSegment&gt; taskSegments = new ArrayList&lt;&gt;( tasks.size() );</span>
+
+<span class="nc" id="L93">        TaskSegment currentSegment = null;</span>
+
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        for ( String task : tasks )</span>
+        {
+<span class="nc bnc" id="L97" title="All 2 branches missed.">            if ( isGoalSpecification( task ) )</span>
+            {
+                // &quot;pluginPrefix:goal&quot; or &quot;groupId:artifactId[:version]:goal&quot;
+
+<span class="nc" id="L101">                lifecyclePluginResolver.resolveMissingPluginVersions( session.getTopLevelProject(), session );</span>
+
+<span class="nc" id="L103">                MojoDescriptor mojoDescriptor =</span>
+<span class="nc" id="L104">                    mojoDescriptorCreator.getMojoDescriptor( task, session, session.getTopLevelProject() );</span>
+
+<span class="nc bnc" id="L106" title="All 4 branches missed.">                boolean aggregating = mojoDescriptor.isAggregator() || !mojoDescriptor.isProjectRequired();</span>
+
+<span class="nc bnc" id="L108" title="All 4 branches missed.">                if ( currentSegment == null || currentSegment.isAggregating() != aggregating )</span>
+                {
+<span class="nc" id="L110">                    currentSegment = new TaskSegment( aggregating );</span>
+<span class="nc" id="L111">                    taskSegments.add( currentSegment );</span>
+                }
+
+<span class="nc" id="L114">                currentSegment.getTasks().add( new GoalTask( task ) );</span>
+<span class="nc" id="L115">            }</span>
+            else
+            {
+                // lifecycle phase
+
+<span class="nc bnc" id="L120" title="All 4 branches missed.">                if ( currentSegment == null || currentSegment.isAggregating() )</span>
+                {
+<span class="nc" id="L122">                    currentSegment = new TaskSegment( false );</span>
+<span class="nc" id="L123">                    taskSegments.add( currentSegment );</span>
+                }
+
+<span class="nc" id="L126">                currentSegment.getTasks().add( new LifecycleTask( task ) );</span>
+            }
+<span class="nc" id="L128">        }</span>
+
+<span class="nc" id="L130">        return taskSegments;</span>
+    }
+
+    public boolean requiresProject( MavenSession session )
+    {
+<span class="nc" id="L135">        List&lt;String&gt; goals = session.getGoals();</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">        if ( goals != null )</span>
+        {
+<span class="nc bnc" id="L138" title="All 2 branches missed.">            for ( String goal : goals )</span>
+            {
+<span class="nc bnc" id="L140" title="All 2 branches missed.">                if ( !isGoalSpecification( goal ) )</span>
+                {
+<span class="nc" id="L142">                    return true;</span>
+                }
+<span class="nc" id="L144">            }</span>
+        }
+<span class="nc" id="L146">        return false;</span>
+    }
+
+
+    private boolean isGoalSpecification( String task )
+    {
+<span class="nc bnc" id="L152" title="All 2 branches missed.">        return task.indexOf( ':' ) &gt;= 0;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

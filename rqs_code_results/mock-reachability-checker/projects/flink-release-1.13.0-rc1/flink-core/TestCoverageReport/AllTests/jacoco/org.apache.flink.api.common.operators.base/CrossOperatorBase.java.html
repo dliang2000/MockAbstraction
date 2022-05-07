@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CrossOperatorBase.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.operators.base</a> &gt; <span class="el_source">CrossOperatorBase.java</span></div><h1>CrossOperatorBase.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.operators.base;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.Public;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.functions.CrossFunction;
+import org.apache.flink.api.common.functions.RuntimeContext;
+import org.apache.flink.api.common.functions.util.FunctionUtils;
+import org.apache.flink.api.common.operators.BinaryOperatorInformation;
+import org.apache.flink.api.common.operators.DualInputOperator;
+import org.apache.flink.api.common.operators.util.UserCodeClassWrapper;
+import org.apache.flink.api.common.operators.util.UserCodeObjectWrapper;
+import org.apache.flink.api.common.operators.util.UserCodeWrapper;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/** @see org.apache.flink.api.common.functions.CrossFunction */
+@Internal
+public class CrossOperatorBase&lt;IN1, IN2, OUT, FT extends CrossFunction&lt;IN1, IN2, OUT&gt;&gt;
+        extends DualInputOperator&lt;IN1, IN2, OUT, FT&gt; {
+
+    /** The cross hint tells the system which sizes to expect from the data sets */
+<span class="nc" id="L43">    @Public</span>
+    public static enum CrossHint {
+<span class="nc" id="L45">        OPTIMIZER_CHOOSES,</span>
+
+<span class="nc" id="L47">        FIRST_IS_SMALL,</span>
+
+<span class="nc" id="L49">        SECOND_IS_SMALL</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+<span class="nc" id="L54">    private CrossHint hint = CrossHint.OPTIMIZER_CHOOSES;</span>
+
+    public CrossOperatorBase(
+            UserCodeWrapper&lt;FT&gt; udf,
+            BinaryOperatorInformation&lt;IN1, IN2, OUT&gt; operatorInfo,
+            String name) {
+<span class="nc" id="L60">        super(udf, operatorInfo, name);</span>
+
+<span class="nc bnc" id="L62" title="All 2 branches missed.">        if (this instanceof CrossWithSmall) {</span>
+<span class="nc" id="L63">            setCrossHint(CrossHint.SECOND_IS_SMALL);</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">        } else if (this instanceof CrossWithLarge) {</span>
+<span class="nc" id="L65">            setCrossHint(CrossHint.FIRST_IS_SMALL);</span>
+        }
+<span class="nc" id="L67">    }</span>
+
+    public CrossOperatorBase(
+            FT udf, BinaryOperatorInformation&lt;IN1, IN2, OUT&gt; operatorInfo, String name) {
+<span class="nc" id="L71">        this(new UserCodeObjectWrapper&lt;FT&gt;(udf), operatorInfo, name);</span>
+<span class="nc" id="L72">    }</span>
+
+    public CrossOperatorBase(
+            Class&lt;? extends FT&gt; udf,
+            BinaryOperatorInformation&lt;IN1, IN2, OUT&gt; operatorInfo,
+            String name) {
+<span class="nc" id="L78">        this(new UserCodeClassWrapper&lt;FT&gt;(udf), operatorInfo, name);</span>
+<span class="nc" id="L79">    }</span>
+
+    public void setCrossHint(CrossHint hint) {
+<span class="nc bnc" id="L82" title="All 2 branches missed.">        this.hint = hint == null ? CrossHint.OPTIMIZER_CHOOSES : hint;</span>
+<span class="nc" id="L83">    }</span>
+
+    public CrossHint getCrossHint() {
+<span class="nc" id="L86">        return hint;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    protected List&lt;OUT&gt; executeOnCollections(
+            List&lt;IN1&gt; inputData1,
+            List&lt;IN2&gt; inputData2,
+            RuntimeContext ctx,
+            ExecutionConfig executionConfig)
+            throws Exception {
+<span class="nc" id="L98">        CrossFunction&lt;IN1, IN2, OUT&gt; function = this.userFunction.getUserCodeObject();</span>
+
+<span class="nc" id="L100">        FunctionUtils.setFunctionRuntimeContext(function, ctx);</span>
+<span class="nc" id="L101">        FunctionUtils.openFunction(function, this.parameters);</span>
+
+<span class="nc" id="L103">        ArrayList&lt;OUT&gt; result = new ArrayList&lt;OUT&gt;(inputData1.size() * inputData2.size());</span>
+
+<span class="nc" id="L105">        TypeSerializer&lt;IN1&gt; inSerializer1 =</span>
+<span class="nc" id="L106">                getOperatorInfo().getFirstInputType().createSerializer(executionConfig);</span>
+<span class="nc" id="L107">        TypeSerializer&lt;IN2&gt; inSerializer2 =</span>
+<span class="nc" id="L108">                getOperatorInfo().getSecondInputType().createSerializer(executionConfig);</span>
+<span class="nc" id="L109">        TypeSerializer&lt;OUT&gt; outSerializer =</span>
+<span class="nc" id="L110">                getOperatorInfo().getOutputType().createSerializer(executionConfig);</span>
+
+<span class="nc bnc" id="L112" title="All 2 branches missed.">        for (IN1 element1 : inputData1) {</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">            for (IN2 element2 : inputData2) {</span>
+<span class="nc" id="L114">                IN1 copy1 = inSerializer1.copy(element1);</span>
+<span class="nc" id="L115">                IN2 copy2 = inSerializer2.copy(element2);</span>
+<span class="nc" id="L116">                OUT o = function.cross(copy1, copy2);</span>
+<span class="nc" id="L117">                result.add(outSerializer.copy(o));</span>
+<span class="nc" id="L118">            }</span>
+<span class="nc" id="L119">        }</span>
+
+<span class="nc" id="L121">        FunctionUtils.closeFunction(function);</span>
+<span class="nc" id="L122">        return result;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    /** Marker interface to declare the second input as the smaller one. */
+    public static interface CrossWithSmall {}
+
+    /** Marker interface to declare the second input as the larger one. */
+    public static interface CrossWithLarge {}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

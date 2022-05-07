@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LocalDateTimeComparator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeutils.base</a> &gt; <span class="el_source">LocalDateTimeComparator.java</span></div><h1>LocalDateTimeComparator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeutils.base;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.TypeComparator;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.core.memory.MemorySegment;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.time.LocalDateTime;
+
+/**
+ * This class can not extend {@link BasicTypeComparator}, because LocalDateTime is a Comparable of
+ * ChronoLocalDateTime instead of Comparable of LocalDateTime.
+ */
+@Internal
+public final class LocalDateTimeComparator extends TypeComparator&lt;LocalDateTime&gt;
+        implements Serializable {
+
+    private transient LocalDateTime reference;
+
+    protected final boolean ascendingComparison;
+    protected final LocalDateComparator dateComparator;
+    protected final LocalTimeComparator timeComparator;
+
+    // For use by getComparators
+<span class="fc" id="L46">    @SuppressWarnings(&quot;rawtypes&quot;)</span>
+    private final LocalDateTimeComparator[] comparators = new LocalDateTimeComparator[] {this};
+
+<span class="fc" id="L49">    public LocalDateTimeComparator(boolean ascending) {</span>
+<span class="fc" id="L50">        this.ascendingComparison = ascending;</span>
+<span class="fc" id="L51">        this.dateComparator = new LocalDateComparator(ascending);</span>
+<span class="fc" id="L52">        this.timeComparator = new LocalTimeComparator(ascending);</span>
+<span class="fc" id="L53">    }</span>
+
+    @Override
+    public int hash(LocalDateTime value) {
+<span class="nc" id="L57">        return value.hashCode();</span>
+    }
+
+    @Override
+    public void setReference(LocalDateTime toCompare) {
+<span class="fc" id="L62">        this.reference = toCompare;</span>
+<span class="fc" id="L63">    }</span>
+
+    @Override
+    public boolean equalToReference(LocalDateTime candidate) {
+<span class="fc" id="L67">        return candidate.equals(reference);</span>
+    }
+
+    @Override
+    public int compareToReference(TypeComparator&lt;LocalDateTime&gt; referencedComparator) {
+<span class="fc" id="L72">        int comp = ((LocalDateTimeComparator) referencedComparator).reference.compareTo(reference);</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">        return ascendingComparison ? comp : -comp;</span>
+    }
+
+    @Override
+    public int compare(LocalDateTime first, LocalDateTime second) {
+<span class="fc" id="L78">        int cmp = first.compareTo(second);</span>
+<span class="pc bpc" id="L79" title="1 of 2 branches missed.">        return ascendingComparison ? cmp : -cmp;</span>
+    }
+
+    @Override
+    public boolean invertNormalizedKey() {
+<span class="nc bnc" id="L84" title="All 2 branches missed.">        return !ascendingComparison;</span>
+    }
+
+    @Override
+    public boolean supportsSerializationWithKeyNormalization() {
+<span class="fc" id="L89">        return false;</span>
+    }
+
+    @Override
+    public void writeWithKeyNormalization(LocalDateTime record, DataOutputView target)
+            throws IOException {
+<span class="nc" id="L95">        throw new UnsupportedOperationException();</span>
+    }
+
+    @Override
+    public int extractKeys(Object record, Object[] target, int index) {
+<span class="fc" id="L100">        target[index] = record;</span>
+<span class="fc" id="L101">        return 1;</span>
+    }
+
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    @Override
+    public TypeComparator[] getFlatComparators() {
+<span class="fc" id="L107">        return comparators;</span>
+    }
+
+    @Override
+    public LocalDateTime readWithKeyDenormalization(LocalDateTime reuse, DataInputView source)
+            throws IOException {
+<span class="nc" id="L113">        throw new UnsupportedOperationException();</span>
+    }
+
+    @Override
+    public int compareSerialized(DataInputView firstSource, DataInputView secondSource)
+            throws IOException {
+<span class="fc" id="L119">        int cmp = dateComparator.compareSerialized(firstSource, secondSource);</span>
+<span class="fc bfc" id="L120" title="All 2 branches covered.">        if (cmp == 0) {</span>
+<span class="fc" id="L121">            cmp = timeComparator.compareSerialized(firstSource, secondSource);</span>
+        }
+<span class="fc" id="L123">        return cmp;</span>
+    }
+
+    @Override
+    public boolean supportsNormalizedKey() {
+<span class="fc" id="L128">        return true;</span>
+    }
+
+    @Override
+    public int getNormalizeKeyLen() {
+<span class="fc" id="L133">        return dateComparator.getNormalizeKeyLen() + timeComparator.getNormalizeKeyLen();</span>
+    }
+
+    @Override
+    public boolean isNormalizedKeyPrefixOnly(int keyBytes) {
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">        return keyBytes &lt; getNormalizeKeyLen();</span>
+    }
+
+    @Override
+    public void putNormalizedKey(
+            LocalDateTime record, MemorySegment target, int offset, int numBytes) {
+<span class="fc" id="L144">        int dateNKLen = dateComparator.getNormalizeKeyLen();</span>
+<span class="fc bfc" id="L145" title="All 2 branches covered.">        if (numBytes &lt;= dateNKLen) {</span>
+<span class="fc" id="L146">            dateComparator.putNormalizedKey(record.toLocalDate(), target, offset, numBytes);</span>
+        } else {
+<span class="fc" id="L148">            dateComparator.putNormalizedKey(record.toLocalDate(), target, offset, dateNKLen);</span>
+<span class="fc" id="L149">            timeComparator.putNormalizedKey(</span>
+<span class="fc" id="L150">                    record.toLocalTime(), target, offset + dateNKLen, numBytes - dateNKLen);</span>
+        }
+<span class="fc" id="L152">    }</span>
+
+    @Override
+    public LocalDateTimeComparator duplicate() {
+<span class="fc" id="L156">        return new LocalDateTimeComparator(ascendingComparison);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

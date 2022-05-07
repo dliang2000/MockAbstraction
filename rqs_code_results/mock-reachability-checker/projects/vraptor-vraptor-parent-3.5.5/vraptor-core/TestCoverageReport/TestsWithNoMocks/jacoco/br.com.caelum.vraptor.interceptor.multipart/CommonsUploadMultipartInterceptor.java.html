@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CommonsUploadMultipartInterceptor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.interceptor.multipart</a> &gt; <span class="el_source">CommonsUploadMultipartInterceptor.java</span></div><h1>CommonsUploadMultipartInterceptor.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package br.com.caelum.vraptor.interceptor.multipart;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.util.Collection;
+import java.util.List;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.fileupload.FileItemFactory;
+import org.apache.commons.fileupload.FileUploadBase.SizeLimitExceededException;
+import org.apache.commons.fileupload.FileUploadException;
+import org.apache.commons.fileupload.disk.DiskFileItemFactory;
+import org.apache.commons.fileupload.servlet.ServletFileUpload;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import br.com.caelum.vraptor.InterceptionException;
+import br.com.caelum.vraptor.Intercepts;
+import br.com.caelum.vraptor.Validator;
+import br.com.caelum.vraptor.core.InterceptorStack;
+import br.com.caelum.vraptor.http.InvalidParameterException;
+import br.com.caelum.vraptor.http.MutableRequest;
+import br.com.caelum.vraptor.interceptor.ResourceLookupInterceptor;
+import br.com.caelum.vraptor.ioc.RequestScoped;
+import br.com.caelum.vraptor.resource.ResourceMethod;
+import br.com.caelum.vraptor.validator.I18nMessage;
+import br.com.caelum.vraptor.validator.ValidationMessage;
+import br.com.caelum.vraptor.validator.Validations;
+
+import com.google.common.base.Strings;
+import com.google.common.collect.HashMultiset;
+import com.google.common.collect.LinkedListMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multiset;
+
+/**
+ * A multipart interceptor based on Apache Commons Upload. Provided parameters are injected through
+ * RequestParameters.set and uploaded files are made available through
+ * 
+ * @author Guilherme Silveira
+ * @author Otávio Scherer Garcia
+ */
+@Intercepts(before = ResourceLookupInterceptor.class, after = {})
+@RequestScoped
+public class CommonsUploadMultipartInterceptor
+	implements MultipartInterceptor {
+
+<span class="nc" id="L67">	private static final Logger logger = LoggerFactory.getLogger(CommonsUploadMultipartInterceptor.class);</span>
+
+	private final HttpServletRequest request;
+	private final MutableRequest parameters;
+	private final MultipartConfig config;
+	private final Validator validator;
+	private final ServletFileUploadCreator fileUploadCreator;
+
+	private Multiset&lt;String&gt; indexes;
+
+	public CommonsUploadMultipartInterceptor(HttpServletRequest request, MutableRequest parameters, MultipartConfig cfg,
+<span class="nc" id="L78">		Validator validator, ServletFileUploadCreator fileUploadCreator) {</span>
+<span class="nc" id="L79">		this.request = request;</span>
+<span class="nc" id="L80">		this.parameters = parameters;</span>
+<span class="nc" id="L81">		this.validator = validator;</span>
+<span class="nc" id="L82">		this.config = cfg;</span>
+<span class="nc" id="L83">		this.fileUploadCreator = fileUploadCreator;</span>
+<span class="nc" id="L84">	}</span>
+
+	/**
+	 * Will intercept the request if apache file upload says that this request is multipart
+	 */
+	public boolean accepts(ResourceMethod method) {
+<span class="nc" id="L90">		return ServletFileUpload.isMultipartContent(request);</span>
+	}
+
+	public void intercept(InterceptorStack stack, ResourceMethod method, Object instance) throws InterceptionException {
+<span class="nc" id="L94">		logger.info(&quot;Request contains multipart data. Try to parse with commons-upload.&quot;);</span>
+
+<span class="nc" id="L96">		FileItemFactory factory = createFactoryForDiskBasedFileItems(config.getDirectory());</span>
+<span class="nc" id="L97">		indexes = HashMultiset.create();</span>
+
+<span class="nc" id="L99">		ServletFileUpload uploader = fileUploadCreator.create(factory);</span>
+<span class="nc" id="L100">		uploader.setSizeMax(config.getSizeLimit());</span>
+
+		try {
+<span class="nc" id="L103">			final List&lt;FileItem&gt; items = uploader.parseRequest(request);</span>
+<span class="nc" id="L104">			logger.debug(&quot;Found {} attributes in the multipart form submission. Parsing them.&quot;, items.size());</span>
+
+<span class="nc" id="L106">			final Multimap&lt;String, String&gt; params = LinkedListMultimap.create();</span>
+
+<span class="nc bnc" id="L108" title="All 2 branches missed.">			for (FileItem item : items) {</span>
+<span class="nc" id="L109">				String name = item.getFieldName();</span>
+<span class="nc" id="L110">				name = fixIndexedParameters(name);</span>
+
+<span class="nc bnc" id="L112" title="All 2 branches missed.">				if (item.isFormField()) {</span>
+<span class="nc" id="L113">					logger.debug(&quot;{} is a field&quot;, name);</span>
+<span class="nc" id="L114">					params.put(name, getValue(item));</span>
+
+<span class="nc bnc" id="L116" title="All 2 branches missed.">				} else if (isNotEmpty(item)) {</span>
+<span class="nc" id="L117">					logger.debug(&quot;{} is a file&quot;, name);</span>
+<span class="nc" id="L118">					processFile(item, name);</span>
+
+				} else {
+<span class="nc" id="L121">					logger.debug(&quot;A file field was empty: {}&quot;, item.getFieldName());</span>
+				}
+<span class="nc" id="L123">			}</span>
+
+<span class="nc bnc" id="L125" title="All 2 branches missed.">			for (String paramName : params.keySet()) {</span>
+<span class="nc" id="L126">				Collection&lt;String&gt; paramValues = params.get(paramName);</span>
+<span class="nc" id="L127">				parameters.setParameter(paramName, paramValues.toArray(new String[paramValues.size()]));</span>
+<span class="nc" id="L128">			}</span>
+
+<span class="nc" id="L130">		} catch (final SizeLimitExceededException e) {</span>
+<span class="nc" id="L131">			reportSizeLimitExceeded(e);</span>
+
+<span class="nc" id="L133">		} catch (FileUploadException e) {</span>
+<span class="nc" id="L134">			reportFileUploadException(e);</span>
+<span class="nc" id="L135">		}</span>
+
+<span class="nc" id="L137">		stack.next(method, instance);</span>
+<span class="nc" id="L138">	}</span>
+
+	private boolean isNotEmpty(FileItem item) {
+<span class="nc bnc" id="L141" title="All 2 branches missed.">		return item.getName().length() &gt; 0;</span>
+	}
+	
+	private void reportFileUploadException(FileUploadException e) {
+<span class="nc" id="L145">		validator.add(new ValidationMessage(e.getMessage(), &quot;file.upload.exception&quot;));</span>
+<span class="nc" id="L146">		logger.warn(&quot;There was some problem parsing this multipart request, &quot; + &quot;or someone is not sending a RFC1867 compatible multipart request.&quot;, e);</span>
+<span class="nc" id="L147">	}</span>
+
+	/**
+	 * This method is called when the {@link SizeLimitExceededException} was thrown. By default, add the key
+	 * file.limit.exceeded using {@link Validations}.
+	 * 
+	 * @param e
+	 */
+	protected void reportSizeLimitExceeded(final SizeLimitExceededException e) {
+<span class="nc" id="L156">		validator.add(new I18nMessage(&quot;upload&quot;, &quot;file.limit.exceeded&quot;, e.getActualSize(), e.getPermittedSize()));</span>
+<span class="nc" id="L157">		logger.warn(&quot;The file size limit was exceeded.&quot;, e);</span>
+<span class="nc" id="L158">	}</span>
+
+	protected void processFile(FileItem item, String name) {
+		try {
+<span class="nc" id="L162">			UploadedFile upload = new DefaultUploadedFile(item.getInputStream(), item.getName(), item.getContentType(), item.getSize());</span>
+<span class="nc" id="L163">			parameters.setParameter(name, name);</span>
+<span class="nc" id="L164">			request.setAttribute(name, upload);</span>
+	
+<span class="nc" id="L166">			logger.debug(&quot;Uploaded file: {} with {}&quot;, name, upload);</span>
+<span class="nc" id="L167">		} catch (IOException e) {</span>
+<span class="nc" id="L168">			throw new InvalidParameterException(&quot;Cant parse uploaded file &quot; + item.getName(), e);</span>
+<span class="nc" id="L169">		}</span>
+<span class="nc" id="L170">	}</span>
+
+	protected FileItemFactory createFactoryForDiskBasedFileItems(File temporaryDirectory) {
+<span class="nc" id="L173">		DiskFileItemFactory factory = new DiskFileItemFactory();</span>
+<span class="nc" id="L174">		factory.setRepository(temporaryDirectory);</span>
+	
+<span class="nc" id="L176">		logger.debug(&quot;Using repository {} for file upload&quot;, factory.getRepository());</span>
+<span class="nc" id="L177">		return factory;</span>
+	}
+
+	protected String getValue(FileItem item) {
+<span class="nc" id="L181">		String encoding = request.getCharacterEncoding();</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">		if (!Strings.isNullOrEmpty(encoding)) {</span>
+			try {
+<span class="nc" id="L184">				return item.getString(encoding);</span>
+<span class="nc" id="L185">			} catch (UnsupportedEncodingException e) {</span>
+<span class="nc" id="L186">				logger.warn(&quot;Request have an invalid encoding. Ignoring it&quot;);</span>
+			}
+		}
+<span class="nc" id="L189">		return item.getString();</span>
+	}
+
+	protected String fixIndexedParameters(String name) {
+<span class="nc bnc" id="L193" title="All 2 branches missed.">		if (name.contains(&quot;[]&quot;)) {</span>
+<span class="nc" id="L194">			String newName = name.replace(&quot;[]&quot;, &quot;[&quot; + (indexes.count(name)) + &quot;]&quot;);</span>
+<span class="nc" id="L195">			indexes.add(name);</span>
+<span class="nc" id="L196">			logger.debug(&quot;{} was renamed to {}&quot;, name, newName);</span>
+<span class="nc" id="L197">			name = newName;</span>
+		}
+<span class="nc" id="L199">		return name;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

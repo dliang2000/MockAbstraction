@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SingleThreadedBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.lifecycle.internal.builder.singlethreaded</a> &gt; <span class="el_source">SingleThreadedBuilder.java</span></div><h1>SingleThreadedBuilder.java</h1><pre class="source lang-java linenums">package org.apache.maven.lifecycle.internal.builder.singlethreaded;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.util.List;
+
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.lifecycle.internal.LifecycleModuleBuilder;
+import org.apache.maven.lifecycle.internal.ProjectBuildList;
+import org.apache.maven.lifecycle.internal.ProjectSegment;
+import org.apache.maven.lifecycle.internal.ReactorBuildStatus;
+import org.apache.maven.lifecycle.internal.ReactorContext;
+import org.apache.maven.lifecycle.internal.TaskSegment;
+import org.apache.maven.lifecycle.internal.builder.Builder;
+import org.codehaus.plexus.component.annotations.Component;
+import org.codehaus.plexus.component.annotations.Requirement;
+
+/**
+ * &lt;p&gt;
+ * A {@link Builder} encapsulates a strategy for building a set of Maven projects. The default strategy in Maven builds
+ * the the projects serially, but a {@link Builder} can employ any type of concurrency model to build the projects.
+ */
+@Component( role = Builder.class, hint = &quot;singlethreaded&quot; )
+<span class="nc" id="L41">public class SingleThreadedBuilder</span>
+    implements Builder
+{
+    @Requirement
+    private LifecycleModuleBuilder lifecycleModuleBuilder;
+
+    public void build( MavenSession session, ReactorContext reactorContext, ProjectBuildList projectBuilds,
+                       List&lt;TaskSegment&gt; taskSegments, ReactorBuildStatus reactorBuildStatus )
+    {
+<span class="nc bnc" id="L50" title="All 2 branches missed.">        for ( TaskSegment taskSegment : taskSegments )</span>
+        {
+<span class="nc bnc" id="L52" title="All 2 branches missed.">            for ( ProjectSegment projectBuild : projectBuilds.getByTaskSegment( taskSegment ) )</span>
+            {
+                try
+                {
+<span class="nc" id="L56">                    lifecycleModuleBuilder.buildProject( session, reactorContext, projectBuild.getProject(),</span>
+                                                         taskSegment );
+<span class="nc bnc" id="L58" title="All 2 branches missed.">                    if ( reactorBuildStatus.isHalted() )</span>
+                    {
+<span class="nc" id="L60">                        break;</span>
+                    }
+                }
+<span class="nc" id="L63">                catch ( Exception e )</span>
+                {
+<span class="nc" id="L65">                    break; // Why are we just ignoring this exception? Are exceptions are being used for flow control</span>
+<span class="nc" id="L66">                }</span>
+<span class="nc" id="L67">            }</span>
+<span class="nc" id="L68">        }</span>
+<span class="nc" id="L69">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

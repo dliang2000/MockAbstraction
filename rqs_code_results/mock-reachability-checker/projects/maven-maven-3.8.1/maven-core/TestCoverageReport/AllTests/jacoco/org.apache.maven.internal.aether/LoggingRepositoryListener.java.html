@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LoggingRepositoryListener.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.internal.aether</a> &gt; <span class="el_source">LoggingRepositoryListener.java</span></div><h1>LoggingRepositoryListener.java</h1><pre class="source lang-java linenums">package org.apache.maven.internal.aether;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.io.FileNotFoundException;
+
+import org.codehaus.plexus.logging.Logger;
+import org.eclipse.aether.AbstractRepositoryListener;
+import org.eclipse.aether.RepositoryEvent;
+import org.eclipse.aether.transfer.MetadataNotFoundException;
+
+/**
+ * @author Benjamin Bentmann
+ */
+class LoggingRepositoryListener
+    extends AbstractRepositoryListener
+{
+
+    private final Logger logger;
+
+    LoggingRepositoryListener( Logger logger )
+<span class="fc" id="L39">    {</span>
+<span class="fc" id="L40">        this.logger = logger;</span>
+<span class="fc" id="L41">    }</span>
+
+    @Override
+    public void artifactInstalling( RepositoryEvent event )
+    {
+<span class="nc" id="L46">        logger.info( &quot;Installing &quot; + event.getArtifact().getFile() + &quot; to &quot; + event.getFile() );</span>
+<span class="nc" id="L47">    }</span>
+
+    @Override
+    public void metadataInstalling( RepositoryEvent event )
+    {
+<span class="nc" id="L52">        logger.debug( &quot;Installing &quot; + event.getMetadata() + &quot; to &quot; + event.getFile() );</span>
+<span class="nc" id="L53">    }</span>
+
+    @Override
+    public void metadataResolved( RepositoryEvent event )
+    {
+<span class="nc" id="L58">        Exception e = event.getException();</span>
+<span class="nc bnc" id="L59" title="All 2 branches missed.">        if ( e != null )</span>
+        {
+<span class="nc bnc" id="L61" title="All 2 branches missed.">            if ( e instanceof MetadataNotFoundException )</span>
+            {
+<span class="nc" id="L63">                logger.debug( e.getMessage() );</span>
+            }
+<span class="nc bnc" id="L65" title="All 2 branches missed.">            else if ( logger.isDebugEnabled() )</span>
+            {
+<span class="nc" id="L67">                logger.warn( e.getMessage(), e );</span>
+            }
+            else
+            {
+<span class="nc" id="L71">                logger.warn( e.getMessage() );</span>
+            }
+        }
+<span class="nc" id="L74">    }</span>
+
+    @Override
+    public void metadataInvalid( RepositoryEvent event )
+    {
+<span class="nc" id="L79">        Exception exception = event.getException();</span>
+
+<span class="nc" id="L81">        StringBuilder buffer = new StringBuilder( 256 );</span>
+<span class="nc" id="L82">        buffer.append( &quot;The metadata &quot; );</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">        if ( event.getMetadata().getFile() != null )</span>
+        {
+<span class="nc" id="L85">            buffer.append( event.getMetadata().getFile() );</span>
+        }
+        else
+        {
+<span class="nc" id="L89">            buffer.append( event.getMetadata() );</span>
+        }
+
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        if ( exception instanceof FileNotFoundException )</span>
+        {
+<span class="nc" id="L94">            buffer.append( &quot; is inaccessible&quot; );</span>
+        }
+        else
+        {
+<span class="nc" id="L98">            buffer.append( &quot; is invalid&quot; );</span>
+        }
+
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        if ( exception != null )</span>
+        {
+<span class="nc" id="L103">            buffer.append( &quot;: &quot; );</span>
+<span class="nc" id="L104">            buffer.append( exception.getMessage() );</span>
+        }
+
+<span class="nc bnc" id="L107" title="All 2 branches missed.">        if ( logger.isDebugEnabled() )</span>
+        {
+<span class="nc" id="L109">            logger.warn( buffer.toString(), exception );</span>
+        }
+        else
+        {
+<span class="nc" id="L113">            logger.warn( buffer.toString() );</span>
+        }
+<span class="nc" id="L115">    }</span>
+
+    @Override
+    public void artifactDescriptorInvalid( RepositoryEvent event )
+    {
+<span class="nc" id="L120">        StringBuilder buffer = new StringBuilder( 256 );</span>
+<span class="nc" id="L121">        buffer.append( &quot;The POM for &quot; );</span>
+<span class="nc" id="L122">        buffer.append( event.getArtifact() );</span>
+<span class="nc" id="L123">        buffer.append( &quot; is invalid, transitive dependencies (if any) will not be available&quot; );</span>
+
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        if ( logger.isDebugEnabled() )</span>
+        {
+<span class="nc" id="L127">            logger.warn( buffer + &quot;: &quot; + event.getException().getMessage() );</span>
+        }
+        else
+        {
+<span class="nc" id="L131">            logger.warn( buffer + &quot;, enable debug logging for more details&quot; );</span>
+        }
+<span class="nc" id="L133">    }</span>
+
+    @Override
+    public void artifactDescriptorMissing( RepositoryEvent event )
+    {
+<span class="nc" id="L138">        logger.warn( &quot;The POM for &quot; + event.getArtifact() + &quot; is missing, no dependency information available&quot; );</span>
+<span class="nc" id="L139">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

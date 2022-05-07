@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AggregatorRegistry.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.aggregators</a> &gt; <span class="el_source">AggregatorRegistry.java</span></div><h1>AggregatorRegistry.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.aggregators;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.types.Value;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+
+/** A registry for iteration {@link Aggregator}s. */
+@Internal
+<span class="nc" id="L31">public class AggregatorRegistry {</span>
+
+<span class="nc" id="L33">    private final Map&lt;String, Aggregator&lt;?&gt;&gt; registry = new HashMap&lt;String, Aggregator&lt;?&gt;&gt;();</span>
+
+    private ConvergenceCriterion&lt;? extends Value&gt; convergenceCriterion;
+
+    private String convergenceCriterionAggregatorName;
+
+    // --------------------------------------------------------------------------------------------
+
+    public void registerAggregator(String name, Aggregator&lt;?&gt; aggregator) {
+<span class="nc bnc" id="L42" title="All 4 branches missed.">        if (name == null || aggregator == null) {</span>
+<span class="nc" id="L43">            throw new IllegalArgumentException(&quot;Name and aggregator must not be null&quot;);</span>
+        }
+<span class="nc bnc" id="L45" title="All 2 branches missed.">        if (this.registry.containsKey(name)) {</span>
+<span class="nc" id="L46">            throw new RuntimeException(&quot;An aggregator is already registered under the given name.&quot;);</span>
+        }
+<span class="nc" id="L48">        this.registry.put(name, aggregator);</span>
+<span class="nc" id="L49">    }</span>
+
+    public Collection&lt;AggregatorWithName&lt;?&gt;&gt; getAllRegisteredAggregators() {
+<span class="nc" id="L52">        ArrayList&lt;AggregatorWithName&lt;?&gt;&gt; list =</span>
+<span class="nc" id="L53">                new ArrayList&lt;AggregatorWithName&lt;?&gt;&gt;(this.registry.size());</span>
+
+<span class="nc bnc" id="L55" title="All 2 branches missed.">        for (Map.Entry&lt;String, Aggregator&lt;?&gt;&gt; entry : this.registry.entrySet()) {</span>
+            @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L57">            Aggregator&lt;Value&gt; valAgg = (Aggregator&lt;Value&gt;) entry.getValue();</span>
+<span class="nc" id="L58">            list.add(new AggregatorWithName&lt;&gt;(entry.getKey(), valAgg));</span>
+<span class="nc" id="L59">        }</span>
+<span class="nc" id="L60">        return list;</span>
+    }
+
+    public &lt;T extends Value&gt; void registerAggregationConvergenceCriterion(
+            String name, Aggregator&lt;T&gt; aggregator, ConvergenceCriterion&lt;T&gt; convergenceCheck) {
+<span class="nc bnc" id="L65" title="All 6 branches missed.">        if (name == null || aggregator == null || convergenceCheck == null) {</span>
+<span class="nc" id="L66">            throw new IllegalArgumentException(</span>
+                    &quot;Name, aggregator, or convergence criterion must not be null&quot;);
+        }
+
+<span class="nc" id="L70">        Aggregator&lt;?&gt; genAgg = aggregator;</span>
+
+<span class="nc" id="L72">        Aggregator&lt;?&gt; previous = this.registry.get(name);</span>
+<span class="nc bnc" id="L73" title="All 4 branches missed.">        if (previous != null &amp;&amp; previous != genAgg) {</span>
+<span class="nc" id="L74">            throw new RuntimeException(&quot;An aggregator is already registered under the given name.&quot;);</span>
+        }
+
+<span class="nc" id="L77">        this.registry.put(name, genAgg);</span>
+<span class="nc" id="L78">        this.convergenceCriterion = convergenceCheck;</span>
+<span class="nc" id="L79">        this.convergenceCriterionAggregatorName = name;</span>
+<span class="nc" id="L80">    }</span>
+
+    public String getConvergenceCriterionAggregatorName() {
+<span class="nc" id="L83">        return this.convergenceCriterionAggregatorName;</span>
+    }
+
+    public ConvergenceCriterion&lt;?&gt; getConvergenceCriterion() {
+<span class="nc" id="L87">        return this.convergenceCriterion;</span>
+    }
+
+    public void addAll(AggregatorRegistry registry) {
+<span class="nc" id="L91">        this.registry.putAll(registry.registry);</span>
+<span class="nc" id="L92">        this.convergenceCriterion = registry.convergenceCriterion;</span>
+<span class="nc" id="L93">        this.convergenceCriterionAggregatorName = registry.convergenceCriterionAggregatorName;</span>
+<span class="nc" id="L94">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

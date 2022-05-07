@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BigIntSerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeutils.base</a> &gt; <span class="el_source">BigIntSerializer.java</span></div><h1>BigIntSerializer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeutils.base;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.SimpleTypeSerializerSnapshot;
+import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+
+import java.io.IOException;
+import java.math.BigInteger;
+
+/** Serializer for serializing/deserializing BigInteger values including null values. */
+@Internal
+<span class="fc" id="L32">public final class BigIntSerializer extends TypeSerializerSingleton&lt;BigInteger&gt; {</span>
+
+    private static final long serialVersionUID = 1L;
+
+<span class="fc" id="L36">    public static final BigIntSerializer INSTANCE = new BigIntSerializer();</span>
+
+    @Override
+    public boolean isImmutableType() {
+<span class="nc" id="L40">        return true;</span>
+    }
+
+    @Override
+    public BigInteger createInstance() {
+<span class="fc" id="L45">        return BigInteger.ZERO;</span>
+    }
+
+    @Override
+    public BigInteger copy(BigInteger from) {
+<span class="fc" id="L50">        return from;</span>
+    }
+
+    @Override
+    public BigInteger copy(BigInteger from, BigInteger reuse) {
+<span class="fc" id="L55">        return from;</span>
+    }
+
+    @Override
+    public int getLength() {
+<span class="fc" id="L60">        return -1;</span>
+    }
+
+    @Override
+    public void serialize(BigInteger record, DataOutputView target) throws IOException {
+<span class="fc" id="L65">        writeBigInteger(record, target);</span>
+<span class="fc" id="L66">    }</span>
+
+    @Override
+    public BigInteger deserialize(DataInputView source) throws IOException {
+<span class="fc" id="L70">        return readBigInteger(source);</span>
+    }
+
+    @Override
+    public BigInteger deserialize(BigInteger reuse, DataInputView source) throws IOException {
+<span class="fc" id="L75">        return readBigInteger(source);</span>
+    }
+
+    @Override
+    public void copy(DataInputView source, DataOutputView target) throws IOException {
+<span class="fc" id="L80">        copyBigInteger(source, target);</span>
+<span class="fc" id="L81">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+    //                           Static Helpers for BigInteger Serialization
+    // --------------------------------------------------------------------------------------------
+
+    public static void writeBigInteger(BigInteger record, DataOutputView target)
+            throws IOException {
+        // null value support
+<span class="fc bfc" id="L90" title="All 2 branches covered.">        if (record == null) {</span>
+<span class="fc" id="L91">            target.writeInt(0);</span>
+<span class="fc" id="L92">            return;</span>
+        }
+        // fast paths for 0, 1, 10
+        // only reference equality is checked because equals would be too expensive
+<span class="fc bfc" id="L96" title="All 2 branches covered.">        else if (record == BigInteger.ZERO) {</span>
+<span class="fc" id="L97">            target.writeInt(1);</span>
+<span class="fc" id="L98">            return;</span>
+<span class="fc bfc" id="L99" title="All 2 branches covered.">        } else if (record == BigInteger.ONE) {</span>
+<span class="fc" id="L100">            target.writeInt(2);</span>
+<span class="fc" id="L101">            return;</span>
+<span class="fc bfc" id="L102" title="All 2 branches covered.">        } else if (record == BigInteger.TEN) {</span>
+<span class="fc" id="L103">            target.writeInt(3);</span>
+<span class="fc" id="L104">            return;</span>
+        }
+        // default
+<span class="fc" id="L107">        final byte[] bytes = record.toByteArray();</span>
+        // the length we write is offset by four, because null and short-paths for ZERO, ONE, and
+        // TEN
+<span class="fc" id="L110">        target.writeInt(bytes.length + 4);</span>
+<span class="fc" id="L111">        target.write(bytes);</span>
+<span class="fc" id="L112">    }</span>
+
+    public static BigInteger readBigInteger(DataInputView source) throws IOException {
+<span class="fc" id="L115">        final int len = source.readInt();</span>
+<span class="fc bfc" id="L116" title="All 2 branches covered.">        if (len &lt; 4) {</span>
+<span class="pc bpc" id="L117" title="1 of 5 branches missed.">            switch (len) {</span>
+                case 0:
+<span class="fc" id="L119">                    return null;</span>
+                case 1:
+<span class="fc" id="L121">                    return BigInteger.ZERO;</span>
+                case 2:
+<span class="fc" id="L123">                    return BigInteger.ONE;</span>
+                case 3:
+<span class="fc" id="L125">                    return BigInteger.TEN;</span>
+            }
+        }
+<span class="fc" id="L128">        final byte[] bytes = new byte[len - 4];</span>
+<span class="fc" id="L129">        source.readFully(bytes);</span>
+<span class="fc" id="L130">        return new BigInteger(bytes);</span>
+    }
+
+    public static boolean copyBigInteger(DataInputView source, DataOutputView target)
+            throws IOException {
+<span class="fc" id="L135">        final int len = source.readInt();</span>
+<span class="fc" id="L136">        target.writeInt(len);</span>
+<span class="fc bfc" id="L137" title="All 2 branches covered.">        if (len &gt; 4) {</span>
+<span class="fc" id="L138">            target.write(source, len - 4);</span>
+        }
+<span class="pc bpc" id="L140" title="1 of 2 branches missed.">        return len == 0; // returns true if the copied record was null</span>
+    }
+
+    @Override
+    public TypeSerializerSnapshot&lt;BigInteger&gt; snapshotConfiguration() {
+<span class="fc" id="L145">        return new BigIntSerializerSnapshot();</span>
+    }
+
+    // ------------------------------------------------------------------------
+
+    /** Serializer configuration snapshot for compatibility and format evolution. */
+    @SuppressWarnings(&quot;WeakerAccess&quot;)
+    public static final class BigIntSerializerSnapshot
+            extends SimpleTypeSerializerSnapshot&lt;BigInteger&gt; {
+
+        public BigIntSerializerSnapshot() {
+<span class="fc" id="L156">            super(() -&gt; INSTANCE);</span>
+<span class="fc" id="L157">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

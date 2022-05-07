@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ConcurrencyDependencyGraph.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.lifecycle.internal.builder.multithreaded</a> &gt; <span class="el_source">ConcurrencyDependencyGraph.java</span></div><h1>ConcurrencyDependencyGraph.java</h1><pre class="source lang-java linenums">package org.apache.maven.lifecycle.internal.builder.multithreaded;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import org.apache.maven.execution.ProjectDependencyGraph;
+import org.apache.maven.lifecycle.internal.ProjectBuildList;
+import org.apache.maven.lifecycle.internal.ProjectSegment;
+import org.apache.maven.project.MavenProject;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * &lt;p&gt;
+ * Presents a view of the Dependency Graph that is suited for concurrent building.
+ * &lt;/p&gt;
+ * &lt;strong&gt;NOTE:&lt;/strong&gt; This class is not part of any public api and can be changed or deleted without prior notice.
+ *
+ * @since 3.0
+ * @author Kristian Rosenvold
+ */
+public class ConcurrencyDependencyGraph
+{
+
+    private final ProjectBuildList projectBuilds;
+
+    private final ProjectDependencyGraph projectDependencyGraph;
+
+<span class="nc" id="L49">    private final Set&lt;MavenProject&gt; finishedProjects = new HashSet&lt;&gt;();</span>
+
+    public ConcurrencyDependencyGraph( ProjectBuildList projectBuilds, ProjectDependencyGraph projectDependencyGraph )
+<span class="nc" id="L52">    {</span>
+<span class="nc" id="L53">        this.projectDependencyGraph = projectDependencyGraph;</span>
+<span class="nc" id="L54">        this.projectBuilds = projectBuilds;</span>
+<span class="nc" id="L55">    }</span>
+
+    public int getNumberOfBuilds()
+    {
+<span class="nc" id="L59">        return projectBuilds.size();</span>
+    }
+
+    /**
+     * Gets all the builds that have no reactor-dependencies
+     *
+     * @return A set of all the initial builds
+     */
+
+    public List&lt;MavenProject&gt; getRootSchedulableBuilds()
+    {
+<span class="nc" id="L70">        Set&lt;MavenProject&gt; result = new LinkedHashSet&lt;&gt;();</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">        for ( ProjectSegment projectBuild : projectBuilds )</span>
+        {
+<span class="nc bnc" id="L73" title="All 2 branches missed.">            if ( projectDependencyGraph.getUpstreamProjects( projectBuild.getProject(), false ).isEmpty() )</span>
+            {
+<span class="nc" id="L75">                result.add( projectBuild.getProject() );</span>
+            }
+<span class="nc" id="L77">        }</span>
+<span class="nc" id="L78">        return new ArrayList&lt;&gt;( result );</span>
+    }
+
+    /**
+     * Marks the provided project as finished. Returns a list of
+     *
+     * @param mavenProject The project
+     * @return The list of builds that are eligible for starting now that the provided project is done
+     */
+    public List&lt;MavenProject&gt; markAsFinished( MavenProject mavenProject )
+    {
+<span class="nc" id="L89">        finishedProjects.add( mavenProject );</span>
+<span class="nc" id="L90">        return getSchedulableNewProcesses( mavenProject );</span>
+    }
+
+    private List&lt;MavenProject&gt; getSchedulableNewProcesses( MavenProject finishedProject )
+    {
+<span class="nc" id="L95">        List&lt;MavenProject&gt; result = new ArrayList&lt;&gt;();</span>
+        // schedule dependent projects, if all of their requirements are met
+<span class="nc bnc" id="L97" title="All 2 branches missed.">        for ( MavenProject dependentProject : projectDependencyGraph.getDownstreamProjects( finishedProject, false ) )</span>
+        {
+<span class="nc" id="L99">            final List&lt;MavenProject&gt; upstreamProjects =</span>
+<span class="nc" id="L100">                projectDependencyGraph.getUpstreamProjects( dependentProject, false );</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">            if ( finishedProjects.containsAll( upstreamProjects ) )</span>
+            {
+<span class="nc" id="L103">                result.add( dependentProject );</span>
+            }
+<span class="nc" id="L105">        }</span>
+<span class="nc" id="L106">        return result;</span>
+    }
+
+    /**
+     * @return set of projects that have yet to be processed successfully by the build.
+     */
+    public Set&lt;MavenProject&gt; getUnfinishedProjects()
+    {
+<span class="nc" id="L114">        Set&lt;MavenProject&gt; unfinished = new HashSet&lt;&gt;( projectBuilds.getProjects() );</span>
+<span class="nc" id="L115">        unfinished.removeAll( finishedProjects );</span>
+<span class="nc" id="L116">        return unfinished;</span>
+    }
+
+    /**
+     * @return set of projects that have been successfully processed by the build.
+     */
+    protected Set&lt;MavenProject&gt; getFinishedProjects()
+    {
+<span class="nc" id="L124">        return finishedProjects;</span>
+    }
+
+    protected ProjectBuildList getProjectBuilds()
+    {
+<span class="nc" id="L129">        return projectBuilds;</span>
+    }
+
+    /**
+     * For the given {@link MavenProject} {@code p}, return all of {@code p}'s dependencies.
+     *
+     * @param p
+     * @return List of prerequisite projects
+     */
+    protected List&lt;MavenProject&gt; getDependencies( MavenProject p )
+    {
+<span class="nc" id="L140">        return projectDependencyGraph.getUpstreamProjects( p, false );</span>
+    }
+
+    /**
+     * For the given {@link MavenProject} {@code p} return {@code p}'s uncompleted dependencies.
+     *
+     * @param p
+     * @return List of uncompleted prerequisite projects
+     */
+    public List&lt;MavenProject&gt; getActiveDependencies( MavenProject p )
+    {
+<span class="nc" id="L151">        List&lt;MavenProject&gt; activeDependencies = projectDependencyGraph.getUpstreamProjects( p, false );</span>
+<span class="nc" id="L152">        activeDependencies.removeAll( finishedProjects );</span>
+<span class="nc" id="L153">        return activeDependencies;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

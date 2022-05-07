@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CompositeType.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeutils</a> &gt; <span class="el_source">CompositeType.java</span></div><h1>CompositeType.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeutils;
+
+import org.apache.flink.annotation.Public;
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.typeinfo.AtomicType;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * Base type information class for Tuple and Pojo types
+ *
+ * &lt;p&gt;The class is taking care of serialization and comparators for Tuples as well.
+ */
+@Public
+public abstract class CompositeType&lt;T&gt; extends TypeInformation&lt;T&gt; {
+
+    private static final long serialVersionUID = 1L;
+
+    private final Class&lt;T&gt; typeClass;
+
+    @PublicEvolving
+<span class="fc" id="L46">    public CompositeType(Class&lt;T&gt; typeClass) {</span>
+<span class="fc" id="L47">        this.typeClass = checkNotNull(typeClass);</span>
+<span class="fc" id="L48">    }</span>
+
+    /**
+     * Returns the type class of the composite type
+     *
+     * @return Type class of the composite type
+     */
+    @PublicEvolving
+    public Class&lt;T&gt; getTypeClass() {
+<span class="fc" id="L57">        return typeClass;</span>
+    }
+
+    /**
+     * Returns the flat field descriptors for the given field expression.
+     *
+     * @param fieldExpression The field expression for which the flat field descriptors are
+     *     computed.
+     * @return The list of descriptors for the flat fields which are specified by the field
+     *     expression.
+     */
+    @PublicEvolving
+    public List&lt;FlatFieldDescriptor&gt; getFlatFields(String fieldExpression) {
+<span class="fc" id="L70">        List&lt;FlatFieldDescriptor&gt; result = new ArrayList&lt;FlatFieldDescriptor&gt;();</span>
+<span class="fc" id="L71">        this.getFlatFields(fieldExpression, 0, result);</span>
+<span class="fc" id="L72">        return result;</span>
+    }
+
+    /**
+     * Computes the flat field descriptors for the given field expression with the given offset.
+     *
+     * @param fieldExpression The field expression for which the FlatFieldDescriptors are computed.
+     * @param offset The offset to use when computing the positions of the flat fields.
+     * @param result The list into which all flat field descriptors are inserted.
+     */
+    @PublicEvolving
+    public abstract void getFlatFields(
+            String fieldExpression, int offset, List&lt;FlatFieldDescriptor&gt; result);
+
+    /**
+     * Returns the type of the (nested) field at the given field expression position. Wildcards are
+     * not allowed.
+     *
+     * @param fieldExpression The field expression for which the field of which the type is
+     *     returned.
+     * @return The type of the field at the given field expression.
+     */
+    @PublicEvolving
+    public abstract &lt;X&gt; TypeInformation&lt;X&gt; getTypeAt(String fieldExpression);
+
+    /**
+     * Returns the type of the (unnested) field at the given field position.
+     *
+     * @param pos The position of the (unnested) field in this composite type.
+     * @return The type of the field at the given position.
+     */
+    @PublicEvolving
+    public abstract &lt;X&gt; TypeInformation&lt;X&gt; getTypeAt(int pos);
+
+    @PublicEvolving
+    protected abstract TypeComparatorBuilder&lt;T&gt; createTypeComparatorBuilder();
+
+    /**
+     * Generic implementation of the comparator creation. Composite types are supplying the
+     * infrastructure to create the actual comparators
+     *
+     * @return The comparator
+     */
+    @PublicEvolving
+    public TypeComparator&lt;T&gt; createComparator(
+            int[] logicalKeyFields,
+            boolean[] orders,
+            int logicalFieldOffset,
+            ExecutionConfig config) {
+
+<span class="fc" id="L122">        TypeComparatorBuilder&lt;T&gt; builder = createTypeComparatorBuilder();</span>
+
+<span class="fc" id="L124">        builder.initializeTypeComparatorBuilder(logicalKeyFields.length);</span>
+
+<span class="fc" id="L126">        for (int logicalKeyFieldIndex = 0;</span>
+<span class="fc bfc" id="L127" title="All 2 branches covered.">                logicalKeyFieldIndex &lt; logicalKeyFields.length;</span>
+<span class="fc" id="L128">                logicalKeyFieldIndex++) {</span>
+<span class="fc" id="L129">            int logicalKeyField = logicalKeyFields[logicalKeyFieldIndex];</span>
+<span class="fc" id="L130">            int logicalField = logicalFieldOffset; // this is the global/logical field number</span>
+<span class="fc" id="L131">            boolean comparatorAdded = false;</span>
+
+<span class="fc" id="L133">            for (int localFieldId = 0;</span>
+<span class="pc bpc" id="L134" title="1 of 6 branches missed.">                    localFieldId &lt; this.getArity()</span>
+                            &amp;&amp; logicalField &lt;= logicalKeyField
+<span class="fc" id="L136">                            &amp;&amp; !comparatorAdded;</span>
+<span class="fc" id="L137">                    localFieldId++) {</span>
+<span class="fc" id="L138">                TypeInformation&lt;?&gt; localFieldType = this.getTypeAt(localFieldId);</span>
+
+<span class="fc bfc" id="L140" title="All 4 branches covered.">                if (localFieldType instanceof AtomicType &amp;&amp; logicalField == logicalKeyField) {</span>
+                    // we found an atomic key --&gt; create comparator
+<span class="fc" id="L142">                    builder.addComparatorField(</span>
+                            localFieldId,
+                            ((AtomicType&lt;?&gt;) localFieldType)
+<span class="fc" id="L145">                                    .createComparator(orders[logicalKeyFieldIndex], config));</span>
+
+<span class="fc" id="L147">                    comparatorAdded = true;</span>
+                }
+                // must be composite type and check that the logicalKeyField is within the bounds
+                // of the composite type's logical fields
+<span class="pc bpc" id="L151" title="1 of 4 branches missed.">                else if (localFieldType instanceof CompositeType</span>
+                        &amp;&amp; logicalField &lt;= logicalKeyField
+                        &amp;&amp; logicalKeyField
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">                                &lt;= logicalField + (localFieldType.getTotalFields() - 1)) {</span>
+                    // we found a compositeType that is containing the logicalKeyField we are
+                    // looking for --&gt; create comparator
+<span class="fc" id="L157">                    builder.addComparatorField(</span>
+                            localFieldId,
+                            ((CompositeType&lt;?&gt;) localFieldType)
+<span class="fc" id="L160">                                    .createComparator(</span>
+                                            new int[] {logicalKeyField},
+                                            new boolean[] {orders[logicalKeyFieldIndex]},
+                                            logicalField,
+                                            config));
+
+<span class="fc" id="L166">                    comparatorAdded = true;</span>
+                }
+
+<span class="fc bfc" id="L169" title="All 2 branches covered.">                if (localFieldType instanceof CompositeType) {</span>
+                    // we need to subtract 1 because we are not accounting for the local field (not
+                    // accessible for the user)
+<span class="fc" id="L172">                    logicalField += localFieldType.getTotalFields() - 1;</span>
+                }
+
+<span class="fc" id="L175">                logicalField++;</span>
+            }
+
+<span class="pc bpc" id="L178" title="1 of 2 branches missed.">            if (!comparatorAdded) {</span>
+<span class="nc" id="L179">                throw new IllegalArgumentException(</span>
+                        &quot;Could not add a comparator for the logical&quot;
+                                + &quot;key field index &quot;
+                                + logicalKeyFieldIndex
+                                + &quot;.&quot;);
+            }
+        }
+
+<span class="fc" id="L187">        return builder.createTypeComparator(config);</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    @PublicEvolving
+    protected interface TypeComparatorBuilder&lt;T&gt; {
+        void initializeTypeComparatorBuilder(int size);
+
+        void addComparatorField(int fieldId, TypeComparator&lt;?&gt; comparator);
+
+        TypeComparator&lt;T&gt; createTypeComparator(ExecutionConfig config);
+    }
+
+    @PublicEvolving
+    public static class FlatFieldDescriptor {
+        private int keyPosition;
+        private TypeInformation&lt;?&gt; type;
+
+<span class="fc" id="L206">        public FlatFieldDescriptor(int keyPosition, TypeInformation&lt;?&gt; type) {</span>
+<span class="pc bpc" id="L207" title="1 of 2 branches missed.">            if (type instanceof CompositeType) {</span>
+<span class="nc" id="L208">                throw new IllegalArgumentException(&quot;A flattened field can not be a composite type&quot;);</span>
+            }
+<span class="fc" id="L210">            this.keyPosition = keyPosition;</span>
+<span class="fc" id="L211">            this.type = type;</span>
+<span class="fc" id="L212">        }</span>
+
+        public int getPosition() {
+<span class="fc" id="L215">            return keyPosition;</span>
+        }
+
+        public TypeInformation&lt;?&gt; getType() {
+<span class="fc" id="L219">            return type;</span>
+        }
+
+        @Override
+        public String toString() {
+<span class="fc" id="L224">            return &quot;FlatFieldDescriptor [position=&quot; + keyPosition + &quot; typeInfo=&quot; + type + &quot;]&quot;;</span>
+        }
+    }
+
+    /** Returns true when this type has a composite field with the given name. */
+    @PublicEvolving
+    public boolean hasField(String fieldName) {
+<span class="nc bnc" id="L231" title="All 2 branches missed.">        return getFieldIndex(fieldName) &gt;= 0;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public boolean isKeyType() {
+<span class="fc bfc" id="L237" title="All 2 branches covered.">        for (int i = 0; i &lt; this.getArity(); i++) {</span>
+<span class="pc bpc" id="L238" title="1 of 2 branches missed.">            if (!this.getTypeAt(i).isKeyType()) {</span>
+<span class="nc" id="L239">                return false;</span>
+            }
+        }
+<span class="fc" id="L242">        return true;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public boolean isSortKeyType() {
+<span class="nc bnc" id="L248" title="All 2 branches missed.">        for (int i = 0; i &lt; this.getArity(); i++) {</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">            if (!this.getTypeAt(i).isSortKeyType()) {</span>
+<span class="nc" id="L250">                return false;</span>
+            }
+        }
+<span class="nc" id="L253">        return true;</span>
+    }
+
+    /**
+     * Returns the names of the composite fields of this type. The order of the returned array must
+     * be consistent with the internal field index ordering.
+     */
+    @PublicEvolving
+    public abstract String[] getFieldNames();
+
+    /**
+     * True if this type has an inherent ordering of the fields, such that a user can always be sure
+     * in which order the fields will be in. This is true for Tuples and Case Classes. It is not
+     * true for Regular Java Objects, since there, the ordering of the fields can be arbitrary.
+     *
+     * &lt;p&gt;This is used when translating a DataSet or DataStream to an Expression Table, when
+     * initially renaming the fields of the underlying type.
+     */
+    @PublicEvolving
+    public boolean hasDeterministicFieldOrder() {
+<span class="nc" id="L273">        return false;</span>
+    }
+
+    /**
+     * Returns the field index of the composite field of the given name.
+     *
+     * @return The field index or -1 if this type does not have a field of the given name.
+     */
+    @PublicEvolving
+    public abstract int getFieldIndex(String fieldName);
+
+    @PublicEvolving
+    public static class InvalidFieldReferenceException extends IllegalArgumentException {
+
+        private static final long serialVersionUID = 1L;
+
+        public InvalidFieldReferenceException(String s) {
+<span class="fc" id="L290">            super(s);</span>
+<span class="fc" id="L291">        }</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="pc bpc" id="L296" title="1 of 2 branches missed.">        if (obj instanceof CompositeType) {</span>
+            @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L298">            CompositeType&lt;T&gt; compositeType = (CompositeType&lt;T&gt;) obj;</span>
+
+<span class="pc bpc" id="L300" title="2 of 4 branches missed.">            return compositeType.canEqual(this) &amp;&amp; typeClass == compositeType.typeClass;</span>
+        } else {
+<span class="nc" id="L302">            return false;</span>
+        }
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L308">        return Objects.hash(typeClass);</span>
+    }
+
+    @Override
+    public boolean canEqual(Object obj) {
+<span class="nc" id="L313">        return obj instanceof CompositeType;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L318">        return getClass().getSimpleName() + &quot;&lt;&quot; + typeClass.getSimpleName() + &quot;&gt;&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

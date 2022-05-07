@@ -1,0 +1,417 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RowTypeInfo.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.java.typeutils</a> &gt; <span class="el_source">RowTypeInfo.java</span></div><h1>RowTypeInfo.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.flink.api.java.typeutils;
+
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.operators.Keys.ExpressionKeys;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeutils.CompositeType;
+import org.apache.flink.api.common.typeutils.TypeComparator;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.java.typeutils.runtime.RowComparator;
+import org.apache.flink.api.java.typeutils.runtime.RowSerializer;
+import org.apache.flink.types.Row;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
+
+/**
+ * {@link TypeInformation} for {@link Row}.
+ *
+ * &lt;p&gt;Note: The implementations of {@link #hashCode()} and {@link #equals(Object)} do not check
+ * field names because those don't matter during serialization and runtime. This might change in
+ * future versions. See FLINK-14438 for more information.
+ */
+@PublicEvolving
+public class RowTypeInfo extends TupleTypeInfoBase&lt;Row&gt; {
+
+    private static final long serialVersionUID = 9158518989896601963L;
+
+    private static final String REGEX_INT_FIELD = &quot;[0-9]+&quot;;
+    private static final String REGEX_STR_FIELD = &quot;[\\p{L}_\\$][\\p{L}\\p{Digit}_\\$]*&quot;;
+    private static final String REGEX_FIELD = REGEX_STR_FIELD + &quot;|&quot; + REGEX_INT_FIELD;
+    private static final String REGEX_NESTED_FIELDS = &quot;(&quot; + REGEX_FIELD + &quot;)(\\.(.+))?&quot;;
+    private static final String REGEX_NESTED_FIELDS_WILDCARD =
+            REGEX_NESTED_FIELDS
+                    + &quot;|\\&quot;
+                    + ExpressionKeys.SELECT_ALL_CHAR
+                    + &quot;|\\&quot;
+                    + ExpressionKeys.SELECT_ALL_CHAR_SCALA;
+
+<span class="fc" id="L67">    private static final Pattern PATTERN_NESTED_FIELDS = Pattern.compile(REGEX_NESTED_FIELDS);</span>
+<span class="fc" id="L68">    private static final Pattern PATTERN_NESTED_FIELDS_WILDCARD =</span>
+<span class="fc" id="L69">            Pattern.compile(REGEX_NESTED_FIELDS_WILDCARD);</span>
+<span class="fc" id="L70">    private static final Pattern PATTERN_INT_FIELD = Pattern.compile(REGEX_INT_FIELD);</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    protected final String[] fieldNames;
+    /** Temporary variable for directly passing orders to comparators. */
+<span class="fc" id="L76">    private boolean[] comparatorOrders = null;</span>
+
+    public RowTypeInfo(TypeInformation&lt;?&gt;... types) {
+<span class="fc" id="L79">        super(Row.class, types);</span>
+
+<span class="fc" id="L81">        this.fieldNames = new String[types.length];</span>
+
+<span class="fc bfc" id="L83" title="All 2 branches covered.">        for (int i = 0; i &lt; types.length; i++) {</span>
+<span class="fc" id="L84">            fieldNames[i] = &quot;f&quot; + i;</span>
+        }
+<span class="fc" id="L86">    }</span>
+
+    public RowTypeInfo(TypeInformation&lt;?&gt;[] types, String[] fieldNames) {
+<span class="fc" id="L89">        super(Row.class, types);</span>
+<span class="fc" id="L90">        checkNotNull(fieldNames, &quot;FieldNames should not be null.&quot;);</span>
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        checkArgument(</span>
+                types.length == fieldNames.length, &quot;Number of field types and names is different.&quot;);
+<span class="fc bfc" id="L93" title="All 2 branches covered.">        checkArgument(!hasDuplicateFieldNames(fieldNames), &quot;Field names are not unique.&quot;);</span>
+
+<span class="fc" id="L95">        this.fieldNames = Arrays.copyOf(fieldNames, fieldNames.length);</span>
+<span class="fc" id="L96">    }</span>
+
+    @Override
+    public void getFlatFields(
+            String fieldExpression, int offset, List&lt;FlatFieldDescriptor&gt; result) {
+<span class="fc" id="L101">        Matcher matcher = PATTERN_NESTED_FIELDS_WILDCARD.matcher(fieldExpression);</span>
+
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">        if (!matcher.matches()) {</span>
+<span class="nc" id="L104">            throw new InvalidFieldReferenceException(</span>
+                    &quot;Invalid tuple field reference \&quot;&quot; + fieldExpression + &quot;\&quot;.&quot;);
+        }
+
+<span class="fc" id="L108">        String field = matcher.group(0);</span>
+
+<span class="fc bfc" id="L110" title="All 2 branches covered.">        if ((field.equals(ExpressionKeys.SELECT_ALL_CHAR))</span>
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">                || (field.equals(ExpressionKeys.SELECT_ALL_CHAR_SCALA))) {</span>
+            // handle select all
+<span class="fc" id="L113">            int keyPosition = 0;</span>
+<span class="fc bfc" id="L114" title="All 2 branches covered.">            for (TypeInformation&lt;?&gt; fType : types) {</span>
+<span class="pc bpc" id="L115" title="1 of 2 branches missed.">                if (fType instanceof CompositeType) {</span>
+<span class="nc" id="L116">                    CompositeType&lt;?&gt; cType = (CompositeType&lt;?&gt;) fType;</span>
+<span class="nc" id="L117">                    cType.getFlatFields(</span>
+                            ExpressionKeys.SELECT_ALL_CHAR, offset + keyPosition, result);
+<span class="nc" id="L119">                    keyPosition += cType.getTotalFields() - 1;</span>
+<span class="nc" id="L120">                } else {</span>
+<span class="fc" id="L121">                    result.add(new FlatFieldDescriptor(offset + keyPosition, fType));</span>
+                }
+<span class="fc" id="L123">                keyPosition++;</span>
+            }
+<span class="fc" id="L125">        } else {</span>
+<span class="fc" id="L126">            field = matcher.group(1);</span>
+
+<span class="fc" id="L128">            Matcher intFieldMatcher = PATTERN_INT_FIELD.matcher(field);</span>
+            int fieldIndex;
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">            if (intFieldMatcher.matches()) {</span>
+                // field expression is an integer
+<span class="nc" id="L132">                fieldIndex = Integer.valueOf(field);</span>
+            } else {
+<span class="fc" id="L134">                fieldIndex = this.getFieldIndex(field);</span>
+            }
+            // fetch the field type will throw exception if the index is illegal
+<span class="fc" id="L137">            TypeInformation&lt;?&gt; fieldType = this.getTypeAt(fieldIndex);</span>
+            // compute the offset,
+<span class="fc bfc" id="L139" title="All 2 branches covered.">            for (int i = 0; i &lt; fieldIndex; i++) {</span>
+<span class="fc" id="L140">                offset += this.getTypeAt(i).getTotalFields();</span>
+            }
+
+<span class="fc" id="L143">            String tail = matcher.group(3);</span>
+
+<span class="fc bfc" id="L145" title="All 2 branches covered.">            if (tail == null) {</span>
+                // expression hasn't nested field
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">                if (fieldType instanceof CompositeType) {</span>
+<span class="nc" id="L148">                    ((CompositeType) fieldType).getFlatFields(&quot;*&quot;, offset, result);</span>
+                } else {
+<span class="fc" id="L150">                    result.add(new FlatFieldDescriptor(offset, fieldType));</span>
+                }
+            } else {
+                // expression has nested field
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">                if (fieldType instanceof CompositeType) {</span>
+<span class="fc" id="L155">                    ((CompositeType) fieldType).getFlatFields(tail, offset, result);</span>
+                } else {
+<span class="nc" id="L157">                    throw new InvalidFieldReferenceException(</span>
+                            &quot;Nested field expression \&quot;&quot;
+                                    + tail
+                                    + &quot;\&quot; not possible on atomic type &quot;
+                                    + fieldType
+                                    + &quot;.&quot;);
+                }
+            }
+        }
+<span class="fc" id="L166">    }</span>
+
+    @Override
+    public &lt;X&gt; TypeInformation&lt;X&gt; getTypeAt(String fieldExpression) {
+<span class="fc" id="L170">        Matcher matcher = PATTERN_NESTED_FIELDS.matcher(fieldExpression);</span>
+<span class="pc bpc" id="L171" title="1 of 2 branches missed.">        if (!matcher.matches()) {</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">            if (fieldExpression.equals(ExpressionKeys.SELECT_ALL_CHAR)</span>
+<span class="nc bnc" id="L173" title="All 2 branches missed.">                    || fieldExpression.equals(ExpressionKeys.SELECT_ALL_CHAR_SCALA)) {</span>
+<span class="nc" id="L174">                throw new InvalidFieldReferenceException(</span>
+                        &quot;Wildcard expressions are not allowed here.&quot;);
+            } else {
+<span class="nc" id="L177">                throw new InvalidFieldReferenceException(</span>
+                        &quot;Invalid format of Row field expression \&quot;&quot; + fieldExpression + &quot;\&quot;.&quot;);
+            }
+        }
+
+<span class="fc" id="L182">        String field = matcher.group(1);</span>
+
+<span class="fc" id="L184">        Matcher intFieldMatcher = PATTERN_INT_FIELD.matcher(field);</span>
+        int fieldIndex;
+<span class="fc bfc" id="L186" title="All 2 branches covered.">        if (intFieldMatcher.matches()) {</span>
+            // field expression is an integer
+<span class="fc" id="L188">            fieldIndex = Integer.valueOf(field);</span>
+        } else {
+<span class="fc" id="L190">            fieldIndex = this.getFieldIndex(field);</span>
+        }
+        // fetch the field type will throw exception if the index is illegal
+<span class="fc" id="L193">        TypeInformation&lt;X&gt; fieldType = this.getTypeAt(fieldIndex);</span>
+
+<span class="fc" id="L195">        String tail = matcher.group(3);</span>
+<span class="fc bfc" id="L196" title="All 2 branches covered.">        if (tail == null) {</span>
+            // found the type
+<span class="fc" id="L198">            return fieldType;</span>
+        } else {
+<span class="pc bpc" id="L200" title="1 of 2 branches missed.">            if (fieldType instanceof CompositeType) {</span>
+<span class="fc" id="L201">                return ((CompositeType&lt;?&gt;) fieldType).getTypeAt(tail);</span>
+            } else {
+<span class="nc" id="L203">                throw new InvalidFieldReferenceException(</span>
+                        &quot;Nested field expression \&quot;&quot;
+                                + tail
+                                + &quot;\&quot; not possible on atomic type &quot;
+                                + fieldType
+                                + &quot;.&quot;);
+            }
+        }
+    }
+
+    @Override
+    public TypeComparator&lt;Row&gt; createComparator(
+            int[] logicalKeyFields,
+            boolean[] orders,
+            int logicalFieldOffset,
+            ExecutionConfig config) {
+
+<span class="nc" id="L220">        comparatorOrders = orders;</span>
+<span class="nc" id="L221">        TypeComparator&lt;Row&gt; comparator =</span>
+<span class="nc" id="L222">                super.createComparator(logicalKeyFields, orders, logicalFieldOffset, config);</span>
+<span class="nc" id="L223">        comparatorOrders = null;</span>
+<span class="nc" id="L224">        return comparator;</span>
+    }
+
+    @Override
+    protected TypeComparatorBuilder&lt;Row&gt; createTypeComparatorBuilder() {
+<span class="nc bnc" id="L229" title="All 2 branches missed.">        if (comparatorOrders == null) {</span>
+<span class="nc" id="L230">            throw new IllegalStateException(&quot;Cannot create comparator builder without orders.&quot;);</span>
+        }
+<span class="nc" id="L232">        return new RowTypeComparatorBuilder(comparatorOrders);</span>
+    }
+
+    @Override
+    public String[] getFieldNames() {
+<span class="fc" id="L237">        return fieldNames;</span>
+    }
+
+    @Override
+    public int getFieldIndex(String fieldName) {
+<span class="pc bpc" id="L242" title="1 of 2 branches missed.">        for (int i = 0; i &lt; fieldNames.length; i++) {</span>
+<span class="fc bfc" id="L243" title="All 2 branches covered.">            if (fieldNames[i].equals(fieldName)) {</span>
+<span class="fc" id="L244">                return i;</span>
+            }
+        }
+<span class="nc" id="L247">        return -1;</span>
+    }
+
+    @Override
+    public TypeSerializer&lt;Row&gt; createSerializer(ExecutionConfig config) {
+<span class="fc" id="L252">        int len = getArity();</span>
+<span class="fc" id="L253">        TypeSerializer&lt;?&gt;[] fieldSerializers = new TypeSerializer[len];</span>
+<span class="fc bfc" id="L254" title="All 2 branches covered.">        for (int i = 0; i &lt; len; i++) {</span>
+<span class="fc" id="L255">            fieldSerializers[i] = types[i].createSerializer(config);</span>
+        }
+<span class="fc" id="L257">        final LinkedHashMap&lt;String, Integer&gt; positionByName = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L258" title="All 2 branches covered.">        for (int i = 0; i &lt; fieldNames.length; i++) {</span>
+<span class="fc" id="L259">            positionByName.put(fieldNames[i], i);</span>
+        }
+<span class="fc" id="L261">        return new RowSerializer(fieldSerializers, positionByName);</span>
+    }
+
+    @Override
+    public boolean canEqual(Object obj) {
+<span class="fc" id="L266">        return obj instanceof RowTypeInfo;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L271">        return 31 * super.hashCode();</span>
+    }
+
+    /**
+     * The equals method does only check for field types. Field names do not matter during runtime
+     * so we can consider rows with the same field types as equal. Use {@link
+     * RowTypeInfo#schemaEquals(Object)} for checking schema-equivalence.
+     */
+    @Override
+    public boolean equals(Object obj) {
+<span class="pc bpc" id="L281" title="1 of 2 branches missed.">        if (obj instanceof RowTypeInfo) {</span>
+<span class="fc" id="L282">            final RowTypeInfo other = (RowTypeInfo) obj;</span>
+<span class="pc bpc" id="L283" title="1 of 4 branches missed.">            return other.canEqual(this) &amp;&amp; super.equals(other);</span>
+        } else {
+<span class="nc" id="L285">            return false;</span>
+        }
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L291">        StringBuilder bld = new StringBuilder(&quot;Row&quot;);</span>
+<span class="pc bpc" id="L292" title="1 of 2 branches missed.">        if (types.length &gt; 0) {</span>
+<span class="fc" id="L293">            bld.append('(').append(fieldNames[0]).append(&quot;: &quot;).append(types[0]);</span>
+
+<span class="fc bfc" id="L295" title="All 2 branches covered.">            for (int i = 1; i &lt; types.length; i++) {</span>
+<span class="fc" id="L296">                bld.append(&quot;, &quot;).append(fieldNames[i]).append(&quot;: &quot;).append(types[i]);</span>
+            }
+
+<span class="fc" id="L299">            bld.append(')');</span>
+        }
+<span class="fc" id="L301">        return bld.toString();</span>
+    }
+
+    /**
+     * Creates a serializer for the old {@link Row} format before Flink 1.11.
+     *
+     * &lt;p&gt;The serialization format has changed from 1.10 to 1.11 and added {@link Row#getKind()}.
+     */
+    @Deprecated
+    public TypeSerializer&lt;Row&gt; createLegacySerializer(ExecutionConfig config) {
+<span class="fc" id="L311">        int len = getArity();</span>
+<span class="fc" id="L312">        TypeSerializer&lt;?&gt;[] fieldSerializers = new TypeSerializer[len];</span>
+<span class="fc bfc" id="L313" title="All 2 branches covered.">        for (int i = 0; i &lt; len; i++) {</span>
+<span class="fc" id="L314">            fieldSerializers[i] = types[i].createSerializer(config);</span>
+        }
+<span class="fc" id="L316">        return new RowSerializer(fieldSerializers, null, true);</span>
+    }
+
+    /** Tests whether an other object describes the same, schema-equivalent row information. */
+    public boolean schemaEquals(Object obj) {
+<span class="fc bfc" id="L321" title="All 4 branches covered.">        return equals(obj) &amp;&amp; Arrays.equals(fieldNames, ((RowTypeInfo) obj).fieldNames);</span>
+    }
+
+    private boolean hasDuplicateFieldNames(String[] fieldNames) {
+<span class="fc" id="L325">        HashSet&lt;String&gt; names = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L326" title="All 2 branches covered.">        for (String field : fieldNames) {</span>
+<span class="fc bfc" id="L327" title="All 2 branches covered.">            if (!names.add(field)) {</span>
+<span class="fc" id="L328">                return true;</span>
+            }
+        }
+<span class="fc" id="L331">        return false;</span>
+    }
+
+    private class RowTypeComparatorBuilder implements TypeComparatorBuilder&lt;Row&gt; {
+
+<span class="nc" id="L336">        private final ArrayList&lt;TypeComparator&gt; fieldComparators = new ArrayList&lt;TypeComparator&gt;();</span>
+<span class="nc" id="L337">        private final ArrayList&lt;Integer&gt; logicalKeyFields = new ArrayList&lt;Integer&gt;();</span>
+        private final boolean[] comparatorOrders;
+
+<span class="nc" id="L340">        public RowTypeComparatorBuilder(boolean[] comparatorOrders) {</span>
+<span class="nc" id="L341">            this.comparatorOrders = comparatorOrders;</span>
+<span class="nc" id="L342">        }</span>
+
+        @Override
+        public void initializeTypeComparatorBuilder(int size) {
+<span class="nc" id="L346">            fieldComparators.ensureCapacity(size);</span>
+<span class="nc" id="L347">            logicalKeyFields.ensureCapacity(size);</span>
+<span class="nc" id="L348">        }</span>
+
+        @Override
+        public void addComparatorField(int fieldId, TypeComparator&lt;?&gt; comparator) {
+<span class="nc" id="L352">            fieldComparators.add(comparator);</span>
+<span class="nc" id="L353">            logicalKeyFields.add(fieldId);</span>
+<span class="nc" id="L354">        }</span>
+
+        @Override
+        public TypeComparator&lt;Row&gt; createTypeComparator(ExecutionConfig config) {
+<span class="nc" id="L358">            checkState(</span>
+<span class="nc bnc" id="L359" title="All 2 branches missed.">                    fieldComparators.size() &gt; 0,</span>
+                    &quot;No field comparators were defined for the TupleTypeComparatorBuilder.&quot;);
+
+<span class="nc" id="L362">            checkState(</span>
+<span class="nc bnc" id="L363" title="All 2 branches missed.">                    logicalKeyFields.size() &gt; 0,</span>
+                    &quot;No key fields were defined for the TupleTypeComparatorBuilder.&quot;);
+
+<span class="nc" id="L366">            checkState(</span>
+<span class="nc bnc" id="L367" title="All 2 branches missed.">                    fieldComparators.size() == logicalKeyFields.size(),</span>
+                    &quot;The number of field comparators and key fields is not equal.&quot;);
+
+<span class="nc" id="L370">            final int maxKey = Collections.max(logicalKeyFields);</span>
+
+<span class="nc bnc" id="L372" title="All 2 branches missed.">            checkState(maxKey &gt;= 0, &quot;The maximum key field must be greater or equal than 0.&quot;);</span>
+
+<span class="nc" id="L374">            TypeSerializer&lt;?&gt;[] fieldSerializers = new TypeSerializer&lt;?&gt;[maxKey + 1];</span>
+
+<span class="nc bnc" id="L376" title="All 2 branches missed.">            for (int i = 0; i &lt;= maxKey; i++) {</span>
+<span class="nc" id="L377">                fieldSerializers[i] = types[i].createSerializer(config);</span>
+            }
+
+<span class="nc" id="L380">            int[] keyPositions = new int[logicalKeyFields.size()];</span>
+<span class="nc bnc" id="L381" title="All 2 branches missed.">            for (int i = 0; i &lt; keyPositions.length; i++) {</span>
+<span class="nc" id="L382">                keyPositions[i] = logicalKeyFields.get(i);</span>
+            }
+
+<span class="nc" id="L385">            TypeComparator[] comparators = new TypeComparator[fieldComparators.size()];</span>
+<span class="nc bnc" id="L386" title="All 2 branches missed.">            for (int i = 0; i &lt; fieldComparators.size(); i++) {</span>
+<span class="nc" id="L387">                comparators[i] = fieldComparators.get(i);</span>
+            }
+
+            //noinspection unchecked
+<span class="nc" id="L391">            return new RowComparator(</span>
+<span class="nc" id="L392">                    getArity(),</span>
+                    keyPositions,
+                    comparators,
+                    (TypeSerializer&lt;Object&gt;[]) fieldSerializers,
+                    comparatorOrders);
+        }
+    }
+
+    /**
+     * Creates a {@link RowTypeInfo} with projected fields.
+     *
+     * @param rowType The original RowTypeInfo whose fields are projected
+     * @param fieldMapping The field mapping of the projection
+     * @return A RowTypeInfo with projected fields.
+     */
+    public static RowTypeInfo projectFields(RowTypeInfo rowType, int[] fieldMapping) {
+<span class="nc" id="L408">        TypeInformation[] fieldTypes = new TypeInformation[fieldMapping.length];</span>
+<span class="nc" id="L409">        String[] fieldNames = new String[fieldMapping.length];</span>
+<span class="nc bnc" id="L410" title="All 2 branches missed.">        for (int i = 0; i &lt; fieldMapping.length; i++) {</span>
+<span class="nc" id="L411">            fieldTypes[i] = rowType.getTypeAt(fieldMapping[i]);</span>
+<span class="nc" id="L412">            fieldNames[i] = rowType.getFieldNames()[fieldMapping[i]];</span>
+        }
+<span class="nc" id="L414">        return new RowTypeInfo(fieldTypes, fieldNames);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

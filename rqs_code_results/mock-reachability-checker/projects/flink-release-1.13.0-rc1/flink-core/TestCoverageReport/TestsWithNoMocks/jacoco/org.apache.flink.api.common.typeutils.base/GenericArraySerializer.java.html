@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GenericArraySerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeutils.base</a> &gt; <span class="el_source">GenericArraySerializer.java</span></div><h1>GenericArraySerializer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeutils.base;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+
+import java.io.IOException;
+import java.lang.reflect.Array;
+import java.util.Arrays;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * A serializer for arrays of objects.
+ *
+ * @param &lt;C&gt; The component type.
+ */
+@Internal
+public final class GenericArraySerializer&lt;C&gt; extends TypeSerializer&lt;C[]&gt; {
+
+    private static final long serialVersionUID = 1L;
+
+    private final Class&lt;C&gt; componentClass;
+
+    private final TypeSerializer&lt;C&gt; componentSerializer;
+
+    private transient C[] EMPTY;
+
+<span class="fc" id="L48">    public GenericArraySerializer(Class&lt;C&gt; componentClass, TypeSerializer&lt;C&gt; componentSerializer) {</span>
+<span class="fc" id="L49">        this.componentClass = checkNotNull(componentClass);</span>
+<span class="fc" id="L50">        this.componentSerializer = checkNotNull(componentSerializer);</span>
+<span class="fc" id="L51">    }</span>
+
+    public Class&lt;C&gt; getComponentClass() {
+<span class="fc" id="L54">        return componentClass;</span>
+    }
+
+    public TypeSerializer&lt;C&gt; getComponentSerializer() {
+<span class="fc" id="L58">        return componentSerializer;</span>
+    }
+
+    @Override
+    public boolean isImmutableType() {
+<span class="fc" id="L63">        return false;</span>
+    }
+
+    @Override
+    public GenericArraySerializer&lt;C&gt; duplicate() {
+<span class="fc" id="L68">        TypeSerializer&lt;C&gt; duplicateComponentSerializer = this.componentSerializer.duplicate();</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">        if (duplicateComponentSerializer == this.componentSerializer) {</span>
+            // is not stateful, return ourselves
+<span class="fc" id="L71">            return this;</span>
+        } else {
+<span class="fc" id="L73">            return new GenericArraySerializer&lt;C&gt;(componentClass, duplicateComponentSerializer);</span>
+        }
+    }
+
+    @Override
+    public C[] createInstance() {
+<span class="fc bfc" id="L79" title="All 2 branches covered.">        if (EMPTY == null) {</span>
+<span class="fc" id="L80">            EMPTY = create(0);</span>
+        }
+
+<span class="fc" id="L83">        return EMPTY;</span>
+    }
+
+    @Override
+    public C[] copy(C[] from) {
+
+<span class="fc" id="L89">        final TypeSerializer&lt;C&gt; serializer = this.componentSerializer;</span>
+
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        if (serializer.isImmutableType()) {</span>
+<span class="fc" id="L92">            return Arrays.copyOf(from, from.length);</span>
+        } else {
+<span class="fc" id="L94">            C[] copy = create(from.length);</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">            for (int i = 0; i &lt; copy.length; i++) {</span>
+<span class="fc" id="L96">                C val = from[i];</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">                if (val != null) {</span>
+<span class="fc" id="L98">                    copy[i] = serializer.copy(val);</span>
+                }
+            }
+<span class="fc" id="L101">            return copy;</span>
+        }
+    }
+
+    @Override
+    public C[] copy(C[] from, C[] reuse) {
+<span class="fc" id="L107">        return copy(from);</span>
+    }
+
+    @Override
+    public int getLength() {
+<span class="fc" id="L112">        return -1;</span>
+    }
+
+    @Override
+    public void serialize(C[] value, DataOutputView target) throws IOException {
+<span class="fc" id="L117">        target.writeInt(value.length);</span>
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        for (int i = 0; i &lt; value.length; i++) {</span>
+<span class="fc" id="L119">            C val = value[i];</span>
+<span class="fc bfc" id="L120" title="All 2 branches covered.">            if (val == null) {</span>
+<span class="fc" id="L121">                target.writeBoolean(false);</span>
+            } else {
+<span class="fc" id="L123">                target.writeBoolean(true);</span>
+<span class="fc" id="L124">                componentSerializer.serialize(val, target);</span>
+            }
+        }
+<span class="fc" id="L127">    }</span>
+
+    @Override
+    public C[] deserialize(DataInputView source) throws IOException {
+<span class="fc" id="L131">        int len = source.readInt();</span>
+
+<span class="fc" id="L133">        C[] array = create(len);</span>
+
+<span class="fc bfc" id="L135" title="All 2 branches covered.">        for (int i = 0; i &lt; len; i++) {</span>
+<span class="fc" id="L136">            boolean isNonNull = source.readBoolean();</span>
+<span class="fc bfc" id="L137" title="All 2 branches covered.">            if (isNonNull) {</span>
+<span class="fc" id="L138">                array[i] = componentSerializer.deserialize(source);</span>
+            } else {
+<span class="fc" id="L140">                array[i] = null;</span>
+            }
+        }
+
+<span class="fc" id="L144">        return array;</span>
+    }
+
+    @Override
+    public C[] deserialize(C[] reuse, DataInputView source) throws IOException {
+<span class="fc" id="L149">        return deserialize(source);</span>
+    }
+
+    @Override
+    public void copy(DataInputView source, DataOutputView target) throws IOException {
+<span class="fc" id="L154">        int len = source.readInt();</span>
+<span class="fc" id="L155">        target.writeInt(len);</span>
+
+<span class="fc bfc" id="L157" title="All 2 branches covered.">        for (int i = 0; i &lt; len; i++) {</span>
+<span class="fc" id="L158">            boolean isNonNull = source.readBoolean();</span>
+<span class="fc" id="L159">            target.writeBoolean(isNonNull);</span>
+
+<span class="fc bfc" id="L161" title="All 2 branches covered.">            if (isNonNull) {</span>
+<span class="fc" id="L162">                componentSerializer.copy(source, target);</span>
+            }
+        }
+<span class="fc" id="L165">    }</span>
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private final C[] create(int len) {
+<span class="fc" id="L169">        return (C[]) Array.newInstance(componentClass, len);</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L176">        return 31 * componentClass.hashCode() + componentSerializer.hashCode();</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="pc bpc" id="L181" title="1 of 2 branches missed.">        if (obj instanceof GenericArraySerializer) {</span>
+<span class="fc" id="L182">            GenericArraySerializer&lt;?&gt; other = (GenericArraySerializer&lt;?&gt;) obj;</span>
+
+<span class="pc bpc" id="L184" title="1 of 2 branches missed.">            return componentClass == other.componentClass</span>
+<span class="pc bpc" id="L185" title="1 of 2 branches missed.">                    &amp;&amp; componentSerializer.equals(other.componentSerializer);</span>
+        } else {
+<span class="nc" id="L187">            return false;</span>
+        }
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L193">        return &quot;Serializer &quot; + componentClass.getName() + &quot;[]&quot;;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // Serializer configuration snapshotting &amp; compatibility
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public GenericArraySerializerSnapshot&lt;C&gt; snapshotConfiguration() {
+<span class="fc" id="L202">        return new GenericArraySerializerSnapshot&lt;&gt;(this);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

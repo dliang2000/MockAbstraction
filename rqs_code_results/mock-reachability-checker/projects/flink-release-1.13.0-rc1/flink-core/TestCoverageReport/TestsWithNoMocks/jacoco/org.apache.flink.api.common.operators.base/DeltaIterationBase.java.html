@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DeltaIterationBase.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.operators.base</a> &gt; <span class="el_source">DeltaIterationBase.java</span></div><h1>DeltaIterationBase.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.operators.base;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.aggregators.AggregatorRegistry;
+import org.apache.flink.api.common.functions.AbstractRichFunction;
+import org.apache.flink.api.common.functions.RuntimeContext;
+import org.apache.flink.api.common.operators.BinaryOperatorInformation;
+import org.apache.flink.api.common.operators.DualInputOperator;
+import org.apache.flink.api.common.operators.IterationOperator;
+import org.apache.flink.api.common.operators.Operator;
+import org.apache.flink.api.common.operators.OperatorInformation;
+import org.apache.flink.api.common.operators.util.UserCodeClassWrapper;
+import org.apache.flink.api.common.operators.util.UserCodeWrapper;
+import org.apache.flink.util.Visitor;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * A DeltaIteration is similar to a {@link BulkIterationBase}, but maintains state across the
+ * individual iteration steps. The state is called the &lt;i&gt;solution set&lt;/i&gt;, can be obtained via
+ * {@link #getSolutionSet()}, and be accessed by joining (or CoGrouping) with it. The solution set
+ * is updated by producing a delta for it, which is merged into the solution set at the end of each
+ * iteration step.
+ *
+ * &lt;p&gt;The delta iteration must be closed by setting a delta for the solution set ({@link
+ * #setSolutionSetDelta(org.apache.flink.api.common.operators.Operator)}) and the new workset (the
+ * data set that will be fed back, {@link
+ * #setNextWorkset(org.apache.flink.api.common.operators.Operator)}). The DeltaIteration itself
+ * represents the result after the iteration has terminated. Delta iterations terminate when the
+ * feed back data set (the workset) is empty. In addition, a maximum number of steps is given as a
+ * fall back termination guard.
+ *
+ * &lt;p&gt;Elements in the solution set are uniquely identified by a key. When merging the solution set
+ * delta, contained elements with the same key are replaced.
+ *
+ * &lt;p&gt;This class is a subclass of {@code DualInputOperator}. The solution set is considered the
+ * first input, the workset is considered the second input.
+ */
+@Internal
+public class DeltaIterationBase&lt;ST, WT&gt; extends DualInputOperator&lt;ST, WT, ST, AbstractRichFunction&gt;
+        implements IterationOperator {
+
+    private final Operator&lt;ST&gt; solutionSetPlaceholder;
+
+    private final Operator&lt;WT&gt; worksetPlaceholder;
+
+    private Operator&lt;ST&gt; solutionSetDelta;
+
+    private Operator&lt;WT&gt; nextWorkset;
+
+    /** The positions of the keys in the solution tuple. */
+    private final int[] solutionSetKeyFields;
+
+    /** The maximum number of iterations. Possibly used only as a safeguard. */
+<span class="nc" id="L76">    private int maxNumberOfIterations = -1;</span>
+
+<span class="nc" id="L78">    private final AggregatorRegistry aggregators = new AggregatorRegistry();</span>
+
+    private boolean solutionSetUnManaged;
+
+    // --------------------------------------------------------------------------------------------
+
+    public DeltaIterationBase(BinaryOperatorInformation&lt;ST, WT, ST&gt; operatorInfo, int keyPosition) {
+<span class="nc" id="L85">        this(operatorInfo, new int[] {keyPosition});</span>
+<span class="nc" id="L86">    }</span>
+
+    public DeltaIterationBase(
+            BinaryOperatorInformation&lt;ST, WT, ST&gt; operatorInfo, int[] keyPositions) {
+<span class="nc" id="L90">        this(operatorInfo, keyPositions, &quot;&lt;Unnamed Delta Iteration&gt;&quot;);</span>
+<span class="nc" id="L91">    }</span>
+
+    public DeltaIterationBase(
+            BinaryOperatorInformation&lt;ST, WT, ST&gt; operatorInfo, int keyPosition, String name) {
+<span class="nc" id="L95">        this(operatorInfo, new int[] {keyPosition}, name);</span>
+<span class="nc" id="L96">    }</span>
+
+    public DeltaIterationBase(
+            BinaryOperatorInformation&lt;ST, WT, ST&gt; operatorInfo, int[] keyPositions, String name) {
+<span class="nc" id="L100">        super(</span>
+                new UserCodeClassWrapper&lt;AbstractRichFunction&gt;(AbstractRichFunction.class),
+                operatorInfo,
+                name);
+<span class="nc" id="L104">        this.solutionSetKeyFields = keyPositions;</span>
+<span class="nc" id="L105">        solutionSetPlaceholder =</span>
+                new SolutionSetPlaceHolder&lt;ST&gt;(
+<span class="nc" id="L107">                        this, new OperatorInformation&lt;ST&gt;(operatorInfo.getFirstInputType()));</span>
+<span class="nc" id="L108">        worksetPlaceholder =</span>
+                new WorksetPlaceHolder&lt;WT&gt;(
+<span class="nc" id="L110">                        this, new OperatorInformation&lt;WT&gt;(operatorInfo.getSecondInputType()));</span>
+<span class="nc" id="L111">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    public int[] getSolutionSetKeyFields() {
+<span class="nc" id="L116">        return this.solutionSetKeyFields;</span>
+    }
+
+    public void setMaximumNumberOfIterations(int maxIterations) {
+<span class="nc" id="L120">        this.maxNumberOfIterations = maxIterations;</span>
+<span class="nc" id="L121">    }</span>
+
+    public int getMaximumNumberOfIterations() {
+<span class="nc" id="L124">        return this.maxNumberOfIterations;</span>
+    }
+
+    @Override
+    public AggregatorRegistry getAggregators() {
+<span class="nc" id="L129">        return this.aggregators;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // Getting / Setting of the step function input place-holders
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Gets the contract that represents the solution set for the step function.
+     *
+     * @return The solution set for the step function.
+     */
+    public Operator&lt;ST&gt; getSolutionSet() {
+<span class="nc" id="L142">        return this.solutionSetPlaceholder;</span>
+    }
+
+    /**
+     * Gets the contract that represents the workset for the step function.
+     *
+     * @return The workset for the step function.
+     */
+    public Operator&lt;WT&gt; getWorkset() {
+<span class="nc" id="L151">        return this.worksetPlaceholder;</span>
+    }
+
+    /**
+     * Sets the contract of the step function that represents the next workset. This contract is
+     * considered one of the two sinks of the step function (the other one being the solution set
+     * delta).
+     *
+     * @param result The contract representing the next workset.
+     */
+    public void setNextWorkset(Operator&lt;WT&gt; result) {
+<span class="nc" id="L162">        this.nextWorkset = result;</span>
+<span class="nc" id="L163">    }</span>
+
+    /**
+     * Gets the contract that has been set as the next workset.
+     *
+     * @return The contract that has been set as the next workset.
+     */
+    public Operator&lt;WT&gt; getNextWorkset() {
+<span class="nc" id="L171">        return this.nextWorkset;</span>
+    }
+
+    /**
+     * Sets the contract of the step function that represents the solution set delta. This contract
+     * is considered one of the two sinks of the step function (the other one being the next
+     * workset).
+     *
+     * @param delta The contract representing the solution set delta.
+     */
+    public void setSolutionSetDelta(Operator&lt;ST&gt; delta) {
+<span class="nc" id="L182">        this.solutionSetDelta = delta;</span>
+<span class="nc" id="L183">    }</span>
+
+    /**
+     * Gets the contract that has been set as the solution set delta.
+     *
+     * @return The contract that has been set as the solution set delta.
+     */
+    public Operator&lt;ST&gt; getSolutionSetDelta() {
+<span class="nc" id="L191">        return this.solutionSetDelta;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // Getting / Setting the Inputs
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Returns the initial solution set input, or null, if none is set.
+     *
+     * @return The iteration's initial solution set input.
+     */
+    public Operator&lt;ST&gt; getInitialSolutionSet() {
+<span class="nc" id="L204">        return getFirstInput();</span>
+    }
+
+    /**
+     * Returns the initial workset input, or null, if none is set.
+     *
+     * @return The iteration's workset input.
+     */
+    public Operator&lt;WT&gt; getInitialWorkset() {
+<span class="nc" id="L213">        return getSecondInput();</span>
+    }
+
+    /**
+     * Sets the given input as the initial solution set.
+     *
+     * @param input The contract to set the initial solution set.
+     */
+    public void setInitialSolutionSet(Operator&lt;ST&gt; input) {
+<span class="nc" id="L222">        setFirstInput(input);</span>
+<span class="nc" id="L223">    }</span>
+
+    /**
+     * Sets the given input as the initial workset.
+     *
+     * @param input The contract to set as the initial workset.
+     */
+    public void setInitialWorkset(Operator&lt;WT&gt; input) {
+<span class="nc" id="L231">        setSecondInput(input);</span>
+<span class="nc" id="L232">    }</span>
+
+    /**
+     * DeltaIteration meta operator cannot have broadcast inputs.
+     *
+     * @return An empty map.
+     */
+    public Map&lt;String, Operator&lt;?&gt;&gt; getBroadcastInputs() {
+<span class="nc" id="L240">        return Collections.emptyMap();</span>
+    }
+
+    /**
+     * The DeltaIteration meta operator cannot have broadcast inputs. This method always throws an
+     * exception.
+     *
+     * @param name Ignored.
+     * @param root Ignored.
+     */
+    public void setBroadcastVariable(String name, Operator&lt;?&gt; root) {
+<span class="nc" id="L251">        throw new UnsupportedOperationException(</span>
+                &quot;The DeltaIteration meta operator cannot have broadcast inputs.&quot;);
+    }
+
+    /**
+     * The DeltaIteration meta operator cannot have broadcast inputs. This method always throws an
+     * exception.
+     *
+     * @param inputs Ignored
+     */
+    public &lt;X&gt; void setBroadcastVariables(Map&lt;String, Operator&lt;X&gt;&gt; inputs) {
+<span class="nc" id="L262">        throw new UnsupportedOperationException(</span>
+                &quot;The DeltaIteration meta operator cannot have broadcast inputs.&quot;);
+    }
+
+    /**
+     * Sets whether to keep the solution set in managed memory (safe against heap exhaustion) or
+     * unmanaged memory (objects on heap).
+     *
+     * @param solutionSetUnManaged True to keep the solution set in unmanaged memory, false to keep
+     *     it in managed memory.
+     * @see #isSolutionSetUnManaged()
+     */
+    public void setSolutionSetUnManaged(boolean solutionSetUnManaged) {
+<span class="nc" id="L275">        this.solutionSetUnManaged = solutionSetUnManaged;</span>
+<span class="nc" id="L276">    }</span>
+
+    /**
+     * gets whether the solution set is in managed or unmanaged memory.
+     *
+     * @return True, if the solution set is in unmanaged memory (object heap), false if in managed
+     *     memory.
+     * @see #setSolutionSetUnManaged(boolean)
+     */
+    public boolean isSolutionSetUnManaged() {
+<span class="nc" id="L286">        return solutionSetUnManaged;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // Place-holder Operators
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Specialized operator to use as a recognizable place-holder for the working set input to the
+     * step function.
+     */
+    public static class WorksetPlaceHolder&lt;WT&gt; extends Operator&lt;WT&gt; {
+
+        private final DeltaIterationBase&lt;?, WT&gt; containingIteration;
+
+        public WorksetPlaceHolder(
+                DeltaIterationBase&lt;?, WT&gt; container, OperatorInformation&lt;WT&gt; operatorInfo) {
+<span class="nc" id="L303">            super(operatorInfo, &quot;Workset&quot;);</span>
+<span class="nc" id="L304">            this.containingIteration = container;</span>
+<span class="nc" id="L305">        }</span>
+
+        public DeltaIterationBase&lt;?, WT&gt; getContainingWorksetIteration() {
+<span class="nc" id="L308">            return this.containingIteration;</span>
+        }
+
+        @Override
+        public void accept(Visitor&lt;Operator&lt;?&gt;&gt; visitor) {
+<span class="nc" id="L313">            visitor.preVisit(this);</span>
+<span class="nc" id="L314">            visitor.postVisit(this);</span>
+<span class="nc" id="L315">        }</span>
+
+        @Override
+        public UserCodeWrapper&lt;?&gt; getUserCodeWrapper() {
+<span class="nc" id="L319">            return null;</span>
+        }
+    }
+
+    /**
+     * Specialized operator to use as a recognizable place-holder for the solution set input to the
+     * step function.
+     */
+    public static class SolutionSetPlaceHolder&lt;ST&gt; extends Operator&lt;ST&gt; {
+
+        protected final DeltaIterationBase&lt;ST, ?&gt; containingIteration;
+
+        public SolutionSetPlaceHolder(
+                DeltaIterationBase&lt;ST, ?&gt; container, OperatorInformation&lt;ST&gt; operatorInfo) {
+<span class="nc" id="L333">            super(operatorInfo, &quot;Solution Set&quot;);</span>
+<span class="nc" id="L334">            this.containingIteration = container;</span>
+<span class="nc" id="L335">        }</span>
+
+        public DeltaIterationBase&lt;ST, ?&gt; getContainingWorksetIteration() {
+<span class="nc" id="L338">            return this.containingIteration;</span>
+        }
+
+        @Override
+        public void accept(Visitor&lt;Operator&lt;?&gt;&gt; visitor) {
+<span class="nc" id="L343">            visitor.preVisit(this);</span>
+<span class="nc" id="L344">            visitor.postVisit(this);</span>
+<span class="nc" id="L345">        }</span>
+
+        @Override
+        public UserCodeWrapper&lt;?&gt; getUserCodeWrapper() {
+<span class="nc" id="L349">            return null;</span>
+        }
+    }
+
+    @Override
+    protected List&lt;ST&gt; executeOnCollections(
+            List&lt;ST&gt; inputData1,
+            List&lt;WT&gt; inputData2,
+            RuntimeContext runtimeContext,
+            ExecutionConfig executionConfig) {
+<span class="nc" id="L359">        throw new UnsupportedOperationException();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

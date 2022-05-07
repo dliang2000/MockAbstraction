@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AnnotatorFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jsonschema2pojo-core</a> &gt; <a href="index.source.html" class="el_package">org.jsonschema2pojo</a> &gt; <span class="el_source">AnnotatorFactory.java</span></div><h1>AnnotatorFactory.java</h1><pre class="source lang-java linenums">/**
+ * Copyright © 2010-2020 Nokia
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.jsonschema2pojo;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+
+/**
+ * Factory object for creating {@link Annotator}s for all the supported
+ * annotation styles.
+ */
+public class AnnotatorFactory {
+
+    private final GenerationConfig generationConfig;
+
+<span class="fc" id="L30">    public AnnotatorFactory(GenerationConfig generationConfig) {</span>
+<span class="fc" id="L31">        this.generationConfig = generationConfig;</span>
+<span class="fc" id="L32">    }</span>
+
+    /**
+     * Create a new {@link Annotator} that can create annotations according to
+     * the given style.
+     *
+     * @param style
+     *            the annotation style that dictates what kind of annotations
+     *            are required.
+     * @return an annotator matching to given style
+     */
+    public Annotator getAnnotator(AnnotationStyle style) {
+
+<span class="pc bpc" id="L45" title="1 of 5 branches missed.">        switch (style) {</span>
+            case JACKSON:
+            case JACKSON2:
+<span class="fc" id="L48">                return new Jackson2Annotator(generationConfig);</span>
+            case GSON:
+<span class="fc" id="L50">                return new GsonAnnotator(generationConfig);</span>
+            case MOSHI1:
+<span class="fc" id="L52">                return new Moshi1Annotator(generationConfig);</span>
+            case NONE:
+<span class="fc" id="L54">                return new NoopAnnotator();</span>
+            default:
+<span class="nc" id="L56">                throw new IllegalArgumentException(&quot;Unrecognised annotation style: &quot; + style);</span>
+        }
+
+    }
+
+    /**
+     * Create a new custom {@link Annotator} from the given class.
+     *
+     * @param clazz
+     *            A class implementing {@link Annotator}.
+     * @return an instance of the given annotator type
+     */
+    public Annotator getAnnotator(Class&lt;? extends Annotator&gt; clazz) {
+
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">        if (!Annotator.class.isAssignableFrom(clazz)) {</span>
+<span class="nc" id="L71">            throw new IllegalArgumentException(&quot;The class name given as a custom annotator (&quot; + clazz.getName() + &quot;) does not refer to a class that implements &quot; + Annotator.class.getName());</span>
+        }
+
+        try {
+            try {
+<span class="fc" id="L76">                Constructor&lt;? extends Annotator&gt; constructor = clazz.getConstructor(GenerationConfig.class);</span>
+<span class="fc" id="L77">                return constructor.newInstance(generationConfig);</span>
+<span class="nc" id="L78">            } catch (NoSuchMethodException e) {</span>
+<span class="nc" id="L79">                return clazz.newInstance();</span>
+            }
+<span class="nc" id="L81">        } catch (InvocationTargetException | InstantiationException e) {</span>
+<span class="nc" id="L82">            throw new IllegalArgumentException(&quot;Failed to create a custom annotator from the given class. An exception was thrown on trying to create a new instance.&quot;, e.getCause());</span>
+<span class="nc" id="L83">        } catch (IllegalAccessException e) {</span>
+<span class="nc" id="L84">            throw new IllegalArgumentException(&quot;Failed to create a custom annotator from the given class. It appears that we do not have access to this class - is both the class and its no-arg constructor marked public?&quot;, e);</span>
+        }
+
+    }
+
+    public CompositeAnnotator getAnnotator( Annotator... annotators ) {
+<span class="nc" id="L90">        return new CompositeAnnotator(annotators);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

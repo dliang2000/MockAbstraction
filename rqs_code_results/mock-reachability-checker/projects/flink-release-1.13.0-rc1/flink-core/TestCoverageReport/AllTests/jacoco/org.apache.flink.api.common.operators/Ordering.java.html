@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Ordering.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.operators</a> &gt; <span class="el_source">Ordering.java</span></div><h1>Ordering.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.operators;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.operators.util.FieldList;
+import org.apache.flink.api.common.operators.util.FieldSet;
+
+import java.util.ArrayList;
+
+/**
+ * This class represents an ordering on a set of fields. It specifies the fields and order direction
+ * (ascending, descending).
+ */
+@Internal
+public class Ordering implements Cloneable {
+
+<span class="pc" id="L34">    protected FieldList indexes = new FieldList();</span>
+
+<span class="pc" id="L36">    protected final ArrayList&lt;Class&lt;? extends Comparable&lt;?&gt;&gt;&gt; types =</span>
+            new ArrayList&lt;Class&lt;? extends Comparable&lt;?&gt;&gt;&gt;();
+
+<span class="pc" id="L39">    protected final ArrayList&lt;Order&gt; orders = new ArrayList&lt;Order&gt;();</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    /** Creates an empty ordering. */
+<span class="fc" id="L44">    public Ordering() {}</span>
+
+    /**
+     * @param index
+     * @param type
+     * @param order
+     */
+<span class="nc" id="L51">    public Ordering(int index, Class&lt;? extends Comparable&lt;?&gt;&gt; type, Order order) {</span>
+<span class="nc" id="L52">        appendOrdering(index, type, order);</span>
+<span class="nc" id="L53">    }</span>
+
+    /**
+     * Extends this ordering by appending an additional order requirement. If the index has been
+     * previously appended then the unmodified Ordering is returned.
+     *
+     * @param index Field index of the appended order requirement.
+     * @param type Type of the appended order requirement.
+     * @param order Order of the appended order requirement.
+     * @return This ordering with an additional appended order requirement.
+     */
+    public Ordering appendOrdering(
+            Integer index, Class&lt;? extends Comparable&lt;?&gt;&gt; type, Order order) {
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">        if (index &lt; 0) {</span>
+<span class="nc" id="L67">            throw new IllegalArgumentException(&quot;The key index must not be negative.&quot;);</span>
+        }
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">        if (order == null) {</span>
+<span class="nc" id="L70">            throw new NullPointerException();</span>
+        }
+<span class="pc bpc" id="L72" title="1 of 2 branches missed.">        if (order == Order.NONE) {</span>
+<span class="nc" id="L73">            throw new IllegalArgumentException(</span>
+                    &quot;An ordering must not be created with a NONE order.&quot;);
+        }
+
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        if (!this.indexes.contains(index)) {</span>
+<span class="fc" id="L78">            this.indexes = this.indexes.addField(index);</span>
+<span class="fc" id="L79">            this.types.add(type);</span>
+<span class="fc" id="L80">            this.orders.add(order);</span>
+        }
+
+<span class="fc" id="L83">        return this;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    public int getNumberOfFields() {
+<span class="fc" id="L89">        return this.indexes.size();</span>
+    }
+
+    public FieldList getInvolvedIndexes() {
+<span class="nc" id="L93">        return this.indexes;</span>
+    }
+
+    public Integer getFieldNumber(int index) {
+<span class="nc bnc" id="L97" title="All 4 branches missed.">        if (index &lt; 0 || index &gt;= this.indexes.size()) {</span>
+<span class="nc" id="L98">            throw new IndexOutOfBoundsException(String.valueOf(index));</span>
+        }
+<span class="nc" id="L100">        return this.indexes.get(index);</span>
+    }
+
+    public Class&lt;? extends Comparable&lt;?&gt;&gt; getType(int index) {
+<span class="nc bnc" id="L104" title="All 4 branches missed.">        if (index &lt; 0 || index &gt;= this.types.size()) {</span>
+<span class="nc" id="L105">            throw new IndexOutOfBoundsException(String.valueOf(index));</span>
+        }
+<span class="nc" id="L107">        return this.types.get(index);</span>
+    }
+
+    public Order getOrder(int index) {
+<span class="nc bnc" id="L111" title="All 4 branches missed.">        if (index &lt; 0 || index &gt;= this.types.size()) {</span>
+<span class="nc" id="L112">            throw new IndexOutOfBoundsException(String.valueOf(index));</span>
+        }
+<span class="nc" id="L114">        return orders.get(index);</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public Class&lt;? extends Comparable&lt;?&gt;&gt;[] getTypes() {
+<span class="fc" id="L121">        return this.types.toArray(new Class[this.types.size()]);</span>
+    }
+
+    public int[] getFieldPositions() {
+<span class="fc" id="L125">        final int[] ia = new int[this.indexes.size()];</span>
+<span class="fc bfc" id="L126" title="All 2 branches covered.">        for (int i = 0; i &lt; ia.length; i++) {</span>
+<span class="fc" id="L127">            ia[i] = this.indexes.get(i);</span>
+        }
+<span class="fc" id="L129">        return ia;</span>
+    }
+
+    public Order[] getFieldOrders() {
+<span class="nc" id="L133">        return this.orders.toArray(new Order[this.orders.size()]);</span>
+    }
+
+    public boolean[] getFieldSortDirections() {
+<span class="fc" id="L137">        final boolean[] directions = new boolean[this.orders.size()];</span>
+<span class="fc bfc" id="L138" title="All 2 branches covered.">        for (int i = 0; i &lt; directions.length; i++) {</span>
+<span class="fc bfc" id="L139" title="All 2 branches covered.">            directions[i] = this.orders.get(i) != Order.DESCENDING;</span>
+        }
+<span class="fc" id="L141">        return directions;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    public boolean isMetBy(Ordering otherOrdering) {
+<span class="nc bnc" id="L147" title="All 4 branches missed.">        if (otherOrdering == null || this.indexes.size() &gt; otherOrdering.indexes.size()) {</span>
+<span class="nc" id="L148">            return false;</span>
+        }
+
+<span class="nc bnc" id="L151" title="All 2 branches missed.">        for (int i = 0; i &lt; this.indexes.size(); i++) {</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">            if (!this.indexes.get(i).equals(otherOrdering.indexes.get(i))) {</span>
+<span class="nc" id="L153">                return false;</span>
+            }
+
+            // if this one request no order, everything is good
+<span class="nc bnc" id="L157" title="All 2 branches missed.">            if (this.orders.get(i) != Order.NONE) {</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">                if (this.orders.get(i) == Order.ANY) {</span>
+                    // if any order is requested, any not NONE order is good
+<span class="nc bnc" id="L160" title="All 2 branches missed.">                    if (otherOrdering.orders.get(i) == Order.NONE) {</span>
+<span class="nc" id="L161">                        return false;</span>
+                    }
+<span class="nc bnc" id="L163" title="All 2 branches missed.">                } else if (otherOrdering.orders.get(i) != this.orders.get(i)) {</span>
+                    // the orders must be equal
+<span class="nc" id="L165">                    return false;</span>
+                }
+            }
+        }
+<span class="nc" id="L169">        return true;</span>
+    }
+
+    public boolean isOrderEqualOnFirstNFields(Ordering other, int n) {
+<span class="nc bnc" id="L173" title="All 4 branches missed.">        if (n &gt; getNumberOfFields() || n &gt; other.getNumberOfFields()) {</span>
+<span class="nc" id="L174">            throw new IndexOutOfBoundsException();</span>
+        }
+
+<span class="nc bnc" id="L177" title="All 2 branches missed.">        for (int i = 0; i &lt; n; i++) {</span>
+<span class="nc" id="L178">            final Order o = this.orders.get(i);</span>
+<span class="nc bnc" id="L179" title="All 6 branches missed.">            if (o == Order.NONE || o == Order.ANY || o != other.orders.get(i)) {</span>
+<span class="nc" id="L180">                return false;</span>
+            }
+        }
+
+<span class="nc" id="L184">        return true;</span>
+    }
+
+    /**
+     * Creates a new ordering the represents an ordering on a prefix of the fields. If the exclusive
+     * index up to which to create the ordering is &lt;code&gt;0&lt;/code&gt;, then there is no resulting
+     * ordering and this method return &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @param exclusiveIndex The index (exclusive) up to which to create the ordering.
+     * @return The new ordering on the prefix of the fields, or &lt;code&gt;null&lt;/code&gt;, if the prefix is
+     *     empty.
+     */
+    public Ordering createNewOrderingUpToIndex(int exclusiveIndex) {
+<span class="nc bnc" id="L197" title="All 2 branches missed.">        if (exclusiveIndex == 0) {</span>
+<span class="nc" id="L198">            return null;</span>
+        }
+<span class="nc" id="L200">        final Ordering newOrdering = new Ordering();</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">        for (int i = 0; i &lt; exclusiveIndex; i++) {</span>
+<span class="nc" id="L202">            newOrdering.appendOrdering(this.indexes.get(i), this.types.get(i), this.orders.get(i));</span>
+        }
+<span class="nc" id="L204">        return newOrdering;</span>
+    }
+
+    public boolean groupsFields(FieldSet fields) {
+<span class="nc bnc" id="L208" title="All 2 branches missed.">        if (fields.size() &gt; this.indexes.size()) {</span>
+<span class="nc" id="L209">            return false;</span>
+        }
+
+<span class="nc bnc" id="L212" title="All 2 branches missed.">        for (int i = 0; i &lt; fields.size(); i++) {</span>
+<span class="nc bnc" id="L213" title="All 2 branches missed.">            if (!fields.contains(this.indexes.get(i))) {</span>
+<span class="nc" id="L214">                return false;</span>
+            }
+        }
+<span class="nc" id="L217">        return true;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    public Ordering clone() {
+<span class="nc" id="L223">        Ordering newOrdering = new Ordering();</span>
+<span class="nc" id="L224">        newOrdering.indexes = this.indexes;</span>
+<span class="nc" id="L225">        newOrdering.types.addAll(this.types);</span>
+<span class="nc" id="L226">        newOrdering.orders.addAll(this.orders);</span>
+<span class="nc" id="L227">        return newOrdering;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L232">        final int prime = 31;</span>
+<span class="nc" id="L233">        int result = 1;</span>
+<span class="nc bnc" id="L234" title="All 2 branches missed.">        result = prime * result + ((indexes == null) ? 0 : indexes.hashCode());</span>
+<span class="nc bnc" id="L235" title="All 2 branches missed.">        result = prime * result + ((orders == null) ? 0 : orders.hashCode());</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">        result = prime * result + ((types == null) ? 0 : types.hashCode());</span>
+<span class="nc" id="L237">        return result;</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="nc bnc" id="L242" title="All 2 branches missed.">        if (this == obj) {</span>
+<span class="nc" id="L243">            return true;</span>
+        }
+<span class="nc bnc" id="L245" title="All 2 branches missed.">        if (obj == null) {</span>
+<span class="nc" id="L246">            return false;</span>
+        }
+<span class="nc bnc" id="L248" title="All 2 branches missed.">        if (getClass() != obj.getClass()) {</span>
+<span class="nc" id="L249">            return false;</span>
+        }
+<span class="nc" id="L251">        Ordering other = (Ordering) obj;</span>
+<span class="nc bnc" id="L252" title="All 2 branches missed.">        if (indexes == null) {</span>
+<span class="nc bnc" id="L253" title="All 2 branches missed.">            if (other.indexes != null) {</span>
+<span class="nc" id="L254">                return false;</span>
+            }
+<span class="nc bnc" id="L256" title="All 2 branches missed.">        } else if (!indexes.equals(other.indexes)) {</span>
+<span class="nc" id="L257">            return false;</span>
+        }
+<span class="nc bnc" id="L259" title="All 2 branches missed.">        if (orders == null) {</span>
+<span class="nc bnc" id="L260" title="All 2 branches missed.">            if (other.orders != null) {</span>
+<span class="nc" id="L261">                return false;</span>
+            }
+<span class="nc bnc" id="L263" title="All 2 branches missed.">        } else if (!orders.equals(other.orders)) {</span>
+<span class="nc" id="L264">            return false;</span>
+        }
+<span class="nc bnc" id="L266" title="All 2 branches missed.">        if (types == null) {</span>
+<span class="nc bnc" id="L267" title="All 2 branches missed.">            if (other.types != null) {</span>
+<span class="nc" id="L268">                return false;</span>
+            }
+<span class="nc bnc" id="L270" title="All 2 branches missed.">        } else if (!types.equals(other.types)) {</span>
+<span class="nc" id="L271">            return false;</span>
+        }
+<span class="nc" id="L273">        return true;</span>
+    }
+
+    public String toString() {
+<span class="nc" id="L277">        final StringBuilder buf = new StringBuilder(&quot;[&quot;);</span>
+<span class="nc bnc" id="L278" title="All 2 branches missed.">        for (int i = 0; i &lt; indexes.size(); i++) {</span>
+<span class="nc bnc" id="L279" title="All 2 branches missed.">            if (i != 0) {</span>
+<span class="nc" id="L280">                buf.append(&quot;,&quot;);</span>
+            }
+<span class="nc" id="L282">            buf.append(this.indexes.get(i));</span>
+<span class="nc bnc" id="L283" title="All 2 branches missed.">            if (this.types.get(i) != null) {</span>
+<span class="nc" id="L284">                buf.append(&quot;:&quot;);</span>
+<span class="nc" id="L285">                buf.append(this.types.get(i).getName());</span>
+            }
+<span class="nc" id="L287">            buf.append(&quot;:&quot;);</span>
+<span class="nc" id="L288">            buf.append(this.orders.get(i).getShortName());</span>
+        }
+<span class="nc" id="L290">        buf.append(&quot;]&quot;);</span>
+<span class="nc" id="L291">        return buf.toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

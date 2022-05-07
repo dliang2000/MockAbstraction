@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExecuteMethodInterceptor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.interceptor</a> &gt; <span class="el_source">ExecuteMethodInterceptor.java</span></div><h1>ExecuteMethodInterceptor.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package br.com.caelum.vraptor.interceptor;
+
+import static br.com.caelum.vraptor.view.Results.nothing;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import br.com.caelum.vraptor.InterceptionException;
+import br.com.caelum.vraptor.Intercepts;
+import br.com.caelum.vraptor.Validator;
+import br.com.caelum.vraptor.core.InterceptorStack;
+import br.com.caelum.vraptor.core.MethodInfo;
+import br.com.caelum.vraptor.resource.ResourceMethod;
+import br.com.caelum.vraptor.util.Stringnifier;
+import br.com.caelum.vraptor.validator.ValidationException;
+
+/**
+ * Interceptor that executes the logic method.
+ *
+ * @author Guilherme Silveira
+ */
+@Intercepts(after=ParametersInstantiatorInterceptor.class, before={})
+public class ExecuteMethodInterceptor implements Interceptor {
+
+	private final MethodInfo info;
+	private final Validator validator;
+<span class="fc" id="L47">	private final static Logger log = LoggerFactory.getLogger(ExecuteMethodInterceptor.class);</span>
+
+<span class="fc" id="L49">	public ExecuteMethodInterceptor(MethodInfo info, Validator validator) {</span>
+<span class="fc" id="L50">		this.info = info;</span>
+<span class="fc" id="L51">		this.validator = validator;</span>
+<span class="fc" id="L52">	}</span>
+
+	public void intercept(InterceptorStack stack, ResourceMethod method, Object resourceInstance)
+			throws InterceptionException {
+		try {
+<span class="fc" id="L57">			Method reflectionMethod = method.getMethod();</span>
+<span class="fc" id="L58">			Object[] parameters = this.info.getParameters();</span>
+
+<span class="fc" id="L60">			log.debug(&quot;Invoking {}&quot;, Stringnifier.simpleNameFor(reflectionMethod));</span>
+<span class="fc" id="L61">			Object result = reflectionMethod.invoke(resourceInstance, parameters);</span>
+
+<span class="fc bfc" id="L63" title="All 2 branches covered.">			if (validator.hasErrors()) { // method should have thrown ValidationException</span>
+<span class="pc bpc" id="L64" title="1 of 2 branches missed.">				if (log.isDebugEnabled()) {</span>
+					try {
+<span class="nc" id="L66">						validator.onErrorUse(nothing());</span>
+<span class="nc" id="L67">					} catch (ValidationException e) {</span>
+<span class="nc" id="L68">						log.debug(&quot;Some validation errors occured: {}&quot;, e.getErrors());</span>
+<span class="nc" id="L69">					}</span>
+				}
+<span class="fc" id="L71">				throw new InterceptionException(</span>
+						&quot;There are validation errors and you forgot to specify where to go. Please add in your method &quot;
+						+ &quot;something like:\n&quot;
+						+ &quot;validator.onErrorUse(page()).of(AnyController.class).anyMethod();\n&quot;
+						+ &quot;or any view that you like.\n&quot;
+						+ &quot;If you didn't add any validation error, it is possible that a conversion error had happened.&quot;);
+			}
+
+<span class="fc bfc" id="L79" title="All 2 branches covered.">			if (reflectionMethod.getReturnType().equals(Void.TYPE)) {</span>
+				// vraptor2 compatibility
+<span class="fc" id="L81">				this.info.setResult(&quot;ok&quot;);</span>
+			} else {
+<span class="fc" id="L83">				this.info.setResult(result);</span>
+			}
+<span class="fc" id="L85">			stack.next(method, resourceInstance);</span>
+<span class="nc" id="L86">		} catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L87">			throw new InterceptionException(e);</span>
+<span class="nc" id="L88">		} catch (IllegalAccessException e) {</span>
+<span class="nc" id="L89">			throw new InterceptionException(e);</span>
+<span class="fc" id="L90">		} catch (InvocationTargetException e) {</span>
+<span class="fc" id="L91">			Throwable cause = e.getCause();</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">			if (cause instanceof ValidationException) {</span>
+				// fine... already parsed
+<span class="fc" id="L94">				log.trace(&quot;swallowing {}&quot;, cause);</span>
+			} else {
+<span class="fc" id="L96">				throw new ApplicationLogicException(&quot;your controller raised an exception&quot;, cause);</span>
+			}
+<span class="fc" id="L98">		}</span>
+<span class="fc" id="L99">	}</span>
+
+	public boolean accepts(ResourceMethod method) {
+<span class="fc" id="L102">		return true;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

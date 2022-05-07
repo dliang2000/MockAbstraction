@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MemorySegmentFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.core.memory</a> &gt; <span class="el_source">MemorySegmentFactory.java</span></div><h1>MemorySegmentFactory.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.core.memory;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.TaskManagerExceptionUtils;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.nio.ByteBuffer;
+
+import static org.apache.flink.util.Preconditions.checkArgument;
+
+/** A factory for memory segments ({@link MemorySegment}). */
+@Internal
+<span class="nc" id="L35">public final class MemorySegmentFactory {</span>
+<span class="fc" id="L36">    private static final Logger LOG = LoggerFactory.getLogger(MemorySegmentFactory.class);</span>
+<span class="fc" id="L37">    private static final Runnable NO_OP = () -&gt; {};</span>
+
+    /**
+     * Creates a new memory segment that targets the given heap memory region.
+     *
+     * &lt;p&gt;This method should be used to turn short lived byte arrays into memory segments.
+     *
+     * @param buffer The heap memory region.
+     * @return A new memory segment that targets the given heap memory region.
+     */
+    public static MemorySegment wrap(byte[] buffer) {
+<span class="fc" id="L48">        return new MemorySegment(buffer, null);</span>
+    }
+
+    /**
+     * Copies the given heap memory region and creates a new memory segment wrapping it.
+     *
+     * @param bytes The heap memory region.
+     * @param start starting position, inclusive
+     * @param end end position, exclusive
+     * @return A new memory segment that targets a copy of the given heap memory region.
+     * @throws IllegalArgumentException if start &gt; end or end &gt; bytes.length
+     */
+    public static MemorySegment wrapCopy(byte[] bytes, int start, int end)
+            throws IllegalArgumentException {
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        checkArgument(end &gt;= start);</span>
+<span class="fc bfc" id="L63" title="All 2 branches covered.">        checkArgument(end &lt;= bytes.length);</span>
+<span class="fc" id="L64">        MemorySegment copy = allocateUnpooledSegment(end - start);</span>
+<span class="fc" id="L65">        copy.put(0, bytes, start, copy.size());</span>
+<span class="fc" id="L66">        return copy;</span>
+    }
+
+    /**
+     * Wraps the four bytes representing the given number with a {@link MemorySegment}.
+     *
+     * @see ByteBuffer#putInt(int)
+     */
+    public static MemorySegment wrapInt(int value) {
+<span class="nc" id="L75">        return wrap(ByteBuffer.allocate(Integer.BYTES).putInt(value).array());</span>
+    }
+
+    /**
+     * Allocates some unpooled memory and creates a new memory segment that represents that memory.
+     *
+     * &lt;p&gt;This method is similar to {@link #allocateUnpooledSegment(int, Object)}, but the memory
+     * segment will have null as the owner.
+     *
+     * @param size The size of the memory segment to allocate.
+     * @return A new memory segment, backed by unpooled heap memory.
+     */
+    public static MemorySegment allocateUnpooledSegment(int size) {
+<span class="fc" id="L88">        return allocateUnpooledSegment(size, null);</span>
+    }
+
+    /**
+     * Allocates some unpooled memory and creates a new memory segment that represents that memory.
+     *
+     * &lt;p&gt;This method is similar to {@link #allocateUnpooledSegment(int)}, but additionally sets the
+     * owner of the memory segment.
+     *
+     * @param size The size of the memory segment to allocate.
+     * @param owner The owner to associate with the memory segment.
+     * @return A new memory segment, backed by unpooled heap memory.
+     */
+    public static MemorySegment allocateUnpooledSegment(int size, Object owner) {
+<span class="fc" id="L102">        return new MemorySegment(new byte[size], owner);</span>
+    }
+
+    /**
+     * Allocates some unpooled off-heap memory and creates a new memory segment that represents that
+     * memory.
+     *
+     * @param size The size of the off-heap memory segment to allocate.
+     * @return A new memory segment, backed by unpooled off-heap memory.
+     */
+    public static MemorySegment allocateUnpooledOffHeapMemory(int size) {
+<span class="fc" id="L113">        return allocateUnpooledOffHeapMemory(size, null);</span>
+    }
+
+    /**
+     * Allocates some unpooled off-heap memory and creates a new memory segment that represents that
+     * memory.
+     *
+     * @param size The size of the off-heap memory segment to allocate.
+     * @param owner The owner to associate with the off-heap memory segment.
+     * @return A new memory segment, backed by unpooled off-heap memory.
+     */
+    public static MemorySegment allocateUnpooledOffHeapMemory(int size, Object owner) {
+<span class="fc" id="L125">        ByteBuffer memory = allocateDirectMemory(size);</span>
+<span class="fc" id="L126">        return new MemorySegment(memory, owner);</span>
+    }
+
+    @VisibleForTesting
+    public static MemorySegment allocateOffHeapUnsafeMemory(int size) {
+<span class="fc" id="L131">        return allocateOffHeapUnsafeMemory(size, null, NO_OP);</span>
+    }
+
+    private static ByteBuffer allocateDirectMemory(int size) {
+        //noinspection ErrorNotRethrown
+        try {
+<span class="fc" id="L137">            return ByteBuffer.allocateDirect(size);</span>
+<span class="nc" id="L138">        } catch (OutOfMemoryError outOfMemoryError) {</span>
+            // TODO: this error handling can be removed in future,
+            // once we find a common way to handle OOM errors in netty threads.
+            // Here we enrich it to propagate better OOM message to the receiver
+            // if it happens in a netty thread.
+<span class="nc" id="L143">            TaskManagerExceptionUtils.tryEnrichTaskManagerError(outOfMemoryError);</span>
+<span class="nc bnc" id="L144" title="All 2 branches missed.">            if (ExceptionUtils.isDirectOutOfMemoryError(outOfMemoryError)) {</span>
+<span class="nc" id="L145">                LOG.error(&quot;Cannot allocate direct memory segment&quot;, outOfMemoryError);</span>
+            }
+
+<span class="nc" id="L148">            ExceptionUtils.rethrow(outOfMemoryError);</span>
+<span class="nc" id="L149">            return null;</span>
+        }
+    }
+
+    /**
+     * Allocates an off-heap unsafe memory and creates a new memory segment to represent that
+     * memory.
+     *
+     * &lt;p&gt;Creation of this segment schedules its memory freeing operation when its java wrapping
+     * object is about to be garbage collected, similar to {@link
+     * java.nio.DirectByteBuffer#DirectByteBuffer(int)}. The difference is that this memory
+     * allocation is out of option -XX:MaxDirectMemorySize limitation.
+     *
+     * @param size The size of the off-heap unsafe memory segment to allocate.
+     * @param owner The owner to associate with the off-heap unsafe memory segment.
+     * @param customCleanupAction A custom action to run upon calling GC cleaner.
+     * @return A new memory segment, backed by off-heap unsafe memory.
+     */
+    public static MemorySegment allocateOffHeapUnsafeMemory(
+            int size, Object owner, Runnable customCleanupAction) {
+<span class="fc" id="L169">        long address = MemoryUtils.allocateUnsafe(size);</span>
+<span class="fc" id="L170">        ByteBuffer offHeapBuffer = MemoryUtils.wrapUnsafeMemoryWithByteBuffer(address, size);</span>
+<span class="fc" id="L171">        Runnable cleaner = MemoryUtils.createMemoryCleaner(address, customCleanupAction);</span>
+<span class="fc" id="L172">        return new MemorySegment(offHeapBuffer, owner, false, cleaner);</span>
+    }
+
+    /**
+     * Creates a memory segment that wraps the off-heap memory backing the given ByteBuffer. Note
+     * that the ByteBuffer needs to be a &lt;i&gt;direct ByteBuffer&lt;/i&gt;.
+     *
+     * &lt;p&gt;This method is intended to be used for components which pool memory and create memory
+     * segments around long-lived memory regions.
+     *
+     * @param memory The byte buffer with the off-heap memory to be represented by the memory
+     *     segment.
+     * @return A new memory segment representing the given off-heap memory.
+     */
+    public static MemorySegment wrapOffHeapMemory(ByteBuffer memory) {
+<span class="nc" id="L187">        return new MemorySegment(memory, null);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

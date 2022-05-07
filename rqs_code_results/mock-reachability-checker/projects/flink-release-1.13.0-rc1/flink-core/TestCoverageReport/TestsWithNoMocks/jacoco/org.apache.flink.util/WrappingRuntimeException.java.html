@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WrappingRuntimeException.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.util</a> &gt; <span class="el_source">WrappingRuntimeException.java</span></div><h1>WrappingRuntimeException.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.util;
+
+import javax.annotation.Nonnull;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * A runtime exception that is explicitly used to wrap non-runtime exceptions.
+ *
+ * &lt;p&gt;The exception is recognized (for example by the Task when reporting exceptions as failure
+ * causes) and unwrapped to avoid including the wrapper's stack trace in the reports. That way,
+ * exception traces are keeping to the important parts.
+ */
+public class WrappingRuntimeException extends FlinkRuntimeException {
+
+    private static final long serialVersionUID = 1L;
+
+    public WrappingRuntimeException(@Nonnull Throwable cause) {
+<span class="nc" id="L37">        super(checkNotNull(cause));</span>
+<span class="nc" id="L38">    }</span>
+
+    public WrappingRuntimeException(String message, @Nonnull Throwable cause) {
+<span class="nc" id="L41">        super(message, checkNotNull(cause));</span>
+<span class="nc" id="L42">    }</span>
+
+    /**
+     * Recursively unwraps this WrappingRuntimeException and its causes, getting the first non
+     * wrapping exception.
+     *
+     * @return The first cause that is not a wrapping exception.
+     */
+    public Throwable unwrap() {
+<span class="nc" id="L51">        Throwable cause = getCause();</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">        return (cause instanceof WrappingRuntimeException)</span>
+<span class="nc" id="L53">                ? ((WrappingRuntimeException) cause).unwrap()</span>
+                : cause;
+    }
+
+    /**
+     * Ensures that any throwable can be thrown as a checked exception by potentially wrapping it.
+     *
+     * @return a runtime exception wrapping the throwable if checked or by returning the throwable
+     *     if it's a runtime exception.
+     */
+    public static RuntimeException wrapIfNecessary(Throwable throwable) {
+<span class="nc bnc" id="L64" title="All 2 branches missed.">        if (throwable instanceof RuntimeException) {</span>
+<span class="nc" id="L65">            return (RuntimeException) throwable;</span>
+        }
+<span class="nc" id="L67">        return new WrappingRuntimeException(throwable);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

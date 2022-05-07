@@ -1,0 +1,374 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DataOutputSerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.core.memory</a> &gt; <span class="el_source">DataOutputSerializer.java</span></div><h1>DataOutputSerializer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.core.memory;
+
+import org.apache.flink.util.Preconditions;
+
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.UTFDataFormatException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Arrays;
+
+/** A simple and efficient serializer for the {@link java.io.DataOutput} interface. */
+public class DataOutputSerializer implements DataOutputView, MemorySegmentWritable {
+
+    private byte[] buffer;
+
+    private int position;
+
+    private ByteBuffer wrapper;
+
+    // ------------------------------------------------------------------------
+
+<span class="fc" id="L41">    public DataOutputSerializer(int startSize) {</span>
+<span class="pc bpc" id="L42" title="1 of 2 branches missed.">        if (startSize &lt; 1) {</span>
+<span class="nc" id="L43">            throw new IllegalArgumentException();</span>
+        }
+
+<span class="fc" id="L46">        this.buffer = new byte[startSize];</span>
+<span class="fc" id="L47">        this.wrapper = ByteBuffer.wrap(buffer);</span>
+<span class="fc" id="L48">    }</span>
+
+    public ByteBuffer wrapAsByteBuffer() {
+<span class="fc" id="L51">        this.wrapper.position(0);</span>
+<span class="fc" id="L52">        this.wrapper.limit(this.position);</span>
+<span class="fc" id="L53">        return this.wrapper;</span>
+    }
+
+    /** @deprecated Replaced by {@link #getSharedBuffer()} for a better, safer name. */
+    @Deprecated
+    public byte[] getByteArray() {
+<span class="nc" id="L59">        return getSharedBuffer();</span>
+    }
+
+    /**
+     * Gets a reference to the internal byte buffer. This buffer may be larger than the actual
+     * serialized data. Only the bytes from zero to {@link #length()} are valid. The buffer will
+     * also be overwritten with the next write calls.
+     *
+     * &lt;p&gt;This method is useful when trying to avid byte copies, but should be used carefully.
+     *
+     * @return A reference to the internal shared and reused buffer.
+     */
+    public byte[] getSharedBuffer() {
+<span class="fc" id="L72">        return buffer;</span>
+    }
+
+    /**
+     * Gets a copy of the buffer that has the right length for the data serialized so far. The
+     * returned buffer is an exclusive copy and can be safely used without being overwritten by
+     * future write calls to this serializer.
+     *
+     * &lt;p&gt;This method is equivalent to {@code Arrays.copyOf(getSharedBuffer(), length());}
+     *
+     * @return A non-shared copy of the serialization buffer.
+     */
+    public byte[] getCopyOfBuffer() {
+<span class="fc" id="L85">        return Arrays.copyOf(buffer, position);</span>
+    }
+
+    public void clear() {
+<span class="fc" id="L89">        this.position = 0;</span>
+<span class="fc" id="L90">    }</span>
+
+    public int length() {
+<span class="fc" id="L93">        return this.position;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L98">        return String.format(&quot;[pos=%d cap=%d]&quot;, this.position, this.buffer.length);</span>
+    }
+
+    // ----------------------------------------------------------------------------------------
+    //                               Data Output
+    // ----------------------------------------------------------------------------------------
+
+    @Override
+    public void write(int b) throws IOException {
+<span class="fc bfc" id="L107" title="All 2 branches covered.">        if (this.position &gt;= this.buffer.length) {</span>
+<span class="fc" id="L108">            resize(1);</span>
+        }
+<span class="fc" id="L110">        this.buffer[this.position++] = (byte) (b &amp; 0xff);</span>
+<span class="fc" id="L111">    }</span>
+
+    @Override
+    public void write(byte[] b) throws IOException {
+<span class="fc" id="L115">        write(b, 0, b.length);</span>
+<span class="fc" id="L116">    }</span>
+
+    @Override
+    public void write(byte[] b, int off, int len) throws IOException {
+<span class="pc bpc" id="L120" title="2 of 4 branches missed.">        if (len &lt; 0 || off &gt; b.length - len) {</span>
+<span class="nc" id="L121">            throw new ArrayIndexOutOfBoundsException();</span>
+        }
+<span class="fc bfc" id="L123" title="All 2 branches covered.">        if (this.position &gt; this.buffer.length - len) {</span>
+<span class="fc" id="L124">            resize(len);</span>
+        }
+<span class="fc" id="L126">        System.arraycopy(b, off, this.buffer, this.position, len);</span>
+<span class="fc" id="L127">        this.position += len;</span>
+<span class="fc" id="L128">    }</span>
+
+    @Override
+    public void write(MemorySegment segment, int off, int len) throws IOException {
+<span class="nc bnc" id="L132" title="All 6 branches missed.">        if (len &lt; 0 || off &lt; 0 || off &gt; segment.size() - len) {</span>
+<span class="nc" id="L133">            throw new IndexOutOfBoundsException(</span>
+<span class="nc" id="L134">                    String.format(&quot;offset: %d, length: %d, size: %d&quot;, off, len, segment.size()));</span>
+        }
+<span class="nc bnc" id="L136" title="All 2 branches missed.">        if (this.position &gt; this.buffer.length - len) {</span>
+<span class="nc" id="L137">            resize(len);</span>
+        }
+<span class="nc" id="L139">        segment.get(off, this.buffer, this.position, len);</span>
+<span class="nc" id="L140">        this.position += len;</span>
+<span class="nc" id="L141">    }</span>
+
+    @Override
+    public void writeBoolean(boolean v) throws IOException {
+<span class="fc bfc" id="L145" title="All 2 branches covered.">        write(v ? 1 : 0);</span>
+<span class="fc" id="L146">    }</span>
+
+    @Override
+    public void writeByte(int v) throws IOException {
+<span class="fc" id="L150">        write(v);</span>
+<span class="fc" id="L151">    }</span>
+
+    @Override
+    public void writeBytes(String s) throws IOException {
+<span class="nc" id="L155">        final int sLen = s.length();</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">        if (this.position &gt;= this.buffer.length - sLen) {</span>
+<span class="nc" id="L157">            resize(sLen);</span>
+        }
+
+<span class="nc bnc" id="L160" title="All 2 branches missed.">        for (int i = 0; i &lt; sLen; i++) {</span>
+<span class="nc" id="L161">            writeByte(s.charAt(i));</span>
+        }
+<span class="nc" id="L163">        this.position += sLen;</span>
+<span class="nc" id="L164">    }</span>
+
+    @Override
+    public void writeChar(int v) throws IOException {
+<span class="pc bpc" id="L168" title="1 of 2 branches missed.">        if (this.position &gt;= this.buffer.length - 1) {</span>
+<span class="nc" id="L169">            resize(2);</span>
+        }
+<span class="fc" id="L171">        this.buffer[this.position++] = (byte) (v &gt;&gt; 8);</span>
+<span class="fc" id="L172">        this.buffer[this.position++] = (byte) v;</span>
+<span class="fc" id="L173">    }</span>
+
+    @Override
+    public void writeChars(String s) throws IOException {
+<span class="nc" id="L177">        final int sLen = s.length();</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">        if (this.position &gt;= this.buffer.length - 2 * sLen) {</span>
+<span class="nc" id="L179">            resize(2 * sLen);</span>
+        }
+<span class="nc bnc" id="L181" title="All 2 branches missed.">        for (int i = 0; i &lt; sLen; i++) {</span>
+<span class="nc" id="L182">            writeChar(s.charAt(i));</span>
+        }
+<span class="nc" id="L184">    }</span>
+
+    @Override
+    public void writeDouble(double v) throws IOException {
+<span class="fc" id="L188">        writeLong(Double.doubleToLongBits(v));</span>
+<span class="fc" id="L189">    }</span>
+
+    @Override
+    public void writeFloat(float v) throws IOException {
+<span class="fc" id="L193">        writeInt(Float.floatToIntBits(v));</span>
+<span class="fc" id="L194">    }</span>
+
+    @SuppressWarnings(&quot;restriction&quot;)
+    @Override
+    public void writeInt(int v) throws IOException {
+<span class="fc bfc" id="L199" title="All 2 branches covered.">        if (this.position &gt;= this.buffer.length - 3) {</span>
+<span class="fc" id="L200">            resize(4);</span>
+        }
+<span class="pc bpc" id="L202" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L203">            v = Integer.reverseBytes(v);</span>
+        }
+<span class="fc" id="L205">        UNSAFE.putInt(this.buffer, BASE_OFFSET + this.position, v);</span>
+<span class="fc" id="L206">        this.position += 4;</span>
+<span class="fc" id="L207">    }</span>
+
+    public void writeIntUnsafe(int v, int pos) throws IOException {
+<span class="nc bnc" id="L210" title="All 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="nc" id="L211">            v = Integer.reverseBytes(v);</span>
+        }
+<span class="nc" id="L213">        UNSAFE.putInt(this.buffer, BASE_OFFSET + pos, v);</span>
+<span class="nc" id="L214">    }</span>
+
+    @SuppressWarnings(&quot;restriction&quot;)
+    @Override
+    public void writeLong(long v) throws IOException {
+<span class="fc bfc" id="L219" title="All 2 branches covered.">        if (this.position &gt;= this.buffer.length - 7) {</span>
+<span class="fc" id="L220">            resize(8);</span>
+        }
+<span class="pc bpc" id="L222" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L223">            v = Long.reverseBytes(v);</span>
+        }
+<span class="fc" id="L225">        UNSAFE.putLong(this.buffer, BASE_OFFSET + this.position, v);</span>
+<span class="fc" id="L226">        this.position += 8;</span>
+<span class="fc" id="L227">    }</span>
+
+    @Override
+    public void writeShort(int v) throws IOException {
+<span class="fc bfc" id="L231" title="All 2 branches covered.">        if (this.position &gt;= this.buffer.length - 1) {</span>
+<span class="fc" id="L232">            resize(2);</span>
+        }
+<span class="fc" id="L234">        this.buffer[this.position++] = (byte) ((v &gt;&gt;&gt; 8) &amp; 0xff);</span>
+<span class="fc" id="L235">        this.buffer[this.position++] = (byte) (v &amp; 0xff);</span>
+<span class="fc" id="L236">    }</span>
+
+    @Override
+    public void writeUTF(String str) throws IOException {
+<span class="fc" id="L240">        int strlen = str.length();</span>
+<span class="fc" id="L241">        int utflen = 0;</span>
+        int c;
+
+        /* use charAt instead of copying String to char array */
+<span class="fc bfc" id="L245" title="All 2 branches covered.">        for (int i = 0; i &lt; strlen; i++) {</span>
+<span class="fc" id="L246">            c = str.charAt(i);</span>
+<span class="pc bpc" id="L247" title="2 of 4 branches missed.">            if ((c &gt;= 0x0001) &amp;&amp; (c &lt;= 0x007F)) {</span>
+<span class="fc" id="L248">                utflen++;</span>
+<span class="nc bnc" id="L249" title="All 2 branches missed.">            } else if (c &gt; 0x07FF) {</span>
+<span class="nc" id="L250">                utflen += 3;</span>
+            } else {
+<span class="nc" id="L252">                utflen += 2;</span>
+            }
+        }
+
+<span class="pc bpc" id="L256" title="1 of 2 branches missed.">        if (utflen &gt; 65535) {</span>
+<span class="nc" id="L257">            throw new UTFDataFormatException(&quot;Encoded string is too long: &quot; + utflen);</span>
+<span class="fc bfc" id="L258" title="All 2 branches covered.">        } else if (this.position &gt; this.buffer.length - utflen - 2) {</span>
+<span class="fc" id="L259">            resize(utflen + 2);</span>
+        }
+
+<span class="fc" id="L262">        byte[] bytearr = this.buffer;</span>
+<span class="fc" id="L263">        int count = this.position;</span>
+
+<span class="fc" id="L265">        bytearr[count++] = (byte) ((utflen &gt;&gt;&gt; 8) &amp; 0xFF);</span>
+<span class="fc" id="L266">        bytearr[count++] = (byte) (utflen &amp; 0xFF);</span>
+
+        int i;
+<span class="fc bfc" id="L269" title="All 2 branches covered.">        for (i = 0; i &lt; strlen; i++) {</span>
+<span class="fc" id="L270">            c = str.charAt(i);</span>
+<span class="pc bpc" id="L271" title="2 of 4 branches missed.">            if (!((c &gt;= 0x0001) &amp;&amp; (c &lt;= 0x007F))) {</span>
+<span class="nc" id="L272">                break;</span>
+            }
+<span class="fc" id="L274">            bytearr[count++] = (byte) c;</span>
+        }
+
+<span class="pc bpc" id="L277" title="1 of 2 branches missed.">        for (; i &lt; strlen; i++) {</span>
+<span class="nc" id="L278">            c = str.charAt(i);</span>
+<span class="nc bnc" id="L279" title="All 4 branches missed.">            if ((c &gt;= 0x0001) &amp;&amp; (c &lt;= 0x007F)) {</span>
+<span class="nc" id="L280">                bytearr[count++] = (byte) c;</span>
+
+<span class="nc bnc" id="L282" title="All 2 branches missed.">            } else if (c &gt; 0x07FF) {</span>
+<span class="nc" id="L283">                bytearr[count++] = (byte) (0xE0 | ((c &gt;&gt; 12) &amp; 0x0F));</span>
+<span class="nc" id="L284">                bytearr[count++] = (byte) (0x80 | ((c &gt;&gt; 6) &amp; 0x3F));</span>
+<span class="nc" id="L285">                bytearr[count++] = (byte) (0x80 | (c &amp; 0x3F));</span>
+            } else {
+<span class="nc" id="L287">                bytearr[count++] = (byte) (0xC0 | ((c &gt;&gt; 6) &amp; 0x1F));</span>
+<span class="nc" id="L288">                bytearr[count++] = (byte) (0x80 | (c &amp; 0x3F));</span>
+            }
+        }
+
+<span class="fc" id="L292">        this.position = count;</span>
+<span class="fc" id="L293">    }</span>
+
+    private void resize(int minCapacityAdd) throws IOException {
+<span class="fc" id="L296">        int newLen = Math.max(this.buffer.length * 2, this.buffer.length + minCapacityAdd);</span>
+        byte[] nb;
+        try {
+<span class="fc" id="L299">            nb = new byte[newLen];</span>
+<span class="nc" id="L300">        } catch (NegativeArraySizeException e) {</span>
+<span class="nc" id="L301">            throw new IOException(</span>
+                    &quot;Serialization failed because the record length would exceed 2GB (max addressable array size in Java).&quot;);
+<span class="nc" id="L303">        } catch (OutOfMemoryError e) {</span>
+            // this was too large to allocate, try the smaller size (if possible)
+<span class="nc bnc" id="L305" title="All 2 branches missed.">            if (newLen &gt; this.buffer.length + minCapacityAdd) {</span>
+<span class="nc" id="L306">                newLen = this.buffer.length + minCapacityAdd;</span>
+                try {
+<span class="nc" id="L308">                    nb = new byte[newLen];</span>
+<span class="nc" id="L309">                } catch (OutOfMemoryError ee) {</span>
+                    // still not possible. give an informative exception message that reports the
+                    // size
+<span class="nc" id="L312">                    throw new IOException(</span>
+                            &quot;Failed to serialize element. Serialized size (&gt; &quot;
+                                    + newLen
+                                    + &quot; bytes) exceeds JVM heap space&quot;,
+                            ee);
+<span class="nc" id="L317">                }</span>
+            } else {
+<span class="nc" id="L319">                throw new IOException(</span>
+                        &quot;Failed to serialize element. Serialized size (&gt; &quot;
+                                + newLen
+                                + &quot; bytes) exceeds JVM heap space&quot;,
+                        e);
+            }
+<span class="fc" id="L325">        }</span>
+
+<span class="fc" id="L327">        System.arraycopy(this.buffer, 0, nb, 0, this.position);</span>
+<span class="fc" id="L328">        this.buffer = nb;</span>
+<span class="fc" id="L329">        this.wrapper = ByteBuffer.wrap(this.buffer);</span>
+<span class="fc" id="L330">    }</span>
+
+    @Override
+    public void skipBytesToWrite(int numBytes) throws IOException {
+<span class="nc bnc" id="L334" title="All 2 branches missed.">        if (buffer.length - this.position &lt; numBytes) {</span>
+<span class="nc" id="L335">            throw new EOFException(&quot;Could not skip &quot; + numBytes + &quot; bytes.&quot;);</span>
+        }
+
+<span class="nc" id="L338">        this.position += numBytes;</span>
+<span class="nc" id="L339">    }</span>
+
+    @Override
+    public void write(DataInputView source, int numBytes) throws IOException {
+<span class="nc bnc" id="L343" title="All 2 branches missed.">        if (buffer.length - this.position &lt; numBytes) {</span>
+<span class="nc" id="L344">            throw new EOFException(&quot;Could not write &quot; + numBytes + &quot; bytes. Buffer overflow.&quot;);</span>
+        }
+
+<span class="nc" id="L347">        source.readFully(this.buffer, this.position, numBytes);</span>
+<span class="nc" id="L348">        this.position += numBytes;</span>
+<span class="nc" id="L349">    }</span>
+
+    public void setPosition(int position) {
+<span class="nc bnc" id="L352" title="All 4 branches missed.">        Preconditions.checkArgument(</span>
+                position &gt;= 0 &amp;&amp; position &lt;= this.position, &quot;Position out of bounds.&quot;);
+<span class="nc" id="L354">        this.position = position;</span>
+<span class="nc" id="L355">    }</span>
+
+    public void setPositionUnsafe(int position) {
+<span class="nc" id="L358">        this.position = position;</span>
+<span class="nc" id="L359">    }</span>
+
+    // ------------------------------------------------------------------------
+    //  Utilities
+    // ------------------------------------------------------------------------
+
+    @SuppressWarnings(&quot;restriction&quot;)
+<span class="fc" id="L366">    private static final sun.misc.Unsafe UNSAFE = MemoryUtils.UNSAFE;</span>
+
+    @SuppressWarnings(&quot;restriction&quot;)
+<span class="fc" id="L369">    private static final long BASE_OFFSET = UNSAFE.arrayBaseOffset(byte[].class);</span>
+
+<span class="pc bpc" id="L371" title="1 of 2 branches missed.">    private static final boolean LITTLE_ENDIAN =</span>
+            (MemoryUtils.NATIVE_BYTE_ORDER == ByteOrder.LITTLE_ENDIAN);
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

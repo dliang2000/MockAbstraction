@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GenericInputFormat.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.io</a> &gt; <span class="el_source">GenericInputFormat.java</span></div><h1>GenericInputFormat.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.io;
+
+import org.apache.flink.annotation.Public;
+import org.apache.flink.api.common.io.statistics.BaseStatistics;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.core.io.GenericInputSplit;
+
+import java.io.IOException;
+
+/** Generic base class for all Rich inputs that are not based on files. */
+@Public
+<span class="fc" id="L30">public abstract class GenericInputFormat&lt;OT&gt; extends RichInputFormat&lt;OT, GenericInputSplit&gt; {</span>
+
+    private static final long serialVersionUID = 1L;
+
+    /** The partition of this split. */
+    protected int partitionNumber;
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public void configure(Configuration parameters) {
+        //	nothing by default
+<span class="fc" id="L42">    }</span>
+
+    @Override
+    public BaseStatistics getStatistics(BaseStatistics cachedStatistics) throws IOException {
+        // no statistics available, by default.
+<span class="nc" id="L47">        return cachedStatistics;</span>
+    }
+
+    @Override
+    public GenericInputSplit[] createInputSplits(int numSplits) throws IOException {
+<span class="pc bpc" id="L52" title="1 of 2 branches missed.">        if (numSplits &lt; 1) {</span>
+<span class="nc" id="L53">            throw new IllegalArgumentException(&quot;Number of input splits has to be at least 1.&quot;);</span>
+        }
+
+<span class="pc bpc" id="L56" title="1 of 2 branches missed.">        numSplits = (this instanceof NonParallelInput) ? 1 : numSplits;</span>
+<span class="fc" id="L57">        GenericInputSplit[] splits = new GenericInputSplit[numSplits];</span>
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        for (int i = 0; i &lt; splits.length; i++) {</span>
+<span class="fc" id="L59">            splits[i] = new GenericInputSplit(i, numSplits);</span>
+        }
+<span class="fc" id="L61">        return splits;</span>
+    }
+
+    @Override
+    public DefaultInputSplitAssigner getInputSplitAssigner(GenericInputSplit[] splits) {
+<span class="nc" id="L66">        return new DefaultInputSplitAssigner(splits);</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public void open(GenericInputSplit split) throws IOException {
+<span class="fc" id="L73">        this.partitionNumber = split.getSplitNumber();</span>
+<span class="fc" id="L74">    }</span>
+
+    @Override
+<span class="fc" id="L77">    public void close() throws IOException {}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

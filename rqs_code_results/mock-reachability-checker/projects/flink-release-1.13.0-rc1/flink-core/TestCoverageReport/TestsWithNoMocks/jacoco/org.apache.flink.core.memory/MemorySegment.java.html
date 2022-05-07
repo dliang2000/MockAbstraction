@@ -1,0 +1,1658 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MemorySegment.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.core.memory</a> &gt; <span class="el_source">MemorySegment.java</span></div><h1>MemorySegment.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.core.memory;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.util.Preconditions;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
+import java.nio.BufferOverflowException;
+import java.nio.BufferUnderflowException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.ReadOnlyBufferException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
+import static org.apache.flink.core.memory.MemoryUtils.getByteBufferAddress;
+
+/**
+ * This class represents a piece of memory managed by Flink.
+ *
+ * &lt;p&gt;The memory can be on-heap, off-heap direct or off-heap unsafe. This is transparently handled
+ * by this class.
+ *
+ * &lt;p&gt;This class fulfills conceptually a similar purpose as Java's {@link java.nio.ByteBuffer}. We
+ * add this specialized class for various reasons:
+ *
+ * &lt;ul&gt;
+ *   &lt;li&gt;It offers additional binary compare, swap, and copy methods.
+ *   &lt;li&gt;It uses collapsed checks for range check and memory segment disposal.
+ *   &lt;li&gt;It offers absolute positioning methods for bulk put/get methods, to guarantee thread safe
+ *       use.
+ *   &lt;li&gt;It offers explicit big-endian / little-endian access methods, rather than tracking
+ *       internally a byte order.
+ *   &lt;li&gt;It transparently and efficiently moves data between on-heap and off-heap variants.
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;&lt;i&gt;Comments on the implementation&lt;/i&gt;: We make heavy use of operations that are supported by
+ * native instructions, to achieve a high efficiency. Multi byte types (int, long, float, double,
+ * ...) are read and written with &quot;unsafe&quot; native commands.
+ *
+ * &lt;p&gt;&lt;i&gt;Note on efficiency&lt;/i&gt;: For best efficiency, we do not separate implementations of
+ * different memory types with inheritance, to avoid the overhead from looking for concrete
+ * implementations on invocations of abstract methods.
+ */
+@Internal
+public final class MemorySegment {
+
+    /** System property for activating multiple free segment check, for testing purpose. */
+    public static final String CHECK_MULTIPLE_FREE_PROPERTY =
+            &quot;flink.tests.check-segment-multiple-free&quot;;
+
+    private static final boolean checkMultipleFree =
+<span class="fc" id="L77">            System.getProperties().containsKey(CHECK_MULTIPLE_FREE_PROPERTY);</span>
+
+    /** The unsafe handle for transparent memory copied (heap / off-heap). */
+    @SuppressWarnings(&quot;restriction&quot;)
+<span class="fc" id="L81">    private static final sun.misc.Unsafe UNSAFE = MemoryUtils.UNSAFE;</span>
+
+    /** The beginning of the byte array contents, relative to the byte array object. */
+    @SuppressWarnings(&quot;restriction&quot;)
+<span class="fc" id="L85">    private static final long BYTE_ARRAY_BASE_OFFSET = UNSAFE.arrayBaseOffset(byte[].class);</span>
+
+    /**
+     * Constant that flags the byte order. Because this is a boolean constant, the JIT compiler can
+     * use this well to aggressively eliminate the non-applicable code paths.
+     */
+<span class="fc" id="L91">    private static final boolean LITTLE_ENDIAN =</span>
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">            (ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN);</span>
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * The heap byte array object relative to which we access the memory.
+     *
+     * &lt;p&gt;Is non-&lt;tt&gt;null&lt;/tt&gt; if the memory is on the heap, and is &lt;tt&gt;null&lt;/tt&gt;, if the memory is
+     * off the heap. If we have this buffer, we must never void this reference, or the memory
+     * segment will point to undefined addresses outside the heap and may in out-of-order execution
+     * cases cause segmentation faults.
+     */
+    @Nullable private final byte[] heapMemory;
+
+    /**
+     * The direct byte buffer that wraps the off-heap memory. This memory segment holds a reference
+     * to that buffer, so as long as this memory segment lives, the memory will not be released.
+     */
+    @Nullable private ByteBuffer offHeapBuffer;
+
+    /**
+     * The address to the data, relative to the heap memory byte array. If the heap memory byte
+     * array is &lt;tt&gt;null&lt;/tt&gt;, this becomes an absolute memory address outside the heap.
+     */
+    private long address;
+
+    /**
+     * The address one byte after the last addressable byte, i.e. &lt;tt&gt;address + size&lt;/tt&gt; while the
+     * segment is not disposed.
+     */
+    private final long addressLimit;
+
+    /** The size in bytes of the memory segment. */
+    private final int size;
+
+    /** Optional owner of the memory segment. */
+    @Nullable private final Object owner;
+
+    @Nullable private Runnable cleaner;
+
+    /**
+     * Wrapping is not allowed when the underlying memory is unsafe. Unsafe memory can be actively
+     * released, without reference counting. Therefore, access from wrapped buffers, which may not
+     * be aware of the releasing of memory, could be risky.
+     */
+    private final boolean allowWrap;
+
+    private final AtomicBoolean isFreedAtomic;
+
+    /**
+     * Creates a new memory segment that represents the memory of the byte array.
+     *
+     * &lt;p&gt;Since the byte array is backed by on-heap memory, this memory segment holds its data on
+     * heap. The buffer must be at least of size 8 bytes.
+     *
+     * &lt;p&gt;The memory segment references the given owner.
+     *
+     * @param buffer The byte array whose memory is represented by this memory segment.
+     * @param owner The owner references by this memory segment.
+     */
+<span class="fc" id="L152">    MemorySegment(@Nonnull byte[] buffer, @Nullable Object owner) {</span>
+<span class="fc" id="L153">        this.heapMemory = buffer;</span>
+<span class="fc" id="L154">        this.offHeapBuffer = null;</span>
+<span class="fc" id="L155">        this.size = buffer.length;</span>
+<span class="fc" id="L156">        this.address = BYTE_ARRAY_BASE_OFFSET;</span>
+<span class="fc" id="L157">        this.addressLimit = this.address + this.size;</span>
+<span class="fc" id="L158">        this.owner = owner;</span>
+<span class="fc" id="L159">        this.allowWrap = true;</span>
+<span class="fc" id="L160">        this.cleaner = null;</span>
+<span class="fc" id="L161">        this.isFreedAtomic = new AtomicBoolean(false);</span>
+<span class="fc" id="L162">    }</span>
+
+    /**
+     * Creates a new memory segment that represents the memory backing the given direct byte buffer.
+     * Note that the given ByteBuffer must be direct {@link
+     * java.nio.ByteBuffer#allocateDirect(int)}, otherwise this method with throw an
+     * IllegalArgumentException.
+     *
+     * &lt;p&gt;The memory segment references the given owner.
+     *
+     * @param buffer The byte buffer whose memory is represented by this memory segment.
+     * @param owner The owner references by this memory segment.
+     * @throws IllegalArgumentException Thrown, if the given ByteBuffer is not direct.
+     */
+    MemorySegment(@Nonnull ByteBuffer buffer, @Nullable Object owner) {
+<span class="fc" id="L177">        this(buffer, owner, true, null);</span>
+<span class="fc" id="L178">    }</span>
+
+    /**
+     * Creates a new memory segment that represents the memory backing the given direct byte buffer.
+     * Note that the given ByteBuffer must be direct {@link
+     * java.nio.ByteBuffer#allocateDirect(int)}, otherwise this method with throw an
+     * IllegalArgumentException.
+     *
+     * &lt;p&gt;The memory segment references the given owner.
+     *
+     * @param buffer The byte buffer whose memory is represented by this memory segment.
+     * @param owner The owner references by this memory segment.
+     * @param allowWrap Whether wrapping {@link ByteBuffer}s from the segment is allowed.
+     * @param cleaner The cleaner to be called on free segment.
+     * @throws IllegalArgumentException Thrown, if the given ByteBuffer is not direct.
+     */
+    MemorySegment(
+            @Nonnull ByteBuffer buffer,
+            @Nullable Object owner,
+            boolean allowWrap,
+<span class="fc" id="L198">            @Nullable Runnable cleaner) {</span>
+<span class="fc" id="L199">        this.heapMemory = null;</span>
+<span class="fc" id="L200">        this.offHeapBuffer = buffer;</span>
+<span class="fc" id="L201">        this.size = buffer.capacity();</span>
+<span class="fc" id="L202">        this.address = getByteBufferAddress(buffer);</span>
+<span class="fc" id="L203">        this.addressLimit = this.address + this.size;</span>
+<span class="fc" id="L204">        this.owner = owner;</span>
+<span class="fc" id="L205">        this.allowWrap = allowWrap;</span>
+<span class="fc" id="L206">        this.cleaner = cleaner;</span>
+<span class="fc" id="L207">        this.isFreedAtomic = new AtomicBoolean(false);</span>
+<span class="fc" id="L208">    }</span>
+
+    // ------------------------------------------------------------------------
+    // Memory Segment Operations
+    // ------------------------------------------------------------------------
+
+    /**
+     * Gets the size of the memory segment, in bytes.
+     *
+     * @return The size of the memory segment.
+     */
+    public int size() {
+<span class="fc" id="L220">        return size;</span>
+    }
+
+    /**
+     * Checks whether the memory segment was freed.
+     *
+     * @return &lt;tt&gt;true&lt;/tt&gt;, if the memory segment has been freed, &lt;tt&gt;false&lt;/tt&gt; otherwise.
+     */
+    @VisibleForTesting
+    public boolean isFreed() {
+<span class="pc bpc" id="L230" title="1 of 2 branches missed.">        return address &gt; addressLimit;</span>
+    }
+
+    /**
+     * Frees this memory segment.
+     *
+     * &lt;p&gt;After this operation has been called, no further operations are possible on the memory
+     * segment and will fail. The actual memory (heap or off-heap) will only be released after this
+     * memory segment object has become garbage collected.
+     */
+    public void free() {
+<span class="pc bpc" id="L241" title="1 of 2 branches missed.">        if (isFreedAtomic.getAndSet(true)) {</span>
+            // the segment has already been freed
+<span class="nc bnc" id="L243" title="All 2 branches missed.">            if (checkMultipleFree) {</span>
+<span class="nc" id="L244">                throw new IllegalStateException(&quot;MemorySegment can be freed only once!&quot;);</span>
+            }
+        } else {
+            // this ensures we can place no more data and trigger
+            // the checks for the freed segment
+<span class="fc" id="L249">            address = addressLimit + 1;</span>
+<span class="fc" id="L250">            offHeapBuffer = null; // to enable GC of unsafe memory</span>
+<span class="fc bfc" id="L251" title="All 2 branches covered.">            if (cleaner != null) {</span>
+<span class="fc" id="L252">                cleaner.run();</span>
+<span class="fc" id="L253">                cleaner = null;</span>
+            }
+        }
+<span class="fc" id="L256">    }</span>
+
+    /**
+     * Checks whether this memory segment is backed by off-heap memory.
+     *
+     * @return &lt;tt&gt;true&lt;/tt&gt;, if the memory segment is backed by off-heap memory, &lt;tt&gt;false&lt;/tt&gt; if
+     *     it is backed by heap memory.
+     */
+    public boolean isOffHeap() {
+<span class="nc bnc" id="L265" title="All 2 branches missed.">        return heapMemory == null;</span>
+    }
+
+    /**
+     * Returns the byte array of on-heap memory segments.
+     *
+     * @return underlying byte array
+     * @throws IllegalStateException if the memory segment does not represent on-heap memory
+     */
+    public byte[] getArray() {
+<span class="nc bnc" id="L275" title="All 2 branches missed.">        if (heapMemory != null) {</span>
+<span class="nc" id="L276">            return heapMemory;</span>
+        } else {
+<span class="nc" id="L278">            throw new IllegalStateException(&quot;Memory segment does not represent heap memory&quot;);</span>
+        }
+    }
+
+    /**
+     * Returns the memory address of off-heap memory segments.
+     *
+     * @return absolute memory address outside the heap
+     * @throws IllegalStateException if the memory segment does not represent off-heap memory
+     */
+    public long getAddress() {
+<span class="nc bnc" id="L289" title="All 2 branches missed.">        if (heapMemory == null) {</span>
+<span class="nc" id="L290">            return address;</span>
+        } else {
+<span class="nc" id="L292">            throw new IllegalStateException(&quot;Memory segment does not represent off heap memory&quot;);</span>
+        }
+    }
+
+    /**
+     * Wraps the chunk of the underlying memory located between &lt;tt&gt;offset&lt;/tt&gt; and &lt;tt&gt;offset +
+     * length&lt;/tt&gt; in a NIO ByteBuffer. The ByteBuffer has the full segment as capacity and the
+     * offset and length parameters set the buffers position and limit.
+     *
+     * @param offset The offset in the memory segment.
+     * @param length The number of bytes to be wrapped as a buffer.
+     * @return A &lt;tt&gt;ByteBuffer&lt;/tt&gt; backed by the specified portion of the memory segment.
+     * @throws IndexOutOfBoundsException Thrown, if offset is negative or larger than the memory
+     *     segment size, or if the offset plus the length is larger than the segment size.
+     */
+    public ByteBuffer wrap(int offset, int length) {
+<span class="nc bnc" id="L308" title="All 2 branches missed.">        if (!allowWrap) {</span>
+<span class="nc" id="L309">            throw new UnsupportedOperationException(</span>
+                    &quot;Wrap is not supported by this segment. This usually indicates that the underlying memory is unsafe, thus transferring of ownership is not allowed.&quot;);
+        }
+<span class="nc" id="L312">        return wrapInternal(offset, length);</span>
+    }
+
+    private ByteBuffer wrapInternal(int offset, int length) {
+<span class="nc bnc" id="L316" title="All 2 branches missed.">        if (address &lt;= addressLimit) {</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">            if (heapMemory != null) {</span>
+<span class="nc" id="L318">                return ByteBuffer.wrap(heapMemory, offset, length);</span>
+            } else {
+                try {
+<span class="nc" id="L321">                    ByteBuffer wrapper = Preconditions.checkNotNull(offHeapBuffer).duplicate();</span>
+<span class="nc" id="L322">                    wrapper.limit(offset + length);</span>
+<span class="nc" id="L323">                    wrapper.position(offset);</span>
+<span class="nc" id="L324">                    return wrapper;</span>
+<span class="nc" id="L325">                } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L326">                    throw new IndexOutOfBoundsException();</span>
+                }
+            }
+        } else {
+<span class="nc" id="L330">            throw new IllegalStateException(&quot;segment has been freed&quot;);</span>
+        }
+    }
+
+    /**
+     * Gets the owner of this memory segment. Returns null, if the owner was not set.
+     *
+     * @return The owner of the memory segment, or null, if it does not have an owner.
+     */
+    @Nullable
+    public Object getOwner() {
+<span class="nc" id="L341">        return owner;</span>
+    }
+
+    // ------------------------------------------------------------------------
+    //                    Random Access get() and put() methods
+    // ------------------------------------------------------------------------
+
+    // ------------------------------------------------------------------------
+    // Notes on the implementation: We try to collapse as many checks as
+    // possible. We need to obey the following rules to make this safe
+    // against segfaults:
+    //
+    //  - Grab mutable fields onto the stack before checking and using. This
+    //    guards us against concurrent modifications which invalidate the
+    //    pointers
+    //  - Use subtractions for range checks, as they are tolerant
+    // ------------------------------------------------------------------------
+
+    /**
+     * Reads the byte at the given position.
+     *
+     * @param index The position from which the byte will be read
+     * @return The byte at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger or equal to the
+     *     size of the memory segment.
+     */
+    public byte get(int index) {
+<span class="fc" id="L368">        final long pos = address + index;</span>
+<span class="fc bfc" id="L369" title="All 4 branches covered.">        if (index &gt;= 0 &amp;&amp; pos &lt; addressLimit) {</span>
+<span class="fc" id="L370">            return UNSAFE.getByte(heapMemory, pos);</span>
+<span class="fc bfc" id="L371" title="All 2 branches covered.">        } else if (address &gt; addressLimit) {</span>
+<span class="fc" id="L372">            throw new IllegalStateException(&quot;segment has been freed&quot;);</span>
+        } else {
+            // index is in fact invalid
+<span class="fc" id="L375">            throw new IndexOutOfBoundsException();</span>
+        }
+    }
+
+    /**
+     * Writes the given byte into this buffer at the given position.
+     *
+     * @param index The index at which the byte will be written.
+     * @param b The byte value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger or equal to the
+     *     size of the memory segment.
+     */
+    public void put(int index, byte b) {
+<span class="fc" id="L388">        final long pos = address + index;</span>
+<span class="fc bfc" id="L389" title="All 4 branches covered.">        if (index &gt;= 0 &amp;&amp; pos &lt; addressLimit) {</span>
+<span class="fc" id="L390">            UNSAFE.putByte(heapMemory, pos, b);</span>
+<span class="fc bfc" id="L391" title="All 2 branches covered.">        } else if (address &gt; addressLimit) {</span>
+<span class="fc" id="L392">            throw new IllegalStateException(&quot;segment has been freed&quot;);</span>
+        } else {
+            // index is in fact invalid
+<span class="fc" id="L395">            throw new IndexOutOfBoundsException();</span>
+        }
+<span class="fc" id="L397">    }</span>
+
+    /**
+     * Bulk get method. Copies dst.length memory from the specified position to the destination
+     * memory.
+     *
+     * @param index The position at which the first byte will be read.
+     * @param dst The memory into which the memory will be copied.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or too large that the
+     *     data between the index and the memory segment end is not enough to fill the destination
+     *     array.
+     */
+    public void get(int index, byte[] dst) {
+<span class="fc" id="L410">        get(index, dst, 0, dst.length);</span>
+<span class="fc" id="L411">    }</span>
+
+    /**
+     * Bulk put method. Copies src.length memory from the source memory into the memory segment
+     * beginning at the specified position.
+     *
+     * @param index The index in the memory segment array, where the data is put.
+     * @param src The source array to copy the data from.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or too large such that
+     *     the array size exceed the amount of memory between the index and the memory segment's
+     *     end.
+     */
+    public void put(int index, byte[] src) {
+<span class="fc" id="L424">        put(index, src, 0, src.length);</span>
+<span class="fc" id="L425">    }</span>
+
+    /**
+     * Bulk get method. Copies length memory from the specified position to the destination memory,
+     * beginning at the given offset.
+     *
+     * @param index The position at which the first byte will be read.
+     * @param dst The memory into which the memory will be copied.
+     * @param offset The copying offset in the destination memory.
+     * @param length The number of bytes to be copied.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or too large that the
+     *     requested number of bytes exceed the amount of memory between the index and the memory
+     *     segment's end.
+     */
+    public void get(int index, byte[] dst, int offset, int length) {
+        // check the byte array offset and length and the status
+<span class="fc bfc" id="L441" title="All 2 branches covered.">        if ((offset | length | (offset + length) | (dst.length - (offset + length))) &lt; 0) {</span>
+<span class="fc" id="L442">            throw new IndexOutOfBoundsException();</span>
+        }
+
+<span class="fc" id="L445">        final long pos = address + index;</span>
+<span class="fc bfc" id="L446" title="All 4 branches covered.">        if (index &gt;= 0 &amp;&amp; pos &lt;= addressLimit - length) {</span>
+<span class="fc" id="L447">            final long arrayAddress = BYTE_ARRAY_BASE_OFFSET + offset;</span>
+<span class="fc" id="L448">            UNSAFE.copyMemory(heapMemory, pos, dst, arrayAddress, length);</span>
+<span class="fc bfc" id="L449" title="All 2 branches covered.">        } else if (address &gt; addressLimit) {</span>
+<span class="fc" id="L450">            throw new IllegalStateException(&quot;segment has been freed&quot;);</span>
+        } else {
+<span class="fc" id="L452">            throw new IndexOutOfBoundsException(</span>
+<span class="fc" id="L453">                    String.format(</span>
+                            &quot;pos: %d, length: %d, index: %d, offset: %d&quot;,
+<span class="fc" id="L455">                            pos, length, index, offset));</span>
+        }
+<span class="fc" id="L457">    }</span>
+
+    /**
+     * Bulk put method. Copies length memory starting at position offset from the source memory into
+     * the memory segment starting at the specified index.
+     *
+     * @param index The position in the memory segment array, where the data is put.
+     * @param src The source array to copy the data from.
+     * @param offset The offset in the source array where the copying is started.
+     * @param length The number of bytes to copy.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or too large such that
+     *     the array portion to copy exceed the amount of memory between the index and the memory
+     *     segment's end.
+     */
+    public void put(int index, byte[] src, int offset, int length) {
+        // check the byte array offset and length
+<span class="pc bpc" id="L473" title="1 of 2 branches missed.">        if ((offset | length | (offset + length) | (src.length - (offset + length))) &lt; 0) {</span>
+<span class="nc" id="L474">            throw new IndexOutOfBoundsException();</span>
+        }
+
+<span class="fc" id="L477">        final long pos = address + index;</span>
+
+<span class="fc bfc" id="L479" title="All 4 branches covered.">        if (index &gt;= 0 &amp;&amp; pos &lt;= addressLimit - length) {</span>
+<span class="fc" id="L480">            final long arrayAddress = BYTE_ARRAY_BASE_OFFSET + offset;</span>
+<span class="fc" id="L481">            UNSAFE.copyMemory(src, arrayAddress, heapMemory, pos, length);</span>
+<span class="fc bfc" id="L482" title="All 2 branches covered.">        } else if (address &gt; addressLimit) {</span>
+<span class="fc" id="L483">            throw new IllegalStateException(&quot;segment has been freed&quot;);</span>
+        } else {
+            // index is in fact invalid
+<span class="fc" id="L486">            throw new IndexOutOfBoundsException();</span>
+        }
+<span class="fc" id="L488">    }</span>
+
+    /**
+     * Reads one byte at the given position and returns its boolean representation.
+     *
+     * @param index The position from which the memory will be read.
+     * @return The boolean value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 1.
+     */
+    public boolean getBoolean(int index) {
+<span class="nc bnc" id="L499" title="All 2 branches missed.">        return get(index) != 0;</span>
+    }
+
+    /**
+     * Writes one byte containing the byte value into this buffer at the given position.
+     *
+     * @param index The position at which the memory will be written.
+     * @param value The char value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 1.
+     */
+    public void putBoolean(int index, boolean value) {
+<span class="pc bpc" id="L511" title="1 of 2 branches missed.">        put(index, (byte) (value ? 1 : 0));</span>
+<span class="nc" id="L512">    }</span>
+
+    /**
+     * Reads a char value from the given position, in the system's native byte order.
+     *
+     * @param index The position from which the memory will be read.
+     * @return The char value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 2.
+     */
+    @SuppressWarnings(&quot;restriction&quot;)
+    public char getChar(int index) {
+<span class="fc" id="L524">        final long pos = address + index;</span>
+<span class="fc bfc" id="L525" title="All 4 branches covered.">        if (index &gt;= 0 &amp;&amp; pos &lt;= addressLimit - 2) {</span>
+<span class="fc" id="L526">            return UNSAFE.getChar(heapMemory, pos);</span>
+<span class="fc bfc" id="L527" title="All 2 branches covered.">        } else if (address &gt; addressLimit) {</span>
+<span class="fc" id="L528">            throw new IllegalStateException(&quot;This segment has been freed.&quot;);</span>
+        } else {
+            // index is in fact invalid
+<span class="fc" id="L531">            throw new IndexOutOfBoundsException();</span>
+        }
+    }
+
+    /**
+     * Reads a character value (16 bit, 2 bytes) from the given position, in little-endian byte
+     * order. This method's speed depends on the system's native byte order, and it is possibly
+     * slower than {@link #getChar(int)}. For most cases (such as transient storage in memory or
+     * serialization for I/O and network), it suffices to know that the byte order in which the
+     * value is written is the same as the one in which it is read, and {@link #getChar(int)} is the
+     * preferable choice.
+     *
+     * @param index The position from which the value will be read.
+     * @return The character value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 2.
+     */
+    public char getCharLittleEndian(int index) {
+<span class="pc bpc" id="L549" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L550">            return getChar(index);</span>
+        } else {
+<span class="nc" id="L552">            return Character.reverseBytes(getChar(index));</span>
+        }
+    }
+
+    /**
+     * Reads a character value (16 bit, 2 bytes) from the given position, in big-endian byte order.
+     * This method's speed depends on the system's native byte order, and it is possibly slower than
+     * {@link #getChar(int)}. For most cases (such as transient storage in memory or serialization
+     * for I/O and network), it suffices to know that the byte order in which the value is written
+     * is the same as the one in which it is read, and {@link #getChar(int)} is the preferable
+     * choice.
+     *
+     * @param index The position from which the value will be read.
+     * @return The character value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 2.
+     */
+    public char getCharBigEndian(int index) {
+<span class="pc bpc" id="L570" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L571">            return Character.reverseBytes(getChar(index));</span>
+        } else {
+<span class="nc" id="L573">            return getChar(index);</span>
+        }
+    }
+
+    /**
+     * Writes a char value to the given position, in the system's native byte order.
+     *
+     * @param index The position at which the memory will be written.
+     * @param value The char value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 2.
+     */
+    @SuppressWarnings(&quot;restriction&quot;)
+    public void putChar(int index, char value) {
+<span class="fc" id="L587">        final long pos = address + index;</span>
+<span class="fc bfc" id="L588" title="All 4 branches covered.">        if (index &gt;= 0 &amp;&amp; pos &lt;= addressLimit - 2) {</span>
+<span class="fc" id="L589">            UNSAFE.putChar(heapMemory, pos, value);</span>
+<span class="fc bfc" id="L590" title="All 2 branches covered.">        } else if (address &gt; addressLimit) {</span>
+<span class="fc" id="L591">            throw new IllegalStateException(&quot;segment has been freed&quot;);</span>
+        } else {
+            // index is in fact invalid
+<span class="fc" id="L594">            throw new IndexOutOfBoundsException();</span>
+        }
+<span class="fc" id="L596">    }</span>
+
+    /**
+     * Writes the given character (16 bit, 2 bytes) to the given position in little-endian byte
+     * order. This method's speed depends on the system's native byte order, and it is possibly
+     * slower than {@link #putChar(int, char)}. For most cases (such as transient storage in memory
+     * or serialization for I/O and network), it suffices to know that the byte order in which the
+     * value is written is the same as the one in which it is read, and {@link #putChar(int, char)}
+     * is the preferable choice.
+     *
+     * @param index The position at which the value will be written.
+     * @param value The char value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 2.
+     */
+    public void putCharLittleEndian(int index, char value) {
+<span class="pc bpc" id="L612" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L613">            putChar(index, value);</span>
+        } else {
+<span class="nc" id="L615">            putChar(index, Character.reverseBytes(value));</span>
+        }
+<span class="fc" id="L617">    }</span>
+
+    /**
+     * Writes the given character (16 bit, 2 bytes) to the given position in big-endian byte order.
+     * This method's speed depends on the system's native byte order, and it is possibly slower than
+     * {@link #putChar(int, char)}. For most cases (such as transient storage in memory or
+     * serialization for I/O and network), it suffices to know that the byte order in which the
+     * value is written is the same as the one in which it is read, and {@link #putChar(int, char)}
+     * is the preferable choice.
+     *
+     * @param index The position at which the value will be written.
+     * @param value The char value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 2.
+     */
+    public void putCharBigEndian(int index, char value) {
+<span class="pc bpc" id="L633" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L634">            putChar(index, Character.reverseBytes(value));</span>
+        } else {
+<span class="nc" id="L636">            putChar(index, value);</span>
+        }
+<span class="fc" id="L638">    }</span>
+
+    /**
+     * Reads a short integer value (16 bit, 2 bytes) from the given position, composing them into a
+     * short value according to the current byte order.
+     *
+     * @param index The position from which the memory will be read.
+     * @return The short value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 2.
+     */
+    public short getShort(int index) {
+<span class="fc" id="L650">        final long pos = address + index;</span>
+<span class="fc bfc" id="L651" title="All 4 branches covered.">        if (index &gt;= 0 &amp;&amp; pos &lt;= addressLimit - 2) {</span>
+<span class="fc" id="L652">            return UNSAFE.getShort(heapMemory, pos);</span>
+<span class="fc bfc" id="L653" title="All 2 branches covered.">        } else if (address &gt; addressLimit) {</span>
+<span class="fc" id="L654">            throw new IllegalStateException(&quot;segment has been freed&quot;);</span>
+        } else {
+            // index is in fact invalid
+<span class="fc" id="L657">            throw new IndexOutOfBoundsException();</span>
+        }
+    }
+
+    /**
+     * Reads a short integer value (16 bit, 2 bytes) from the given position, in little-endian byte
+     * order. This method's speed depends on the system's native byte order, and it is possibly
+     * slower than {@link #getShort(int)}. For most cases (such as transient storage in memory or
+     * serialization for I/O and network), it suffices to know that the byte order in which the
+     * value is written is the same as the one in which it is read, and {@link #getShort(int)} is
+     * the preferable choice.
+     *
+     * @param index The position from which the value will be read.
+     * @return The short value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 2.
+     */
+    public short getShortLittleEndian(int index) {
+<span class="pc bpc" id="L675" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L676">            return getShort(index);</span>
+        } else {
+<span class="nc" id="L678">            return Short.reverseBytes(getShort(index));</span>
+        }
+    }
+
+    /**
+     * Reads a short integer value (16 bit, 2 bytes) from the given position, in big-endian byte
+     * order. This method's speed depends on the system's native byte order, and it is possibly
+     * slower than {@link #getShort(int)}. For most cases (such as transient storage in memory or
+     * serialization for I/O and network), it suffices to know that the byte order in which the
+     * value is written is the same as the one in which it is read, and {@link #getShort(int)} is
+     * the preferable choice.
+     *
+     * @param index The position from which the value will be read.
+     * @return The short value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 2.
+     */
+    public short getShortBigEndian(int index) {
+<span class="pc bpc" id="L696" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L697">            return Short.reverseBytes(getShort(index));</span>
+        } else {
+<span class="nc" id="L699">            return getShort(index);</span>
+        }
+    }
+
+    /**
+     * Writes the given short value into this buffer at the given position, using the native byte
+     * order of the system.
+     *
+     * @param index The position at which the value will be written.
+     * @param value The short value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 2.
+     */
+    public void putShort(int index, short value) {
+<span class="fc" id="L713">        final long pos = address + index;</span>
+<span class="fc bfc" id="L714" title="All 4 branches covered.">        if (index &gt;= 0 &amp;&amp; pos &lt;= addressLimit - 2) {</span>
+<span class="fc" id="L715">            UNSAFE.putShort(heapMemory, pos, value);</span>
+<span class="fc bfc" id="L716" title="All 2 branches covered.">        } else if (address &gt; addressLimit) {</span>
+<span class="fc" id="L717">            throw new IllegalStateException(&quot;segment has been freed&quot;);</span>
+        } else {
+            // index is in fact invalid
+<span class="fc" id="L720">            throw new IndexOutOfBoundsException();</span>
+        }
+<span class="fc" id="L722">    }</span>
+
+    /**
+     * Writes the given short integer value (16 bit, 2 bytes) to the given position in little-endian
+     * byte order. This method's speed depends on the system's native byte order, and it is possibly
+     * slower than {@link #putShort(int, short)}. For most cases (such as transient storage in
+     * memory or serialization for I/O and network), it suffices to know that the byte order in
+     * which the value is written is the same as the one in which it is read, and {@link
+     * #putShort(int, short)} is the preferable choice.
+     *
+     * @param index The position at which the value will be written.
+     * @param value The short value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 2.
+     */
+    public void putShortLittleEndian(int index, short value) {
+<span class="pc bpc" id="L738" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L739">            putShort(index, value);</span>
+        } else {
+<span class="nc" id="L741">            putShort(index, Short.reverseBytes(value));</span>
+        }
+<span class="fc" id="L743">    }</span>
+
+    /**
+     * Writes the given short integer value (16 bit, 2 bytes) to the given position in big-endian
+     * byte order. This method's speed depends on the system's native byte order, and it is possibly
+     * slower than {@link #putShort(int, short)}. For most cases (such as transient storage in
+     * memory or serialization for I/O and network), it suffices to know that the byte order in
+     * which the value is written is the same as the one in which it is read, and {@link
+     * #putShort(int, short)} is the preferable choice.
+     *
+     * @param index The position at which the value will be written.
+     * @param value The short value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 2.
+     */
+    public void putShortBigEndian(int index, short value) {
+<span class="pc bpc" id="L759" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L760">            putShort(index, Short.reverseBytes(value));</span>
+        } else {
+<span class="nc" id="L762">            putShort(index, value);</span>
+        }
+<span class="fc" id="L764">    }</span>
+
+    /**
+     * Reads an int value (32bit, 4 bytes) from the given position, in the system's native byte
+     * order. This method offers the best speed for integer reading and should be used unless a
+     * specific byte order is required. In most cases, it suffices to know that the byte order in
+     * which the value is written is the same as the one in which it is read (such as transient
+     * storage in memory, or serialization for I/O and network), making this method the preferable
+     * choice.
+     *
+     * @param index The position from which the value will be read.
+     * @return The int value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 4.
+     */
+    public int getInt(int index) {
+<span class="fc" id="L780">        final long pos = address + index;</span>
+<span class="fc bfc" id="L781" title="All 4 branches covered.">        if (index &gt;= 0 &amp;&amp; pos &lt;= addressLimit - 4) {</span>
+<span class="fc" id="L782">            return UNSAFE.getInt(heapMemory, pos);</span>
+<span class="fc bfc" id="L783" title="All 2 branches covered.">        } else if (address &gt; addressLimit) {</span>
+<span class="fc" id="L784">            throw new IllegalStateException(&quot;segment has been freed&quot;);</span>
+        } else {
+            // index is in fact invalid
+<span class="fc" id="L787">            throw new IndexOutOfBoundsException();</span>
+        }
+    }
+
+    /**
+     * Reads an int value (32bit, 4 bytes) from the given position, in little-endian byte order.
+     * This method's speed depends on the system's native byte order, and it is possibly slower than
+     * {@link #getInt(int)}. For most cases (such as transient storage in memory or serialization
+     * for I/O and network), it suffices to know that the byte order in which the value is written
+     * is the same as the one in which it is read, and {@link #getInt(int)} is the preferable
+     * choice.
+     *
+     * @param index The position from which the value will be read.
+     * @return The int value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 4.
+     */
+    public int getIntLittleEndian(int index) {
+<span class="pc bpc" id="L805" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L806">            return getInt(index);</span>
+        } else {
+<span class="nc" id="L808">            return Integer.reverseBytes(getInt(index));</span>
+        }
+    }
+
+    /**
+     * Reads an int value (32bit, 4 bytes) from the given position, in big-endian byte order. This
+     * method's speed depends on the system's native byte order, and it is possibly slower than
+     * {@link #getInt(int)}. For most cases (such as transient storage in memory or serialization
+     * for I/O and network), it suffices to know that the byte order in which the value is written
+     * is the same as the one in which it is read, and {@link #getInt(int)} is the preferable
+     * choice.
+     *
+     * @param index The position from which the value will be read.
+     * @return The int value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 4.
+     */
+    public int getIntBigEndian(int index) {
+<span class="pc bpc" id="L826" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L827">            return Integer.reverseBytes(getInt(index));</span>
+        } else {
+<span class="nc" id="L829">            return getInt(index);</span>
+        }
+    }
+
+    /**
+     * Writes the given int value (32bit, 4 bytes) to the given position in the system's native byte
+     * order. This method offers the best speed for integer writing and should be used unless a
+     * specific byte order is required. In most cases, it suffices to know that the byte order in
+     * which the value is written is the same as the one in which it is read (such as transient
+     * storage in memory, or serialization for I/O and network), making this method the preferable
+     * choice.
+     *
+     * @param index The position at which the value will be written.
+     * @param value The int value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 4.
+     */
+    public void putInt(int index, int value) {
+<span class="fc" id="L847">        final long pos = address + index;</span>
+<span class="fc bfc" id="L848" title="All 4 branches covered.">        if (index &gt;= 0 &amp;&amp; pos &lt;= addressLimit - 4) {</span>
+<span class="fc" id="L849">            UNSAFE.putInt(heapMemory, pos, value);</span>
+<span class="fc bfc" id="L850" title="All 2 branches covered.">        } else if (address &gt; addressLimit) {</span>
+<span class="fc" id="L851">            throw new IllegalStateException(&quot;segment has been freed&quot;);</span>
+        } else {
+            // index is in fact invalid
+<span class="fc" id="L854">            throw new IndexOutOfBoundsException();</span>
+        }
+<span class="fc" id="L856">    }</span>
+
+    /**
+     * Writes the given int value (32bit, 4 bytes) to the given position in little endian byte
+     * order. This method's speed depends on the system's native byte order, and it is possibly
+     * slower than {@link #putInt(int, int)}. For most cases (such as transient storage in memory or
+     * serialization for I/O and network), it suffices to know that the byte order in which the
+     * value is written is the same as the one in which it is read, and {@link #putInt(int, int)} is
+     * the preferable choice.
+     *
+     * @param index The position at which the value will be written.
+     * @param value The int value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 4.
+     */
+    public void putIntLittleEndian(int index, int value) {
+<span class="pc bpc" id="L872" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L873">            putInt(index, value);</span>
+        } else {
+<span class="nc" id="L875">            putInt(index, Integer.reverseBytes(value));</span>
+        }
+<span class="fc" id="L877">    }</span>
+
+    /**
+     * Writes the given int value (32bit, 4 bytes) to the given position in big endian byte order.
+     * This method's speed depends on the system's native byte order, and it is possibly slower than
+     * {@link #putInt(int, int)}. For most cases (such as transient storage in memory or
+     * serialization for I/O and network), it suffices to know that the byte order in which the
+     * value is written is the same as the one in which it is read, and {@link #putInt(int, int)} is
+     * the preferable choice.
+     *
+     * @param index The position at which the value will be written.
+     * @param value The int value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 4.
+     */
+    public void putIntBigEndian(int index, int value) {
+<span class="pc bpc" id="L893" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L894">            putInt(index, Integer.reverseBytes(value));</span>
+        } else {
+<span class="nc" id="L896">            putInt(index, value);</span>
+        }
+<span class="fc" id="L898">    }</span>
+
+    /**
+     * Reads a long value (64bit, 8 bytes) from the given position, in the system's native byte
+     * order. This method offers the best speed for long integer reading and should be used unless a
+     * specific byte order is required. In most cases, it suffices to know that the byte order in
+     * which the value is written is the same as the one in which it is read (such as transient
+     * storage in memory, or serialization for I/O and network), making this method the preferable
+     * choice.
+     *
+     * @param index The position from which the value will be read.
+     * @return The long value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 8.
+     */
+    public long getLong(int index) {
+<span class="fc" id="L914">        final long pos = address + index;</span>
+<span class="fc bfc" id="L915" title="All 4 branches covered.">        if (index &gt;= 0 &amp;&amp; pos &lt;= addressLimit - 8) {</span>
+<span class="fc" id="L916">            return UNSAFE.getLong(heapMemory, pos);</span>
+<span class="fc bfc" id="L917" title="All 2 branches covered.">        } else if (address &gt; addressLimit) {</span>
+<span class="fc" id="L918">            throw new IllegalStateException(&quot;segment has been freed&quot;);</span>
+        } else {
+            // index is in fact invalid
+<span class="fc" id="L921">            throw new IndexOutOfBoundsException();</span>
+        }
+    }
+
+    /**
+     * Reads a long integer value (64bit, 8 bytes) from the given position, in little endian byte
+     * order. This method's speed depends on the system's native byte order, and it is possibly
+     * slower than {@link #getLong(int)}. For most cases (such as transient storage in memory or
+     * serialization for I/O and network), it suffices to know that the byte order in which the
+     * value is written is the same as the one in which it is read, and {@link #getLong(int)} is the
+     * preferable choice.
+     *
+     * @param index The position from which the value will be read.
+     * @return The long value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 8.
+     */
+    public long getLongLittleEndian(int index) {
+<span class="pc bpc" id="L939" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L940">            return getLong(index);</span>
+        } else {
+<span class="nc" id="L942">            return Long.reverseBytes(getLong(index));</span>
+        }
+    }
+
+    /**
+     * Reads a long integer value (64bit, 8 bytes) from the given position, in big endian byte
+     * order. This method's speed depends on the system's native byte order, and it is possibly
+     * slower than {@link #getLong(int)}. For most cases (such as transient storage in memory or
+     * serialization for I/O and network), it suffices to know that the byte order in which the
+     * value is written is the same as the one in which it is read, and {@link #getLong(int)} is the
+     * preferable choice.
+     *
+     * @param index The position from which the value will be read.
+     * @return The long value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 8.
+     */
+    public long getLongBigEndian(int index) {
+<span class="pc bpc" id="L960" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L961">            return Long.reverseBytes(getLong(index));</span>
+        } else {
+<span class="nc" id="L963">            return getLong(index);</span>
+        }
+    }
+
+    /**
+     * Writes the given long value (64bit, 8 bytes) to the given position in the system's native
+     * byte order. This method offers the best speed for long integer writing and should be used
+     * unless a specific byte order is required. In most cases, it suffices to know that the byte
+     * order in which the value is written is the same as the one in which it is read (such as
+     * transient storage in memory, or serialization for I/O and network), making this method the
+     * preferable choice.
+     *
+     * @param index The position at which the value will be written.
+     * @param value The long value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 8.
+     */
+    public void putLong(int index, long value) {
+<span class="fc" id="L981">        final long pos = address + index;</span>
+<span class="fc bfc" id="L982" title="All 4 branches covered.">        if (index &gt;= 0 &amp;&amp; pos &lt;= addressLimit - 8) {</span>
+<span class="fc" id="L983">            UNSAFE.putLong(heapMemory, pos, value);</span>
+<span class="fc bfc" id="L984" title="All 2 branches covered.">        } else if (address &gt; addressLimit) {</span>
+<span class="fc" id="L985">            throw new IllegalStateException(&quot;segment has been freed&quot;);</span>
+        } else {
+            // index is in fact invalid
+<span class="fc" id="L988">            throw new IndexOutOfBoundsException();</span>
+        }
+<span class="fc" id="L990">    }</span>
+
+    /**
+     * Writes the given long value (64bit, 8 bytes) to the given position in little endian byte
+     * order. This method's speed depends on the system's native byte order, and it is possibly
+     * slower than {@link #putLong(int, long)}. For most cases (such as transient storage in memory
+     * or serialization for I/O and network), it suffices to know that the byte order in which the
+     * value is written is the same as the one in which it is read, and {@link #putLong(int, long)}
+     * is the preferable choice.
+     *
+     * @param index The position at which the value will be written.
+     * @param value The long value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 8.
+     */
+    public void putLongLittleEndian(int index, long value) {
+<span class="pc bpc" id="L1006" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L1007">            putLong(index, value);</span>
+        } else {
+<span class="nc" id="L1009">            putLong(index, Long.reverseBytes(value));</span>
+        }
+<span class="fc" id="L1011">    }</span>
+
+    /**
+     * Writes the given long value (64bit, 8 bytes) to the given position in big endian byte order.
+     * This method's speed depends on the system's native byte order, and it is possibly slower than
+     * {@link #putLong(int, long)}. For most cases (such as transient storage in memory or
+     * serialization for I/O and network), it suffices to know that the byte order in which the
+     * value is written is the same as the one in which it is read, and {@link #putLong(int, long)}
+     * is the preferable choice.
+     *
+     * @param index The position at which the value will be written.
+     * @param value The long value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 8.
+     */
+    public void putLongBigEndian(int index, long value) {
+<span class="pc bpc" id="L1027" title="1 of 2 branches missed.">        if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L1028">            putLong(index, Long.reverseBytes(value));</span>
+        } else {
+<span class="nc" id="L1030">            putLong(index, value);</span>
+        }
+<span class="fc" id="L1032">    }</span>
+
+    /**
+     * Reads a single-precision floating point value (32bit, 4 bytes) from the given position, in
+     * the system's native byte order. This method offers the best speed for float reading and
+     * should be used unless a specific byte order is required. In most cases, it suffices to know
+     * that the byte order in which the value is written is the same as the one in which it is read
+     * (such as transient storage in memory, or serialization for I/O and network), making this
+     * method the preferable choice.
+     *
+     * @param index The position from which the value will be read.
+     * @return The float value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 4.
+     */
+    public float getFloat(int index) {
+<span class="nc" id="L1048">        return Float.intBitsToFloat(getInt(index));</span>
+    }
+
+    /**
+     * Reads a single-precision floating point value (32bit, 4 bytes) from the given position, in
+     * little endian byte order. This method's speed depends on the system's native byte order, and
+     * it is possibly slower than {@link #getFloat(int)}. For most cases (such as transient storage
+     * in memory or serialization for I/O and network), it suffices to know that the byte order in
+     * which the value is written is the same as the one in which it is read, and {@link
+     * #getFloat(int)} is the preferable choice.
+     *
+     * @param index The position from which the value will be read.
+     * @return The long value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 4.
+     */
+    public float getFloatLittleEndian(int index) {
+<span class="fc" id="L1065">        return Float.intBitsToFloat(getIntLittleEndian(index));</span>
+    }
+
+    /**
+     * Reads a single-precision floating point value (32bit, 4 bytes) from the given position, in
+     * big endian byte order. This method's speed depends on the system's native byte order, and it
+     * is possibly slower than {@link #getFloat(int)}. For most cases (such as transient storage in
+     * memory or serialization for I/O and network), it suffices to know that the byte order in
+     * which the value is written is the same as the one in which it is read, and {@link
+     * #getFloat(int)} is the preferable choice.
+     *
+     * @param index The position from which the value will be read.
+     * @return The long value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 4.
+     */
+    public float getFloatBigEndian(int index) {
+<span class="fc" id="L1082">        return Float.intBitsToFloat(getIntBigEndian(index));</span>
+    }
+
+    /**
+     * Writes the given single-precision float value (32bit, 4 bytes) to the given position in the
+     * system's native byte order. This method offers the best speed for float writing and should be
+     * used unless a specific byte order is required. In most cases, it suffices to know that the
+     * byte order in which the value is written is the same as the one in which it is read (such as
+     * transient storage in memory, or serialization for I/O and network), making this method the
+     * preferable choice.
+     *
+     * @param index The position at which the value will be written.
+     * @param value The float value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 4.
+     */
+    public void putFloat(int index, float value) {
+<span class="nc" id="L1099">        putInt(index, Float.floatToRawIntBits(value));</span>
+<span class="nc" id="L1100">    }</span>
+
+    /**
+     * Writes the given single-precision float value (32bit, 4 bytes) to the given position in
+     * little endian byte order. This method's speed depends on the system's native byte order, and
+     * it is possibly slower than {@link #putFloat(int, float)}. For most cases (such as transient
+     * storage in memory or serialization for I/O and network), it suffices to know that the byte
+     * order in which the value is written is the same as the one in which it is read, and {@link
+     * #putFloat(int, float)} is the preferable choice.
+     *
+     * @param index The position at which the value will be written.
+     * @param value The long value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 4.
+     */
+    public void putFloatLittleEndian(int index, float value) {
+<span class="fc" id="L1116">        putIntLittleEndian(index, Float.floatToRawIntBits(value));</span>
+<span class="fc" id="L1117">    }</span>
+
+    /**
+     * Writes the given single-precision float value (32bit, 4 bytes) to the given position in big
+     * endian byte order. This method's speed depends on the system's native byte order, and it is
+     * possibly slower than {@link #putFloat(int, float)}. For most cases (such as transient storage
+     * in memory or serialization for I/O and network), it suffices to know that the byte order in
+     * which the value is written is the same as the one in which it is read, and {@link
+     * #putFloat(int, float)} is the preferable choice.
+     *
+     * @param index The position at which the value will be written.
+     * @param value The long value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 4.
+     */
+    public void putFloatBigEndian(int index, float value) {
+<span class="fc" id="L1133">        putIntBigEndian(index, Float.floatToRawIntBits(value));</span>
+<span class="fc" id="L1134">    }</span>
+
+    /**
+     * Reads a double-precision floating point value (64bit, 8 bytes) from the given position, in
+     * the system's native byte order. This method offers the best speed for double reading and
+     * should be used unless a specific byte order is required. In most cases, it suffices to know
+     * that the byte order in which the value is written is the same as the one in which it is read
+     * (such as transient storage in memory, or serialization for I/O and network), making this
+     * method the preferable choice.
+     *
+     * @param index The position from which the value will be read.
+     * @return The double value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 8.
+     */
+    public double getDouble(int index) {
+<span class="nc" id="L1150">        return Double.longBitsToDouble(getLong(index));</span>
+    }
+
+    /**
+     * Reads a double-precision floating point value (64bit, 8 bytes) from the given position, in
+     * little endian byte order. This method's speed depends on the system's native byte order, and
+     * it is possibly slower than {@link #getDouble(int)}. For most cases (such as transient storage
+     * in memory or serialization for I/O and network), it suffices to know that the byte order in
+     * which the value is written is the same as the one in which it is read, and {@link
+     * #getDouble(int)} is the preferable choice.
+     *
+     * @param index The position from which the value will be read.
+     * @return The long value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 8.
+     */
+    public double getDoubleLittleEndian(int index) {
+<span class="fc" id="L1167">        return Double.longBitsToDouble(getLongLittleEndian(index));</span>
+    }
+
+    /**
+     * Reads a double-precision floating point value (64bit, 8 bytes) from the given position, in
+     * big endian byte order. This method's speed depends on the system's native byte order, and it
+     * is possibly slower than {@link #getDouble(int)}. For most cases (such as transient storage in
+     * memory or serialization for I/O and network), it suffices to know that the byte order in
+     * which the value is written is the same as the one in which it is read, and {@link
+     * #getDouble(int)} is the preferable choice.
+     *
+     * @param index The position from which the value will be read.
+     * @return The long value at the given position.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 8.
+     */
+    public double getDoubleBigEndian(int index) {
+<span class="fc" id="L1184">        return Double.longBitsToDouble(getLongBigEndian(index));</span>
+    }
+
+    /**
+     * Writes the given double-precision floating-point value (64bit, 8 bytes) to the given position
+     * in the system's native byte order. This method offers the best speed for double writing and
+     * should be used unless a specific byte order is required. In most cases, it suffices to know
+     * that the byte order in which the value is written is the same as the one in which it is read
+     * (such as transient storage in memory, or serialization for I/O and network), making this
+     * method the preferable choice.
+     *
+     * @param index The position at which the memory will be written.
+     * @param value The double value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 8.
+     */
+    public void putDouble(int index, double value) {
+<span class="nc" id="L1201">        putLong(index, Double.doubleToRawLongBits(value));</span>
+<span class="nc" id="L1202">    }</span>
+
+    /**
+     * Writes the given double-precision floating-point value (64bit, 8 bytes) to the given position
+     * in little endian byte order. This method's speed depends on the system's native byte order,
+     * and it is possibly slower than {@link #putDouble(int, double)}. For most cases (such as
+     * transient storage in memory or serialization for I/O and network), it suffices to know that
+     * the byte order in which the value is written is the same as the one in which it is read, and
+     * {@link #putDouble(int, double)} is the preferable choice.
+     *
+     * @param index The position at which the value will be written.
+     * @param value The long value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 8.
+     */
+    public void putDoubleLittleEndian(int index, double value) {
+<span class="fc" id="L1218">        putLongLittleEndian(index, Double.doubleToRawLongBits(value));</span>
+<span class="fc" id="L1219">    }</span>
+
+    /**
+     * Writes the given double-precision floating-point value (64bit, 8 bytes) to the given position
+     * in big endian byte order. This method's speed depends on the system's native byte order, and
+     * it is possibly slower than {@link #putDouble(int, double)}. For most cases (such as transient
+     * storage in memory or serialization for I/O and network), it suffices to know that the byte
+     * order in which the value is written is the same as the one in which it is read, and {@link
+     * #putDouble(int, double)} is the preferable choice.
+     *
+     * @param index The position at which the value will be written.
+     * @param value The long value to be written.
+     * @throws IndexOutOfBoundsException Thrown, if the index is negative, or larger than the
+     *     segment size minus 8.
+     */
+    public void putDoubleBigEndian(int index, double value) {
+<span class="fc" id="L1235">        putLongBigEndian(index, Double.doubleToRawLongBits(value));</span>
+<span class="fc" id="L1236">    }</span>
+
+    // -------------------------------------------------------------------------
+    //                     Bulk Read and Write Methods
+    // -------------------------------------------------------------------------
+
+    public void get(DataOutput out, int offset, int length) throws IOException {
+<span class="fc bfc" id="L1243" title="All 2 branches covered.">        if (address &lt;= addressLimit) {</span>
+<span class="fc bfc" id="L1244" title="All 2 branches covered.">            if (heapMemory != null) {</span>
+<span class="nc" id="L1245">                out.write(heapMemory, offset, length);</span>
+            } else {
+<span class="pc bpc" id="L1247" title="1 of 2 branches missed.">                while (length &gt;= 8) {</span>
+<span class="nc" id="L1248">                    out.writeLong(getLongBigEndian(offset));</span>
+<span class="nc" id="L1249">                    offset += 8;</span>
+<span class="nc" id="L1250">                    length -= 8;</span>
+                }
+
+<span class="pc bpc" id="L1253" title="1 of 2 branches missed.">                while (length &gt; 0) {</span>
+<span class="fc" id="L1254">                    out.writeByte(get(offset));</span>
+<span class="fc" id="L1255">                    offset++;</span>
+<span class="fc" id="L1256">                    length--;</span>
+                }
+            }
+        } else {
+<span class="fc" id="L1260">            throw new IllegalStateException(&quot;segment has been freed&quot;);</span>
+        }
+<span class="nc" id="L1262">    }</span>
+
+    /**
+     * Bulk put method. Copies length memory from the given DataInput to the memory starting at
+     * position offset.
+     *
+     * @param in The DataInput to get the data from.
+     * @param offset The position in the memory segment to copy the chunk to.
+     * @param length The number of bytes to get.
+     * @throws IOException Thrown, if the DataInput encountered a problem upon reading, such as an
+     *     End-Of-File.
+     */
+    public void put(DataInput in, int offset, int length) throws IOException {
+<span class="fc bfc" id="L1275" title="All 2 branches covered.">        if (address &lt;= addressLimit) {</span>
+<span class="fc bfc" id="L1276" title="All 2 branches covered.">            if (heapMemory != null) {</span>
+<span class="nc" id="L1277">                in.readFully(heapMemory, offset, length);</span>
+            } else {
+<span class="pc bpc" id="L1279" title="1 of 2 branches missed.">                while (length &gt;= 8) {</span>
+<span class="nc" id="L1280">                    putLongBigEndian(offset, in.readLong());</span>
+<span class="nc" id="L1281">                    offset += 8;</span>
+<span class="nc" id="L1282">                    length -= 8;</span>
+                }
+<span class="pc bpc" id="L1284" title="1 of 2 branches missed.">                while (length &gt; 0) {</span>
+<span class="fc" id="L1285">                    put(offset, in.readByte());</span>
+<span class="fc" id="L1286">                    offset++;</span>
+<span class="fc" id="L1287">                    length--;</span>
+                }
+            }
+        } else {
+<span class="fc" id="L1291">            throw new IllegalStateException(&quot;segment has been freed&quot;);</span>
+        }
+<span class="nc" id="L1293">    }</span>
+
+    /**
+     * Bulk get method. Copies {@code numBytes} bytes from this memory segment, starting at position
+     * {@code offset} to the target {@code ByteBuffer}. The bytes will be put into the target buffer
+     * starting at the buffer's current position. If this method attempts to write more bytes than
+     * the target byte buffer has remaining (with respect to {@link ByteBuffer#remaining()}), this
+     * method will cause a {@link java.nio.BufferOverflowException}.
+     *
+     * @param offset The position where the bytes are started to be read from in this memory
+     *     segment.
+     * @param target The ByteBuffer to copy the bytes to.
+     * @param numBytes The number of bytes to copy.
+     * @throws IndexOutOfBoundsException If the offset is invalid, or this segment does not contain
+     *     the given number of bytes (starting from offset), or the target byte buffer does not have
+     *     enough space for the bytes.
+     * @throws ReadOnlyBufferException If the target buffer is read-only.
+     */
+    public void get(int offset, ByteBuffer target, int numBytes) {
+        // check the byte array offset and length
+<span class="fc bfc" id="L1313" title="All 2 branches covered.">        if ((offset | numBytes | (offset + numBytes)) &lt; 0) {</span>
+<span class="fc" id="L1314">            throw new IndexOutOfBoundsException();</span>
+        }
+<span class="pc bpc" id="L1316" title="1 of 2 branches missed.">        if (target.isReadOnly()) {</span>
+<span class="nc" id="L1317">            throw new ReadOnlyBufferException();</span>
+        }
+
+<span class="fc" id="L1320">        final int targetOffset = target.position();</span>
+<span class="fc" id="L1321">        final int remaining = target.remaining();</span>
+
+<span class="pc bpc" id="L1323" title="1 of 2 branches missed.">        if (remaining &lt; numBytes) {</span>
+<span class="nc" id="L1324">            throw new BufferOverflowException();</span>
+        }
+
+<span class="fc bfc" id="L1327" title="All 2 branches covered.">        if (target.isDirect()) {</span>
+            // copy to the target memory directly
+<span class="fc" id="L1329">            final long targetPointer = getByteBufferAddress(target) + targetOffset;</span>
+<span class="fc" id="L1330">            final long sourcePointer = address + offset;</span>
+
+<span class="pc bpc" id="L1332" title="1 of 2 branches missed.">            if (sourcePointer &lt;= addressLimit - numBytes) {</span>
+<span class="nc" id="L1333">                UNSAFE.copyMemory(heapMemory, sourcePointer, null, targetPointer, numBytes);</span>
+<span class="nc" id="L1334">                target.position(targetOffset + numBytes);</span>
+<span class="pc bpc" id="L1335" title="1 of 2 branches missed.">            } else if (address &gt; addressLimit) {</span>
+<span class="fc" id="L1336">                throw new IllegalStateException(&quot;segment has been freed&quot;);</span>
+            } else {
+<span class="nc" id="L1338">                throw new IndexOutOfBoundsException();</span>
+            }
+<span class="pc bpc" id="L1340" title="1 of 2 branches missed.">        } else if (target.hasArray()) {</span>
+            // move directly into the byte array
+<span class="nc" id="L1342">            get(offset, target.array(), targetOffset + target.arrayOffset(), numBytes);</span>
+
+            // this must be after the get() call to ensue that the byte buffer is not
+            // modified in case the call fails
+<span class="nc" id="L1346">            target.position(targetOffset + numBytes);</span>
+        } else {
+            // other types of byte buffers
+<span class="nc" id="L1349">            throw new IllegalArgumentException(</span>
+                    &quot;The target buffer is not direct, and has no array.&quot;);
+        }
+<span class="nc" id="L1352">    }</span>
+
+    /**
+     * Bulk put method. Copies {@code numBytes} bytes from the given {@code ByteBuffer}, into this
+     * memory segment. The bytes will be read from the target buffer starting at the buffer's
+     * current position, and will be written to this memory segment starting at {@code offset}. If
+     * this method attempts to read more bytes than the target byte buffer has remaining (with
+     * respect to {@link ByteBuffer#remaining()}), this method will cause a {@link
+     * java.nio.BufferUnderflowException}.
+     *
+     * @param offset The position where the bytes are started to be written to in this memory
+     *     segment.
+     * @param source The ByteBuffer to copy the bytes from.
+     * @param numBytes The number of bytes to copy.
+     * @throws IndexOutOfBoundsException If the offset is invalid, or the source buffer does not
+     *     contain the given number of bytes, or this segment does not have enough space for the
+     *     bytes (counting from offset).
+     */
+    public void put(int offset, ByteBuffer source, int numBytes) {
+        // check the byte array offset and length
+<span class="fc bfc" id="L1372" title="All 2 branches covered.">        if ((offset | numBytes | (offset + numBytes)) &lt; 0) {</span>
+<span class="fc" id="L1373">            throw new IndexOutOfBoundsException();</span>
+        }
+
+<span class="fc" id="L1376">        final int sourceOffset = source.position();</span>
+<span class="fc" id="L1377">        final int remaining = source.remaining();</span>
+
+<span class="pc bpc" id="L1379" title="1 of 2 branches missed.">        if (remaining &lt; numBytes) {</span>
+<span class="nc" id="L1380">            throw new BufferUnderflowException();</span>
+        }
+
+<span class="fc bfc" id="L1383" title="All 2 branches covered.">        if (source.isDirect()) {</span>
+            // copy to the target memory directly
+<span class="fc" id="L1385">            final long sourcePointer = getByteBufferAddress(source) + sourceOffset;</span>
+<span class="fc" id="L1386">            final long targetPointer = address + offset;</span>
+
+<span class="pc bpc" id="L1388" title="1 of 2 branches missed.">            if (targetPointer &lt;= addressLimit - numBytes) {</span>
+<span class="nc" id="L1389">                UNSAFE.copyMemory(null, sourcePointer, heapMemory, targetPointer, numBytes);</span>
+<span class="nc" id="L1390">                source.position(sourceOffset + numBytes);</span>
+<span class="pc bpc" id="L1391" title="1 of 2 branches missed.">            } else if (address &gt; addressLimit) {</span>
+<span class="fc" id="L1392">                throw new IllegalStateException(&quot;segment has been freed&quot;);</span>
+            } else {
+<span class="nc" id="L1394">                throw new IndexOutOfBoundsException();</span>
+            }
+<span class="pc bpc" id="L1396" title="1 of 2 branches missed.">        } else if (source.hasArray()) {</span>
+            // move directly into the byte array
+<span class="fc" id="L1398">            put(offset, source.array(), sourceOffset + source.arrayOffset(), numBytes);</span>
+
+            // this must be after the get() call to ensue that the byte buffer is not
+            // modified in case the call fails
+<span class="fc" id="L1402">            source.position(sourceOffset + numBytes);</span>
+        } else {
+            // other types of byte buffers
+<span class="nc bnc" id="L1405" title="All 2 branches missed.">            for (int i = 0; i &lt; numBytes; i++) {</span>
+<span class="nc" id="L1406">                put(offset++, source.get());</span>
+            }
+        }
+<span class="fc" id="L1409">    }</span>
+
+    /**
+     * Bulk copy method. Copies {@code numBytes} bytes from this memory segment, starting at
+     * position {@code offset} to the target memory segment. The bytes will be put into the target
+     * segment starting at position {@code targetOffset}.
+     *
+     * @param offset The position where the bytes are started to be read from in this memory
+     *     segment.
+     * @param target The memory segment to copy the bytes to.
+     * @param targetOffset The position in the target memory segment to copy the chunk to.
+     * @param numBytes The number of bytes to copy.
+     * @throws IndexOutOfBoundsException If either of the offsets is invalid, or the source segment
+     *     does not contain the given number of bytes (starting from offset), or the target segment
+     *     does not have enough space for the bytes (counting from targetOffset).
+     */
+    public void copyTo(int offset, MemorySegment target, int targetOffset, int numBytes) {
+<span class="fc" id="L1426">        final byte[] thisHeapRef = this.heapMemory;</span>
+<span class="fc" id="L1427">        final byte[] otherHeapRef = target.heapMemory;</span>
+<span class="fc" id="L1428">        final long thisPointer = this.address + offset;</span>
+<span class="fc" id="L1429">        final long otherPointer = target.address + targetOffset;</span>
+
+<span class="fc bfc" id="L1431" title="All 6 branches covered.">        if ((numBytes | offset | targetOffset) &gt;= 0</span>
+                &amp;&amp; thisPointer &lt;= this.addressLimit - numBytes
+                &amp;&amp; otherPointer &lt;= target.addressLimit - numBytes) {
+<span class="fc" id="L1434">            UNSAFE.copyMemory(thisHeapRef, thisPointer, otherHeapRef, otherPointer, numBytes);</span>
+<span class="fc bfc" id="L1435" title="All 2 branches covered.">        } else if (this.address &gt; this.addressLimit) {</span>
+<span class="fc" id="L1436">            throw new IllegalStateException(&quot;this memory segment has been freed.&quot;);</span>
+<span class="fc bfc" id="L1437" title="All 2 branches covered.">        } else if (target.address &gt; target.addressLimit) {</span>
+<span class="fc" id="L1438">            throw new IllegalStateException(&quot;target memory segment has been freed.&quot;);</span>
+        } else {
+<span class="fc" id="L1440">            throw new IndexOutOfBoundsException(</span>
+<span class="fc" id="L1441">                    String.format(</span>
+                            &quot;offset=%d, targetOffset=%d, numBytes=%d, address=%d, targetAddress=%d&quot;,
+<span class="fc" id="L1443">                            offset, targetOffset, numBytes, this.address, target.address));</span>
+        }
+<span class="fc" id="L1445">    }</span>
+
+    /**
+     * Bulk copy method. Copies {@code numBytes} bytes to target unsafe object and pointer. NOTE:
+     * This is an unsafe method, no check here, please be careful.
+     *
+     * @param offset The position where the bytes are started to be read from in this memory
+     *     segment.
+     * @param target The unsafe memory to copy the bytes to.
+     * @param targetPointer The position in the target unsafe memory to copy the chunk to.
+     * @param numBytes The number of bytes to copy.
+     * @throws IndexOutOfBoundsException If the source segment does not contain the given number of
+     *     bytes (starting from offset).
+     */
+    public void copyToUnsafe(int offset, Object target, int targetPointer, int numBytes) {
+<span class="fc" id="L1460">        final long thisPointer = this.address + offset;</span>
+<span class="pc bpc" id="L1461" title="1 of 2 branches missed.">        if (thisPointer + numBytes &gt; addressLimit) {</span>
+<span class="nc" id="L1462">            throw new IndexOutOfBoundsException(</span>
+<span class="nc" id="L1463">                    String.format(</span>
+<span class="nc" id="L1464">                            &quot;offset=%d, numBytes=%d, address=%d&quot;, offset, numBytes, this.address));</span>
+        }
+<span class="fc" id="L1466">        UNSAFE.copyMemory(this.heapMemory, thisPointer, target, targetPointer, numBytes);</span>
+<span class="fc" id="L1467">    }</span>
+
+    /**
+     * Bulk copy method. Copies {@code numBytes} bytes from source unsafe object and pointer. NOTE:
+     * This is an unsafe method, no check here, please be careful.
+     *
+     * @param offset The position where the bytes are started to be write in this memory segment.
+     * @param source The unsafe memory to copy the bytes from.
+     * @param sourcePointer The position in the source unsafe memory to copy the chunk from.
+     * @param numBytes The number of bytes to copy.
+     * @throws IndexOutOfBoundsException If this segment can not contain the given number of bytes
+     *     (starting from offset).
+     */
+    public void copyFromUnsafe(int offset, Object source, int sourcePointer, int numBytes) {
+<span class="fc" id="L1481">        final long thisPointer = this.address + offset;</span>
+<span class="pc bpc" id="L1482" title="1 of 2 branches missed.">        if (thisPointer + numBytes &gt; addressLimit) {</span>
+<span class="nc" id="L1483">            throw new IndexOutOfBoundsException(</span>
+<span class="nc" id="L1484">                    String.format(</span>
+<span class="nc" id="L1485">                            &quot;offset=%d, numBytes=%d, address=%d&quot;, offset, numBytes, this.address));</span>
+        }
+<span class="fc" id="L1487">        UNSAFE.copyMemory(source, sourcePointer, this.heapMemory, thisPointer, numBytes);</span>
+<span class="fc" id="L1488">    }</span>
+
+    // -------------------------------------------------------------------------
+    //                      Comparisons &amp; Swapping
+    // -------------------------------------------------------------------------
+
+    /**
+     * Compares two memory segment regions.
+     *
+     * @param seg2 Segment to compare this segment with
+     * @param offset1 Offset of this segment to start comparing
+     * @param offset2 Offset of seg2 to start comparing
+     * @param len Length of the compared memory region
+     * @return 0 if equal, -1 if seg1 &amp;lt; seg2, 1 otherwise
+     */
+    public int compare(MemorySegment seg2, int offset1, int offset2, int len) {
+<span class="fc bfc" id="L1504" title="All 2 branches covered.">        while (len &gt;= 8) {</span>
+<span class="fc" id="L1505">            long l1 = this.getLongBigEndian(offset1);</span>
+<span class="fc" id="L1506">            long l2 = seg2.getLongBigEndian(offset2);</span>
+
+<span class="fc bfc" id="L1508" title="All 2 branches covered.">            if (l1 != l2) {</span>
+<span class="pc bpc" id="L1509" title="1 of 8 branches missed.">                return (l1 &lt; l2) ^ (l1 &lt; 0) ^ (l2 &lt; 0) ? -1 : 1;</span>
+            }
+
+<span class="fc" id="L1512">            offset1 += 8;</span>
+<span class="fc" id="L1513">            offset2 += 8;</span>
+<span class="fc" id="L1514">            len -= 8;</span>
+<span class="fc" id="L1515">        }</span>
+<span class="fc bfc" id="L1516" title="All 2 branches covered.">        while (len &gt; 0) {</span>
+<span class="fc" id="L1517">            int b1 = this.get(offset1) &amp; 0xff;</span>
+<span class="fc" id="L1518">            int b2 = seg2.get(offset2) &amp; 0xff;</span>
+<span class="fc" id="L1519">            int cmp = b1 - b2;</span>
+<span class="fc bfc" id="L1520" title="All 2 branches covered.">            if (cmp != 0) {</span>
+<span class="fc" id="L1521">                return cmp;</span>
+            }
+<span class="fc" id="L1523">            offset1++;</span>
+<span class="fc" id="L1524">            offset2++;</span>
+<span class="fc" id="L1525">            len--;</span>
+<span class="fc" id="L1526">        }</span>
+<span class="fc" id="L1527">        return 0;</span>
+    }
+
+    /**
+     * Compares two memory segment regions with different length.
+     *
+     * @param seg2 Segment to compare this segment with
+     * @param offset1 Offset of this segment to start comparing
+     * @param offset2 Offset of seg2 to start comparing
+     * @param len1 Length of this memory region to compare
+     * @param len2 Length of seg2 to compare
+     * @return 0 if equal, -1 if seg1 &amp;lt; seg2, 1 otherwise
+     */
+    public int compare(MemorySegment seg2, int offset1, int offset2, int len1, int len2) {
+<span class="nc" id="L1541">        final int minLength = Math.min(len1, len2);</span>
+<span class="nc" id="L1542">        int c = compare(seg2, offset1, offset2, minLength);</span>
+<span class="nc bnc" id="L1543" title="All 2 branches missed.">        return c == 0 ? (len1 - len2) : c;</span>
+    }
+
+    /**
+     * Swaps bytes between two memory segments, using the given auxiliary buffer.
+     *
+     * @param tempBuffer The auxiliary buffer in which to put data during triangle swap.
+     * @param seg2 Segment to swap bytes with
+     * @param offset1 Offset of this segment to start swapping
+     * @param offset2 Offset of seg2 to start swapping
+     * @param len Length of the swapped memory region
+     */
+    public void swapBytes(
+            byte[] tempBuffer, MemorySegment seg2, int offset1, int offset2, int len) {
+<span class="fc bfc" id="L1557" title="All 2 branches covered.">        if ((offset1 | offset2 | len | (tempBuffer.length - len)) &gt;= 0) {</span>
+<span class="fc" id="L1558">            final long thisPos = this.address + offset1;</span>
+<span class="fc" id="L1559">            final long otherPos = seg2.address + offset2;</span>
+
+<span class="fc bfc" id="L1561" title="All 4 branches covered.">            if (thisPos &lt;= this.addressLimit - len &amp;&amp; otherPos &lt;= seg2.addressLimit - len) {</span>
+                // this -&gt; temp buffer
+<span class="fc" id="L1563">                UNSAFE.copyMemory(</span>
+                        this.heapMemory, thisPos, tempBuffer, BYTE_ARRAY_BASE_OFFSET, len);
+
+                // other -&gt; this
+<span class="fc" id="L1567">                UNSAFE.copyMemory(seg2.heapMemory, otherPos, this.heapMemory, thisPos, len);</span>
+
+                // temp buffer -&gt; other
+<span class="fc" id="L1570">                UNSAFE.copyMemory(</span>
+                        tempBuffer, BYTE_ARRAY_BASE_OFFSET, seg2.heapMemory, otherPos, len);
+<span class="fc" id="L1572">                return;</span>
+<span class="fc bfc" id="L1573" title="All 2 branches covered.">            } else if (this.address &gt; this.addressLimit) {</span>
+<span class="fc" id="L1574">                throw new IllegalStateException(&quot;this memory segment has been freed.&quot;);</span>
+<span class="pc bpc" id="L1575" title="1 of 2 branches missed.">            } else if (seg2.address &gt; seg2.addressLimit) {</span>
+<span class="fc" id="L1576">                throw new IllegalStateException(&quot;other memory segment has been freed.&quot;);</span>
+            }
+        }
+
+        // index is in fact invalid
+<span class="fc" id="L1581">        throw new IndexOutOfBoundsException(</span>
+<span class="fc" id="L1582">                String.format(</span>
+                        &quot;offset1=%d, offset2=%d, len=%d, bufferSize=%d, address1=%d, address2=%d&quot;,
+<span class="fc" id="L1584">                        offset1, offset2, len, tempBuffer.length, this.address, seg2.address));</span>
+    }
+
+    /**
+     * Equals two memory segment regions.
+     *
+     * @param seg2 Segment to equal this segment with
+     * @param offset1 Offset of this segment to start equaling
+     * @param offset2 Offset of seg2 to start equaling
+     * @param length Length of the equaled memory region
+     * @return true if equal, false otherwise
+     */
+    public boolean equalTo(MemorySegment seg2, int offset1, int offset2, int length) {
+<span class="fc" id="L1597">        int i = 0;</span>
+
+        // we assume unaligned accesses are supported.
+        // Compare 8 bytes at a time.
+<span class="fc bfc" id="L1601" title="All 2 branches covered.">        while (i &lt;= length - 8) {</span>
+<span class="pc bpc" id="L1602" title="1 of 2 branches missed.">            if (getLong(offset1 + i) != seg2.getLong(offset2 + i)) {</span>
+<span class="nc" id="L1603">                return false;</span>
+            }
+<span class="fc" id="L1605">            i += 8;</span>
+        }
+
+        // cover the last (length % 8) elements.
+<span class="fc bfc" id="L1609" title="All 2 branches covered.">        while (i &lt; length) {</span>
+<span class="pc bpc" id="L1610" title="1 of 2 branches missed.">            if (get(offset1 + i) != seg2.get(offset2 + i)) {</span>
+<span class="nc" id="L1611">                return false;</span>
+            }
+<span class="fc" id="L1613">            i += 1;</span>
+        }
+
+<span class="fc" id="L1616">        return true;</span>
+    }
+
+    /**
+     * Get the heap byte array object.
+     *
+     * @return Return non-null if the memory is on the heap, and return null if the memory if off
+     *     the heap.
+     */
+    public byte[] getHeapMemory() {
+<span class="fc" id="L1626">        return heapMemory;</span>
+    }
+
+    /**
+     * Applies the given process function on a {@link ByteBuffer} that represents this entire
+     * segment.
+     *
+     * &lt;p&gt;Note: The {@link ByteBuffer} passed into the process function is temporary and could
+     * become invalid after the processing. Thus, the process function should not try to keep any
+     * reference of the {@link ByteBuffer}.
+     *
+     * @param processFunction to be applied to the segment as {@link ByteBuffer}.
+     * @return the value that the process function returns.
+     */
+    public &lt;T&gt; T processAsByteBuffer(Function&lt;ByteBuffer, T&gt; processFunction) {
+<span class="nc" id="L1641">        return Preconditions.checkNotNull(processFunction).apply(wrapInternal(0, size));</span>
+    }
+
+    /**
+     * Supplies a {@link ByteBuffer} that represents this entire segment to the given process
+     * consumer.
+     *
+     * &lt;p&gt;Note: The {@link ByteBuffer} passed into the process consumer is temporary and could
+     * become invalid after the processing. Thus, the process consumer should not try to keep any
+     * reference of the {@link ByteBuffer}.
+     *
+     * @param processConsumer to accept the segment as {@link ByteBuffer}.
+     */
+    public void processAsByteBuffer(Consumer&lt;ByteBuffer&gt; processConsumer) {
+<span class="nc" id="L1655">        Preconditions.checkNotNull(processConsumer).accept(wrapInternal(0, size));</span>
+<span class="nc" id="L1656">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

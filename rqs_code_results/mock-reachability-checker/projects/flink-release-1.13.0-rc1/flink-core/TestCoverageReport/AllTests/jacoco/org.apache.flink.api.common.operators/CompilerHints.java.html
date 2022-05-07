@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CompilerHints.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.operators</a> &gt; <span class="el_source">CompilerHints.java</span></div><h1>CompilerHints.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.operators;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.operators.util.FieldSet;
+
+import java.util.HashSet;
+import java.util.Set;
+
+/**
+ * A class encapsulating compiler hints describing the behavior of the user function. If set, the
+ * optimizer will use them to estimate the sizes of the intermediate results. Note that these values
+ * are optional hints, the optimizer will always generate a valid plan without them as well. The
+ * hints may help, however, to improve the plan choice.
+ */
+@Internal
+<span class="fc" id="L34">public class CompilerHints {</span>
+
+<span class="fc" id="L36">    private long outputSize = -1;</span>
+
+<span class="fc" id="L38">    private long outputCardinality = -1;</span>
+
+<span class="fc" id="L40">    private float avgOutputRecordSize = -1.0f;</span>
+
+<span class="fc" id="L42">    private float filterFactor = -1.0f;</span>
+
+    private Set&lt;FieldSet&gt; uniqueFields;
+
+    // --------------------------------------------------------------------------------------------
+    //  Basic Record Statistics
+    // --------------------------------------------------------------------------------------------
+
+    public long getOutputSize() {
+<span class="nc" id="L51">        return outputSize;</span>
+    }
+
+    public void setOutputSize(long outputSize) {
+<span class="nc bnc" id="L55" title="All 2 branches missed.">        if (outputSize &lt; 0) {</span>
+<span class="nc" id="L56">            throw new IllegalArgumentException(&quot;The output size cannot be smaller than zero.&quot;);</span>
+        }
+
+<span class="nc" id="L59">        this.outputSize = outputSize;</span>
+<span class="nc" id="L60">    }</span>
+
+    public long getOutputCardinality() {
+<span class="nc" id="L63">        return this.outputCardinality;</span>
+    }
+
+    public void setOutputCardinality(long outputCardinality) {
+<span class="nc bnc" id="L67" title="All 2 branches missed.">        if (outputCardinality &lt; 0) {</span>
+<span class="nc" id="L68">            throw new IllegalArgumentException(</span>
+                    &quot;The output cardinality cannot be smaller than zero.&quot;);
+        }
+
+<span class="nc" id="L72">        this.outputCardinality = outputCardinality;</span>
+<span class="nc" id="L73">    }</span>
+
+    public float getAvgOutputRecordSize() {
+<span class="nc" id="L76">        return this.avgOutputRecordSize;</span>
+    }
+
+    public void setAvgOutputRecordSize(float avgOutputRecordSize) {
+<span class="nc bnc" id="L80" title="All 2 branches missed.">        if (avgOutputRecordSize &lt;= 0) {</span>
+<span class="nc" id="L81">            throw new IllegalArgumentException(&quot;The size of produced records must be positive.&quot;);</span>
+        }
+
+<span class="nc" id="L84">        this.avgOutputRecordSize = avgOutputRecordSize;</span>
+<span class="nc" id="L85">    }</span>
+
+    public float getFilterFactor() {
+<span class="nc" id="L88">        return filterFactor;</span>
+    }
+
+    public void setFilterFactor(float filterFactor) {
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        if (filterFactor &lt; 0) {</span>
+<span class="nc" id="L93">            throw new IllegalArgumentException(&quot;The filter factor cannot be smaller than zero.&quot;);</span>
+        }
+
+<span class="nc" id="L96">        this.filterFactor = filterFactor;</span>
+<span class="nc" id="L97">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+    //  Uniqueness
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Gets the FieldSets that are unique
+     *
+     * @return List of FieldSet that are unique
+     */
+    public Set&lt;FieldSet&gt; getUniqueFields() {
+<span class="nc" id="L109">        return this.uniqueFields;</span>
+    }
+
+    /**
+     * Adds a FieldSet to be unique
+     *
+     * @param uniqueFieldSet The unique FieldSet
+     */
+    public void addUniqueField(FieldSet uniqueFieldSet) {
+<span class="nc bnc" id="L118" title="All 2 branches missed.">        if (this.uniqueFields == null) {</span>
+<span class="nc" id="L119">            this.uniqueFields = new HashSet&lt;FieldSet&gt;();</span>
+        }
+<span class="nc" id="L121">        this.uniqueFields.add(uniqueFieldSet);</span>
+<span class="nc" id="L122">    }</span>
+
+    /**
+     * Adds a field as having only unique values.
+     *
+     * @param field The field with unique values.
+     */
+    public void addUniqueField(int field) {
+<span class="nc bnc" id="L130" title="All 2 branches missed.">        if (this.uniqueFields == null) {</span>
+<span class="nc" id="L131">            this.uniqueFields = new HashSet&lt;FieldSet&gt;();</span>
+        }
+<span class="nc" id="L133">        this.uniqueFields.add(new FieldSet(field));</span>
+<span class="nc" id="L134">    }</span>
+
+    /**
+     * Adds multiple FieldSets to be unique
+     *
+     * @param uniqueFieldSets A set of unique FieldSet
+     */
+    public void addUniqueFields(Set&lt;FieldSet&gt; uniqueFieldSets) {
+<span class="nc bnc" id="L142" title="All 2 branches missed.">        if (this.uniqueFields == null) {</span>
+<span class="nc" id="L143">            this.uniqueFields = new HashSet&lt;FieldSet&gt;();</span>
+        }
+<span class="nc" id="L145">        this.uniqueFields.addAll(uniqueFieldSets);</span>
+<span class="nc" id="L146">    }</span>
+
+    public void clearUniqueFields() {
+<span class="nc" id="L149">        this.uniqueFields = null;</span>
+<span class="nc" id="L150">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+    //  Miscellaneous
+    // --------------------------------------------------------------------------------------------
+
+    protected void copyFrom(CompilerHints source) {
+<span class="nc" id="L157">        this.outputSize = source.outputSize;</span>
+<span class="nc" id="L158">        this.outputCardinality = source.outputCardinality;</span>
+<span class="nc" id="L159">        this.avgOutputRecordSize = source.avgOutputRecordSize;</span>
+<span class="nc" id="L160">        this.filterFactor = source.filterFactor;</span>
+
+<span class="nc bnc" id="L162" title="All 4 branches missed.">        if (source.uniqueFields != null &amp;&amp; source.uniqueFields.size() &gt; 0) {</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">            if (this.uniqueFields == null) {</span>
+<span class="nc" id="L164">                this.uniqueFields = new HashSet&lt;FieldSet&gt;();</span>
+            } else {
+<span class="nc" id="L166">                this.uniqueFields.clear();</span>
+            }
+
+<span class="nc" id="L169">            this.uniqueFields.addAll(source.uniqueFields);</span>
+        }
+<span class="nc" id="L171">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

@@ -1,0 +1,665 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KryoSerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.java.typeutils.runtime.kryo</a> &gt; <span class="el_source">KryoSerializer.java</span></div><h1>KryoSerializer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.java.typeutils.runtime.kryo;
+
+import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.ExecutionConfig.SerializableSerializer;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.common.typeutils.TypeSerializerSchemaCompatibility;
+import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
+import org.apache.flink.api.java.typeutils.AvroUtils;
+import org.apache.flink.api.java.typeutils.runtime.DataInputViewStream;
+import org.apache.flink.api.java.typeutils.runtime.DataOutputViewStream;
+import org.apache.flink.api.java.typeutils.runtime.KryoRegistration;
+import org.apache.flink.api.java.typeutils.runtime.KryoRegistrationSerializerConfigSnapshot;
+import org.apache.flink.api.java.typeutils.runtime.KryoUtils;
+import org.apache.flink.api.java.typeutils.runtime.NoFetchingInput;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.util.InstantiationUtil;
+
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.KryoException;
+import com.esotericsoftware.kryo.Serializer;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
+import org.apache.commons.lang3.exception.CloneFailedException;
+import org.objenesis.strategy.StdInstantiatorStrategy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Objects;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * A type serializer that serializes its type using the Kryo serialization framework
+ * (https://github.com/EsotericSoftware/kryo).
+ *
+ * &lt;p&gt;This serializer is intended as a fallback serializer for the cases that are not covered by the
+ * basic types, tuples, and POJOs.
+ *
+ * @param &lt;T&gt; The type to be serialized.
+ */
+public class KryoSerializer&lt;T&gt; extends TypeSerializer&lt;T&gt; {
+
+    private static final long serialVersionUID = 3L;
+
+<span class="fc" id="L76">    private static final Logger LOG = LoggerFactory.getLogger(KryoSerializer.class);</span>
+
+    /**
+     * Flag whether to check for concurrent thread access. Because this flag is static final, a
+     * value of 'false' allows the JIT compiler to eliminate the guarded code sections.
+     */
+<span class="fc" id="L82">    private static final boolean CONCURRENT_ACCESS_CHECK =</span>
+<span class="pc bpc" id="L83" title="2 of 4 branches missed.">            LOG.isDebugEnabled() || KryoSerializerDebugInitHelper.setToDebug;</span>
+
+    static {
+<span class="fc" id="L86">        configureKryoLogging();</span>
+<span class="fc" id="L87">    }</span>
+
+    // ------------------------------------------------------------------------
+
+    private final LinkedHashMap&lt;Class&lt;?&gt;, ExecutionConfig.SerializableSerializer&lt;?&gt;&gt;
+            defaultSerializers;
+    private final LinkedHashMap&lt;Class&lt;?&gt;, Class&lt;? extends Serializer&lt;?&gt;&gt;&gt; defaultSerializerClasses;
+
+    /**
+     * Map of class tag (using classname as tag) to their Kryo registration.
+     *
+     * &lt;p&gt;This map serves as a preview of the final registration result of the Kryo instance, taking
+     * into account registration overwrites.
+     */
+    private LinkedHashMap&lt;String, KryoRegistration&gt; kryoRegistrations;
+
+    private final Class&lt;T&gt; type;
+
+    // ------------------------------------------------------------------------
+    // The fields below are lazily initialized after duplication or deserialization.
+
+    private transient Kryo kryo;
+    private transient T copyInstance;
+
+    private transient DataOutputView previousOut;
+    private transient DataInputView previousIn;
+
+    private transient Input input;
+    private transient Output output;
+
+    // ------------------------------------------------------------------------
+    // legacy fields; these fields cannot yet be removed to retain backwards compatibility
+
+    private LinkedHashMap&lt;Class&lt;?&gt;, ExecutionConfig.SerializableSerializer&lt;?&gt;&gt;
+            registeredTypesWithSerializers;
+    private LinkedHashMap&lt;Class&lt;?&gt;, Class&lt;? extends Serializer&lt;?&gt;&gt;&gt;
+            registeredTypesWithSerializerClasses;
+    private LinkedHashSet&lt;Class&lt;?&gt;&gt; registeredTypes;
+
+    // for debugging purposes
+    private transient volatile Thread currentThread;
+
+    // ------------------------------------------------------------------------
+
+<span class="fc" id="L131">    public KryoSerializer(Class&lt;T&gt; type, ExecutionConfig executionConfig) {</span>
+<span class="fc" id="L132">        this.type = checkNotNull(type);</span>
+
+<span class="fc" id="L134">        this.defaultSerializers = executionConfig.getDefaultKryoSerializers();</span>
+<span class="fc" id="L135">        this.defaultSerializerClasses = executionConfig.getDefaultKryoSerializerClasses();</span>
+
+<span class="fc" id="L137">        this.kryoRegistrations =</span>
+<span class="fc" id="L138">                buildKryoRegistrations(</span>
+                        this.type,
+<span class="fc" id="L140">                        executionConfig.getRegisteredKryoTypes(),</span>
+<span class="fc" id="L141">                        executionConfig.getRegisteredTypesWithKryoSerializerClasses(),</span>
+<span class="fc" id="L142">                        executionConfig.getRegisteredTypesWithKryoSerializers());</span>
+<span class="fc" id="L143">    }</span>
+
+    /**
+     * Copy-constructor that does not copy transient fields. They will be initialized once required.
+     */
+<span class="fc" id="L148">    protected KryoSerializer(KryoSerializer&lt;T&gt; toCopy) {</span>
+
+<span class="fc" id="L150">        this.type = checkNotNull(toCopy.type, &quot;Type class cannot be null.&quot;);</span>
+<span class="fc" id="L151">        this.defaultSerializerClasses = toCopy.defaultSerializerClasses;</span>
+<span class="fc" id="L152">        this.defaultSerializers = new LinkedHashMap&lt;&gt;(toCopy.defaultSerializers.size());</span>
+<span class="fc" id="L153">        this.kryoRegistrations = new LinkedHashMap&lt;&gt;(toCopy.kryoRegistrations.size());</span>
+
+        // deep copy the serializer instances in defaultSerializers
+        for (Map.Entry&lt;Class&lt;?&gt;, ExecutionConfig.SerializableSerializer&lt;?&gt;&gt; entry :
+<span class="fc bfc" id="L157" title="All 2 branches covered.">                toCopy.defaultSerializers.entrySet()) {</span>
+
+<span class="fc" id="L159">            this.defaultSerializers.put(entry.getKey(), deepCopySerializer(entry.getValue()));</span>
+<span class="fc" id="L160">        }</span>
+
+        // deep copy the serializer instances in kryoRegistrations
+<span class="fc bfc" id="L163" title="All 2 branches covered.">        for (Map.Entry&lt;String, KryoRegistration&gt; entry : toCopy.kryoRegistrations.entrySet()) {</span>
+
+<span class="fc" id="L165">            KryoRegistration kryoRegistration = entry.getValue();</span>
+
+<span class="fc bfc" id="L167" title="All 2 branches covered.">            if (kryoRegistration.getSerializerDefinitionType()</span>
+                    == KryoRegistration.SerializerDefinitionType.INSTANCE) {
+
+<span class="fc" id="L170">                ExecutionConfig.SerializableSerializer&lt;? extends Serializer&lt;?&gt;&gt; serializerInstance =</span>
+<span class="fc" id="L171">                        kryoRegistration.getSerializableSerializerInstance();</span>
+
+<span class="pc bpc" id="L173" title="1 of 2 branches missed.">                if (serializerInstance != null) {</span>
+<span class="fc" id="L174">                    kryoRegistration =</span>
+                            new KryoRegistration(
+<span class="fc" id="L176">                                    kryoRegistration.getRegisteredClass(),</span>
+<span class="fc" id="L177">                                    deepCopySerializer(serializerInstance));</span>
+                }
+            }
+
+<span class="fc" id="L181">            this.kryoRegistrations.put(entry.getKey(), kryoRegistration);</span>
+<span class="fc" id="L182">        }</span>
+<span class="fc" id="L183">    }</span>
+
+    // for KryoSerializerSnapshot
+    // ------------------------------------------------------------------------
+
+    KryoSerializer(
+            Class&lt;T&gt; type,
+            LinkedHashMap&lt;Class&lt;?&gt;, SerializableSerializer&lt;?&gt;&gt; defaultSerializers,
+            LinkedHashMap&lt;Class&lt;?&gt;, Class&lt;? extends Serializer&lt;?&gt;&gt;&gt; defaultSerializerClasses,
+<span class="fc" id="L192">            LinkedHashMap&lt;String, KryoRegistration&gt; kryoRegistrations) {</span>
+
+<span class="fc" id="L194">        this.type = checkNotNull(type, &quot;Type class cannot be null.&quot;);</span>
+<span class="fc" id="L195">        this.defaultSerializerClasses =</span>
+<span class="fc" id="L196">                checkNotNull(</span>
+                        defaultSerializerClasses, &quot;Default serializer classes cannot be null.&quot;);
+<span class="fc" id="L198">        this.defaultSerializers =</span>
+<span class="fc" id="L199">                checkNotNull(defaultSerializers, &quot;Default serializers cannot be null.&quot;);</span>
+<span class="fc" id="L200">        this.kryoRegistrations =</span>
+<span class="fc" id="L201">                checkNotNull(kryoRegistrations, &quot;Kryo registrations cannot be null.&quot;);</span>
+<span class="fc" id="L202">    }</span>
+
+    Class&lt;T&gt; getType() {
+<span class="fc" id="L205">        return type;</span>
+    }
+
+    LinkedHashMap&lt;Class&lt;?&gt;, SerializableSerializer&lt;?&gt;&gt; getDefaultKryoSerializers() {
+<span class="fc" id="L209">        return defaultSerializers;</span>
+    }
+
+    LinkedHashMap&lt;Class&lt;?&gt;, Class&lt;? extends Serializer&lt;?&gt;&gt;&gt; getDefaultKryoSerializerClasses() {
+<span class="fc" id="L213">        return defaultSerializerClasses;</span>
+    }
+
+    LinkedHashMap&lt;String, KryoRegistration&gt; getKryoRegistrations() {
+<span class="fc" id="L217">        return kryoRegistrations;</span>
+    }
+
+    // ------------------------------------------------------------------------
+
+    @Override
+    public boolean isImmutableType() {
+<span class="fc" id="L224">        return false;</span>
+    }
+
+    @Override
+    public KryoSerializer&lt;T&gt; duplicate() {
+<span class="fc" id="L229">        return new KryoSerializer&lt;&gt;(this);</span>
+    }
+
+    @Override
+    public T createInstance() {
+<span class="pc bpc" id="L234" title="1 of 4 branches missed.">        if (Modifier.isAbstract(type.getModifiers()) || Modifier.isInterface(type.getModifiers())) {</span>
+<span class="fc" id="L235">            return null;</span>
+        } else {
+<span class="fc" id="L237">            checkKryoInitialized();</span>
+            try {
+<span class="fc" id="L239">                return kryo.newInstance(type);</span>
+<span class="nc" id="L240">            } catch (Throwable e) {</span>
+<span class="nc" id="L241">                return null;</span>
+            }
+        }
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    @Override
+    public T copy(T from) {
+<span class="fc bfc" id="L249" title="All 2 branches covered.">        if (from == null) {</span>
+<span class="fc" id="L250">            return null;</span>
+        }
+
+<span class="pc bpc" id="L253" title="1 of 2 branches missed.">        if (CONCURRENT_ACCESS_CHECK) {</span>
+<span class="fc" id="L254">            enterExclusiveThread();</span>
+        }
+
+        try {
+<span class="fc" id="L258">            checkKryoInitialized();</span>
+            try {
+<span class="fc" id="L260">                return kryo.copy(from);</span>
+<span class="fc" id="L261">            } catch (KryoException ke) {</span>
+                // kryo was unable to copy it, so we do it through serialization:
+<span class="fc" id="L263">                ByteArrayOutputStream baout = new ByteArrayOutputStream();</span>
+<span class="fc" id="L264">                Output output = new Output(baout);</span>
+
+<span class="fc" id="L266">                kryo.writeObject(output, from);</span>
+
+<span class="fc" id="L268">                output.close();</span>
+
+<span class="fc" id="L270">                ByteArrayInputStream bain = new ByteArrayInputStream(baout.toByteArray());</span>
+<span class="fc" id="L271">                Input input = new Input(bain);</span>
+
+<span class="fc" id="L273">                return (T) kryo.readObject(input, from.getClass());</span>
+            }
+        } finally {
+<span class="pc bpc" id="L276" title="1 of 2 branches missed.">            if (CONCURRENT_ACCESS_CHECK) {</span>
+<span class="fc" id="L277">                exitExclusiveThread();</span>
+            }
+        }
+    }
+
+    @Override
+    public T copy(T from, T reuse) {
+<span class="fc" id="L284">        return copy(from);</span>
+    }
+
+    @Override
+    public int getLength() {
+<span class="fc" id="L289">        return -1;</span>
+    }
+
+    @Override
+    public void serialize(T record, DataOutputView target) throws IOException {
+<span class="pc bpc" id="L294" title="1 of 2 branches missed.">        if (CONCURRENT_ACCESS_CHECK) {</span>
+<span class="fc" id="L295">            enterExclusiveThread();</span>
+        }
+
+        try {
+<span class="fc" id="L299">            checkKryoInitialized();</span>
+
+<span class="fc bfc" id="L301" title="All 2 branches covered.">            if (target != previousOut) {</span>
+<span class="fc" id="L302">                DataOutputViewStream outputStream = new DataOutputViewStream(target);</span>
+<span class="fc" id="L303">                output = new Output(outputStream);</span>
+<span class="fc" id="L304">                previousOut = target;</span>
+            }
+
+            // Sanity check: Make sure that the output is cleared/has been flushed by the last call
+            // otherwise data might be written multiple times in case of a previous EOFException
+<span class="pc bpc" id="L309" title="1 of 2 branches missed.">            if (output.position() != 0) {</span>
+<span class="nc" id="L310">                throw new IllegalStateException(</span>
+                        &quot;The Kryo Output still contains data from a previous &quot;
+                                + &quot;serialize call. It has to be flushed or cleared at the end of the serialize call.&quot;);
+            }
+
+            try {
+<span class="fc" id="L316">                kryo.writeClassAndObject(output, record);</span>
+<span class="fc" id="L317">                output.flush();</span>
+<span class="fc" id="L318">            } catch (KryoException ke) {</span>
+                // make sure that the Kryo output buffer is cleared in case that we can recover from
+                // the exception (e.g. EOFException which denotes buffer full)
+<span class="fc" id="L321">                output.clear();</span>
+
+<span class="fc" id="L323">                Throwable cause = ke.getCause();</span>
+<span class="pc bpc" id="L324" title="1 of 2 branches missed.">                if (cause instanceof EOFException) {</span>
+<span class="fc" id="L325">                    throw (EOFException) cause;</span>
+                } else {
+<span class="nc" id="L327">                    throw ke;</span>
+                }
+<span class="fc" id="L329">            }</span>
+        } finally {
+<span class="pc bpc" id="L331" title="1 of 2 branches missed.">            if (CONCURRENT_ACCESS_CHECK) {</span>
+<span class="fc" id="L332">                exitExclusiveThread();</span>
+            }
+        }
+<span class="fc" id="L335">    }</span>
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    @Override
+    public T deserialize(DataInputView source) throws IOException {
+<span class="pc bpc" id="L340" title="1 of 2 branches missed.">        if (CONCURRENT_ACCESS_CHECK) {</span>
+<span class="fc" id="L341">            enterExclusiveThread();</span>
+        }
+
+        try {
+<span class="fc" id="L345">            checkKryoInitialized();</span>
+
+<span class="fc bfc" id="L347" title="All 2 branches covered.">            if (source != previousIn) {</span>
+<span class="fc" id="L348">                DataInputViewStream inputStream = new DataInputViewStream(source);</span>
+<span class="fc" id="L349">                input = new NoFetchingInput(inputStream);</span>
+<span class="fc" id="L350">                previousIn = source;</span>
+            }
+
+            try {
+<span class="fc" id="L354">                return (T) kryo.readClassAndObject(input);</span>
+<span class="fc" id="L355">            } catch (KryoException ke) {</span>
+<span class="fc" id="L356">                Throwable cause = ke.getCause();</span>
+
+<span class="fc bfc" id="L358" title="All 2 branches covered.">                if (cause instanceof EOFException) {</span>
+<span class="fc" id="L359">                    throw (EOFException) cause;</span>
+                } else {
+<span class="fc" id="L361">                    throw ke;</span>
+                }
+            }
+        } finally {
+<span class="pc bpc" id="L365" title="1 of 2 branches missed.">            if (CONCURRENT_ACCESS_CHECK) {</span>
+<span class="fc" id="L366">                exitExclusiveThread();</span>
+            }
+        }
+    }
+
+    @Override
+    public T deserialize(T reuse, DataInputView source) throws IOException {
+<span class="fc" id="L373">        return deserialize(source);</span>
+    }
+
+    @Override
+    public void copy(DataInputView source, DataOutputView target) throws IOException {
+<span class="pc bpc" id="L378" title="1 of 2 branches missed.">        if (CONCURRENT_ACCESS_CHECK) {</span>
+<span class="fc" id="L379">            enterExclusiveThread();</span>
+        }
+
+        try {
+<span class="fc" id="L383">            checkKryoInitialized();</span>
+<span class="fc bfc" id="L384" title="All 2 branches covered.">            if (this.copyInstance == null) {</span>
+<span class="fc" id="L385">                this.copyInstance = createInstance();</span>
+            }
+
+<span class="fc" id="L388">            T tmp = deserialize(copyInstance, source);</span>
+<span class="fc" id="L389">            serialize(tmp, target);</span>
+        } finally {
+<span class="pc bpc" id="L391" title="1 of 2 branches missed.">            if (CONCURRENT_ACCESS_CHECK) {</span>
+<span class="fc" id="L392">                exitExclusiveThread();</span>
+            }
+        }
+<span class="fc" id="L395">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L401">        int result = type.hashCode();</span>
+<span class="fc" id="L402">        result = 31 * result + (kryoRegistrations.hashCode());</span>
+<span class="fc" id="L403">        result = 31 * result + (defaultSerializers.hashCode());</span>
+<span class="fc" id="L404">        result = 31 * result + (defaultSerializerClasses.hashCode());</span>
+
+<span class="fc" id="L406">        return result;</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="pc bpc" id="L411" title="1 of 2 branches missed.">        if (obj instanceof KryoSerializer) {</span>
+<span class="fc" id="L412">            KryoSerializer&lt;?&gt; other = (KryoSerializer&lt;?&gt;) obj;</span>
+
+<span class="pc bpc" id="L414" title="1 of 2 branches missed.">            return type == other.type</span>
+<span class="pc bpc" id="L415" title="1 of 2 branches missed.">                    &amp;&amp; Objects.equals(kryoRegistrations, other.kryoRegistrations)</span>
+<span class="pc bpc" id="L416" title="1 of 2 branches missed.">                    &amp;&amp; Objects.equals(defaultSerializerClasses, other.defaultSerializerClasses)</span>
+<span class="pc bpc" id="L417" title="1 of 2 branches missed.">                    &amp;&amp; Objects.equals(defaultSerializers, other.defaultSerializers);</span>
+        } else {
+<span class="nc" id="L419">            return false;</span>
+        }
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Returns the Chill Kryo Serializer which is implicitly added to the classpath via
+     * flink-runtime. Falls back to the default Kryo serializer if it can't be found.
+     *
+     * @return The Kryo serializer instance.
+     */
+    private Kryo getKryoInstance() {
+
+        try {
+            // check if ScalaKryoInstantiator is in class path (coming from Twitter's Chill
+            // library).
+            // This will be true if Flink's Scala API is used.
+<span class="fc" id="L437">            Class&lt;?&gt; chillInstantiatorClazz =</span>
+<span class="nc" id="L438">                    Class.forName(&quot;org.apache.flink.runtime.types.FlinkScalaKryoInstantiator&quot;);</span>
+<span class="nc" id="L439">            Object chillInstantiator = chillInstantiatorClazz.newInstance();</span>
+
+            // obtain a Kryo instance through Twitter Chill
+<span class="nc" id="L442">            Method m = chillInstantiatorClazz.getMethod(&quot;newKryo&quot;);</span>
+
+<span class="nc" id="L444">            return (Kryo) m.invoke(chillInstantiator);</span>
+<span class="fc" id="L445">        } catch (ClassNotFoundException</span>
+                | InstantiationException
+                | NoSuchMethodException
+                | IllegalAccessException
+                | InvocationTargetException e) {
+
+<span class="fc" id="L451">            LOG.warn(</span>
+                    &quot;Falling back to default Kryo serializer because Chill serializer couldn't be found.&quot;,
+                    e);
+
+<span class="fc" id="L455">            Kryo.DefaultInstantiatorStrategy initStrategy = new Kryo.DefaultInstantiatorStrategy();</span>
+<span class="fc" id="L456">            initStrategy.setFallbackInstantiatorStrategy(new StdInstantiatorStrategy());</span>
+
+<span class="fc" id="L458">            Kryo kryo = new Kryo();</span>
+<span class="fc" id="L459">            kryo.setInstantiatorStrategy(initStrategy);</span>
+
+<span class="fc" id="L461">            return kryo;</span>
+        }
+    }
+
+    private void checkKryoInitialized() {
+<span class="fc bfc" id="L466" title="All 2 branches covered.">        if (this.kryo == null) {</span>
+<span class="fc" id="L467">            this.kryo = getKryoInstance();</span>
+
+            // Enable reference tracking.
+<span class="fc" id="L470">            kryo.setReferences(true);</span>
+
+            // Throwable and all subclasses should be serialized via java serialization
+            // Note: the registered JavaSerializer is Flink's own implementation, and not Kryo's.
+            //       This is due to a know issue with Kryo's JavaSerializer. See FLINK-6025 for
+            // details.
+<span class="fc" id="L476">            kryo.addDefaultSerializer(Throwable.class, new JavaSerializer());</span>
+
+            // Add default serializers first, so that the type registrations without a serializer
+            // are registered with a default serializer
+            for (Map.Entry&lt;Class&lt;?&gt;, ExecutionConfig.SerializableSerializer&lt;?&gt;&gt; entry :
+<span class="fc bfc" id="L481" title="All 2 branches covered.">                    defaultSerializers.entrySet()) {</span>
+<span class="fc" id="L482">                kryo.addDefaultSerializer(entry.getKey(), entry.getValue().getSerializer());</span>
+<span class="fc" id="L483">            }</span>
+
+            for (Map.Entry&lt;Class&lt;?&gt;, Class&lt;? extends Serializer&lt;?&gt;&gt;&gt; entry :
+<span class="fc bfc" id="L486" title="All 2 branches covered.">                    defaultSerializerClasses.entrySet()) {</span>
+<span class="fc" id="L487">                kryo.addDefaultSerializer(entry.getKey(), entry.getValue());</span>
+<span class="fc" id="L488">            }</span>
+
+<span class="fc" id="L490">            KryoUtils.applyRegistrations(this.kryo, kryoRegistrations.values());</span>
+
+<span class="fc" id="L492">            kryo.setRegistrationRequired(false);</span>
+<span class="fc" id="L493">            kryo.setClassLoader(Thread.currentThread().getContextClassLoader());</span>
+        }
+<span class="fc" id="L495">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+    // Serializer configuration snapshotting &amp; compatibility
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public TypeSerializerSnapshot&lt;T&gt; snapshotConfiguration() {
+<span class="fc" id="L503">        return new KryoSerializerSnapshot&lt;&gt;(</span>
+                type, defaultSerializers, defaultSerializerClasses, kryoRegistrations);
+    }
+
+    @Deprecated
+    public static final class KryoSerializerConfigSnapshot&lt;T&gt;
+            extends KryoRegistrationSerializerConfigSnapshot&lt;T&gt; {
+
+        private static final int VERSION = 1;
+
+        /** This empty nullary constructor is required for deserializing the configuration. */
+<span class="fc" id="L514">        public KryoSerializerConfigSnapshot() {}</span>
+
+        public KryoSerializerConfigSnapshot(
+                Class&lt;T&gt; typeClass, LinkedHashMap&lt;String, KryoRegistration&gt; kryoRegistrations) {
+
+<span class="nc" id="L519">            super(typeClass, kryoRegistrations);</span>
+<span class="nc" id="L520">        }</span>
+
+        @Override
+        public int getVersion() {
+<span class="fc" id="L524">            return VERSION;</span>
+        }
+
+        @Override
+        public TypeSerializerSchemaCompatibility&lt;T&gt; resolveSchemaCompatibility(
+                TypeSerializer&lt;T&gt; newSerializer) {
+<span class="fc" id="L530">            KryoSerializer&lt;T&gt; javaSerializedKryoSerializer =</span>
+<span class="fc" id="L531">                    (KryoSerializer&lt;T&gt;) super.restoreSerializer();</span>
+
+<span class="fc" id="L533">            KryoSerializerSnapshot&lt;T&gt; snapshot =</span>
+                    new KryoSerializerSnapshot&lt;&gt;(
+<span class="fc" id="L535">                            javaSerializedKryoSerializer.getType(),</span>
+<span class="fc" id="L536">                            javaSerializedKryoSerializer.getDefaultKryoSerializers(),</span>
+<span class="fc" id="L537">                            javaSerializedKryoSerializer.getDefaultKryoSerializerClasses(),</span>
+<span class="fc" id="L538">                            javaSerializedKryoSerializer.getKryoRegistrations());</span>
+
+<span class="fc" id="L540">            return snapshot.resolveSchemaCompatibility(newSerializer);</span>
+        }
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // Utilities
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Utility method that takes lists of registered types and their serializers, and resolve them
+     * into a single list such that the result will resemble the final registration result in Kryo.
+     */
+    private static LinkedHashMap&lt;String, KryoRegistration&gt; buildKryoRegistrations(
+            Class&lt;?&gt; serializedType,
+            LinkedHashSet&lt;Class&lt;?&gt;&gt; registeredTypes,
+            LinkedHashMap&lt;Class&lt;?&gt;, Class&lt;? extends Serializer&lt;?&gt;&gt;&gt;
+                    registeredTypesWithSerializerClasses,
+            LinkedHashMap&lt;Class&lt;?&gt;, ExecutionConfig.SerializableSerializer&lt;?&gt;&gt;
+                    registeredTypesWithSerializers) {
+
+<span class="fc" id="L560">        final LinkedHashMap&lt;String, KryoRegistration&gt; kryoRegistrations = new LinkedHashMap&lt;&gt;();</span>
+
+<span class="fc" id="L562">        kryoRegistrations.put(serializedType.getName(), new KryoRegistration(serializedType));</span>
+
+<span class="fc bfc" id="L564" title="All 2 branches covered.">        for (Class&lt;?&gt; registeredType : checkNotNull(registeredTypes)) {</span>
+<span class="fc" id="L565">            kryoRegistrations.put(registeredType.getName(), new KryoRegistration(registeredType));</span>
+<span class="fc" id="L566">        }</span>
+
+        for (Map.Entry&lt;Class&lt;?&gt;, Class&lt;? extends Serializer&lt;?&gt;&gt;&gt;
+                registeredTypeWithSerializerClassEntry :
+<span class="fc bfc" id="L570" title="All 2 branches covered.">                        checkNotNull(registeredTypesWithSerializerClasses).entrySet()) {</span>
+
+<span class="fc" id="L572">            kryoRegistrations.put(</span>
+<span class="fc" id="L573">                    registeredTypeWithSerializerClassEntry.getKey().getName(),</span>
+                    new KryoRegistration(
+<span class="fc" id="L575">                            registeredTypeWithSerializerClassEntry.getKey(),</span>
+<span class="fc" id="L576">                            registeredTypeWithSerializerClassEntry.getValue()));</span>
+<span class="fc" id="L577">        }</span>
+
+        for (Map.Entry&lt;Class&lt;?&gt;, ExecutionConfig.SerializableSerializer&lt;?&gt;&gt;
+                registeredTypeWithSerializerEntry :
+<span class="fc bfc" id="L581" title="All 2 branches covered.">                        checkNotNull(registeredTypesWithSerializers).entrySet()) {</span>
+
+<span class="fc" id="L583">            kryoRegistrations.put(</span>
+<span class="fc" id="L584">                    registeredTypeWithSerializerEntry.getKey().getName(),</span>
+                    new KryoRegistration(
+<span class="fc" id="L586">                            registeredTypeWithSerializerEntry.getKey(),</span>
+<span class="fc" id="L587">                            registeredTypeWithSerializerEntry.getValue()));</span>
+<span class="fc" id="L588">        }</span>
+
+        // add Avro support if flink-avro is available; a dummy otherwise
+<span class="fc" id="L591">        AvroUtils.getAvroUtils().addAvroGenericDataArrayRegistration(kryoRegistrations);</span>
+
+<span class="fc" id="L593">        return kryoRegistrations;</span>
+    }
+
+    static void configureKryoLogging() {
+        // Kryo uses only DEBUG and TRACE levels
+        // we only forward TRACE level, because even DEBUG levels results in
+        // a logging for each object, which is infeasible in Flink.
+<span class="pc bpc" id="L600" title="1 of 2 branches missed.">        if (LOG.isTraceEnabled()) {</span>
+<span class="nc" id="L601">            com.esotericsoftware.minlog.Log.setLogger(new MinlogForwarder(LOG));</span>
+<span class="nc" id="L602">            com.esotericsoftware.minlog.Log.TRACE();</span>
+        }
+<span class="fc" id="L604">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+<span class="fc" id="L609">        in.defaultReadObject();</span>
+
+        // kryoRegistrations may be null if this Kryo serializer is deserialized from an old version
+<span class="pc bpc" id="L612" title="1 of 2 branches missed.">        if (kryoRegistrations == null) {</span>
+<span class="nc" id="L613">            this.kryoRegistrations =</span>
+<span class="nc" id="L614">                    buildKryoRegistrations(</span>
+                            type,
+                            registeredTypes,
+                            registeredTypesWithSerializerClasses,
+                            registeredTypesWithSerializers);
+        }
+<span class="fc" id="L620">    }</span>
+
+    private ExecutionConfig.SerializableSerializer&lt;? extends Serializer&lt;?&gt;&gt; deepCopySerializer(
+            ExecutionConfig.SerializableSerializer&lt;? extends Serializer&lt;?&gt;&gt; original) {
+        try {
+<span class="fc" id="L625">            return InstantiationUtil.clone(</span>
+<span class="fc" id="L626">                    original, Thread.currentThread().getContextClassLoader());</span>
+<span class="nc" id="L627">        } catch (IOException | ClassNotFoundException ex) {</span>
+<span class="nc" id="L628">            throw new CloneFailedException(</span>
+<span class="nc" id="L629">                    &quot;Could not clone serializer instance of class &quot; + original.getClass(), ex);</span>
+        }
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // For testing
+    // --------------------------------------------------------------------------------------------
+
+    private void enterExclusiveThread() {
+        // we use simple get, check, set here, rather than CAS
+        // we don't need lock-style correctness, this is only a sanity-check and we thus
+        // favor speed at the cost of some false negatives in this check
+<span class="fc" id="L641">        Thread previous = currentThread;</span>
+<span class="fc" id="L642">        Thread thisThread = Thread.currentThread();</span>
+
+<span class="fc bfc" id="L644" title="All 2 branches covered.">        if (previous == null) {</span>
+<span class="fc" id="L645">            currentThread = thisThread;</span>
+<span class="fc bfc" id="L646" title="All 2 branches covered.">        } else if (previous != thisThread) {</span>
+<span class="fc" id="L647">            throw new IllegalStateException(</span>
+                    &quot;Concurrent access to KryoSerializer. Thread 1: &quot;
+<span class="fc" id="L649">                            + thisThread.getName()</span>
+                            + &quot; , Thread 2: &quot;
+<span class="fc" id="L651">                            + previous.getName());</span>
+        }
+<span class="fc" id="L653">    }</span>
+
+    private void exitExclusiveThread() {
+<span class="fc" id="L656">        currentThread = null;</span>
+<span class="fc" id="L657">    }</span>
+
+    @VisibleForTesting
+    public Kryo getKryo() {
+<span class="fc" id="L661">        checkKryoInitialized();</span>
+<span class="fc" id="L662">        return this.kryo;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

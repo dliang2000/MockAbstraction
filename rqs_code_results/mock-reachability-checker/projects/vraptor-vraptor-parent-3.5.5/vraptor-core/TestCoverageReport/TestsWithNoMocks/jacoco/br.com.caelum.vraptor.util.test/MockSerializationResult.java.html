@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockSerializationResult.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.util.test</a> &gt; <span class="el_source">MockSerializationResult.java</span></div><h1>MockSerializationResult.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package br.com.caelum.vraptor.util.test;
+
+
+import java.util.Arrays;
+
+import br.com.caelum.vraptor.View;
+import br.com.caelum.vraptor.http.FormatResolver;
+import br.com.caelum.vraptor.interceptor.DefaultTypeNameExtractor;
+import br.com.caelum.vraptor.ioc.Component;
+import br.com.caelum.vraptor.proxy.JavassistProxifier;
+import br.com.caelum.vraptor.proxy.ObjenesisInstanceCreator;
+import br.com.caelum.vraptor.proxy.Proxifier;
+import br.com.caelum.vraptor.serialization.DefaultRepresentationResult;
+import br.com.caelum.vraptor.serialization.JSONSerialization;
+import br.com.caelum.vraptor.serialization.NullProxyInitializer;
+import br.com.caelum.vraptor.serialization.ProxyInitializer;
+import br.com.caelum.vraptor.serialization.RepresentationResult;
+import br.com.caelum.vraptor.serialization.Serialization;
+import br.com.caelum.vraptor.serialization.XMLSerialization;
+import br.com.caelum.vraptor.serialization.xstream.XStreamBuilder;
+import br.com.caelum.vraptor.serialization.xstream.XStreamBuilderImpl;
+import br.com.caelum.vraptor.serialization.xstream.XStreamJSONSerialization;
+import br.com.caelum.vraptor.serialization.xstream.XStreamXMLSerialization;
+import br.com.caelum.vraptor.view.EmptyResult;
+
+/**
+ *
+ * A mocked Result for testing your serialized objects returns.
+ *
+ * It will serialize your objects for real and return them as string,
+ * this way, you could use result.use(Resultrs.json()).from(object) for serialize and inspect objects.
+ *
+ * @author Vinícius Oliveira
+ */
+@Component
+public class MockSerializationResult extends MockResult {
+
+	private Serialization serialization;
+	private MockHttpServletResponse response;
+	private DefaultTypeNameExtractor extractor;
+	private ProxyInitializer initializer;
+	private XStreamBuilder builder;
+	
+	
+	public MockSerializationResult(Proxifier proxifier, ProxyInitializer initializer ) {
+<span class="fc" id="L63">		this(proxifier, initializer, XStreamBuilderImpl.cleanInstance());</span>
+<span class="fc" id="L64">	}</span>
+
+	public MockSerializationResult(Proxifier proxifier, ProxyInitializer initializer, XStreamBuilder builder) {
+<span class="fc" id="L67">		super(proxifier);</span>
+<span class="fc" id="L68">		this.initializer = initializer;</span>
+<span class="fc" id="L69">		this.response = new MockHttpServletResponse();</span>
+<span class="fc" id="L70">		this.extractor = new DefaultTypeNameExtractor();</span>
+<span class="fc" id="L71">		this.builder = builder;</span>
+<span class="fc" id="L72">	}</span>
+
+	public MockSerializationResult() {
+<span class="fc" id="L75">		this(new JavassistProxifier(new ObjenesisInstanceCreator()), new NullProxyInitializer());</span>
+<span class="fc" id="L76">	}</span>
+	
+	public MockSerializationResult(MockHttpServletResponse response) {
+<span class="nc" id="L79">		this(new JavassistProxifier(new ObjenesisInstanceCreator()), new NullProxyInitializer());</span>
+<span class="nc" id="L80">		this.response = response;</span>
+<span class="nc" id="L81">	}</span>
+	
+	public MockSerializationResult(XStreamBuilder builder) {
+<span class="nc" id="L84">		this(new JavassistProxifier(new ObjenesisInstanceCreator()), new NullProxyInitializer(), builder);</span>
+<span class="nc" id="L85">	}</span>
+
+	public &lt;T extends View&gt; T use(final Class&lt;T&gt; view) {
+<span class="fc" id="L88">		this.typeToUse = view;</span>
+<span class="pc bpc" id="L89" title="1 of 2 branches missed.">		if (view.equals(EmptyResult.class)) {</span>
+<span class="nc" id="L90">			return null;</span>
+		}
+<span class="fc" id="L92">		return instanceView(view);</span>
+	}
+
+	private &lt;T extends View&gt; T instanceView(Class&lt;T&gt; view){
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">		if (view.isAssignableFrom(JSONSerialization.class)){</span>
+<span class="fc" id="L97">			this.serialization = new XStreamJSONSerialization(response, extractor, initializer, builder);</span>
+<span class="fc" id="L98">			return view.cast(serialization);</span>
+		}
+		
+<span class="nc bnc" id="L101" title="All 2 branches missed.">		if (view.isAssignableFrom(XMLSerialization.class)){</span>
+<span class="nc" id="L102">			this.serialization = new XStreamXMLSerialization(response, extractor, initializer, builder);</span>
+<span class="nc" id="L103">			return view.cast(serialization);</span>
+		}
+		
+<span class="nc bnc" id="L106" title="All 2 branches missed.">		if (view.isAssignableFrom(RepresentationResult.class)) {</span>
+<span class="nc" id="L107">			this.serialization = new XStreamXMLSerialization(response, extractor, initializer, builder);</span>
+<span class="nc" id="L108">			return view.cast(new DefaultRepresentationResult(new FormatResolver() {</span>
+				public String getAcceptFormat() {
+<span class="nc" id="L110">					return &quot;xml&quot;;</span>
+				}
+				
+<span class="nc" id="L113">			}, this, Arrays.asList(this.serialization), null));</span>
+		}
+		
+<span class="nc" id="L116">		return proxifier.proxify(view, returnOnFinalMethods(view));</span>
+	}
+	
+		
+	/**
+	 * Retrieve the string with the serialized (JSON/XML) Object if have one as response. 
+	 * 
+	 * @return String with the object serialized 
+	 */
+	public String serializedResult() throws Exception {
+		
+<span class="pc bpc" id="L127" title="1 of 2 branches missed.">		if(&quot;application/xml&quot;.equals(response.getContentType())){</span>
+<span class="nc" id="L128">			return response.getContentAsString();</span>
+		}
+		
+<span class="pc bpc" id="L131" title="1 of 2 branches missed.">		if(&quot;application/json&quot;.equals(response.getContentType())){</span>
+<span class="fc" id="L132">			return response.getContentAsString();</span>
+		}
+		
+<span class="nc" id="L135">		return null;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

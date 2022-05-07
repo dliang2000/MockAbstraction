@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CharValue.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.types</a> &gt; <span class="el_source">CharValue.java</span></div><h1>CharValue.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.types;
+
+import org.apache.flink.annotation.Public;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.core.memory.MemorySegment;
+
+import java.io.IOException;
+
+/**
+ * Boxed serializable and comparable character type, representing the primitive type {@code char}.
+ */
+@Public
+public class CharValue
+        implements NormalizableKey&lt;CharValue&gt;,
+                ResettableValue&lt;CharValue&gt;,
+                CopyableValue&lt;CharValue&gt; {
+    private static final long serialVersionUID = 1L;
+
+    private char value;
+
+    /** Initializes the encapsulated char with 0. */
+<span class="fc" id="L41">    public CharValue() {</span>
+<span class="fc" id="L42">        this.value = 0;</span>
+<span class="fc" id="L43">    }</span>
+
+    /**
+     * Initializes the encapsulated char with the provided value.
+     *
+     * @param value Initial value of the encapsulated char.
+     */
+<span class="fc" id="L50">    public CharValue(char value) {</span>
+<span class="fc" id="L51">        this.value = value;</span>
+<span class="fc" id="L52">    }</span>
+
+    /**
+     * Returns the value of the encapsulated char.
+     *
+     * @return the value of the encapsulated char.
+     */
+    public char getValue() {
+<span class="fc" id="L60">        return this.value;</span>
+    }
+
+    /**
+     * Sets the encapsulated char to the specified value.
+     *
+     * @param value the new value of the encapsulated char.
+     */
+    public void setValue(char value) {
+<span class="fc" id="L69">        this.value = value;</span>
+<span class="fc" id="L70">    }</span>
+
+    @Override
+    public void setValue(CharValue value) {
+<span class="nc" id="L74">        this.value = value.value;</span>
+<span class="nc" id="L75">    }</span>
+
+    @Override
+    public String toString() {
+<span class="fc" id="L79">        return String.valueOf(this.value);</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public void read(DataInputView in) throws IOException {
+<span class="fc" id="L86">        this.value = in.readChar();</span>
+<span class="fc" id="L87">    }</span>
+
+    @Override
+    public void write(DataOutputView out) throws IOException {
+<span class="fc" id="L91">        out.writeChar(this.value);</span>
+<span class="fc" id="L92">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public int compareTo(CharValue o) {
+<span class="fc" id="L98">        final int other = o.value;</span>
+<span class="fc bfc" id="L99" title="All 4 branches covered.">        return this.value &lt; other ? -1 : this.value &gt; other ? 1 : 0;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L104">        return this.value;</span>
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">        if (obj instanceof CharValue) {</span>
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">            return ((CharValue) obj).value == this.value;</span>
+        }
+<span class="nc" id="L112">        return false;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public int getMaxNormalizedKeyLen() {
+<span class="fc" id="L119">        return 2;</span>
+    }
+
+    @Override
+    public void copyNormalizedKey(MemorySegment target, int offset, int len) {
+        // note that the char is an unsigned data type in java and consequently needs
+        // no code that transforms the signed representation to an offset representation
+        // that is equivalent to unsigned, when compared byte by byte
+<span class="fc bfc" id="L127" title="All 2 branches covered.">        if (len == 2) {</span>
+            // default case, full normalized key
+<span class="fc" id="L129">            target.put(offset, (byte) ((value &gt;&gt;&gt; 8) &amp; 0xff));</span>
+<span class="fc" id="L130">            target.put(offset + 1, (byte) ((value) &amp; 0xff));</span>
+<span class="fc bfc" id="L131" title="All 2 branches covered.">        } else if (len &lt;= 0) {</span>
+<span class="fc bfc" id="L132" title="All 2 branches covered.">        } else if (len == 1) {</span>
+<span class="fc" id="L133">            target.put(offset, (byte) ((value &gt;&gt;&gt; 8) &amp; 0xff));</span>
+        } else {
+<span class="fc" id="L135">            target.put(offset, (byte) ((value &gt;&gt;&gt; 8) &amp; 0xff));</span>
+<span class="fc" id="L136">            target.put(offset + 1, (byte) ((value) &amp; 0xff));</span>
+<span class="fc bfc" id="L137" title="All 2 branches covered.">            for (int i = 2; i &lt; len; i++) {</span>
+<span class="fc" id="L138">                target.put(offset + i, (byte) 0);</span>
+            }
+        }
+<span class="fc" id="L141">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public int getBinaryLength() {
+<span class="nc" id="L147">        return 2;</span>
+    }
+
+    @Override
+    public void copyTo(CharValue target) {
+<span class="fc" id="L152">        target.value = this.value;</span>
+<span class="fc" id="L153">    }</span>
+
+    @Override
+    public CharValue copy() {
+<span class="fc" id="L157">        return new CharValue(this.value);</span>
+    }
+
+    @Override
+    public void copy(DataInputView source, DataOutputView target) throws IOException {
+<span class="nc" id="L162">        target.write(source, 2);</span>
+<span class="nc" id="L163">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LocalTimeTypeInfo.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeinfo</a> &gt; <span class="el_source">LocalTimeTypeInfo.java</span></div><h1>LocalTimeTypeInfo.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeinfo;
+
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.typeutils.TypeComparator;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.common.typeutils.base.LocalDateComparator;
+import org.apache.flink.api.common.typeutils.base.LocalDateSerializer;
+import org.apache.flink.api.common.typeutils.base.LocalDateTimeComparator;
+import org.apache.flink.api.common.typeutils.base.LocalDateTimeSerializer;
+import org.apache.flink.api.common.typeutils.base.LocalTimeComparator;
+import org.apache.flink.api.common.typeutils.base.LocalTimeSerializer;
+
+import java.lang.reflect.Constructor;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.temporal.Temporal;
+import java.util.Objects;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/** Type information for Java LocalDate/LocalTime/LocalDateTime. */
+@PublicEvolving
+public class LocalTimeTypeInfo&lt;T extends Temporal&gt; extends TypeInformation&lt;T&gt;
+        implements AtomicType&lt;T&gt; {
+
+    private static final long serialVersionUID = 1L;
+
+<span class="fc" id="L48">    public static final LocalTimeTypeInfo&lt;LocalDate&gt; LOCAL_DATE =</span>
+            new LocalTimeTypeInfo&lt;&gt;(
+                    LocalDate.class, LocalDateSerializer.INSTANCE, LocalDateComparator.class);
+
+<span class="fc" id="L52">    public static final LocalTimeTypeInfo&lt;LocalTime&gt; LOCAL_TIME =</span>
+            new LocalTimeTypeInfo&lt;&gt;(
+                    LocalTime.class, LocalTimeSerializer.INSTANCE, LocalTimeComparator.class);
+
+<span class="fc" id="L56">    public static final LocalTimeTypeInfo&lt;LocalDateTime&gt; LOCAL_DATE_TIME =</span>
+            new LocalTimeTypeInfo&lt;&gt;(
+                    LocalDateTime.class,
+                    LocalDateTimeSerializer.INSTANCE,
+                    LocalDateTimeComparator.class);
+
+    // --------------------------------------------------------------------------------------------
+
+    private final Class&lt;T&gt; clazz;
+
+    private final TypeSerializer&lt;T&gt; serializer;
+
+    private final Class&lt;? extends TypeComparator&lt;T&gt;&gt; comparatorClass;
+
+    protected LocalTimeTypeInfo(
+            Class&lt;T&gt; clazz,
+            TypeSerializer&lt;T&gt; serializer,
+<span class="fc" id="L73">            Class&lt;? extends TypeComparator&lt;T&gt;&gt; comparatorClass) {</span>
+<span class="fc" id="L74">        this.clazz = checkNotNull(clazz);</span>
+<span class="fc" id="L75">        this.serializer = checkNotNull(serializer);</span>
+<span class="fc" id="L76">        this.comparatorClass = checkNotNull(comparatorClass);</span>
+<span class="fc" id="L77">    }</span>
+
+    @Override
+    public boolean isBasicType() {
+<span class="nc" id="L81">        return false;</span>
+    }
+
+    @Override
+    public boolean isTupleType() {
+<span class="nc" id="L86">        return false;</span>
+    }
+
+    @Override
+    public int getArity() {
+<span class="nc" id="L91">        return 1;</span>
+    }
+
+    @Override
+    public int getTotalFields() {
+<span class="fc" id="L96">        return 1;</span>
+    }
+
+    @Override
+    public Class&lt;T&gt; getTypeClass() {
+<span class="nc" id="L101">        return clazz;</span>
+    }
+
+    @Override
+    public boolean isKeyType() {
+<span class="nc" id="L106">        return true;</span>
+    }
+
+    @Override
+    public TypeSerializer&lt;T&gt; createSerializer(ExecutionConfig executionConfig) {
+<span class="nc" id="L111">        return serializer;</span>
+    }
+
+    @Override
+    public TypeComparator&lt;T&gt; createComparator(
+            boolean sortOrderAscending, ExecutionConfig executionConfig) {
+<span class="nc" id="L117">        return instantiateComparator(comparatorClass, sortOrderAscending);</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L124">        return Objects.hash(clazz, serializer, comparatorClass);</span>
+    }
+
+    @Override
+    public boolean canEqual(Object obj) {
+<span class="fc" id="L129">        return obj instanceof LocalTimeTypeInfo;</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="fc bfc" id="L134" title="All 2 branches covered.">        if (obj instanceof LocalTimeTypeInfo) {</span>
+            @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L136">            LocalTimeTypeInfo&lt;T&gt; other = (LocalTimeTypeInfo&lt;T&gt;) obj;</span>
+
+<span class="pc bpc" id="L138" title="1 of 4 branches missed.">            return other.canEqual(this)</span>
+                    &amp;&amp; this.clazz == other.clazz
+<span class="pc bpc" id="L140" title="2 of 4 branches missed.">                    &amp;&amp; serializer.equals(other.serializer)</span>
+                    &amp;&amp; this.comparatorClass == other.comparatorClass;
+        } else {
+<span class="fc" id="L143">            return false;</span>
+        }
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L149">        return clazz.getSimpleName();</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    private static &lt;X&gt; TypeComparator&lt;X&gt; instantiateComparator(
+            Class&lt;? extends TypeComparator&lt;X&gt;&gt; comparatorClass, boolean ascendingOrder) {
+        try {
+<span class="nc" id="L157">            Constructor&lt;? extends TypeComparator&lt;X&gt;&gt; constructor =</span>
+<span class="nc" id="L158">                    comparatorClass.getConstructor(boolean.class);</span>
+<span class="nc" id="L159">            return constructor.newInstance(ascendingOrder);</span>
+<span class="nc" id="L160">        } catch (Exception e) {</span>
+<span class="nc" id="L161">            throw new RuntimeException(</span>
+<span class="nc" id="L162">                    &quot;Could not initialize comparator &quot; + comparatorClass.getName(), e);</span>
+        }
+    }
+
+    public static LocalTimeTypeInfo getInfoFor(Class type) {
+<span class="nc" id="L167">        checkNotNull(type);</span>
+
+<span class="nc bnc" id="L169" title="All 2 branches missed.">        if (type == LocalDate.class) {</span>
+<span class="nc" id="L170">            return LOCAL_DATE;</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">        } else if (type == LocalTime.class) {</span>
+<span class="nc" id="L172">            return LOCAL_TIME;</span>
+<span class="nc bnc" id="L173" title="All 2 branches missed.">        } else if (type == LocalDateTime.class) {</span>
+<span class="nc" id="L174">            return LOCAL_DATE_TIME;</span>
+        }
+<span class="nc" id="L176">        return null;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

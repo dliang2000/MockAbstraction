@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SchemaRule.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jsonschema2pojo-core</a> &gt; <a href="index.source.html" class="el_package">org.jsonschema2pojo.rules</a> &gt; <span class="el_source">SchemaRule.java</span></div><h1>SchemaRule.java</h1><pre class="source lang-java linenums">/**
+ * Copyright © 2010-2020 Nokia
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.jsonschema2pojo.rules;
+
+import static org.apache.commons.lang3.StringUtils.*;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+
+import org.jsonschema2pojo.Jsonschema2Pojo;
+import org.jsonschema2pojo.Schema;
+import org.jsonschema2pojo.exception.GenerationException;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.sun.codemodel.JClassContainer;
+import com.sun.codemodel.JType;
+
+/**
+ * Applies a JSON schema.
+ * 
+ * @see &lt;a
+ *      href=&quot;http://tools.ietf.org/html/draft-zyp-json-schema-03#section-5&quot;&gt;http://tools.ietf.org/html/draft-zyp-json-schema-03#section-5&lt;/a&gt;
+ */
+public class SchemaRule implements Rule&lt;JClassContainer, JType&gt; {
+
+    private final RuleFactory ruleFactory;
+
+<span class="fc" id="L42">    protected SchemaRule(RuleFactory ruleFactory) {</span>
+<span class="fc" id="L43">        this.ruleFactory = ruleFactory;</span>
+<span class="fc" id="L44">    }</span>
+
+    /**
+     * Applies this schema rule to take the required code generation steps.
+     * &lt;p&gt;
+     * At the root of a schema document this rule should be applied (schema
+     * documents contain a schema), but also in many places within the document.
+     * Each property of type &quot;object&quot; is itself defined by a schema, the items
+     * attribute of an array is a schema, the additionalProperties attribute of
+     * a schema is also a schema.
+     * &lt;p&gt;
+     * Where the schema value is a $ref, the ref URI is assumed to be applicable
+     * as a URL (from which content will be read). Where the ref URI has been
+     * encountered before, the root Java type created by that schema will be
+     * re-used (generation steps won't be repeated).
+     * 
+     * @param schema
+     *            the schema within which this schema rule is being applied
+     */
+    @Override
+    public JType apply(String nodeName, JsonNode schemaNode, JsonNode parent, JClassContainer generatableType, Schema schema) {
+
+<span class="fc bfc" id="L66" title="All 2 branches covered.">        if (schemaNode.has(&quot;$ref&quot;)) {</span>
+<span class="fc" id="L67">            final String nameFromRef = nameFromRef(schemaNode.get(&quot;$ref&quot;).asText());</span>
+
+<span class="fc" id="L69">            schema = ruleFactory.getSchemaStore().create(schema, schemaNode.get(&quot;$ref&quot;).asText(), ruleFactory.getGenerationConfig().getRefFragmentPathDelimiters());</span>
+<span class="fc" id="L70">            schemaNode = schema.getContent();</span>
+
+<span class="fc bfc" id="L72" title="All 2 branches covered.">            if (schema.isGenerated()) {</span>
+<span class="fc" id="L73">                return schema.getJavaType();</span>
+            }
+
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">            return apply(nameFromRef != null ? nameFromRef : nodeName, schemaNode, parent, generatableType, schema);</span>
+        }
+
+<span class="fc" id="L79">        schema = schema.deriveChildSchema(schemaNode);</span>
+
+        JType javaType;
+<span class="fc bfc" id="L82" title="All 2 branches covered.">        if (schemaNode.has(&quot;enum&quot;)) {</span>
+<span class="fc" id="L83">            javaType = ruleFactory.getEnumRule().apply(nodeName, schemaNode, parent, generatableType, schema);</span>
+        } else {
+<span class="fc" id="L85">            javaType = ruleFactory.getTypeRule().apply(nodeName, schemaNode, parent, generatableType.getPackage(), schema);</span>
+        }
+<span class="fc" id="L87">        schema.setJavaTypeIfEmpty(javaType);</span>
+
+<span class="fc" id="L89">        return javaType;</span>
+    }
+    
+    private String nameFromRef(String ref) {
+        
+<span class="pc bpc" id="L94" title="1 of 2 branches missed.">        if (&quot;#&quot;.equals(ref)) {</span>
+<span class="nc" id="L95">            return null;</span>
+        }
+        
+        String nameFromRef;
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">        if (!contains(ref, &quot;#&quot;)) {</span>
+<span class="fc" id="L100">            nameFromRef = Jsonschema2Pojo.getNodeName(ref, ruleFactory.getGenerationConfig());</span>
+        } else {
+<span class="nc" id="L102">            String[] nameParts = split(ref, &quot;/\\#&quot;);</span>
+<span class="nc" id="L103">            nameFromRef = nameParts[nameParts.length - 1];</span>
+        }
+        
+        try {
+<span class="fc" id="L107">            return URLDecoder.decode(nameFromRef, &quot;utf-8&quot;);</span>
+<span class="nc" id="L108">        } catch (UnsupportedEncodingException e) {</span>
+<span class="nc" id="L109">            throw new GenerationException(&quot;Failed to decode ref: &quot; + ref, e);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

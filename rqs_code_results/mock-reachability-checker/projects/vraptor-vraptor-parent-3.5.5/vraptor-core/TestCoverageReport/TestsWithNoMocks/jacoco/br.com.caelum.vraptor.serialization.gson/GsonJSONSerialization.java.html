@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GsonJSONSerialization.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.serialization.gson</a> &gt; <span class="el_source">GsonJSONSerialization.java</span></div><h1>GsonJSONSerialization.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+package br.com.caelum.vraptor.serialization.gson;
+
+import java.io.IOException;
+
+import javax.servlet.http.HttpServletResponse;
+
+import br.com.caelum.vraptor.interceptor.TypeNameExtractor;
+import br.com.caelum.vraptor.ioc.Component;
+import br.com.caelum.vraptor.serialization.JSONSerialization;
+import br.com.caelum.vraptor.serialization.NoRootSerialization;
+import br.com.caelum.vraptor.serialization.ProxyInitializer;
+import br.com.caelum.vraptor.serialization.Serializer;
+import br.com.caelum.vraptor.serialization.SerializerBuilder;
+import br.com.caelum.vraptor.serialization.xstream.Serializee;
+import br.com.caelum.vraptor.view.ResultException;
+
+/**
+ * Gson implementation for JSONSerialization
+ *
+ * @author Renan Reis
+ * @author Guilherme Mangabeira
+ */
+
+@Component
+public class GsonJSONSerialization implements JSONSerialization {
+
+	protected final HttpServletResponse response;
+
+	protected final TypeNameExtractor extractor;
+
+	protected final ProxyInitializer initializer;
+
+	protected final VRaptorGsonBuilder builder;
+
+	protected final Serializee serializee;
+
+	public GsonJSONSerialization(HttpServletResponse response, TypeNameExtractor extractor,
+<span class="fc" id="L53">			ProxyInitializer initializer, VRaptorGsonBuilder builder, Serializee serializee) {</span>
+<span class="fc" id="L54">		this.response = response;</span>
+<span class="fc" id="L55">		this.extractor = extractor;</span>
+<span class="fc" id="L56">		this.initializer = initializer;</span>
+
+<span class="fc" id="L58">		this.serializee = serializee;</span>
+<span class="fc" id="L59">		this.builder = builder;</span>
+<span class="fc" id="L60">	}</span>
+
+	public boolean accepts(String format) {
+<span class="nc" id="L63">		return &quot;json&quot;.equals(format);</span>
+	}
+
+	public &lt;T&gt; Serializer from(T object) {
+<span class="fc" id="L67">		return from(object, null);</span>
+	}
+
+	public &lt;T&gt; Serializer from(T object, String alias) {
+<span class="fc" id="L71">		response.setContentType(&quot;application/json&quot;);</span>
+<span class="fc" id="L72">		return getSerializer().from(object, alias);</span>
+	}
+
+	protected SerializerBuilder getSerializer() {
+		try {
+<span class="fc" id="L77">			return new GsonSerializer(builder, response.getWriter(), extractor, initializer, serializee);</span>
+<span class="nc" id="L78">		} catch (IOException e) {</span>
+<span class="nc" id="L79">			throw new ResultException(&quot;Unable to serialize data&quot;, e);</span>
+		}
+	}
+
+	/**
+	 * You can override this method for configuring Driver before serialization
+	 */
+	public &lt;T&gt; NoRootSerialization withoutRoot() {
+<span class="fc" id="L87">		builder.setWithoutRoot(true);</span>
+<span class="fc" id="L88">		return this;</span>
+	}
+
+	public JSONSerialization indented() {
+<span class="fc" id="L92">		builder.indented();</span>
+<span class="fc" id="L93">		return this;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

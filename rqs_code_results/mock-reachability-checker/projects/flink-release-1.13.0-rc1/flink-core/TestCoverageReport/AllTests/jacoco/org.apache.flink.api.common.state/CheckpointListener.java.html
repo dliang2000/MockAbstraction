@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CheckpointListener.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.state</a> &gt; <span class="el_source">CheckpointListener.java</span></div><h1>CheckpointListener.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.state;
+
+import org.apache.flink.annotation.Public;
+
+/**
+ * This interface is typically only needed for transactional interaction with the &quot;outside world&quot;,
+ * like committing external side effects on checkpoints. An example is committing external
+ * transactions once a checkpoint completes.
+ *
+ * &lt;h3&gt;Invocation Guarantees&lt;/h3&gt;
+ *
+ * &lt;p&gt;It is NOT guaranteed that the implementation will receive a notification for each completed or
+ * aborted checkpoint. While these notifications come in most cases, notifications might not happen,
+ * for example, when a failure/restore happens directly after a checkpoint completed.
+ *
+ * &lt;p&gt;To handle this correctly, implementation should follow the &quot;Checkpoint Subsuming Contract&quot;
+ * described below.
+ *
+ * &lt;h3&gt;Exceptions&lt;/h3&gt;
+ *
+ * &lt;p&gt;The notifications from this interface come &quot;after the fact&quot;, meaning after the checkpoint has
+ * been aborted or completed. Throwing an exception will not change the completion/abortion of the
+ * checkpoint.
+ *
+ * &lt;p&gt;Exceptions thrown from this method result in task- or job failure and recovery.
+ *
+ * &lt;h3&gt;Checkpoint Subsuming Contract&lt;/h3&gt;
+ *
+ * &lt;p&gt;Checkpoint IDs are strictly increasing. A checkpoint with higher ID always subsumes a
+ * checkpoint with lower ID. For example, when checkpoint T is confirmed complete, the code can
+ * assume that no checkpoints with lower ID (T-1, T-2, etc.) are pending any more. &lt;b&gt;No checkpoint
+ * with lower ID will ever be committed after a checkpoint with a higher ID.&lt;/b&gt;
+ *
+ * &lt;p&gt;This does not necessarily mean that all of the previous checkpoints actually completed
+ * successfully. It is also possible that some checkpoint timed out or was not fully acknowledged by
+ * all tasks. Implementations must then behave as if that checkpoint did not happen. The recommended
+ * way to do this is to let the completion of a new checkpoint (higher ID) subsume the completion of
+ * all earlier checkpoints (lower ID).
+ *
+ * &lt;p&gt;This property is easy to achieve for cases where increasing &quot;offsets&quot;, &quot;watermarks&quot;, or other
+ * progress indicators are communicated on checkpoint completion. A newer checkpoint will have a
+ * higher &quot;offset&quot; (more progress) than the previous checkpoint, so it automatically subsumes the
+ * previous one. Remember the &quot;offset to commit&quot; for a checkpoint ID and commit it when that
+ * specific checkpoint (by ID) gets the notification that it is complete.
+ *
+ * &lt;p&gt;If you need to publish some specific artifacts (like files) or acknowledge some specific IDs
+ * after a checkpoint, you can follow a pattern like below.
+ *
+ * &lt;h3&gt;Implementing Checkpoint Subsuming for Committing Artifacts&lt;/h3&gt;
+ *
+ * &lt;p&gt;The following is a sample pattern how applications can publish specific artifacts on
+ * checkpoint. Examples would be operators that acknowledge specific IDs or publish specific files
+ * on checkpoint.
+ *
+ * &lt;ul&gt;
+ *   &lt;li&gt;During processing, have two sets of artifacts.
+ *       &lt;ol&gt;
+ *         &lt;li&gt;A &quot;ready set&quot;: Artifacts that are ready to be published as part of the next
+ *             checkpoint. Artifacts are added to this set as soon as they are ready to be
+ *             committed. This set is &quot;transient&quot;, it is not stored in Flink's state persisted
+ *             anywhere.
+ *         &lt;li&gt;A &quot;pending set&quot;: Artifacts being committed with a checkpoint. The actual publishing
+ *             happens when the checkpoint is complete. This is a map of &quot;{@code long =&gt;
+ *             List&lt;Artifact&gt;}&quot;, mapping from the id of the checkpoint when the artifact was ready
+ *             to the artifacts. /li&gt;
+ *       &lt;/ol&gt;
+ *   &lt;li&gt;On checkpoint, add that set of artifacts from the &quot;ready set&quot; to the &quot;pending set&quot;,
+ *       associated with the checkpoint ID. The whole &quot;pending set&quot; gets stored in the checkpoint
+ *       state.
+ *   &lt;li&gt;On {@code notifyCheckpointComplete()} publish all IDs/artifacts from the &quot;pending set&quot; up
+ *       to the checkpoint with that ID. Remove these from the &quot;pending set&quot;.
+ *   &lt;li/&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;That way, even if some checkpoints did not complete, or if the notification that they
+ * completed got lost, the artifacts will be published as part of the next checkpoint that
+ * completes.
+ */
+@Public
+public interface CheckpointListener {
+
+    /**
+     * Notifies the listener that the checkpoint with the given {@code checkpointId} completed and
+     * was committed.
+     *
+     * &lt;p&gt;These notifications are &quot;best effort&quot;, meaning they can sometimes be skipped. To behave
+     * properly, implementers need to follow the &quot;Checkpoint Subsuming Contract&quot;. Please see the
+     * {@link CheckpointListener class-level JavaDocs} for details.
+     *
+     * &lt;p&gt;Please note that checkpoints may generally overlap, so you cannot assume that the {@code
+     * notifyCheckpointComplete()} call is always for the latest prior checkpoint (or snapshot) that
+     * was taken on the function/operator implementing this interface. It might be for a checkpoint
+     * that was triggered earlier. Implementing the &quot;Checkpoint Subsuming Contract&quot; (see above)
+     * properly handles this situation correctly as well.
+     *
+     * &lt;p&gt;Please note that throwing exceptions from this method will not cause the completed
+     * checkpoint to be revoked. Throwing exceptions will typically cause task/job failure and
+     * trigger recovery.
+     *
+     * @param checkpointId The ID of the checkpoint that has been completed.
+     * @throws Exception This method can propagate exceptions, which leads to a failure/recovery for
+     *     the task. Not that this will NOT lead to the checkpoint being revoked.
+     */
+    void notifyCheckpointComplete(long checkpointId) throws Exception;
+
+    /**
+     * This method is called as a notification once a distributed checkpoint has been aborted.
+     *
+     * &lt;p&gt;&lt;b&gt;Important:&lt;/b&gt; The fact that a checkpoint has been aborted does NOT mean that the data
+     * and artifacts produced between the previous checkpoint and the aborted checkpoint are to be
+     * discarded. The expected behavior is as if this checkpoint was never triggered in the first
+     * place, and the next successful checkpoint simply covers a longer time span. See the
+     * &quot;Checkpoint Subsuming Contract&quot; in the {@link CheckpointListener class-level JavaDocs} for
+     * details.
+     *
+     * &lt;p&gt;These notifications are &quot;best effort&quot;, meaning they can sometimes be skipped.
+     *
+     * &lt;p&gt;This method is very rarely necessary to implement. The &quot;best effort&quot; guarantee, together
+     * with the fact that this method should not result in discarding any data (per the &quot;Checkpoint
+     * Subsuming Contract&quot;) means it is mainly useful for earlier cleanups of auxiliary resources.
+     * One example is to pro-actively clear a local per-checkpoint state cache upon checkpoint
+     * failure.
+     *
+     * @param checkpointId The ID of the checkpoint that has been aborted.
+     * @throws Exception This method can propagate exceptions, which leads to a failure/recovery for
+     *     the task or job.
+     */
+<span class="nc" id="L146">    default void notifyCheckpointAborted(long checkpointId) throws Exception {}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

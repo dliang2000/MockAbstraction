@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BoundedOutOfOrdernessWatermarks.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.eventtime</a> &gt; <span class="el_source">BoundedOutOfOrdernessWatermarks.java</span></div><h1>BoundedOutOfOrdernessWatermarks.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.eventtime;
+
+import org.apache.flink.annotation.Public;
+
+import java.time.Duration;
+
+import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * A WatermarkGenerator for situations where records are out of order, but you can place an upper
+ * bound on how far the events are out of order. An out-of-order bound B means that once an event
+ * with timestamp T was encountered, no events older than {@code T - B} will follow any more.
+ *
+ * &lt;p&gt;The watermarks are generated periodically. The delay introduced by this watermark strategy is
+ * the periodic interval length, plus the out-of-orderness bound.
+ */
+@Public
+public class BoundedOutOfOrdernessWatermarks&lt;T&gt; implements WatermarkGenerator&lt;T&gt; {
+
+    /** The maximum timestamp encountered so far. */
+    private long maxTimestamp;
+
+    /** The maximum out-of-orderness that this watermark generator assumes. */
+    private final long outOfOrdernessMillis;
+
+    /**
+     * Creates a new watermark generator with the given out-of-orderness bound.
+     *
+     * @param maxOutOfOrderness The bound for the out-of-orderness of the event timestamps.
+     */
+<span class="fc" id="L50">    public BoundedOutOfOrdernessWatermarks(Duration maxOutOfOrderness) {</span>
+<span class="fc" id="L51">        checkNotNull(maxOutOfOrderness, &quot;maxOutOfOrderness&quot;);</span>
+<span class="pc bpc" id="L52" title="1 of 2 branches missed.">        checkArgument(!maxOutOfOrderness.isNegative(), &quot;maxOutOfOrderness cannot be negative&quot;);</span>
+
+<span class="fc" id="L54">        this.outOfOrdernessMillis = maxOutOfOrderness.toMillis();</span>
+
+        // start so that our lowest watermark would be Long.MIN_VALUE.
+<span class="fc" id="L57">        this.maxTimestamp = Long.MIN_VALUE + outOfOrdernessMillis + 1;</span>
+<span class="fc" id="L58">    }</span>
+
+    // ------------------------------------------------------------------------
+
+    @Override
+    public void onEvent(T event, long eventTimestamp, WatermarkOutput output) {
+<span class="fc" id="L64">        maxTimestamp = Math.max(maxTimestamp, eventTimestamp);</span>
+<span class="fc" id="L65">    }</span>
+
+    @Override
+    public void onPeriodicEmit(WatermarkOutput output) {
+<span class="fc" id="L69">        output.emitWatermark(new Watermark(maxTimestamp - outOfOrdernessMillis - 1));</span>
+<span class="fc" id="L70">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

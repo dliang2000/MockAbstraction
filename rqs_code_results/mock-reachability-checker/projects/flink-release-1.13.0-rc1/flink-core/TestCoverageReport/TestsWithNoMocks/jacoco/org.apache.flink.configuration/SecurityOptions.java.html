@@ -1,0 +1,500 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SecurityOptions.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.configuration</a> &gt; <span class="el_source">SecurityOptions.java</span></div><h1>SecurityOptions.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.configuration;
+
+import org.apache.flink.annotation.docs.Documentation;
+import org.apache.flink.configuration.description.Description;
+
+import java.util.List;
+
+import static org.apache.flink.configuration.ConfigOptions.key;
+import static org.apache.flink.configuration.description.LineBreakElement.linebreak;
+import static org.apache.flink.configuration.description.LinkElement.link;
+import static org.apache.flink.configuration.description.TextElement.code;
+import static org.apache.flink.configuration.description.TextElement.text;
+
+/** The set of configuration options relating to security. */
+<span class="nc" id="L33">public class SecurityOptions {</span>
+
+    // ------------------------------------------------------------------------
+    //  Custom Security Service Loader
+    // ------------------------------------------------------------------------
+
+<span class="fc" id="L39">    public static final ConfigOption&lt;List&lt;String&gt;&gt; SECURITY_CONTEXT_FACTORY_CLASSES =</span>
+<span class="fc" id="L40">            key(&quot;security.context.factory.classes&quot;)</span>
+<span class="fc" id="L41">                    .stringType()</span>
+<span class="fc" id="L42">                    .asList()</span>
+<span class="fc" id="L43">                    .defaultValues(</span>
+                            &quot;org.apache.flink.runtime.security.contexts.HadoopSecurityContextFactory&quot;,
+                            &quot;org.apache.flink.runtime.security.contexts.NoOpSecurityContextFactory&quot;)
+<span class="fc" id="L46">                    .withDescription(</span>
+                            &quot;List of factories that should be used to instantiate a security context. &quot;
+                                    + &quot;If multiple are configured, Flink will use the first compatible &quot;
+                                    + &quot;factory. You should have a NoOpSecurityContextFactory in this list &quot;
+                                    + &quot;as a fallback.&quot;);
+
+<span class="fc" id="L52">    public static final ConfigOption&lt;List&lt;String&gt;&gt; SECURITY_MODULE_FACTORY_CLASSES =</span>
+<span class="fc" id="L53">            key(&quot;security.module.factory.classes&quot;)</span>
+<span class="fc" id="L54">                    .stringType()</span>
+<span class="fc" id="L55">                    .asList()</span>
+<span class="fc" id="L56">                    .defaultValues(</span>
+                            &quot;org.apache.flink.runtime.security.modules.HadoopModuleFactory&quot;,
+                            &quot;org.apache.flink.runtime.security.modules.JaasModuleFactory&quot;,
+                            &quot;org.apache.flink.runtime.security.modules.ZookeeperModuleFactory&quot;)
+<span class="fc" id="L60">                    .withDescription(</span>
+                            &quot;List of factories that should be used to instantiate security &quot;
+                                    + &quot;modules. All listed modules will be installed. Keep in mind that the &quot;
+                                    + &quot;configured security context might rely on some modules being present.&quot;);
+
+    // ------------------------------------------------------------------------
+    //  Kerberos Options
+    // ------------------------------------------------------------------------
+
+    @Documentation.Section(Documentation.Sections.SECURITY_AUTH_KERBEROS)
+<span class="fc" id="L70">    public static final ConfigOption&lt;String&gt; KERBEROS_LOGIN_PRINCIPAL =</span>
+<span class="fc" id="L71">            key(&quot;security.kerberos.login.principal&quot;)</span>
+<span class="fc" id="L72">                    .stringType()</span>
+<span class="fc" id="L73">                    .noDefaultValue()</span>
+<span class="fc" id="L74">                    .withDeprecatedKeys(&quot;security.principal&quot;)</span>
+<span class="fc" id="L75">                    .withDescription(&quot;Kerberos principal name associated with the keytab.&quot;);</span>
+
+    @Documentation.Section(Documentation.Sections.SECURITY_AUTH_KERBEROS)
+<span class="fc" id="L78">    public static final ConfigOption&lt;String&gt; KERBEROS_LOGIN_KEYTAB =</span>
+<span class="fc" id="L79">            key(&quot;security.kerberos.login.keytab&quot;)</span>
+<span class="fc" id="L80">                    .stringType()</span>
+<span class="fc" id="L81">                    .noDefaultValue()</span>
+<span class="fc" id="L82">                    .withDeprecatedKeys(&quot;security.keytab&quot;)</span>
+<span class="fc" id="L83">                    .withDescription(</span>
+                            &quot;Absolute path to a Kerberos keytab file that contains the user credentials.&quot;);
+
+<span class="fc" id="L86">    public static final ConfigOption&lt;String&gt; KERBEROS_KRB5_PATH =</span>
+<span class="fc" id="L87">            key(&quot;security.kerberos.krb5-conf.path&quot;)</span>
+<span class="fc" id="L88">                    .stringType()</span>
+<span class="fc" id="L89">                    .noDefaultValue()</span>
+<span class="fc" id="L90">                    .withDescription(</span>
+                            &quot;Specify the local location of the krb5.conf file. If defined, this conf would be mounted on the JobManager and &quot;
+                                    + &quot;TaskManager containers/pods for Kubernetes, Yarn and Mesos. Note: The KDC defined needs to be visible from inside the containers.&quot;);
+
+    @Documentation.Section(Documentation.Sections.SECURITY_AUTH_KERBEROS)
+<span class="fc" id="L95">    public static final ConfigOption&lt;Boolean&gt; KERBEROS_LOGIN_USETICKETCACHE =</span>
+<span class="fc" id="L96">            key(&quot;security.kerberos.login.use-ticket-cache&quot;)</span>
+<span class="fc" id="L97">                    .booleanType()</span>
+<span class="fc" id="L98">                    .defaultValue(true)</span>
+<span class="fc" id="L99">                    .withDescription(&quot;Indicates whether to read from your Kerberos ticket cache.&quot;);</span>
+
+    @Documentation.Section(Documentation.Sections.SECURITY_AUTH_KERBEROS)
+<span class="fc" id="L102">    public static final ConfigOption&lt;String&gt; KERBEROS_LOGIN_CONTEXTS =</span>
+<span class="fc" id="L103">            key(&quot;security.kerberos.login.contexts&quot;)</span>
+<span class="fc" id="L104">                    .stringType()</span>
+<span class="fc" id="L105">                    .noDefaultValue()</span>
+<span class="fc" id="L106">                    .withDescription(</span>
+                            &quot;A comma-separated list of login contexts to provide the Kerberos credentials to&quot;
+                                    + &quot; (for example, `Client,KafkaClient` to use the credentials for ZooKeeper authentication and for&quot;
+                                    + &quot; Kafka authentication)&quot;);
+
+    // ------------------------------------------------------------------------
+    //  ZooKeeper Security Options
+    // ------------------------------------------------------------------------
+
+    @Documentation.Section(Documentation.Sections.SECURITY_AUTH_ZOOKEEPER)
+<span class="fc" id="L116">    public static final ConfigOption&lt;Boolean&gt; ZOOKEEPER_SASL_DISABLE =</span>
+<span class="fc" id="L117">            key(&quot;zookeeper.sasl.disable&quot;).booleanType().defaultValue(false);</span>
+
+    @Documentation.Section(Documentation.Sections.SECURITY_AUTH_ZOOKEEPER)
+<span class="fc" id="L120">    public static final ConfigOption&lt;String&gt; ZOOKEEPER_SASL_SERVICE_NAME =</span>
+<span class="fc" id="L121">            key(&quot;zookeeper.sasl.service-name&quot;).stringType().defaultValue(&quot;zookeeper&quot;);</span>
+
+    @Documentation.Section(Documentation.Sections.SECURITY_AUTH_ZOOKEEPER)
+<span class="fc" id="L124">    public static final ConfigOption&lt;String&gt; ZOOKEEPER_SASL_LOGIN_CONTEXT_NAME =</span>
+<span class="fc" id="L125">            key(&quot;zookeeper.sasl.login-context-name&quot;).stringType().defaultValue(&quot;Client&quot;);</span>
+
+    // ------------------------------------------------------------------------
+    //  SSL Security Options
+    // ------------------------------------------------------------------------
+
+    /**
+     * Enable SSL for internal (rpc, data transport, blob server) and external (HTTP/REST)
+     * communication.
+     *
+     * @deprecated Use {@link #SSL_INTERNAL_ENABLED} and {@link #SSL_REST_ENABLED} instead.
+     */
+    @Deprecated
+<span class="fc" id="L138">    public static final ConfigOption&lt;Boolean&gt; SSL_ENABLED =</span>
+<span class="fc" id="L139">            key(&quot;security.ssl.enabled&quot;)</span>
+<span class="fc" id="L140">                    .booleanType()</span>
+<span class="fc" id="L141">                    .defaultValue(false)</span>
+<span class="fc" id="L142">                    .withDescription(</span>
+                            &quot;Turns on SSL for internal and external network communication.&quot;
+                                    + &quot;This can be overridden by 'security.ssl.internal.enabled', 'security.ssl.external.enabled'. &quot;
+                                    + &quot;Specific internal components (rpc, data transport, blob server) may optionally override &quot;
+                                    + &quot;this through their own settings.&quot;);
+
+    /** Enable SSL for internal communication (akka rpc, netty data transport, blob server). */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L150">    public static final ConfigOption&lt;Boolean&gt; SSL_INTERNAL_ENABLED =</span>
+<span class="fc" id="L151">            key(&quot;security.ssl.internal.enabled&quot;)</span>
+<span class="fc" id="L152">                    .booleanType()</span>
+<span class="fc" id="L153">                    .defaultValue(false)</span>
+<span class="fc" id="L154">                    .withDescription(</span>
+                            &quot;Turns on SSL for internal network communication. &quot;
+                                    + &quot;Optionally, specific components may override this through their own settings &quot;
+                                    + &quot;(rpc, data transport, REST, etc).&quot;);
+
+    /** Enable SSL for external REST endpoints. */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L161">    public static final ConfigOption&lt;Boolean&gt; SSL_REST_ENABLED =</span>
+<span class="fc" id="L162">            key(&quot;security.ssl.rest.enabled&quot;)</span>
+<span class="fc" id="L163">                    .booleanType()</span>
+<span class="fc" id="L164">                    .defaultValue(false)</span>
+<span class="fc" id="L165">                    .withDescription(</span>
+                            &quot;Turns on SSL for external communication via the REST endpoints.&quot;);
+
+    /** Enable mututal SSL authentication for external REST endpoints. */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L170">    public static final ConfigOption&lt;Boolean&gt; SSL_REST_AUTHENTICATION_ENABLED =</span>
+<span class="fc" id="L171">            key(&quot;security.ssl.rest.authentication-enabled&quot;)</span>
+<span class="fc" id="L172">                    .booleanType()</span>
+<span class="fc" id="L173">                    .defaultValue(false)</span>
+<span class="fc" id="L174">                    .withDescription(</span>
+                            &quot;Turns on mutual SSL authentication for external communication via the REST endpoints.&quot;);
+
+    // ----------------- certificates (internal + external) -------------------
+
+    /** The Java keystore file containing the flink endpoint key and certificate. */
+    @Documentation.ExcludeFromDocumentation(
+            &quot;The SSL Setup encourages separate configs for internal and REST security.&quot;)
+<span class="fc" id="L182">    public static final ConfigOption&lt;String&gt; SSL_KEYSTORE =</span>
+<span class="fc" id="L183">            key(&quot;security.ssl.keystore&quot;)</span>
+<span class="fc" id="L184">                    .stringType()</span>
+<span class="fc" id="L185">                    .noDefaultValue()</span>
+<span class="fc" id="L186">                    .withDescription(</span>
+                            &quot;The Java keystore file to be used by the flink endpoint for its SSL Key and Certificate.&quot;);
+
+    /** Secret to decrypt the keystore file. */
+    @Documentation.ExcludeFromDocumentation(
+            &quot;The SSL Setup encourages separate configs for internal and REST security.&quot;)
+<span class="fc" id="L192">    public static final ConfigOption&lt;String&gt; SSL_KEYSTORE_PASSWORD =</span>
+<span class="fc" id="L193">            key(&quot;security.ssl.keystore-password&quot;)</span>
+<span class="fc" id="L194">                    .stringType()</span>
+<span class="fc" id="L195">                    .noDefaultValue()</span>
+<span class="fc" id="L196">                    .withDescription(&quot;The secret to decrypt the keystore file.&quot;);</span>
+
+    /** Secret to decrypt the server key. */
+    @Documentation.ExcludeFromDocumentation(
+            &quot;The SSL Setup encourages separate configs for internal and REST security.&quot;)
+<span class="fc" id="L201">    public static final ConfigOption&lt;String&gt; SSL_KEY_PASSWORD =</span>
+<span class="fc" id="L202">            key(&quot;security.ssl.key-password&quot;)</span>
+<span class="fc" id="L203">                    .stringType()</span>
+<span class="fc" id="L204">                    .noDefaultValue()</span>
+<span class="fc" id="L205">                    .withDescription(&quot;The secret to decrypt the server key in the keystore.&quot;);</span>
+
+    /** The truststore file containing the public CA certificates to verify the ssl peers. */
+    @Documentation.ExcludeFromDocumentation(
+            &quot;The SSL Setup encourages separate configs for internal and REST security.&quot;)
+<span class="fc" id="L210">    public static final ConfigOption&lt;String&gt; SSL_TRUSTSTORE =</span>
+<span class="fc" id="L211">            key(&quot;security.ssl.truststore&quot;)</span>
+<span class="fc" id="L212">                    .stringType()</span>
+<span class="fc" id="L213">                    .noDefaultValue()</span>
+<span class="fc" id="L214">                    .withDescription(</span>
+                            &quot;The truststore file containing the public CA certificates to be used by flink endpoints&quot;
+                                    + &quot; to verify the peer’s certificate.&quot;);
+
+    /** Secret to decrypt the truststore. */
+    @Documentation.ExcludeFromDocumentation(
+            &quot;The SSL Setup encourages separate configs for internal and REST security.&quot;)
+<span class="fc" id="L221">    public static final ConfigOption&lt;String&gt; SSL_TRUSTSTORE_PASSWORD =</span>
+<span class="fc" id="L222">            key(&quot;security.ssl.truststore-password&quot;)</span>
+<span class="fc" id="L223">                    .stringType()</span>
+<span class="fc" id="L224">                    .noDefaultValue()</span>
+<span class="fc" id="L225">                    .withDescription(&quot;The secret to decrypt the truststore.&quot;);</span>
+
+    // ----------------------- certificates (internal) ------------------------
+
+    /** For internal SSL, the Java keystore file containing the private key and certificate. */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L231">    public static final ConfigOption&lt;String&gt; SSL_INTERNAL_KEYSTORE =</span>
+<span class="fc" id="L232">            key(&quot;security.ssl.internal.keystore&quot;)</span>
+<span class="fc" id="L233">                    .stringType()</span>
+<span class="fc" id="L234">                    .noDefaultValue()</span>
+<span class="fc" id="L235">                    .withDescription(</span>
+                            &quot;The Java keystore file with SSL Key and Certificate, &quot;
+                                    + &quot;to be used Flink's internal endpoints (rpc, data transport, blob server).&quot;);
+
+    /** For internal SSL, the password to decrypt the keystore file containing the certificate. */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L241">    public static final ConfigOption&lt;String&gt; SSL_INTERNAL_KEYSTORE_PASSWORD =</span>
+<span class="fc" id="L242">            key(&quot;security.ssl.internal.keystore-password&quot;)</span>
+<span class="fc" id="L243">                    .stringType()</span>
+<span class="fc" id="L244">                    .noDefaultValue()</span>
+<span class="fc" id="L245">                    .withDescription(</span>
+                            &quot;The secret to decrypt the keystore file for Flink's &quot;
+                                    + &quot;for Flink's internal endpoints (rpc, data transport, blob server).&quot;);
+
+    /** For internal SSL, the password to decrypt the private key. */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L251">    public static final ConfigOption&lt;String&gt; SSL_INTERNAL_KEY_PASSWORD =</span>
+<span class="fc" id="L252">            key(&quot;security.ssl.internal.key-password&quot;)</span>
+<span class="fc" id="L253">                    .stringType()</span>
+<span class="fc" id="L254">                    .noDefaultValue()</span>
+<span class="fc" id="L255">                    .withDescription(</span>
+                            &quot;The secret to decrypt the key in the keystore &quot;
+                                    + &quot;for Flink's internal endpoints (rpc, data transport, blob server).&quot;);
+
+    /**
+     * For internal SSL, the truststore file containing the public CA certificates to verify the ssl
+     * peers.
+     */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L264">    public static final ConfigOption&lt;String&gt; SSL_INTERNAL_TRUSTSTORE =</span>
+<span class="fc" id="L265">            key(&quot;security.ssl.internal.truststore&quot;)</span>
+<span class="fc" id="L266">                    .stringType()</span>
+<span class="fc" id="L267">                    .noDefaultValue()</span>
+<span class="fc" id="L268">                    .withDescription(</span>
+                            &quot;The truststore file containing the public CA certificates to verify the peer &quot;
+                                    + &quot;for Flink's internal endpoints (rpc, data transport, blob server).&quot;);
+
+    /** For internal SSL, the secret to decrypt the truststore. */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L274">    public static final ConfigOption&lt;String&gt; SSL_INTERNAL_TRUSTSTORE_PASSWORD =</span>
+<span class="fc" id="L275">            key(&quot;security.ssl.internal.truststore-password&quot;)</span>
+<span class="fc" id="L276">                    .stringType()</span>
+<span class="fc" id="L277">                    .noDefaultValue()</span>
+<span class="fc" id="L278">                    .withDescription(</span>
+                            &quot;The password to decrypt the truststore &quot;
+                                    + &quot;for Flink's internal endpoints (rpc, data transport, blob server).&quot;);
+
+    /** For internal SSL, the sha1 fingerprint of the internal certificate to verify the client. */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L284">    public static final ConfigOption&lt;String&gt; SSL_INTERNAL_CERT_FINGERPRINT =</span>
+<span class="fc" id="L285">            key(&quot;security.ssl.internal.cert.fingerprint&quot;)</span>
+<span class="fc" id="L286">                    .stringType()</span>
+<span class="fc" id="L287">                    .noDefaultValue()</span>
+<span class="fc" id="L288">                    .withDescription(</span>
+                            &quot;The sha1 fingerprint of the internal certificate. &quot;
+                                    + &quot;This further protects the internal communication to present the exact certificate used by Flink.&quot;
+                                    + &quot;This is necessary where one cannot use private CA(self signed) or there is internal firm wide CA is required&quot;);
+
+    // ----------------------- certificates (external) ------------------------
+
+    /**
+     * For external (REST) SSL, the Java keystore file containing the private key and certificate.
+     */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L299">    public static final ConfigOption&lt;String&gt; SSL_REST_KEYSTORE =</span>
+<span class="fc" id="L300">            key(&quot;security.ssl.rest.keystore&quot;)</span>
+<span class="fc" id="L301">                    .stringType()</span>
+<span class="fc" id="L302">                    .noDefaultValue()</span>
+<span class="fc" id="L303">                    .withDescription(</span>
+                            &quot;The Java keystore file with SSL Key and Certificate, &quot;
+                                    + &quot;to be used Flink's external REST endpoints.&quot;);
+
+    /**
+     * For external (REST) SSL, the password to decrypt the keystore file containing the
+     * certificate.
+     */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L312">    public static final ConfigOption&lt;String&gt; SSL_REST_KEYSTORE_PASSWORD =</span>
+<span class="fc" id="L313">            key(&quot;security.ssl.rest.keystore-password&quot;)</span>
+<span class="fc" id="L314">                    .stringType()</span>
+<span class="fc" id="L315">                    .noDefaultValue()</span>
+<span class="fc" id="L316">                    .withDescription(</span>
+                            &quot;The secret to decrypt the keystore file for Flink's &quot;
+                                    + &quot;for Flink's external REST endpoints.&quot;);
+
+    /** For external (REST) SSL, the password to decrypt the private key. */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L322">    public static final ConfigOption&lt;String&gt; SSL_REST_KEY_PASSWORD =</span>
+<span class="fc" id="L323">            key(&quot;security.ssl.rest.key-password&quot;)</span>
+<span class="fc" id="L324">                    .stringType()</span>
+<span class="fc" id="L325">                    .noDefaultValue()</span>
+<span class="fc" id="L326">                    .withDescription(</span>
+                            &quot;The secret to decrypt the key in the keystore &quot;
+                                    + &quot;for Flink's external REST endpoints.&quot;);
+
+    /**
+     * For external (REST) SSL, the truststore file containing the public CA certificates to verify
+     * the ssl peers.
+     */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L335">    public static final ConfigOption&lt;String&gt; SSL_REST_TRUSTSTORE =</span>
+<span class="fc" id="L336">            key(&quot;security.ssl.rest.truststore&quot;)</span>
+<span class="fc" id="L337">                    .stringType()</span>
+<span class="fc" id="L338">                    .noDefaultValue()</span>
+<span class="fc" id="L339">                    .withDescription(</span>
+                            &quot;The truststore file containing the public CA certificates to verify the peer &quot;
+                                    + &quot;for Flink's external REST endpoints.&quot;);
+
+    /** For external (REST) SSL, the secret to decrypt the truststore. */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L345">    public static final ConfigOption&lt;String&gt; SSL_REST_TRUSTSTORE_PASSWORD =</span>
+<span class="fc" id="L346">            key(&quot;security.ssl.rest.truststore-password&quot;)</span>
+<span class="fc" id="L347">                    .stringType()</span>
+<span class="fc" id="L348">                    .noDefaultValue()</span>
+<span class="fc" id="L349">                    .withDescription(</span>
+                            &quot;The password to decrypt the truststore &quot;
+                                    + &quot;for Flink's external REST endpoints.&quot;);
+
+    /** For external (REST) SSL, the sha1 fingerprint of the rest client certificate to verify. */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L355">    public static final ConfigOption&lt;String&gt; SSL_REST_CERT_FINGERPRINT =</span>
+<span class="fc" id="L356">            key(&quot;security.ssl.rest.cert.fingerprint&quot;)</span>
+<span class="fc" id="L357">                    .stringType()</span>
+<span class="fc" id="L358">                    .noDefaultValue()</span>
+<span class="fc" id="L359">                    .withDescription(</span>
+                            &quot;The sha1 fingerprint of the rest certificate. &quot;
+                                    + &quot;This further protects the rest REST endpoints to present certificate which is only used by proxy server&quot;
+                                    + &quot;This is necessary where once uses public CA or internal firm wide CA&quot;);
+
+    // ------------------------ ssl parameters --------------------------------
+
+    /** SSL protocol version to be supported. */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L368">    public static final ConfigOption&lt;String&gt; SSL_PROTOCOL =</span>
+<span class="fc" id="L369">            key(&quot;security.ssl.protocol&quot;)</span>
+<span class="fc" id="L370">                    .stringType()</span>
+<span class="fc" id="L371">                    .defaultValue(&quot;TLSv1.2&quot;)</span>
+<span class="fc" id="L372">                    .withDescription(</span>
+                            &quot;The SSL protocol version to be supported for the ssl transport. Note that it doesn’t&quot;
+                                    + &quot; support comma separated list.&quot;);
+
+    /**
+     * The standard SSL algorithms to be supported.
+     *
+     * &lt;p&gt;More options here -
+     * http://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#ciphersuites
+     */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L383">    public static final ConfigOption&lt;String&gt; SSL_ALGORITHMS =</span>
+<span class="fc" id="L384">            key(&quot;security.ssl.algorithms&quot;)</span>
+<span class="fc" id="L385">                    .stringType()</span>
+<span class="fc" id="L386">                    .defaultValue(&quot;TLS_RSA_WITH_AES_128_CBC_SHA&quot;)</span>
+<span class="fc" id="L387">                    .withDescription(</span>
+<span class="fc" id="L388">                            Description.builder()</span>
+<span class="fc" id="L389">                                    .text(</span>
+                                            &quot;The comma separated list of standard SSL algorithms to be supported. Read more %s&quot;,
+<span class="fc" id="L391">                                            link(</span>
+                                                    &quot;http://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#ciphersuites&quot;,
+                                                    &quot;here&quot;))
+<span class="fc" id="L394">                                    .build());</span>
+
+    /** Flag to enable/disable hostname verification for the ssl connections. */
+    @Documentation.Section(Documentation.Sections.SECURITY_SSL)
+<span class="fc" id="L398">    public static final ConfigOption&lt;Boolean&gt; SSL_VERIFY_HOSTNAME =</span>
+<span class="fc" id="L399">            key(&quot;security.ssl.verify-hostname&quot;)</span>
+<span class="fc" id="L400">                    .booleanType()</span>
+<span class="fc" id="L401">                    .defaultValue(true)</span>
+<span class="fc" id="L402">                    .withDescription(</span>
+                            &quot;Flag to enable peer’s hostname verification during ssl handshake.&quot;);
+
+    /** SSL engine provider. */
+    @Documentation.Section(Documentation.Sections.EXPERT_SECURITY_SSL)
+<span class="fc" id="L407">    public static final ConfigOption&lt;String&gt; SSL_PROVIDER =</span>
+<span class="fc" id="L408">            key(&quot;security.ssl.provider&quot;)</span>
+<span class="fc" id="L409">                    .stringType()</span>
+<span class="fc" id="L410">                    .defaultValue(&quot;JDK&quot;)</span>
+<span class="fc" id="L411">                    .withDescription(</span>
+<span class="fc" id="L412">                            Description.builder()</span>
+<span class="fc" id="L413">                                    .text(&quot;The SSL engine provider to use for the ssl transport:&quot;)</span>
+<span class="fc" id="L414">                                    .list(</span>
+<span class="fc" id="L415">                                            text(&quot;%s: default Java-based SSL engine&quot;, code(&quot;JDK&quot;)),</span>
+<span class="fc" id="L416">                                            text(</span>
+                                                    &quot;%s: openSSL-based SSL engine using system libraries&quot;,
+<span class="fc" id="L418">                                                    code(&quot;OPENSSL&quot;)))</span>
+<span class="fc" id="L419">                                    .text(</span>
+                                            &quot;%s is based on %s and comes in two flavours:&quot;,
+<span class="fc" id="L421">                                            code(&quot;OPENSSL&quot;),</span>
+<span class="fc" id="L422">                                            link(</span>
+                                                    &quot;http://netty.io/wiki/forked-tomcat-native.html#wiki-h2-4&quot;,
+                                                    &quot;netty-tcnative&quot;))
+<span class="fc" id="L425">                                    .list(</span>
+<span class="fc" id="L426">                                            text(</span>
+                                                    &quot;dynamically linked: This will use your system's openSSL libraries &quot;
+                                                            + &quot;(if compatible) and requires %s to be copied to %s&quot;,
+<span class="fc" id="L429">                                                    code(</span>
+                                                            &quot;opt/flink-shaded-netty-tcnative-dynamic-*.jar&quot;),
+<span class="fc" id="L431">                                                    code(&quot;lib/&quot;)),</span>
+<span class="fc" id="L432">                                            text(</span>
+                                                    &quot;statically linked: Due to potential licensing issues with &quot;
+                                                            + &quot;openSSL (see %s), we cannot ship pre-built libraries. However, &quot;
+                                                            + &quot;you can build the required library yourself and put it into %s:%s%s&quot;,
+<span class="fc" id="L436">                                                    link(</span>
+                                                            &quot;https://issues.apache.org/jira/browse/LEGAL-393&quot;,
+                                                            &quot;LEGAL-393&quot;),
+<span class="fc" id="L439">                                                    code(&quot;lib/&quot;),</span>
+<span class="fc" id="L440">                                                    linebreak(),</span>
+<span class="fc" id="L441">                                                    code(</span>
+                                                            &quot;git clone https://github.com/apache/flink-shaded.git &amp;&amp; &quot;
+                                                                    + &quot;cd flink-shaded &amp;&amp; &quot;
+                                                                    + &quot;mvn clean package -Pinclude-netty-tcnative-static -pl flink-shaded-netty-tcnative-static&quot;)))
+<span class="fc" id="L445">                                    .build());</span>
+
+    // ------------------------ ssl parameters --------------------------------
+
+    /** SSL session cache size. */
+    @Documentation.Section(Documentation.Sections.EXPERT_SECURITY_SSL)
+<span class="fc" id="L451">    public static final ConfigOption&lt;Integer&gt; SSL_INTERNAL_SESSION_CACHE_SIZE =</span>
+<span class="fc" id="L452">            key(&quot;security.ssl.internal.session-cache-size&quot;)</span>
+<span class="fc" id="L453">                    .intType()</span>
+<span class="fc" id="L454">                    .defaultValue(-1)</span>
+<span class="fc" id="L455">                    .withDescription(</span>
+<span class="fc" id="L456">                            Description.builder()</span>
+<span class="fc" id="L457">                                    .text(</span>
+                                            &quot;The size of the cache used for storing SSL session objects. &quot;
+                                                    + &quot;According to %s, you should always set &quot;
+                                                    + &quot;this to an appropriate number to not run into a bug with stalling IO threads &quot;
+                                                    + &quot;during garbage collection. (-1 = use system default).&quot;,
+<span class="fc" id="L462">                                            link(</span>
+                                                    &quot;https://github.com/netty/netty/issues/832&quot;,
+                                                    &quot;here&quot;))
+<span class="fc" id="L465">                                    .build())</span>
+<span class="fc" id="L466">                    .withDeprecatedKeys(&quot;security.ssl.session-cache-size&quot;);</span>
+
+    /** SSL session timeout. */
+    @Documentation.Section(Documentation.Sections.EXPERT_SECURITY_SSL)
+<span class="fc" id="L470">    public static final ConfigOption&lt;Integer&gt; SSL_INTERNAL_SESSION_TIMEOUT =</span>
+<span class="fc" id="L471">            key(&quot;security.ssl.internal.session-timeout&quot;)</span>
+<span class="fc" id="L472">                    .intType()</span>
+<span class="fc" id="L473">                    .defaultValue(-1)</span>
+<span class="fc" id="L474">                    .withDescription(</span>
+                            &quot;The timeout (in ms) for the cached SSL session objects. (-1 = use system default)&quot;)
+<span class="fc" id="L476">                    .withDeprecatedKeys(&quot;security.ssl.session-timeout&quot;);</span>
+
+    /** SSL session timeout during handshakes. */
+    @Documentation.Section(Documentation.Sections.EXPERT_SECURITY_SSL)
+<span class="fc" id="L480">    public static final ConfigOption&lt;Integer&gt; SSL_INTERNAL_HANDSHAKE_TIMEOUT =</span>
+<span class="fc" id="L481">            key(&quot;security.ssl.internal.handshake-timeout&quot;)</span>
+<span class="fc" id="L482">                    .intType()</span>
+<span class="fc" id="L483">                    .defaultValue(-1)</span>
+<span class="fc" id="L484">                    .withDescription(</span>
+                            &quot;The timeout (in ms) during SSL handshake. (-1 = use system default)&quot;)
+<span class="fc" id="L486">                    .withDeprecatedKeys(&quot;security.ssl.handshake-timeout&quot;);</span>
+
+    /** SSL session timeout after flushing the &lt;tt&gt;close_notify&lt;/tt&gt; message. */
+    @Documentation.Section(Documentation.Sections.EXPERT_SECURITY_SSL)
+<span class="fc" id="L490">    public static final ConfigOption&lt;Integer&gt; SSL_INTERNAL_CLOSE_NOTIFY_FLUSH_TIMEOUT =</span>
+<span class="fc" id="L491">            key(&quot;security.ssl.internal.close-notify-flush-timeout&quot;)</span>
+<span class="fc" id="L492">                    .intType()</span>
+<span class="fc" id="L493">                    .defaultValue(-1)</span>
+<span class="fc" id="L494">                    .withDescription(</span>
+                            &quot;The timeout (in ms) for flushing the `close_notify` that was triggered by closing a &quot;
+                                    + &quot;channel. If the `close_notify` was not flushed in the given timeout the channel will be closed &quot;
+                                    + &quot;forcibly. (-1 = use system default)&quot;)
+<span class="fc" id="L498">                    .withDeprecatedKeys(&quot;security.ssl.close-notify-flush-timeout&quot;);</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

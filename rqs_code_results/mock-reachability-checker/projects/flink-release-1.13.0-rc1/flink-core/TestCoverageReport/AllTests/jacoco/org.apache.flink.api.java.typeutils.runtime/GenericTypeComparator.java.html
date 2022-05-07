@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GenericTypeComparator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.java.typeutils.runtime</a> &gt; <span class="el_source">GenericTypeComparator.java</span></div><h1>GenericTypeComparator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.java.typeutils.runtime;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.TypeComparator;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.types.NormalizableKey;
+import org.apache.flink.util.InstantiationUtil;
+
+import java.io.IOException;
+
+/** TypeComparator for all types that extend Comparable. */
+@Internal
+public class GenericTypeComparator&lt;T extends Comparable&lt;T&gt;&gt; extends TypeComparator&lt;T&gt; {
+
+    private static final long serialVersionUID = 1L;
+
+    private final boolean ascending;
+
+    private final Class&lt;T&gt; type;
+
+    private TypeSerializer&lt;T&gt; serializer;
+
+    private transient T reference;
+
+    private transient T tmpReference;
+
+<span class="fc" id="L48">    @SuppressWarnings(&quot;rawtypes&quot;)</span>
+    private final TypeComparator[] comparators = new TypeComparator[] {this};
+
+    // ------------------------------------------------------------------------
+
+<span class="fc" id="L53">    public GenericTypeComparator(boolean ascending, TypeSerializer&lt;T&gt; serializer, Class&lt;T&gt; type) {</span>
+<span class="fc" id="L54">        this.ascending = ascending;</span>
+<span class="fc" id="L55">        this.serializer = serializer;</span>
+<span class="fc" id="L56">        this.type = type;</span>
+<span class="fc" id="L57">    }</span>
+
+<span class="fc" id="L59">    private GenericTypeComparator(GenericTypeComparator&lt;T&gt; toClone) {</span>
+<span class="fc" id="L60">        this.ascending = toClone.ascending;</span>
+<span class="fc" id="L61">        this.serializer = toClone.serializer.duplicate();</span>
+<span class="fc" id="L62">        this.type = toClone.type;</span>
+<span class="fc" id="L63">    }</span>
+
+    @Override
+    public int hash(T record) {
+<span class="nc" id="L67">        return record.hashCode();</span>
+    }
+
+    @Override
+    public void setReference(T toCompare) {
+<span class="fc" id="L72">        this.reference = this.serializer.copy(toCompare);</span>
+<span class="fc" id="L73">    }</span>
+
+    @Override
+    public boolean equalToReference(T candidate) {
+<span class="fc" id="L77">        return candidate.equals(this.reference);</span>
+    }
+
+    @Override
+    public int compareToReference(TypeComparator&lt;T&gt; referencedComparator) {
+<span class="fc" id="L82">        T otherRef = ((GenericTypeComparator&lt;T&gt;) referencedComparator).reference;</span>
+<span class="fc" id="L83">        int cmp = otherRef.compareTo(this.reference);</span>
+
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        return this.ascending ? cmp : -cmp;</span>
+    }
+
+    @Override
+    public int compare(T first, T second) {
+<span class="nc" id="L90">        int cmp = first.compareTo(second);</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">        return this.ascending ? cmp : -cmp;</span>
+    }
+
+    @Override
+    public int compareSerialized(final DataInputView firstSource, final DataInputView secondSource)
+            throws IOException {
+
+<span class="fc bfc" id="L98" title="All 2 branches covered.">        if (this.reference == null) {</span>
+<span class="fc" id="L99">            this.reference = this.serializer.createInstance();</span>
+        }
+
+<span class="fc bfc" id="L102" title="All 2 branches covered.">        if (this.tmpReference == null) {</span>
+<span class="fc" id="L103">            this.tmpReference = this.serializer.createInstance();</span>
+        }
+
+<span class="fc" id="L106">        this.reference = this.serializer.deserialize(this.reference, firstSource);</span>
+<span class="fc" id="L107">        this.tmpReference = this.serializer.deserialize(this.tmpReference, secondSource);</span>
+
+<span class="fc" id="L109">        int cmp = this.reference.compareTo(this.tmpReference);</span>
+<span class="fc bfc" id="L110" title="All 2 branches covered.">        return this.ascending ? cmp : -cmp;</span>
+    }
+
+    @Override
+    public boolean supportsNormalizedKey() {
+<span class="fc" id="L115">        return NormalizableKey.class.isAssignableFrom(this.type);</span>
+    }
+
+    @Override
+    public int getNormalizeKeyLen() {
+<span class="nc bnc" id="L120" title="All 2 branches missed.">        if (this.reference == null) {</span>
+<span class="nc" id="L121">            this.reference = InstantiationUtil.instantiate(this.type);</span>
+        }
+
+<span class="nc" id="L124">        NormalizableKey&lt;?&gt; key = (NormalizableKey&lt;?&gt;) this.reference;</span>
+<span class="nc" id="L125">        return key.getMaxNormalizedKeyLen();</span>
+    }
+
+    @Override
+    public boolean isNormalizedKeyPrefixOnly(int keyBytes) {
+<span class="nc bnc" id="L130" title="All 2 branches missed.">        return keyBytes &lt; getNormalizeKeyLen();</span>
+    }
+
+    @Override
+    public void putNormalizedKey(T record, MemorySegment target, int offset, int numBytes) {
+<span class="nc" id="L135">        NormalizableKey&lt;?&gt; key = (NormalizableKey&lt;?&gt;) record;</span>
+<span class="nc" id="L136">        key.copyNormalizedKey(target, offset, numBytes);</span>
+<span class="nc" id="L137">    }</span>
+
+    @Override
+    public boolean invertNormalizedKey() {
+<span class="nc bnc" id="L141" title="All 2 branches missed.">        return !ascending;</span>
+    }
+
+    @Override
+    public TypeComparator&lt;T&gt; duplicate() {
+<span class="fc" id="L146">        return new GenericTypeComparator&lt;T&gt;(this);</span>
+    }
+
+    @Override
+    public int extractKeys(Object record, Object[] target, int index) {
+<span class="nc" id="L151">        target[index] = record;</span>
+<span class="nc" id="L152">        return 1;</span>
+    }
+
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    @Override
+    public TypeComparator[] getFlatComparators() {
+<span class="nc" id="L158">        return comparators;</span>
+    }
+
+    // ------------------------------------------------------------------------
+
+    @Override
+    public boolean supportsSerializationWithKeyNormalization() {
+<span class="fc" id="L165">        return false;</span>
+    }
+
+    @Override
+    public void writeWithKeyNormalization(T record, DataOutputView target) throws IOException {
+<span class="nc" id="L170">        throw new UnsupportedOperationException();</span>
+    }
+
+    @Override
+    public T readWithKeyDenormalization(T reuse, DataInputView source) throws IOException {
+<span class="nc" id="L175">        throw new UnsupportedOperationException();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

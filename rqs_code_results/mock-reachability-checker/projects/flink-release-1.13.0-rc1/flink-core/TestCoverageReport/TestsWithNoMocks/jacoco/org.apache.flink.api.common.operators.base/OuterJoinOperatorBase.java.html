@@ -1,0 +1,380 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OuterJoinOperatorBase.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.operators.base</a> &gt; <span class="el_source">OuterJoinOperatorBase.java</span></div><h1>OuterJoinOperatorBase.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.operators.base;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.functions.FlatJoinFunction;
+import org.apache.flink.api.common.functions.RuntimeContext;
+import org.apache.flink.api.common.functions.util.CopyingListCollector;
+import org.apache.flink.api.common.functions.util.FunctionUtils;
+import org.apache.flink.api.common.operators.BinaryOperatorInformation;
+import org.apache.flink.api.common.operators.util.ListKeyGroupedIterator;
+import org.apache.flink.api.common.operators.util.UserCodeClassWrapper;
+import org.apache.flink.api.common.operators.util.UserCodeObjectWrapper;
+import org.apache.flink.api.common.operators.util.UserCodeWrapper;
+import org.apache.flink.api.common.typeinfo.AtomicType;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeutils.CompositeType;
+import org.apache.flink.api.common.typeutils.GenericPairComparator;
+import org.apache.flink.api.common.typeutils.TypeComparator;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.util.Collector;
+
+import org.apache.commons.collections.ResettableIterator;
+import org.apache.commons.collections.iterators.ListIteratorWrapper;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+
+@Internal
+public class OuterJoinOperatorBase&lt;IN1, IN2, OUT, FT extends FlatJoinFunction&lt;IN1, IN2, OUT&gt;&gt;
+        extends JoinOperatorBase&lt;IN1, IN2, OUT, FT&gt; {
+
+<span class="fc" id="L54">    public static enum OuterJoinType {</span>
+<span class="fc" id="L55">        LEFT,</span>
+<span class="fc" id="L56">        RIGHT,</span>
+<span class="fc" id="L57">        FULL</span>
+    }
+
+    private OuterJoinType outerJoinType;
+
+    public OuterJoinOperatorBase(
+            UserCodeWrapper&lt;FT&gt; udf,
+            BinaryOperatorInformation&lt;IN1, IN2, OUT&gt; operatorInfo,
+            int[] keyPositions1,
+            int[] keyPositions2,
+            String name,
+            OuterJoinType outerJoinType) {
+<span class="nc" id="L69">        super(udf, operatorInfo, keyPositions1, keyPositions2, name);</span>
+<span class="nc" id="L70">        this.outerJoinType = outerJoinType;</span>
+<span class="nc" id="L71">    }</span>
+
+    public OuterJoinOperatorBase(
+            FT udf,
+            BinaryOperatorInformation&lt;IN1, IN2, OUT&gt; operatorInfo,
+            int[] keyPositions1,
+            int[] keyPositions2,
+            String name,
+            OuterJoinType outerJoinType) {
+<span class="fc" id="L80">        super(new UserCodeObjectWrapper&lt;FT&gt;(udf), operatorInfo, keyPositions1, keyPositions2, name);</span>
+<span class="fc" id="L81">        this.outerJoinType = outerJoinType;</span>
+<span class="fc" id="L82">    }</span>
+
+    public OuterJoinOperatorBase(
+            Class&lt;? extends FT&gt; udf,
+            BinaryOperatorInformation&lt;IN1, IN2, OUT&gt; operatorInfo,
+            int[] keyPositions1,
+            int[] keyPositions2,
+            String name,
+            OuterJoinType outerJoinType) {
+<span class="nc" id="L91">        super(new UserCodeClassWrapper&lt;FT&gt;(udf), operatorInfo, keyPositions1, keyPositions2, name);</span>
+<span class="nc" id="L92">        this.outerJoinType = outerJoinType;</span>
+<span class="nc" id="L93">    }</span>
+
+    public void setOuterJoinType(OuterJoinType outerJoinType) {
+<span class="fc" id="L96">        this.outerJoinType = outerJoinType;</span>
+<span class="fc" id="L97">    }</span>
+
+    public OuterJoinType getOuterJoinType() {
+<span class="nc" id="L100">        return outerJoinType;</span>
+    }
+
+    @Override
+    protected List&lt;OUT&gt; executeOnCollections(
+            List&lt;IN1&gt; leftInput,
+            List&lt;IN2&gt; rightInput,
+            RuntimeContext runtimeContext,
+            ExecutionConfig executionConfig)
+            throws Exception {
+<span class="fc" id="L110">        TypeInformation&lt;IN1&gt; leftInformation = getOperatorInfo().getFirstInputType();</span>
+<span class="fc" id="L111">        TypeInformation&lt;IN2&gt; rightInformation = getOperatorInfo().getSecondInputType();</span>
+<span class="fc" id="L112">        TypeInformation&lt;OUT&gt; outInformation = getOperatorInfo().getOutputType();</span>
+
+<span class="fc" id="L114">        TypeComparator&lt;IN1&gt; leftComparator =</span>
+<span class="fc" id="L115">                buildComparatorFor(0, executionConfig, leftInformation);</span>
+<span class="fc" id="L116">        TypeComparator&lt;IN2&gt; rightComparator =</span>
+<span class="fc" id="L117">                buildComparatorFor(1, executionConfig, rightInformation);</span>
+
+<span class="fc" id="L119">        TypeSerializer&lt;IN1&gt; leftSerializer = leftInformation.createSerializer(executionConfig);</span>
+<span class="fc" id="L120">        TypeSerializer&lt;IN2&gt; rightSerializer = rightInformation.createSerializer(executionConfig);</span>
+
+<span class="fc" id="L122">        OuterJoinListIterator&lt;IN1, IN2&gt; outerJoinIterator =</span>
+                new OuterJoinListIterator&lt;&gt;(
+                        leftInput,
+                        leftSerializer,
+                        leftComparator,
+                        rightInput,
+                        rightSerializer,
+                        rightComparator,
+                        outerJoinType);
+
+        // --------------------------------------------------------------------
+        // Run UDF
+        // --------------------------------------------------------------------
+<span class="fc" id="L135">        FlatJoinFunction&lt;IN1, IN2, OUT&gt; function = userFunction.getUserCodeObject();</span>
+
+<span class="fc" id="L137">        FunctionUtils.setFunctionRuntimeContext(function, runtimeContext);</span>
+<span class="fc" id="L138">        FunctionUtils.openFunction(function, this.parameters);</span>
+
+<span class="fc" id="L140">        List&lt;OUT&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L141">        Collector&lt;OUT&gt; collector =</span>
+                new CopyingListCollector&lt;&gt;(
+<span class="fc" id="L143">                        result, outInformation.createSerializer(executionConfig));</span>
+
+<span class="fc bfc" id="L145" title="All 2 branches covered.">        while (outerJoinIterator.next()) {</span>
+<span class="fc" id="L146">            IN1 left = outerJoinIterator.getLeft();</span>
+<span class="fc" id="L147">            IN2 right = outerJoinIterator.getRight();</span>
+<span class="fc bfc" id="L148" title="All 2 branches covered.">            function.join(</span>
+<span class="fc bfc" id="L149" title="All 2 branches covered.">                    left == null ? null : leftSerializer.copy(left),</span>
+<span class="fc" id="L150">                    right == null ? null : rightSerializer.copy(right),</span>
+                    collector);
+<span class="fc" id="L152">        }</span>
+
+<span class="fc" id="L154">        FunctionUtils.closeFunction(function);</span>
+
+<span class="fc" id="L156">        return result;</span>
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private &lt;T&gt; TypeComparator&lt;T&gt; buildComparatorFor(
+            int input, ExecutionConfig executionConfig, TypeInformation&lt;T&gt; typeInformation) {
+        TypeComparator&lt;T&gt; comparator;
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">        if (typeInformation instanceof AtomicType) {</span>
+<span class="fc" id="L164">            comparator = ((AtomicType&lt;T&gt;) typeInformation).createComparator(true, executionConfig);</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">        } else if (typeInformation instanceof CompositeType) {</span>
+<span class="nc" id="L166">            int[] keyPositions = getKeyColumns(input);</span>
+<span class="nc" id="L167">            boolean[] orders = new boolean[keyPositions.length];</span>
+<span class="nc" id="L168">            Arrays.fill(orders, true);</span>
+
+<span class="nc" id="L170">            comparator =</span>
+                    ((CompositeType&lt;T&gt;) typeInformation)
+<span class="nc" id="L172">                            .createComparator(keyPositions, orders, 0, executionConfig);</span>
+<span class="nc" id="L173">        } else {</span>
+<span class="nc" id="L174">            throw new RuntimeException(</span>
+                    &quot;Type information for input of type &quot;
+<span class="nc" id="L176">                            + typeInformation.getClass().getCanonicalName()</span>
+                            + &quot; is not supported. Could not generate a comparator.&quot;);
+        }
+<span class="fc" id="L179">        return comparator;</span>
+    }
+
+    private static class OuterJoinListIterator&lt;IN1, IN2&gt; {
+
+<span class="fc" id="L184">        private static enum MatchStatus {</span>
+<span class="fc" id="L185">            NONE_REMAINED,</span>
+<span class="fc" id="L186">            FIRST_REMAINED,</span>
+<span class="fc" id="L187">            SECOND_REMAINED,</span>
+<span class="fc" id="L188">            FIRST_EMPTY,</span>
+<span class="fc" id="L189">            SECOND_EMPTY</span>
+        }
+
+        private OuterJoinType outerJoinType;
+
+        private ListKeyGroupedIterator&lt;IN1&gt; leftGroupedIterator;
+        private ListKeyGroupedIterator&lt;IN2&gt; rightGroupedIterator;
+        private Iterable&lt;IN1&gt; currLeftSubset;
+        private ResettableIterator currLeftIterator;
+        private Iterable&lt;IN2&gt; currRightSubset;
+        private ResettableIterator currRightIterator;
+
+        private MatchStatus matchStatus;
+        private GenericPairComparator&lt;IN1, IN2&gt; pairComparator;
+
+        private IN1 leftReturn;
+        private IN2 rightReturn;
+
+        public OuterJoinListIterator(
+                List&lt;IN1&gt; leftInput,
+                TypeSerializer&lt;IN1&gt; leftSerializer,
+                final TypeComparator&lt;IN1&gt; leftComparator,
+                List&lt;IN2&gt; rightInput,
+                TypeSerializer&lt;IN2&gt; rightSerializer,
+                final TypeComparator&lt;IN2&gt; rightComparator,
+<span class="fc" id="L214">                OuterJoinType outerJoinType) {</span>
+<span class="fc" id="L215">            this.outerJoinType = outerJoinType;</span>
+<span class="fc" id="L216">            pairComparator = new GenericPairComparator&lt;&gt;(leftComparator, rightComparator);</span>
+<span class="fc" id="L217">            leftGroupedIterator =</span>
+                    new ListKeyGroupedIterator&lt;&gt;(leftInput, leftSerializer, leftComparator);
+<span class="fc" id="L219">            rightGroupedIterator =</span>
+                    new ListKeyGroupedIterator&lt;&gt;(rightInput, rightSerializer, rightComparator);
+            // ----------------------------------------------------------------
+            // Sort
+            // ----------------------------------------------------------------
+<span class="fc" id="L224">            Collections.sort(</span>
+                    leftInput,
+<span class="fc" id="L226">                    new Comparator&lt;IN1&gt;() {</span>
+                        @Override
+                        public int compare(IN1 o1, IN1 o2) {
+<span class="fc" id="L229">                            return leftComparator.compare(o1, o2);</span>
+                        }
+                    });
+
+<span class="fc" id="L233">            Collections.sort(</span>
+                    rightInput,
+<span class="fc" id="L235">                    new Comparator&lt;IN2&gt;() {</span>
+                        @Override
+                        public int compare(IN2 o1, IN2 o2) {
+<span class="fc" id="L238">                            return rightComparator.compare(o1, o2);</span>
+                        }
+                    });
+<span class="fc" id="L241">        }</span>
+
+        @SuppressWarnings(&quot;unchecked&quot;)
+        private boolean next() throws IOException {
+            boolean hasMoreElements;
+<span class="fc bfc" id="L246" title="All 6 branches covered.">            if ((currLeftIterator == null || !currLeftIterator.hasNext())</span>
+<span class="fc bfc" id="L247" title="All 2 branches covered.">                    &amp;&amp; (currRightIterator == null || !currRightIterator.hasNext())) {</span>
+<span class="fc" id="L248">                hasMoreElements = nextGroups(outerJoinType);</span>
+<span class="fc bfc" id="L249" title="All 2 branches covered.">                if (hasMoreElements) {</span>
+<span class="fc bfc" id="L250" title="All 2 branches covered.">                    if (outerJoinType != OuterJoinType.LEFT) {</span>
+<span class="fc" id="L251">                        currLeftIterator = new ListIteratorWrapper(currLeftSubset.iterator());</span>
+                    }
+<span class="fc" id="L253">                    leftReturn = (IN1) currLeftIterator.next();</span>
+<span class="fc bfc" id="L254" title="All 2 branches covered.">                    if (outerJoinType != OuterJoinType.RIGHT) {</span>
+<span class="fc" id="L255">                        currRightIterator = new ListIteratorWrapper(currRightSubset.iterator());</span>
+                    }
+<span class="fc" id="L257">                    rightReturn = (IN2) currRightIterator.next();</span>
+<span class="fc" id="L258">                    return true;</span>
+                } else {
+                    // no more elements
+<span class="fc" id="L261">                    return false;</span>
+                }
+<span class="fc bfc" id="L263" title="All 4 branches covered.">            } else if (currLeftIterator.hasNext() &amp;&amp; !currRightIterator.hasNext()) {</span>
+<span class="fc" id="L264">                leftReturn = (IN1) currLeftIterator.next();</span>
+<span class="fc" id="L265">                currRightIterator.reset();</span>
+<span class="fc" id="L266">                rightReturn = (IN2) currRightIterator.next();</span>
+<span class="fc" id="L267">                return true;</span>
+            } else {
+<span class="fc" id="L269">                rightReturn = (IN2) currRightIterator.next();</span>
+<span class="fc" id="L270">                return true;</span>
+            }
+        }
+
+        private boolean nextGroups(OuterJoinType outerJoinType) throws IOException {
+<span class="fc bfc" id="L275" title="All 2 branches covered.">            if (outerJoinType == OuterJoinType.FULL) {</span>
+<span class="fc" id="L276">                return nextGroups();</span>
+<span class="fc bfc" id="L277" title="All 2 branches covered.">            } else if (outerJoinType == OuterJoinType.LEFT) {</span>
+<span class="fc" id="L278">                boolean leftContainsElements = false;</span>
+<span class="fc bfc" id="L279" title="All 4 branches covered.">                while (!leftContainsElements &amp;&amp; nextGroups()) {</span>
+<span class="fc" id="L280">                    currLeftIterator = new ListIteratorWrapper(currLeftSubset.iterator());</span>
+<span class="fc bfc" id="L281" title="All 2 branches covered.">                    if (currLeftIterator.next() != null) {</span>
+<span class="fc" id="L282">                        leftContainsElements = true;</span>
+                    }
+<span class="fc" id="L284">                    currLeftIterator.reset();</span>
+                }
+<span class="fc" id="L286">                return leftContainsElements;</span>
+<span class="fc bfc" id="L287" title="All 2 branches covered.">            } else if (outerJoinType == OuterJoinType.RIGHT) {</span>
+<span class="fc" id="L288">                boolean rightContainsElements = false;</span>
+<span class="fc bfc" id="L289" title="All 4 branches covered.">                while (!rightContainsElements &amp;&amp; nextGroups()) {</span>
+<span class="fc" id="L290">                    currRightIterator = new ListIteratorWrapper(currRightSubset.iterator());</span>
+<span class="fc bfc" id="L291" title="All 2 branches covered.">                    if (currRightIterator.next() != null) {</span>
+<span class="fc" id="L292">                        rightContainsElements = true;</span>
+                    }
+<span class="fc" id="L294">                    currRightIterator.reset();</span>
+                }
+<span class="fc" id="L296">                return rightContainsElements;</span>
+            } else {
+<span class="fc" id="L298">                throw new IllegalArgumentException(</span>
+                        &quot;Outer join of type '&quot; + outerJoinType + &quot;' not supported.&quot;);
+            }
+        }
+
+        private boolean nextGroups() throws IOException {
+<span class="fc" id="L304">            boolean firstEmpty = true;</span>
+<span class="fc" id="L305">            boolean secondEmpty = true;</span>
+
+<span class="fc bfc" id="L307" title="All 2 branches covered.">            if (this.matchStatus != MatchStatus.FIRST_EMPTY) {</span>
+<span class="fc bfc" id="L308" title="All 2 branches covered.">                if (this.matchStatus == MatchStatus.FIRST_REMAINED) {</span>
+                    // comparator is still set correctly
+<span class="fc" id="L310">                    firstEmpty = false;</span>
+                } else {
+<span class="fc bfc" id="L312" title="All 2 branches covered.">                    if (this.leftGroupedIterator.nextKey()) {</span>
+<span class="fc" id="L313">                        this.pairComparator.setReference(</span>
+<span class="fc" id="L314">                                leftGroupedIterator.getValues().getCurrent());</span>
+<span class="fc" id="L315">                        firstEmpty = false;</span>
+                    }
+                }
+            }
+
+<span class="fc bfc" id="L320" title="All 2 branches covered.">            if (this.matchStatus != MatchStatus.SECOND_EMPTY) {</span>
+<span class="fc bfc" id="L321" title="All 2 branches covered.">                if (this.matchStatus == MatchStatus.SECOND_REMAINED) {</span>
+<span class="fc" id="L322">                    secondEmpty = false;</span>
+                } else {
+<span class="fc bfc" id="L324" title="All 2 branches covered.">                    if (rightGroupedIterator.nextKey()) {</span>
+<span class="fc" id="L325">                        secondEmpty = false;</span>
+                    }
+                }
+            }
+
+<span class="fc bfc" id="L330" title="All 4 branches covered.">            if (firstEmpty &amp;&amp; secondEmpty) {</span>
+                // both inputs are empty
+<span class="fc" id="L332">                return false;</span>
+<span class="pc bpc" id="L333" title="1 of 4 branches missed.">            } else if (firstEmpty &amp;&amp; !secondEmpty) {</span>
+                // input1 is empty, input2 not
+<span class="fc" id="L335">                this.currLeftSubset = Collections.singleton(null);</span>
+<span class="fc" id="L336">                this.currRightSubset = this.rightGroupedIterator.getValues();</span>
+<span class="fc" id="L337">                this.matchStatus = MatchStatus.FIRST_EMPTY;</span>
+<span class="fc" id="L338">                return true;</span>
+<span class="pc bpc" id="L339" title="1 of 4 branches missed.">            } else if (!firstEmpty &amp;&amp; secondEmpty) {</span>
+                // input1 is not empty, input 2 is empty
+<span class="fc" id="L341">                this.currLeftSubset = this.leftGroupedIterator.getValues();</span>
+<span class="fc" id="L342">                this.currRightSubset = Collections.singleton(null);</span>
+<span class="fc" id="L343">                this.matchStatus = MatchStatus.SECOND_EMPTY;</span>
+<span class="fc" id="L344">                return true;</span>
+            } else {
+                // both inputs are not empty
+<span class="fc" id="L347">                final int comp =</span>
+<span class="fc" id="L348">                        this.pairComparator.compareToReference(</span>
+<span class="fc" id="L349">                                rightGroupedIterator.getValues().getCurrent());</span>
+
+<span class="fc bfc" id="L351" title="All 2 branches covered.">                if (0 == comp) {</span>
+                    // keys match
+<span class="fc" id="L353">                    this.currLeftSubset = this.leftGroupedIterator.getValues();</span>
+<span class="fc" id="L354">                    this.currRightSubset = this.rightGroupedIterator.getValues();</span>
+<span class="fc" id="L355">                    this.matchStatus = MatchStatus.NONE_REMAINED;</span>
+<span class="fc bfc" id="L356" title="All 2 branches covered.">                } else if (0 &lt; comp) {</span>
+                    // key1 goes first
+<span class="fc" id="L358">                    this.currLeftSubset = this.leftGroupedIterator.getValues();</span>
+<span class="fc" id="L359">                    this.currRightSubset = Collections.singleton(null);</span>
+<span class="fc" id="L360">                    this.matchStatus = MatchStatus.SECOND_REMAINED;</span>
+                } else {
+                    // key 2 goes first
+<span class="fc" id="L363">                    this.currLeftSubset = Collections.singleton(null);</span>
+<span class="fc" id="L364">                    this.currRightSubset = this.rightGroupedIterator.getValues();</span>
+<span class="fc" id="L365">                    this.matchStatus = MatchStatus.FIRST_REMAINED;</span>
+                }
+<span class="fc" id="L367">                return true;</span>
+            }
+        }
+
+        private IN1 getLeft() {
+<span class="fc" id="L372">            return leftReturn;</span>
+        }
+
+        private IN2 getRight() {
+<span class="fc" id="L376">            return rightReturn;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

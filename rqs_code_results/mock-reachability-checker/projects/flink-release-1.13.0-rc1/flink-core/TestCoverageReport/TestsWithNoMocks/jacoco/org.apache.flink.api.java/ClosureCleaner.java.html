@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ClosureCleaner.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.java</a> &gt; <span class="el_source">ClosureCleaner.java</span></div><h1>ClosureCleaner.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.java;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.InvalidProgramException;
+import org.apache.flink.util.InstantiationUtil;
+
+import org.apache.flink.shaded.asm7.org.objectweb.asm.ClassReader;
+import org.apache.flink.shaded.asm7.org.objectweb.asm.ClassVisitor;
+import org.apache.flink.shaded.asm7.org.objectweb.asm.MethodVisitor;
+import org.apache.flink.shaded.asm7.org.objectweb.asm.Opcodes;
+
+import org.apache.commons.lang3.ClassUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
+
+/**
+ * The closure cleaner is a utility that tries to truncate the closure (enclosing instance) of
+ * non-static inner classes (created for inline transformation functions). That makes non-static
+ * inner classes in many cases serializable, where Java's default behavior renders them
+ * non-serializable without good reason.
+ */
+@Internal
+<span class="nc" id="L51">public class ClosureCleaner {</span>
+
+<span class="fc" id="L53">    private static final Logger LOG = LoggerFactory.getLogger(ClosureCleaner.class);</span>
+
+    /**
+     * Tries to clean the closure of the given object, if the object is a non-static inner class.
+     *
+     * @param func The object whose closure should be cleaned.
+     * @param level the clean up level.
+     * @param checkSerializable Flag to indicate whether serializability should be checked after the
+     *     closure cleaning attempt.
+     * @throws InvalidProgramException Thrown, if 'checkSerializable' is true, and the object was
+     *     not serializable after the closure cleaning.
+     * @throws RuntimeException A RuntimeException may be thrown, if the code of the class could not
+     *     be loaded, in order to process during the closure cleaning.
+     */
+    public static void clean(
+            Object func, ExecutionConfig.ClosureCleanerLevel level, boolean checkSerializable) {
+<span class="fc" id="L69">        clean(func, level, checkSerializable, Collections.newSetFromMap(new IdentityHashMap&lt;&gt;()));</span>
+<span class="fc" id="L70">    }</span>
+
+    private static void clean(
+            Object func,
+            ExecutionConfig.ClosureCleanerLevel level,
+            boolean checkSerializable,
+            Set&lt;Object&gt; visited) {
+<span class="pc bpc" id="L77" title="1 of 2 branches missed.">        if (func == null) {</span>
+<span class="nc" id="L78">            return;</span>
+        }
+
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">        if (!visited.add(func)) {</span>
+<span class="nc" id="L82">            return;</span>
+        }
+
+<span class="fc" id="L85">        final Class&lt;?&gt; cls = func.getClass();</span>
+
+<span class="pc bpc" id="L87" title="1 of 2 branches missed.">        if (ClassUtils.isPrimitiveOrWrapper(cls)) {</span>
+<span class="nc" id="L88">            return;</span>
+        }
+
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        if (usesCustomSerialization(cls)) {</span>
+<span class="fc" id="L92">            return;</span>
+        }
+
+        // First find the field name of the &quot;this$0&quot; field, this can
+        // be &quot;this$x&quot; depending on the nesting
+<span class="fc" id="L97">        boolean closureAccessed = false;</span>
+
+<span class="fc bfc" id="L99" title="All 2 branches covered.">        for (Field f : cls.getDeclaredFields()) {</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">            if (f.getName().startsWith(&quot;this$&quot;)) {</span>
+                // found a closure referencing field - now try to clean
+<span class="fc" id="L102">                closureAccessed |= cleanThis0(func, cls, f.getName());</span>
+            } else {
+                Object fieldObject;
+                try {
+<span class="fc" id="L106">                    f.setAccessible(true);</span>
+<span class="fc" id="L107">                    fieldObject = f.get(func);</span>
+<span class="nc" id="L108">                } catch (IllegalAccessException e) {</span>
+<span class="nc" id="L109">                    throw new RuntimeException(</span>
+<span class="nc" id="L110">                            String.format(</span>
+                                    &quot;Can not access to the %s field in Class %s&quot;,
+<span class="nc" id="L112">                                    f.getName(), func.getClass()));</span>
+<span class="fc" id="L113">                }</span>
+
+                /*
+                 * we should do a deep clean when we encounter an anonymous class, inner class and local class, but should
+                 * skip the class with custom serialize method.
+                 *
+                 * There are five kinds of classes (or interfaces):
+                 * a) Top level classes
+                 * b) Nested classes (static member classes)
+                 * c) Inner classes (non-static member classes)
+                 * d) Local classes (named classes declared within a method)
+                 * e) Anonymous classes
+                 */
+<span class="pc bpc" id="L126" title="1 of 2 branches missed.">                if (level == ExecutionConfig.ClosureCleanerLevel.RECURSIVE</span>
+<span class="fc bfc" id="L127" title="All 2 branches covered.">                        &amp;&amp; needsRecursion(f, fieldObject)) {</span>
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">                    if (LOG.isDebugEnabled()) {</span>
+<span class="nc" id="L129">                        LOG.debug(&quot;Dig to clean the {}&quot;, fieldObject.getClass().getName());</span>
+                    }
+
+<span class="fc" id="L132">                    clean(</span>
+                            fieldObject,
+                            ExecutionConfig.ClosureCleanerLevel.RECURSIVE,
+                            true,
+                            visited);
+                }
+            }
+        }
+
+<span class="pc bpc" id="L141" title="1 of 2 branches missed.">        if (checkSerializable) {</span>
+            try {
+<span class="fc" id="L143">                InstantiationUtil.serializeObject(func);</span>
+<span class="fc" id="L144">            } catch (Exception e) {</span>
+<span class="fc" id="L145">                String functionType = getSuperClassOrInterfaceName(func.getClass());</span>
+
+<span class="fc bfc" id="L147" title="All 2 branches covered.">                String msg =</span>
+                        functionType == null
+                                ? (func + &quot; is not serializable.&quot;)
+                                : (&quot;The implementation of the &quot;
+                                        + functionType
+                                        + &quot; is not serializable.&quot;);
+
+<span class="fc bfc" id="L154" title="All 2 branches covered.">                if (closureAccessed) {</span>
+<span class="fc" id="L155">                    msg +=</span>
+                            &quot; The implementation accesses fields of its enclosing class, which is &quot;
+                                    + &quot;a common reason for non-serializability. &quot;
+                                    + &quot;A common solution is to make the function a proper (non-inner) class, or &quot;
+                                    + &quot;a static inner class.&quot;;
+                } else {
+<span class="fc" id="L161">                    msg += &quot; The object probably contains or references non serializable fields.&quot;;</span>
+                }
+
+<span class="fc" id="L164">                throw new InvalidProgramException(msg, e);</span>
+<span class="fc" id="L165">            }</span>
+        }
+<span class="fc" id="L167">    }</span>
+
+    private static boolean needsRecursion(Field f, Object fo) {
+<span class="fc bfc" id="L170" title="All 2 branches covered.">        return (fo != null</span>
+<span class="fc bfc" id="L171" title="All 2 branches covered.">                &amp;&amp; !Modifier.isStatic(f.getModifiers())</span>
+<span class="fc bfc" id="L172" title="All 2 branches covered.">                &amp;&amp; !Modifier.isTransient(f.getModifiers()));</span>
+    }
+
+    private static boolean usesCustomSerialization(Class&lt;?&gt; cls) {
+        try {
+<span class="fc" id="L177">            cls.getDeclaredMethod(&quot;writeObject&quot;, ObjectOutputStream.class);</span>
+<span class="fc" id="L178">            return true;</span>
+<span class="fc" id="L179">        } catch (NoSuchMethodException ignored) {</span>
+        }
+
+        try {
+<span class="fc" id="L183">            cls.getDeclaredMethod(&quot;writeReplace&quot;);</span>
+<span class="fc" id="L184">            return true;</span>
+<span class="fc" id="L185">        } catch (NoSuchMethodException ignored) {</span>
+        }
+
+<span class="fc" id="L188">        return Externalizable.class.isAssignableFrom(cls);</span>
+    }
+
+    public static void ensureSerializable(Object obj) {
+        try {
+<span class="fc" id="L193">            InstantiationUtil.serializeObject(obj);</span>
+<span class="fc" id="L194">        } catch (Exception e) {</span>
+<span class="fc" id="L195">            throw new InvalidProgramException(&quot;Object &quot; + obj + &quot; is not serializable&quot;, e);</span>
+<span class="fc" id="L196">        }</span>
+<span class="fc" id="L197">    }</span>
+
+    private static boolean cleanThis0(Object func, Class&lt;?&gt; cls, String this0Name) {
+
+<span class="fc" id="L201">        This0AccessFinder this0Finder = new This0AccessFinder(this0Name);</span>
+<span class="fc" id="L202">        getClassReader(cls).accept(this0Finder, 0);</span>
+
+<span class="fc" id="L204">        final boolean accessesClosure = this0Finder.isThis0Accessed();</span>
+
+<span class="pc bpc" id="L206" title="1 of 2 branches missed.">        if (LOG.isDebugEnabled()) {</span>
+<span class="nc" id="L207">            LOG.debug(this0Name + &quot; is accessed: &quot; + accessesClosure);</span>
+        }
+
+<span class="fc bfc" id="L210" title="All 2 branches covered.">        if (!accessesClosure) {</span>
+            Field this0;
+            try {
+<span class="fc" id="L213">                this0 = func.getClass().getDeclaredField(this0Name);</span>
+<span class="nc" id="L214">            } catch (NoSuchFieldException e) {</span>
+                // has no this$0, just return
+<span class="nc" id="L216">                throw new RuntimeException(&quot;Could not set &quot; + this0Name + &quot;: &quot; + e);</span>
+<span class="fc" id="L217">            }</span>
+
+            try {
+<span class="fc" id="L220">                this0.setAccessible(true);</span>
+<span class="fc" id="L221">                this0.set(func, null);</span>
+<span class="nc" id="L222">            } catch (Exception e) {</span>
+                // should not happen, since we use setAccessible
+<span class="nc" id="L224">                throw new RuntimeException(</span>
+<span class="nc" id="L225">                        &quot;Could not set &quot; + this0Name + &quot; to null. &quot; + e.getMessage(), e);</span>
+<span class="fc" id="L226">            }</span>
+        }
+
+<span class="fc" id="L229">        return accessesClosure;</span>
+    }
+
+    private static ClassReader getClassReader(Class&lt;?&gt; cls) {
+<span class="fc" id="L233">        String className = cls.getName().replaceFirst(&quot;^.*\\.&quot;, &quot;&quot;) + &quot;.class&quot;;</span>
+        try {
+<span class="fc" id="L235">            return new ClassReader(cls.getResourceAsStream(className));</span>
+<span class="nc" id="L236">        } catch (IOException e) {</span>
+<span class="nc" id="L237">            throw new RuntimeException(&quot;Could not create ClassReader: &quot; + e.getMessage(), e);</span>
+        }
+    }
+
+    private static String getSuperClassOrInterfaceName(Class&lt;?&gt; cls) {
+<span class="fc" id="L242">        Class&lt;?&gt; superclass = cls.getSuperclass();</span>
+<span class="fc bfc" id="L243" title="All 2 branches covered.">        if (superclass == null) {</span>
+<span class="fc" id="L244">            return null;</span>
+        }
+<span class="pc bpc" id="L246" title="1 of 2 branches missed.">        if (superclass.getName().startsWith(&quot;org.apache.flink&quot;)) {</span>
+<span class="nc" id="L247">            return superclass.getSimpleName();</span>
+        } else {
+<span class="pc bpc" id="L249" title="1 of 2 branches missed.">            for (Class&lt;?&gt; inFace : cls.getInterfaces()) {</span>
+<span class="pc bpc" id="L250" title="1 of 2 branches missed.">                if (inFace.getName().startsWith(&quot;org.apache.flink&quot;)) {</span>
+<span class="fc" id="L251">                    return inFace.getSimpleName();</span>
+                }
+            }
+<span class="nc" id="L254">            return null;</span>
+        }
+    }
+}
+
+/**
+ * This visitor walks methods and finds accesses to the field with the reference to the enclosing
+ * class.
+ */
+class This0AccessFinder extends ClassVisitor {
+
+    private final String this0Name;
+    private boolean isThis0Accessed;
+
+    public This0AccessFinder(String this0Name) {
+<span class="fc" id="L269">        super(Opcodes.ASM7);</span>
+<span class="fc" id="L270">        this.this0Name = this0Name;</span>
+<span class="fc" id="L271">    }</span>
+
+    public boolean isThis0Accessed() {
+<span class="fc" id="L274">        return isThis0Accessed;</span>
+    }
+
+    @Override
+    public MethodVisitor visitMethod(
+            int access, String name, String desc, String sig, String[] exceptions) {
+<span class="fc" id="L280">        return new MethodVisitor(Opcodes.ASM7) {</span>
+
+            @Override
+            public void visitFieldInsn(int op, String owner, String name, String desc) {
+<span class="fc bfc" id="L284" title="All 4 branches covered.">                if (op == Opcodes.GETFIELD &amp;&amp; name.equals(this0Name)) {</span>
+<span class="fc" id="L285">                    isThis0Accessed = true;</span>
+                }
+<span class="fc" id="L287">            }</span>
+        };
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

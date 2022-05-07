@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExternalResourceOptions.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.configuration</a> &gt; <span class="el_source">ExternalResourceOptions.java</span></div><h1>ExternalResourceOptions.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.configuration;
+
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.util.Preconditions;
+
+import java.util.List;
+
+import static org.apache.flink.configuration.ConfigOptions.key;
+
+/** Configuration options for external resources and external resource drivers. */
+@PublicEvolving
+<span class="nc" id="L30">public class ExternalResourceOptions {</span>
+
+    /**
+     * The amount of the external resource per task executor. This is used as a suffix in an actual
+     * config.
+     */
+    public static final String EXTERNAL_RESOURCE_AMOUNT_SUFFIX = &quot;amount&quot;;
+
+    /** Indicate an empty external resources list. */
+    public static final String NONE = &quot;none&quot;;
+
+    /**
+     * The driver factory class of the external resource to use. This is used as a suffix in an
+     * actual config.
+     */
+    public static final String EXTERNAL_RESOURCE_DRIVER_FACTORY_SUFFIX = &quot;driver-factory.class&quot;;
+
+    /** The suffix of custom config options' prefix for the external resource. */
+    public static final String EXTERNAL_RESOURCE_DRIVER_PARAM_SUFFIX = &quot;param.&quot;;
+
+    /**
+     * The naming pattern of custom config options for the external resource. This is used as a
+     * suffix.
+     */
+    private static final String EXTERNAL_RESOURCE_DRIVER_PARAM_PATTERN_SUFFIX =
+            EXTERNAL_RESOURCE_DRIVER_PARAM_SUFFIX + &quot;&lt;param&gt;&quot;;
+
+    /**
+     * The prefix for all external resources configs. Has to be combined with a resource name and
+     * the configs mentioned below.
+     */
+    private static final String EXTERNAL_RESOURCE_PREFIX = &quot;external-resource&quot;;
+
+    /**
+     * List of the resource_name of all external resources with delimiter &quot;;&quot;, e.g. &quot;gpu;fpga&quot; for
+     * two external resource gpu and fpga. The resource_name will be used to splice related config
+     * options for external resource. Only the resource_name defined here will go into effect in
+     * external resource framework.
+     *
+     * &lt;p&gt;Example:
+     *
+     * &lt;pre&gt;{@code
+     * external-resources = gpu;fpga
+     *
+     * external-resource.gpu.driver-factory.class: org.apache.flink.externalresource.gpu.GPUDriverFactory
+     * external-resource.gpu.amount: 2
+     * external-resource.gpu.param.type: nvidia
+     *
+     * external-resource.fpga.driver-factory.class: org.apache.flink.externalresource.fpga.FPGADriverFactory
+     * external-resource.fpga.amount: 1
+     * }&lt;/pre&gt;
+     */
+<span class="nc" id="L82">    public static final ConfigOption&lt;List&lt;String&gt;&gt; EXTERNAL_RESOURCE_LIST =</span>
+<span class="nc" id="L83">            key(&quot;external-resources&quot;)</span>
+<span class="nc" id="L84">                    .stringType()</span>
+<span class="nc" id="L85">                    .asList()</span>
+<span class="nc" id="L86">                    .defaultValues()</span>
+<span class="nc" id="L87">                    .withDescription(</span>
+                            &quot;List of the &lt;resource_name&gt; of all external resources with delimiter \&quot;;\&quot;, e.g. \&quot;gpu;fpga\&quot; &quot;
+                                    + &quot;for two external resource gpu and fpga. The &lt;resource_name&gt; will be used to splice related config options for &quot;
+                                    + &quot;external resource. Only the &lt;resource_name&gt; defined here will go into effect by external resource framework. &quot;
+                                    + &quot;Do not set the &lt;resource_name&gt; to '&quot;
+                                    + NONE
+                                    + &quot;', which is preserved internally&quot;);
+
+    /**
+     * Defines the factory class name for the external resource identified by &amp;gt;resource_name&amp;lt;.
+     * The factory will be used to instantiate the {@link
+     * org.apache.flink.api.common.externalresource.ExternalResourceDriver} at the TaskExecutor
+     * side.
+     *
+     * &lt;p&gt;It is intentionally included into user docs while unused.
+     */
+    @SuppressWarnings(&quot;unused&quot;)
+<span class="nc" id="L104">    public static final ConfigOption&lt;String&gt; EXTERNAL_RESOURCE_DRIVER_FACTORY_CLASS =</span>
+<span class="nc" id="L105">            key(genericKeyWithSuffix(EXTERNAL_RESOURCE_DRIVER_FACTORY_SUFFIX))</span>
+<span class="nc" id="L106">                    .stringType()</span>
+<span class="nc" id="L107">                    .noDefaultValue()</span>
+<span class="nc" id="L108">                    .withDescription(</span>
+                            &quot;Defines the factory class name for the external resource identified by &lt;resource_name&gt;. The &quot;
+                                    + &quot;factory will be used to instantiated the ExternalResourceDriver at the TaskExecutor side. For example, &quot;
+                                    + &quot;org.apache.flink.externalresource.gpu.GPUDriverFactory&quot;);
+
+    /**
+     * The amount for the external resource specified by &amp;gt;resource_name&amp;lt; per TaskExecutor.
+     *
+     * &lt;p&gt;It is intentionally included into user docs while unused.
+     */
+    @SuppressWarnings(&quot;WeakerAccess&quot;)
+<span class="nc" id="L119">    public static final ConfigOption&lt;Long&gt; EXTERNAL_RESOURCE_AMOUNT =</span>
+<span class="nc" id="L120">            key(genericKeyWithSuffix(EXTERNAL_RESOURCE_AMOUNT_SUFFIX))</span>
+<span class="nc" id="L121">                    .longType()</span>
+<span class="nc" id="L122">                    .noDefaultValue()</span>
+<span class="nc" id="L123">                    .withDescription(</span>
+                            &quot;The amount for the external resource specified by &lt;resource_name&gt; per TaskExecutor.&quot;);
+
+    /**
+     * The naming pattern of custom config options for the external resource specified by
+     * &amp;gt;resource_name&amp;lt;. Only the configurations that follow this pattern would be passed into
+     * the driver factory of that external resource.
+     *
+     * &lt;p&gt;It is intentionally included into user docs while unused.
+     */
+    @SuppressWarnings(&quot;unused&quot;)
+<span class="nc" id="L134">    public static final ConfigOption&lt;String&gt; EXTERNAL_RESOURCE_DRIVER_PARAM =</span>
+<span class="nc" id="L135">            key(genericKeyWithSuffix(EXTERNAL_RESOURCE_DRIVER_PARAM_PATTERN_SUFFIX))</span>
+<span class="nc" id="L136">                    .stringType()</span>
+<span class="nc" id="L137">                    .noDefaultValue()</span>
+<span class="nc" id="L138">                    .withDescription(</span>
+                            &quot;The naming pattern of custom config options for the external resource specified by &lt;resource_name&gt;. &quot;
+                                    + &quot;Only the configurations that follow this pattern would be passed into the driver factory of that external resource.&quot;);
+
+    public static String genericKeyWithSuffix(String suffix) {
+<span class="nc" id="L143">        return keyWithResourceNameAndSuffix(&quot;&lt;resource_name&gt;&quot;, suffix);</span>
+    }
+
+    /** Generate the config option key with resource_name and suffix. */
+    private static String keyWithResourceNameAndSuffix(String resourceName, String suffix) {
+<span class="nc" id="L148">        return String.format(</span>
+                &quot;%s.%s.%s&quot;,
+                EXTERNAL_RESOURCE_PREFIX,
+<span class="nc" id="L151">                Preconditions.checkNotNull(resourceName),</span>
+<span class="nc" id="L152">                Preconditions.checkNotNull(suffix));</span>
+    }
+
+    /** Generate the config option key for the amount of external resource with resource_name. */
+    public static String getAmountConfigOptionForResource(String resourceName) {
+<span class="nc" id="L157">        return keyWithResourceNameAndSuffix(resourceName, EXTERNAL_RESOURCE_AMOUNT_SUFFIX);</span>
+    }
+
+    /**
+     * Generate the config option key for the configuration key of external resource in the
+     * deploying system.
+     */
+    public static String getSystemConfigKeyConfigOptionForResource(
+            String resourceName, String suffix) {
+<span class="nc" id="L166">        return keyWithResourceNameAndSuffix(resourceName, suffix);</span>
+    }
+
+    /**
+     * Generate the config option key for the factory class name of {@link
+     * org.apache.flink.api.common.externalresource.ExternalResourceDriver}.
+     */
+    public static String getExternalResourceDriverFactoryConfigOptionForResource(
+            String resourceName) {
+<span class="nc" id="L175">        return keyWithResourceNameAndSuffix(resourceName, EXTERNAL_RESOURCE_DRIVER_FACTORY_SUFFIX);</span>
+    }
+
+    /** Generate the suffix option key prefix for the user-defined params for external resources. */
+    public static String getExternalResourceParamConfigPrefixForResource(String resourceName) {
+<span class="nc" id="L180">        return keyWithResourceNameAndSuffix(resourceName, EXTERNAL_RESOURCE_DRIVER_PARAM_SUFFIX);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

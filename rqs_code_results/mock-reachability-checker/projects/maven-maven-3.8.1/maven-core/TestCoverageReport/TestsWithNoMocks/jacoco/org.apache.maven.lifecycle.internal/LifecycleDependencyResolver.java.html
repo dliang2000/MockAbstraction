@@ -1,0 +1,383 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LifecycleDependencyResolver.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.lifecycle.internal</a> &gt; <span class="el_source">LifecycleDependencyResolver.java</span></div><h1>LifecycleDependencyResolver.java</h1><pre class="source lang-java linenums">package org.apache.maven.lifecycle.internal;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.io.File;
+
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+
+import org.apache.maven.RepositoryUtils;
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.ArtifactUtils;
+import org.apache.maven.eventspy.internal.EventSpyDispatcher;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.lifecycle.LifecycleExecutionException;
+import org.apache.maven.project.DefaultDependencyResolutionRequest;
+import org.apache.maven.project.DependencyResolutionException;
+import org.apache.maven.project.DependencyResolutionResult;
+import org.apache.maven.project.MavenProject;
+import org.apache.maven.project.ProjectDependenciesResolver;
+import org.apache.maven.project.artifact.InvalidDependencyVersionException;
+import org.apache.maven.project.artifact.ProjectArtifactsCache;
+import org.codehaus.plexus.logging.Logger;
+import org.eclipse.aether.graph.Dependency;
+import org.eclipse.aether.graph.DependencyFilter;
+import org.eclipse.aether.graph.DependencyNode;
+import org.eclipse.aether.util.filter.AndDependencyFilter;
+import org.eclipse.aether.util.filter.ScopeDependencyFilter;
+
+/**
+ * &lt;p&gt;
+ * Resolves dependencies for the artifacts in context of the lifecycle build
+ * &lt;/p&gt;
+ * &lt;strong&gt;NOTE:&lt;/strong&gt; This class is not part of any public api and can be changed or deleted without prior notice.
+ * @since 3.0
+ * @author Benjamin Bentmann
+ * @author Jason van Zyl
+ * @author Kristian Rosenvold (extracted class)
+ */
+@Named
+public class LifecycleDependencyResolver
+{
+
+    @Inject
+    private ProjectDependenciesResolver dependenciesResolver;
+
+    @Inject
+    private Logger logger;
+
+    @Inject
+    private ProjectArtifactFactory artifactFactory;
+
+    @Inject
+    private EventSpyDispatcher eventSpyDispatcher;
+    
+    @Inject
+    private ProjectArtifactsCache projectArtifactsCache;
+
+    public LifecycleDependencyResolver()
+<span class="fc" id="L86">    {</span>
+<span class="fc" id="L87">    }</span>
+
+    public LifecycleDependencyResolver( ProjectDependenciesResolver projectDependenciesResolver, Logger logger )
+<span class="nc" id="L90">    {</span>
+<span class="nc" id="L91">        this.dependenciesResolver = projectDependenciesResolver;</span>
+<span class="nc" id="L92">        this.logger = logger;</span>
+<span class="nc" id="L93">    }</span>
+
+    public static List&lt;MavenProject&gt; getProjects( MavenProject project, MavenSession session, boolean aggregator )
+    {
+<span class="pc bpc" id="L97" title="1 of 2 branches missed.">        if ( aggregator )</span>
+        {
+<span class="nc" id="L99">            return session.getProjects();</span>
+        }
+        else
+        {
+<span class="fc" id="L103">            return Collections.singletonList( project );</span>
+        }
+    }
+
+    public void resolveProjectDependencies( MavenProject project, Collection&lt;String&gt; scopesToCollect,
+                                            Collection&lt;String&gt; scopesToResolve, MavenSession session,
+                                            boolean aggregating, Set&lt;Artifact&gt; projectArtifacts )
+        throws LifecycleExecutionException
+    {
+<span class="fc" id="L112">        ClassLoader tccl = Thread.currentThread().getContextClassLoader();</span>
+        try
+        {
+<span class="fc" id="L115">            ClassLoader projectRealm = project.getClassRealm();</span>
+<span class="pc bpc" id="L116" title="3 of 4 branches missed.">            if ( projectRealm != null &amp;&amp; projectRealm != tccl )</span>
+            {
+<span class="nc" id="L118">                Thread.currentThread().setContextClassLoader( projectRealm );</span>
+            }
+
+<span class="fc bfc" id="L121" title="All 2 branches covered.">            if ( project.getDependencyArtifacts() == null )</span>
+            {
+                try
+                {
+<span class="fc" id="L125">                    project.setDependencyArtifacts( artifactFactory.createArtifacts( project ) );</span>
+                }
+<span class="nc" id="L127">                catch ( InvalidDependencyVersionException e )</span>
+                {
+<span class="nc" id="L129">                    throw new LifecycleExecutionException( e );</span>
+<span class="fc" id="L130">                }</span>
+            }
+            
+            Set&lt;Artifact&gt; resolvedArtifacts;
+<span class="fc" id="L134">            ProjectArtifactsCache.Key cacheKey = projectArtifactsCache.createKey( project,  scopesToCollect, </span>
+<span class="fc" id="L135">                scopesToResolve, aggregating, session.getRepositorySession() );</span>
+            ProjectArtifactsCache.CacheRecord recordArtifacts;
+<span class="fc" id="L137">            recordArtifacts = projectArtifactsCache.get( cacheKey );</span>
+            
+<span class="fc bfc" id="L139" title="All 2 branches covered.">            if ( recordArtifacts != null )</span>
+            {
+<span class="fc" id="L141">                resolvedArtifacts = recordArtifacts.getArtifacts();</span>
+            }
+            else
+            {
+                try
+                {
+<span class="fc" id="L147">                    resolvedArtifacts = getDependencies( project, scopesToCollect, scopesToResolve, session,</span>
+                                                         aggregating, projectArtifacts );
+<span class="fc" id="L149">                    recordArtifacts = projectArtifactsCache.put( cacheKey, resolvedArtifacts );</span>
+                }
+<span class="nc" id="L151">                catch ( LifecycleExecutionException e )</span>
+                {
+<span class="nc" id="L153">                  projectArtifactsCache.put( cacheKey, e );</span>
+<span class="nc" id="L154">                  projectArtifactsCache.register( project, cacheKey, recordArtifacts );</span>
+<span class="nc" id="L155">                    throw e;</span>
+<span class="fc" id="L156">                }</span>
+            }
+<span class="fc" id="L158">            projectArtifactsCache.register( project, cacheKey, recordArtifacts );</span>
+
+<span class="fc" id="L160">            Map&lt;Artifact, File&gt; reactorProjects = new HashMap&lt;&gt;( session.getProjects().size() );</span>
+<span class="fc bfc" id="L161" title="All 2 branches covered.">            for ( MavenProject reactorProject : session.getProjects() )</span>
+            {
+<span class="fc" id="L163">                reactorProjects.put( reactorProject.getArtifact(), reactorProject.getArtifact().getFile() );</span>
+<span class="fc" id="L164">            }</span>
+
+<span class="fc" id="L166">            Map&lt;String, Artifact&gt; map = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L167" title="All 2 branches covered.">            for ( Artifact artifact : resolvedArtifacts )</span>
+            {
+                /**
+                 * MNG-6300: resolvedArtifacts can be cache result; this ensures reactor files are always up to date 
+                 * During lifecycle the Artifact.getFile() can change from target/classes to the actual jar.
+                 * This clearly shows that target/classes should not be abused as artifactFile just for the classpath
+                 */
+<span class="fc" id="L174">                File reactorProjectFile = reactorProjects.get( artifact );</span>
+<span class="fc bfc" id="L175" title="All 2 branches covered.">                if ( reactorProjectFile != null )</span>
+                {
+<span class="fc" id="L177">                    artifact.setFile( reactorProjectFile );</span>
+                }
+
+<span class="fc" id="L180">                map.put( artifact.getDependencyConflictId(), artifact );</span>
+<span class="fc" id="L181">            }</span>
+            
+<span class="fc" id="L183">            project.setResolvedArtifacts( resolvedArtifacts );</span>
+            
+<span class="fc bfc" id="L185" title="All 2 branches covered.">            for ( Artifact artifact : project.getDependencyArtifacts() )</span>
+            {
+<span class="fc bfc" id="L187" title="All 2 branches covered.">                if ( artifact.getFile() == null )</span>
+                {
+<span class="fc" id="L189">                    Artifact resolved = map.get( artifact.getDependencyConflictId() );</span>
+<span class="pc bpc" id="L190" title="1 of 2 branches missed.">                    if ( resolved != null )</span>
+                    {
+<span class="fc" id="L192">                        artifact.setFile( resolved.getFile() );</span>
+<span class="fc" id="L193">                        artifact.setDependencyTrail( resolved.getDependencyTrail() );</span>
+<span class="fc" id="L194">                        artifact.setResolvedVersion( resolved.getVersion() );</span>
+<span class="fc" id="L195">                        artifact.setResolved( true );</span>
+                    }
+                }
+<span class="fc" id="L198">            }</span>
+        }
+        finally
+        {
+<span class="fc" id="L202">            Thread.currentThread().setContextClassLoader( tccl );</span>
+        }
+<span class="fc" id="L204">    }</span>
+
+    private Set&lt;Artifact&gt; getDependencies( MavenProject project, Collection&lt;String&gt; scopesToCollect,
+                                           Collection&lt;String&gt; scopesToResolve, MavenSession session,
+                                           boolean aggregating, Set&lt;Artifact&gt; projectArtifacts )
+        throws LifecycleExecutionException
+    {
+<span class="fc bfc" id="L211" title="All 2 branches covered.">        if ( scopesToCollect == null )</span>
+        {
+<span class="fc" id="L213">            scopesToCollect = Collections.emptySet();</span>
+        }
+<span class="pc bpc" id="L215" title="1 of 2 branches missed.">        if ( scopesToResolve == null )</span>
+        {
+<span class="nc" id="L217">            scopesToResolve = Collections.emptySet();</span>
+        }
+
+<span class="pc bpc" id="L220" title="2 of 4 branches missed.">        if ( scopesToCollect.isEmpty() &amp;&amp; scopesToResolve.isEmpty() )</span>
+        {
+<span class="nc" id="L222">            return new LinkedHashSet&lt;&gt;();</span>
+        }
+
+<span class="fc" id="L225">        scopesToCollect = new HashSet&lt;&gt;( scopesToCollect );</span>
+<span class="fc" id="L226">        scopesToCollect.addAll( scopesToResolve );</span>
+
+<span class="fc" id="L228">        DependencyFilter collectionFilter = new ScopeDependencyFilter( null, negate( scopesToCollect ) );</span>
+<span class="fc" id="L229">        DependencyFilter resolutionFilter = new ScopeDependencyFilter( null, negate( scopesToResolve ) );</span>
+<span class="fc" id="L230">        resolutionFilter = AndDependencyFilter.newInstance( collectionFilter, resolutionFilter );</span>
+<span class="fc" id="L231">        resolutionFilter =</span>
+<span class="fc" id="L232">            AndDependencyFilter.newInstance( resolutionFilter, new ReactorDependencyFilter( projectArtifacts ) );</span>
+
+        DependencyResolutionResult result;
+        try
+        {
+<span class="fc" id="L237">            DefaultDependencyResolutionRequest request =</span>
+<span class="fc" id="L238">                new DefaultDependencyResolutionRequest( project, session.getRepositorySession() );</span>
+<span class="fc" id="L239">            request.setResolutionFilter( resolutionFilter );</span>
+
+<span class="fc" id="L241">            eventSpyDispatcher.onEvent( request );</span>
+
+<span class="fc" id="L243">            result = dependenciesResolver.resolve( request );</span>
+        }
+<span class="nc" id="L245">        catch ( DependencyResolutionException e )</span>
+        {
+<span class="nc" id="L247">            result = e.getResult();</span>
+
+            /*
+             * MNG-2277, the check below compensates for our bad plugin support where we ended up with aggregator
+             * plugins that require dependency resolution although they usually run in phases of the build where project
+             * artifacts haven't been assembled yet. The prime example of this is &quot;mvn release:prepare&quot;.
+             */
+<span class="nc bnc" id="L254" title="All 4 branches missed.">            if ( aggregating &amp;&amp; areAllDependenciesInReactor( session.getProjects(),</span>
+<span class="nc" id="L255">                                                             result.getUnresolvedDependencies() ) )</span>
+            {
+<span class="nc" id="L257">                logger.warn( &quot;The following dependencies could not be resolved at this point of the build&quot;</span>
+                    + &quot; but seem to be part of the reactor:&quot; );
+
+<span class="nc bnc" id="L260" title="All 2 branches missed.">                for ( Dependency dependency : result.getUnresolvedDependencies() )</span>
+                {
+<span class="nc" id="L262">                    logger.warn( &quot;o &quot; + dependency );</span>
+<span class="nc" id="L263">                }</span>
+
+<span class="nc" id="L265">                logger.warn( &quot;Try running the build up to the lifecycle phase \&quot;package\&quot;&quot; );</span>
+            }
+            else
+            {
+<span class="nc" id="L269">                throw new LifecycleExecutionException( null, project, e );</span>
+            }
+<span class="fc" id="L271">        }</span>
+
+<span class="fc" id="L273">        eventSpyDispatcher.onEvent( result );</span>
+
+<span class="fc" id="L275">        Set&lt;Artifact&gt; artifacts = new LinkedHashSet&lt;&gt;();</span>
+<span class="pc bpc" id="L276" title="1 of 4 branches missed.">        if ( result.getDependencyGraph() != null &amp;&amp; !result.getDependencyGraph().getChildren().isEmpty() )</span>
+        {
+<span class="fc" id="L278">            RepositoryUtils.toArtifacts( artifacts, result.getDependencyGraph().getChildren(),</span>
+<span class="fc" id="L279">                                         Collections.singletonList( project.getArtifact().getId() ), collectionFilter );</span>
+        }
+<span class="fc" id="L281">        return artifacts;</span>
+    }
+
+    private boolean areAllDependenciesInReactor( Collection&lt;MavenProject&gt; projects,
+                                                 Collection&lt;Dependency&gt; dependencies )
+    {
+<span class="nc" id="L287">        Set&lt;String&gt; projectKeys = getReactorProjectKeys( projects );</span>
+
+<span class="nc bnc" id="L289" title="All 2 branches missed.">        for ( Dependency dependency : dependencies )</span>
+        {
+<span class="nc" id="L291">            org.eclipse.aether.artifact.Artifact a = dependency.getArtifact();</span>
+<span class="nc" id="L292">            String key = ArtifactUtils.key( a.getGroupId(), a.getArtifactId(), a.getVersion() );</span>
+<span class="nc bnc" id="L293" title="All 2 branches missed.">            if ( !projectKeys.contains( key ) )</span>
+            {
+<span class="nc" id="L295">                return false;</span>
+            }
+<span class="nc" id="L297">        }</span>
+
+<span class="nc" id="L299">        return true;</span>
+    }
+
+    private Set&lt;String&gt; getReactorProjectKeys( Collection&lt;MavenProject&gt; projects )
+    {
+<span class="nc" id="L304">        Set&lt;String&gt; projectKeys = new HashSet&lt;&gt;( projects.size() * 2 );</span>
+<span class="nc bnc" id="L305" title="All 2 branches missed.">        for ( MavenProject project : projects )</span>
+        {
+<span class="nc" id="L307">            String key = ArtifactUtils.key( project.getGroupId(), project.getArtifactId(), project.getVersion() );</span>
+<span class="nc" id="L308">            projectKeys.add( key );</span>
+<span class="nc" id="L309">        }</span>
+<span class="nc" id="L310">        return projectKeys;</span>
+    }
+
+    private Collection&lt;String&gt; negate( Collection&lt;String&gt; scopes )
+    {
+<span class="fc" id="L315">        Collection&lt;String&gt; result = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L316">        Collections.addAll( result, &quot;system&quot;, &quot;compile&quot;, &quot;provided&quot;, &quot;runtime&quot;, &quot;test&quot; );</span>
+
+<span class="fc bfc" id="L318" title="All 2 branches covered.">        for ( String scope : scopes )</span>
+        {
+<span class="fc bfc" id="L320" title="All 2 branches covered.">            if ( &quot;compile&quot;.equals( scope ) )</span>
+            {
+<span class="fc" id="L322">                result.remove( &quot;compile&quot; );</span>
+<span class="fc" id="L323">                result.remove( &quot;system&quot; );</span>
+<span class="fc" id="L324">                result.remove( &quot;provided&quot; );</span>
+            }
+<span class="fc bfc" id="L326" title="All 2 branches covered.">            else if ( &quot;runtime&quot;.equals( scope ) )</span>
+            {
+<span class="fc" id="L328">                result.remove( &quot;compile&quot; );</span>
+<span class="fc" id="L329">                result.remove( &quot;runtime&quot; );</span>
+            }
+<span class="pc bpc" id="L331" title="1 of 2 branches missed.">            else if ( &quot;compile+runtime&quot;.equals( scope ) )</span>
+            {
+<span class="nc" id="L333">                result.remove( &quot;compile&quot; );</span>
+<span class="nc" id="L334">                result.remove( &quot;system&quot; );</span>
+<span class="nc" id="L335">                result.remove( &quot;provided&quot; );</span>
+<span class="nc" id="L336">                result.remove( &quot;runtime&quot; );</span>
+            }
+<span class="pc bpc" id="L338" title="1 of 2 branches missed.">            else if ( &quot;runtime+system&quot;.equals( scope ) )</span>
+            {
+<span class="nc" id="L340">                result.remove( &quot;compile&quot; );</span>
+<span class="nc" id="L341">                result.remove( &quot;system&quot; );</span>
+<span class="nc" id="L342">                result.remove( &quot;runtime&quot; );</span>
+            }
+<span class="fc bfc" id="L344" title="All 2 branches covered.">            else if ( &quot;test&quot;.equals( scope ) )</span>
+            {
+<span class="fc" id="L346">                result.clear();</span>
+            }
+<span class="fc" id="L348">        }</span>
+
+<span class="fc" id="L350">        return result;</span>
+    }
+
+    private static class ReactorDependencyFilter
+        implements DependencyFilter
+    {
+
+<span class="fc" id="L357">        private Set&lt;String&gt; keys = new HashSet&lt;&gt;();</span>
+
+        ReactorDependencyFilter( Collection&lt;Artifact&gt; artifacts )
+<span class="fc" id="L360">        {</span>
+<span class="fc bfc" id="L361" title="All 2 branches covered.">            for ( Artifact artifact : artifacts )</span>
+            {
+<span class="fc" id="L363">                String key = ArtifactUtils.key( artifact );</span>
+<span class="fc" id="L364">                keys.add( key );</span>
+<span class="fc" id="L365">            }</span>
+<span class="fc" id="L366">        }</span>
+
+        public boolean accept( DependencyNode node, List&lt;DependencyNode&gt; parents )
+        {
+<span class="fc" id="L370">            Dependency dependency = node.getDependency();</span>
+<span class="fc bfc" id="L371" title="All 2 branches covered.">            if ( dependency != null )</span>
+            {
+<span class="fc" id="L373">                org.eclipse.aether.artifact.Artifact a = dependency.getArtifact();</span>
+<span class="fc" id="L374">                String key = ArtifactUtils.key( a.getGroupId(), a.getArtifactId(), a.getVersion() );</span>
+<span class="fc bfc" id="L375" title="All 2 branches covered.">                return !keys.contains( key );</span>
+            }
+<span class="fc" id="L377">            return false;</span>
+        }
+
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

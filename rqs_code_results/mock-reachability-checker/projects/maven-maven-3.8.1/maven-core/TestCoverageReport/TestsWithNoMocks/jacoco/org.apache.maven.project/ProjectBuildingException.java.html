@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProjectBuildingException.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.project</a> &gt; <span class="el_source">ProjectBuildingException.java</span></div><h1>ProjectBuildingException.java</h1><pre class="source lang-java linenums">package org.apache.maven.project;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import org.apache.maven.model.building.ModelProblem;
+import org.apache.maven.model.building.ModelProblemUtils;
+
+import java.io.File;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.List;
+
+/**
+ * @author Jason van Zyl
+ */
+public class ProjectBuildingException
+    extends Exception
+{
+    private final String projectId;
+
+    private File pomFile;
+
+    private List&lt;ProjectBuildingResult&gt; results;
+
+    public ProjectBuildingException( String projectId, String message, Throwable cause )
+    {
+<span class="nc" id="L44">        super( createMessage( message, projectId, null ), cause );</span>
+<span class="nc" id="L45">        this.projectId = projectId;</span>
+<span class="nc" id="L46">    }</span>
+
+    /**
+     * @param projectId
+     * @param message
+     * @param pomFile   pom file location
+     */
+    public ProjectBuildingException( String projectId, String message, File pomFile )
+    {
+<span class="nc" id="L55">        super( createMessage( message, projectId, pomFile ) );</span>
+<span class="nc" id="L56">        this.projectId = projectId;</span>
+<span class="nc" id="L57">        this.pomFile = pomFile;</span>
+<span class="nc" id="L58">    }</span>
+
+    /**
+     * @param projectId
+     * @param message
+     * @param pomFile   pom file location
+     * @param cause
+     */
+    protected ProjectBuildingException( String projectId, String message, File pomFile, Throwable cause )
+    {
+<span class="fc" id="L68">        super( createMessage( message, projectId, pomFile ), cause );</span>
+<span class="fc" id="L69">        this.projectId = projectId;</span>
+<span class="fc" id="L70">        this.pomFile = pomFile;</span>
+<span class="fc" id="L71">    }</span>
+
+    public ProjectBuildingException( List&lt;ProjectBuildingResult&gt; results )
+    {
+<span class="fc" id="L75">        super( createMessage( results ) );</span>
+<span class="fc" id="L76">        this.projectId = &quot;&quot;;</span>
+<span class="fc" id="L77">        this.results = results;</span>
+<span class="fc" id="L78">    }</span>
+
+    public File getPomFile()
+    {
+<span class="nc" id="L82">        return pomFile;</span>
+    }
+
+    /**
+     * @deprecated use {@link #getPomFile()}
+     */
+    public String getPomLocation()
+    {
+<span class="nc bnc" id="L90" title="All 2 branches missed.">        if ( getPomFile() != null )</span>
+        {
+<span class="nc" id="L92">            return getPomFile().getAbsolutePath();</span>
+        }
+        else
+        {
+<span class="nc" id="L96">            return &quot;null&quot;;</span>
+        }
+    }
+
+    public String getProjectId()
+    {
+<span class="nc" id="L102">        return projectId;</span>
+    }
+
+    public List&lt;ProjectBuildingResult&gt; getResults()
+    {
+<span class="fc" id="L107">        return results;</span>
+    }
+
+    private static String createMessage( String message, String projectId, File pomFile )
+    {
+<span class="fc" id="L112">        StringBuilder buffer = new StringBuilder( 256 );</span>
+<span class="fc" id="L113">        buffer.append( message );</span>
+<span class="fc" id="L114">        buffer.append( &quot; for project &quot; ).append( projectId );</span>
+<span class="pc bpc" id="L115" title="1 of 2 branches missed.">        if ( pomFile != null )</span>
+        {
+<span class="fc" id="L117">            buffer.append( &quot; at &quot; ).append( pomFile.getAbsolutePath() );</span>
+        }
+<span class="fc" id="L119">        return buffer.toString();</span>
+    }
+
+    private static String createMessage( List&lt;ProjectBuildingResult&gt; results )
+    {
+<span class="fc" id="L124">        StringWriter buffer = new StringWriter( 1024 );</span>
+<span class="fc" id="L125">        PrintWriter writer = new PrintWriter( buffer );</span>
+<span class="fc" id="L126">        writer.println( &quot;Some problems were encountered while processing the POMs:&quot; );</span>
+        try
+        {
+
+<span class="fc bfc" id="L130" title="All 2 branches covered.">            for ( ProjectBuildingResult result : results )</span>
+            {
+<span class="fc bfc" id="L132" title="All 2 branches covered.">                for ( ModelProblem problem : result.getProblems() )</span>
+                {
+<span class="fc" id="L134">                    writer.print( &quot;[&quot; );</span>
+<span class="fc" id="L135">                    writer.print( problem.getSeverity() );</span>
+<span class="fc" id="L136">                    writer.print( &quot;] &quot; );</span>
+<span class="fc" id="L137">                    writer.print( problem.getMessage() );</span>
+<span class="fc" id="L138">                    writer.print( &quot; @ &quot; );</span>
+<span class="fc" id="L139">                    writer.println( ModelProblemUtils.formatLocation( problem, result.getProjectId() ) );</span>
+<span class="fc" id="L140">                }</span>
+<span class="fc" id="L141">            }</span>
+        }
+        finally
+        {
+<span class="fc" id="L145">            writer.close();</span>
+        }
+<span class="fc" id="L147">        return buffer.toString();</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

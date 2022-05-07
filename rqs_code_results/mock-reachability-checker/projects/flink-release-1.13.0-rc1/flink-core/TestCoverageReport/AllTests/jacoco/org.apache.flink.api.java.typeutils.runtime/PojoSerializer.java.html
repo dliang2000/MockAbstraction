@@ -1,0 +1,1214 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PojoSerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.java.typeutils.runtime</a> &gt; <span class="el_source">PojoSerializer.java</span></div><h1>PojoSerializer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.java.typeutils.runtime;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.typeutils.GenericTypeSerializerConfigSnapshot;
+import org.apache.flink.api.common.typeutils.LegacySerializerSnapshotTransformer;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.common.typeutils.TypeSerializerConfigSnapshot;
+import org.apache.flink.api.common.typeutils.TypeSerializerSchemaCompatibility;
+import org.apache.flink.api.common.typeutils.TypeSerializerSerializationUtil;
+import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
+import org.apache.flink.api.common.typeutils.TypeSerializerSnapshotSerializationUtil;
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.typeutils.TypeExtractor;
+import org.apache.flink.core.memory.ByteArrayInputStreamWithPos;
+import org.apache.flink.core.memory.ByteArrayOutputStreamWithPos;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataInputViewStreamWrapper;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
+import org.apache.flink.util.Preconditions;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Objects;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+@Internal
+public final class PojoSerializer&lt;T&gt; extends TypeSerializer&lt;T&gt; {
+
+    // Flags for the header
+<span class="fc" id="L60">    private static byte IS_NULL = 1;</span>
+<span class="fc" id="L61">    private static byte NO_SUBCLASS = 2;</span>
+<span class="fc" id="L62">    private static byte IS_SUBCLASS = 4;</span>
+<span class="fc" id="L63">    private static byte IS_TAGGED_SUBCLASS = 8;</span>
+
+    private static final long serialVersionUID = 1L;
+
+    // --------------------------------------------------------------------------------------------
+    // PojoSerializer parameters
+    // --------------------------------------------------------------------------------------------
+
+    /** The POJO type class. */
+    private final Class&lt;T&gt; clazz;
+
+    /**
+     * Fields of the POJO and their serializers.
+     *
+     * &lt;p&gt;The fields are kept as a separate transient member, with their serialization handled with
+     * the {@link #readObject(ObjectInputStream)} and {@link #writeObject(ObjectOutputStream)}
+     * methods.
+     */
+    private transient Field[] fields;
+
+    private final TypeSerializer&lt;Object&gt;[] fieldSerializers;
+    private final int numFields;
+
+    /**
+     * Registered subclasses and their serializers. Each subclass to their registered class tag is
+     * maintained as a separate map ordered by the class tag.
+     */
+    private final LinkedHashMap&lt;Class&lt;?&gt;, Integer&gt; registeredClasses;
+
+    private final TypeSerializer&lt;?&gt;[] registeredSerializers;
+
+    /** Cache of non-registered subclasses to their serializers, created on-the-fly. */
+    private transient Map&lt;Class&lt;?&gt;, TypeSerializer&lt;?&gt;&gt; subclassSerializerCache;
+
+    // --------------------------------------------------------------------------------------------
+
+    /** Configuration of the current execution. */
+    private final ExecutionConfig executionConfig;
+
+    private transient ClassLoader cl;
+
+    /** Constructor to create a new {@link PojoSerializer}. */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public PojoSerializer(
+            Class&lt;T&gt; clazz,
+            TypeSerializer&lt;?&gt;[] fieldSerializers,
+            Field[] fields,
+<span class="fc" id="L110">            ExecutionConfig executionConfig) {</span>
+
+<span class="fc" id="L112">        this.clazz = checkNotNull(clazz);</span>
+<span class="fc" id="L113">        this.fieldSerializers = (TypeSerializer&lt;Object&gt;[]) checkNotNull(fieldSerializers);</span>
+<span class="fc" id="L114">        this.fields = checkNotNull(fields);</span>
+<span class="fc" id="L115">        this.numFields = fieldSerializers.length;</span>
+<span class="fc" id="L116">        this.executionConfig = checkNotNull(executionConfig);</span>
+
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        for (int i = 0; i &lt; numFields; i++) {</span>
+<span class="fc" id="L119">            this.fields[i].setAccessible(true);</span>
+        }
+
+<span class="fc" id="L122">        this.cl = Thread.currentThread().getContextClassLoader();</span>
+
+        // We only want those classes that are not our own class and are actually sub-classes.
+<span class="fc" id="L125">        LinkedHashSet&lt;Class&lt;?&gt;&gt; registeredSubclasses =</span>
+<span class="fc" id="L126">                getRegisteredSubclassesFromExecutionConfig(clazz, executionConfig);</span>
+
+<span class="fc" id="L128">        this.registeredClasses = createRegisteredSubclassTags(registeredSubclasses);</span>
+<span class="fc" id="L129">        this.registeredSerializers =</span>
+<span class="fc" id="L130">                createRegisteredSubclassSerializers(registeredSubclasses, executionConfig);</span>
+
+<span class="fc" id="L132">        this.subclassSerializerCache = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L133">    }</span>
+
+    /**
+     * Constructor to create a restore serializer or a reconfigured serializer from a {@link
+     * PojoSerializerSnapshot}.
+     */
+    PojoSerializer(
+            Class&lt;T&gt; clazz,
+            Field[] fields,
+            TypeSerializer&lt;Object&gt;[] fieldSerializers,
+            LinkedHashMap&lt;Class&lt;?&gt;, Integer&gt; registeredClasses,
+            TypeSerializer&lt;?&gt;[] registeredSerializers,
+            Map&lt;Class&lt;?&gt;, TypeSerializer&lt;?&gt;&gt; subclassSerializerCache,
+<span class="fc" id="L146">            ExecutionConfig executionConfig) {</span>
+
+<span class="fc" id="L148">        this.clazz = checkNotNull(clazz);</span>
+<span class="fc" id="L149">        this.fields = checkNotNull(fields);</span>
+<span class="fc" id="L150">        this.numFields = fields.length;</span>
+<span class="fc" id="L151">        this.fieldSerializers = checkNotNull(fieldSerializers);</span>
+<span class="fc" id="L152">        this.registeredClasses = checkNotNull(registeredClasses);</span>
+<span class="fc" id="L153">        this.registeredSerializers = checkNotNull(registeredSerializers);</span>
+<span class="fc" id="L154">        this.subclassSerializerCache = checkNotNull(subclassSerializerCache);</span>
+<span class="fc" id="L155">        this.executionConfig = checkNotNull(executionConfig);</span>
+<span class="fc" id="L156">        this.cl = Thread.currentThread().getContextClassLoader();</span>
+<span class="fc" id="L157">    }</span>
+
+    @Override
+    public boolean isImmutableType() {
+<span class="fc" id="L161">        return false;</span>
+    }
+
+    @Override
+    public PojoSerializer&lt;T&gt; duplicate() {
+<span class="fc" id="L166">        boolean stateful = false;</span>
+<span class="fc" id="L167">        TypeSerializer&lt;?&gt;[] duplicateFieldSerializers = new TypeSerializer[fieldSerializers.length];</span>
+
+<span class="fc bfc" id="L169" title="All 2 branches covered.">        for (int i = 0; i &lt; fieldSerializers.length; i++) {</span>
+<span class="fc" id="L170">            duplicateFieldSerializers[i] = fieldSerializers[i].duplicate();</span>
+<span class="fc bfc" id="L171" title="All 2 branches covered.">            if (duplicateFieldSerializers[i] != fieldSerializers[i]) {</span>
+                // at least one of them is stateful
+<span class="fc" id="L173">                stateful = true;</span>
+            }
+        }
+
+<span class="fc bfc" id="L177" title="All 2 branches covered.">        if (!stateful) {</span>
+            // as a small memory optimization, we can share the same object between instances
+<span class="fc" id="L179">            duplicateFieldSerializers = fieldSerializers;</span>
+        }
+
+        // we must create a new instance, otherwise the subclassSerializerCache can create
+        // concurrency problems
+<span class="fc" id="L184">        return new PojoSerializer&lt;&gt;(clazz, duplicateFieldSerializers, fields, executionConfig);</span>
+    }
+
+    @Override
+    public T createInstance() {
+<span class="pc bpc" id="L189" title="1 of 4 branches missed.">        if (clazz.isInterface() || Modifier.isAbstract(clazz.getModifiers())) {</span>
+<span class="fc" id="L190">            return null;</span>
+        }
+        try {
+<span class="fc" id="L193">            T t = clazz.newInstance();</span>
+<span class="fc" id="L194">            initializeFields(t);</span>
+<span class="fc" id="L195">            return t;</span>
+<span class="nc" id="L196">        } catch (Exception e) {</span>
+<span class="nc" id="L197">            throw new RuntimeException(&quot;Cannot instantiate class.&quot;, e);</span>
+        }
+    }
+
+    protected void initializeFields(T t) {
+<span class="fc bfc" id="L202" title="All 2 branches covered.">        for (int i = 0; i &lt; numFields; i++) {</span>
+<span class="fc bfc" id="L203" title="All 2 branches covered.">            if (fields[i] != null) {</span>
+                try {
+<span class="fc" id="L205">                    fields[i].set(t, fieldSerializers[i].createInstance());</span>
+<span class="nc" id="L206">                } catch (IllegalAccessException e) {</span>
+<span class="nc" id="L207">                    throw new RuntimeException(&quot;Cannot initialize fields.&quot;, e);</span>
+<span class="fc" id="L208">                }</span>
+            }
+        }
+<span class="fc" id="L211">    }</span>
+
+    @Override
+    @SuppressWarnings({&quot;unchecked&quot;, &quot;rawtypes&quot;})
+    public T copy(T from) {
+<span class="fc bfc" id="L216" title="All 2 branches covered.">        if (from == null) {</span>
+<span class="fc" id="L217">            return null;</span>
+        }
+
+<span class="fc" id="L220">        Class&lt;?&gt; actualType = from.getClass();</span>
+<span class="fc bfc" id="L221" title="All 2 branches covered.">        if (actualType == clazz) {</span>
+            T target;
+            try {
+<span class="fc" id="L224">                target = (T) from.getClass().newInstance();</span>
+<span class="nc" id="L225">            } catch (Throwable t) {</span>
+<span class="nc" id="L226">                throw new RuntimeException(&quot;Cannot instantiate class.&quot;, t);</span>
+<span class="fc" id="L227">            }</span>
+            // no subclass
+            try {
+<span class="fc bfc" id="L230" title="All 2 branches covered.">                for (int i = 0; i &lt; numFields; i++) {</span>
+<span class="pc bpc" id="L231" title="1 of 2 branches missed.">                    if (fields[i] != null) {</span>
+<span class="fc" id="L232">                        Object value = fields[i].get(from);</span>
+<span class="fc bfc" id="L233" title="All 2 branches covered.">                        if (value != null) {</span>
+<span class="fc" id="L234">                            Object copy = fieldSerializers[i].copy(value);</span>
+<span class="fc" id="L235">                            fields[i].set(target, copy);</span>
+<span class="fc" id="L236">                        } else {</span>
+<span class="fc" id="L237">                            fields[i].set(target, null);</span>
+                        }
+                    }
+                }
+<span class="nc" id="L241">            } catch (IllegalAccessException e) {</span>
+<span class="nc" id="L242">                throw new RuntimeException(</span>
+                        &quot;Error during POJO copy, this should not happen since we check the fields before.&quot;);
+<span class="fc" id="L244">            }</span>
+<span class="fc" id="L245">            return target;</span>
+        } else {
+            // subclass
+<span class="fc" id="L248">            TypeSerializer subclassSerializer = getSubclassSerializer(actualType);</span>
+<span class="fc" id="L249">            return (T) subclassSerializer.copy(from);</span>
+        }
+    }
+
+    @Override
+    @SuppressWarnings({&quot;unchecked&quot;, &quot;rawtypes&quot;})
+    public T copy(T from, T reuse) {
+<span class="pc bpc" id="L256" title="1 of 2 branches missed.">        if (from == null) {</span>
+<span class="nc" id="L257">            return null;</span>
+        }
+
+<span class="fc" id="L260">        Class&lt;?&gt; actualType = from.getClass();</span>
+<span class="fc bfc" id="L261" title="All 4 branches covered.">        if (reuse == null || actualType != reuse.getClass()) {</span>
+            // cannot reuse, do a non-reuse copy
+<span class="fc" id="L263">            return copy(from);</span>
+        }
+
+<span class="pc bpc" id="L266" title="1 of 2 branches missed.">        if (actualType == clazz) {</span>
+            try {
+<span class="fc bfc" id="L268" title="All 2 branches covered.">                for (int i = 0; i &lt; numFields; i++) {</span>
+<span class="pc bpc" id="L269" title="1 of 2 branches missed.">                    if (fields[i] != null) {</span>
+<span class="fc" id="L270">                        Object value = fields[i].get(from);</span>
+<span class="fc bfc" id="L271" title="All 2 branches covered.">                        if (value != null) {</span>
+<span class="fc" id="L272">                            Object reuseValue = fields[i].get(reuse);</span>
+                            Object copy;
+<span class="fc bfc" id="L274" title="All 2 branches covered.">                            if (reuseValue != null) {</span>
+<span class="fc" id="L275">                                copy = fieldSerializers[i].copy(value, reuseValue);</span>
+                            } else {
+<span class="fc" id="L277">                                copy = fieldSerializers[i].copy(value);</span>
+                            }
+<span class="fc" id="L279">                            fields[i].set(reuse, copy);</span>
+<span class="fc" id="L280">                        } else {</span>
+<span class="fc" id="L281">                            fields[i].set(reuse, null);</span>
+                        }
+                    }
+                }
+<span class="nc" id="L285">            } catch (IllegalAccessException e) {</span>
+<span class="nc" id="L286">                throw new RuntimeException(</span>
+                        &quot;Error during POJO copy, this should not happen since we check the fields before.&quot;,
+                        e);
+<span class="fc" id="L289">            }</span>
+        } else {
+<span class="nc" id="L291">            TypeSerializer subclassSerializer = getSubclassSerializer(actualType);</span>
+<span class="nc" id="L292">            reuse = (T) subclassSerializer.copy(from, reuse);</span>
+        }
+
+<span class="fc" id="L295">        return reuse;</span>
+    }
+
+    @Override
+    public int getLength() {
+<span class="fc" id="L300">        return -1;</span>
+    }
+
+    @Override
+    @SuppressWarnings({&quot;unchecked&quot;, &quot;rawtypes&quot;})
+    public void serialize(T value, DataOutputView target) throws IOException {
+<span class="fc" id="L306">        int flags = 0;</span>
+        // handle null values
+<span class="fc bfc" id="L308" title="All 2 branches covered.">        if (value == null) {</span>
+<span class="fc" id="L309">            flags |= IS_NULL;</span>
+<span class="fc" id="L310">            target.writeByte(flags);</span>
+<span class="fc" id="L311">            return;</span>
+        }
+
+<span class="fc" id="L314">        Integer subclassTag = -1;</span>
+<span class="fc" id="L315">        Class&lt;?&gt; actualClass = value.getClass();</span>
+<span class="fc" id="L316">        TypeSerializer subclassSerializer = null;</span>
+<span class="fc bfc" id="L317" title="All 2 branches covered.">        if (clazz != actualClass) {</span>
+<span class="fc" id="L318">            subclassTag = registeredClasses.get(actualClass);</span>
+<span class="fc bfc" id="L319" title="All 2 branches covered.">            if (subclassTag != null) {</span>
+<span class="fc" id="L320">                flags |= IS_TAGGED_SUBCLASS;</span>
+<span class="fc" id="L321">                subclassSerializer = registeredSerializers[subclassTag];</span>
+            } else {
+<span class="fc" id="L323">                flags |= IS_SUBCLASS;</span>
+<span class="fc" id="L324">                subclassSerializer = getSubclassSerializer(actualClass);</span>
+            }
+        } else {
+<span class="fc" id="L327">            flags |= NO_SUBCLASS;</span>
+        }
+
+<span class="fc" id="L330">        target.writeByte(flags);</span>
+
+        // if its a registered subclass, write the class tag id, otherwise write the full classname
+<span class="fc bfc" id="L333" title="All 2 branches covered.">        if ((flags &amp; IS_SUBCLASS) != 0) {</span>
+<span class="fc" id="L334">            target.writeUTF(actualClass.getName());</span>
+<span class="fc bfc" id="L335" title="All 2 branches covered.">        } else if ((flags &amp; IS_TAGGED_SUBCLASS) != 0) {</span>
+<span class="fc" id="L336">            target.writeByte(subclassTag);</span>
+        }
+
+        // if its a subclass, use the corresponding subclass serializer,
+        // otherwise serialize each field with our field serializers
+<span class="fc bfc" id="L341" title="All 2 branches covered.">        if ((flags &amp; NO_SUBCLASS) != 0) {</span>
+            try {
+<span class="fc bfc" id="L343" title="All 2 branches covered.">                for (int i = 0; i &lt; numFields; i++) {</span>
+<span class="fc bfc" id="L344" title="All 2 branches covered.">                    Object o = (fields[i] != null) ? fields[i].get(value) : null;</span>
+<span class="fc bfc" id="L345" title="All 2 branches covered.">                    if (o == null) {</span>
+<span class="fc" id="L346">                        target.writeBoolean(true); // null field handling</span>
+                    } else {
+<span class="fc" id="L348">                        target.writeBoolean(false);</span>
+<span class="fc" id="L349">                        fieldSerializers[i].serialize(o, target);</span>
+                    }
+                }
+<span class="nc" id="L352">            } catch (IllegalAccessException e) {</span>
+<span class="nc" id="L353">                throw new RuntimeException(</span>
+                        &quot;Error during POJO copy, this should not happen since we check the fields before.&quot;,
+                        e);
+<span class="fc" id="L356">            }</span>
+        } else {
+            // subclass
+<span class="pc bpc" id="L359" title="1 of 2 branches missed.">            if (subclassSerializer != null) {</span>
+<span class="fc" id="L360">                subclassSerializer.serialize(value, target);</span>
+            }
+        }
+<span class="fc" id="L363">    }</span>
+
+    @Override
+    @SuppressWarnings({&quot;unchecked&quot;, &quot;rawtypes&quot;})
+    public T deserialize(DataInputView source) throws IOException {
+<span class="fc" id="L368">        int flags = source.readByte();</span>
+<span class="fc bfc" id="L369" title="All 2 branches covered.">        if ((flags &amp; IS_NULL) != 0) {</span>
+<span class="fc" id="L370">            return null;</span>
+        }
+
+        T target;
+
+<span class="fc" id="L375">        Class&lt;?&gt; actualSubclass = null;</span>
+<span class="fc" id="L376">        TypeSerializer subclassSerializer = null;</span>
+
+<span class="fc bfc" id="L378" title="All 2 branches covered.">        if ((flags &amp; IS_SUBCLASS) != 0) {</span>
+<span class="fc" id="L379">            String subclassName = source.readUTF();</span>
+            try {
+<span class="fc" id="L381">                actualSubclass = Class.forName(subclassName, true, cl);</span>
+<span class="nc" id="L382">            } catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L383">                throw new RuntimeException(&quot;Cannot instantiate class.&quot;, e);</span>
+<span class="fc" id="L384">            }</span>
+<span class="fc" id="L385">            subclassSerializer = getSubclassSerializer(actualSubclass);</span>
+<span class="fc" id="L386">            target = (T) subclassSerializer.createInstance();</span>
+            // also initialize fields for which the subclass serializer is not responsible
+<span class="fc" id="L388">            initializeFields(target);</span>
+<span class="fc bfc" id="L389" title="All 2 branches covered.">        } else if ((flags &amp; IS_TAGGED_SUBCLASS) != 0) {</span>
+
+<span class="fc" id="L391">            int subclassTag = source.readByte();</span>
+<span class="fc" id="L392">            subclassSerializer = registeredSerializers[subclassTag];</span>
+<span class="fc" id="L393">            target = (T) subclassSerializer.createInstance();</span>
+            // also initialize fields for which the subclass serializer is not responsible
+<span class="fc" id="L395">            initializeFields(target);</span>
+<span class="fc" id="L396">        } else {</span>
+<span class="fc" id="L397">            target = createInstance();</span>
+        }
+
+<span class="fc bfc" id="L400" title="All 2 branches covered.">        if ((flags &amp; NO_SUBCLASS) != 0) {</span>
+            try {
+<span class="fc bfc" id="L402" title="All 2 branches covered.">                for (int i = 0; i &lt; numFields; i++) {</span>
+<span class="fc" id="L403">                    boolean isNull = source.readBoolean();</span>
+
+<span class="fc bfc" id="L405" title="All 2 branches covered.">                    if (fields[i] != null) {</span>
+<span class="fc bfc" id="L406" title="All 2 branches covered.">                        if (isNull) {</span>
+<span class="fc" id="L407">                            fields[i].set(target, null);</span>
+                        } else {
+<span class="fc" id="L409">                            Object field = fieldSerializers[i].deserialize(source);</span>
+<span class="fc" id="L410">                            fields[i].set(target, field);</span>
+<span class="fc" id="L411">                        }</span>
+<span class="pc bpc" id="L412" title="1 of 2 branches missed.">                    } else if (!isNull) {</span>
+                        // read and dump a pre-existing field value
+<span class="fc" id="L414">                        fieldSerializers[i].deserialize(source);</span>
+                    }
+                }
+<span class="nc" id="L417">            } catch (IllegalAccessException e) {</span>
+<span class="nc" id="L418">                throw new RuntimeException(</span>
+                        &quot;Error during POJO copy, this should not happen since we check the fields before.&quot;,
+                        e);
+<span class="fc" id="L421">            }</span>
+        } else {
+<span class="pc bpc" id="L423" title="1 of 2 branches missed.">            if (subclassSerializer != null) {</span>
+<span class="fc" id="L424">                target = (T) subclassSerializer.deserialize(target, source);</span>
+            }
+        }
+<span class="fc" id="L427">        return target;</span>
+    }
+
+    @Override
+    @SuppressWarnings({&quot;unchecked&quot;, &quot;rawtypes&quot;})
+    public T deserialize(T reuse, DataInputView source) throws IOException {
+
+        // handle null values
+<span class="fc" id="L435">        int flags = source.readByte();</span>
+<span class="pc bpc" id="L436" title="1 of 2 branches missed.">        if ((flags &amp; IS_NULL) != 0) {</span>
+<span class="nc" id="L437">            return null;</span>
+        }
+
+<span class="fc" id="L440">        Class&lt;?&gt; subclass = null;</span>
+<span class="fc" id="L441">        TypeSerializer subclassSerializer = null;</span>
+<span class="fc bfc" id="L442" title="All 2 branches covered.">        if ((flags &amp; IS_SUBCLASS) != 0) {</span>
+<span class="fc" id="L443">            String subclassName = source.readUTF();</span>
+            try {
+<span class="fc" id="L445">                subclass = Class.forName(subclassName, true, cl);</span>
+<span class="nc" id="L446">            } catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L447">                throw new RuntimeException(&quot;Cannot instantiate class.&quot;, e);</span>
+<span class="fc" id="L448">            }</span>
+<span class="fc" id="L449">            subclassSerializer = getSubclassSerializer(subclass);</span>
+
+<span class="pc bpc" id="L451" title="1 of 4 branches missed.">            if (reuse == null || subclass != reuse.getClass()) {</span>
+                // cannot reuse
+<span class="fc" id="L453">                reuse = (T) subclassSerializer.createInstance();</span>
+                // also initialize fields for which the subclass serializer is not responsible
+<span class="fc" id="L455">                initializeFields(reuse);</span>
+            }
+<span class="fc bfc" id="L457" title="All 2 branches covered.">        } else if ((flags &amp; IS_TAGGED_SUBCLASS) != 0) {</span>
+<span class="fc" id="L458">            int subclassTag = source.readByte();</span>
+<span class="fc" id="L459">            subclassSerializer = registeredSerializers[subclassTag];</span>
+
+<span class="pc bpc" id="L461" title="3 of 4 branches missed.">            if (reuse == null || ((PojoSerializer) subclassSerializer).clazz != reuse.getClass()) {</span>
+                // cannot reuse
+<span class="fc" id="L463">                reuse = (T) subclassSerializer.createInstance();</span>
+                // also initialize fields for which the subclass serializer is not responsible
+<span class="fc" id="L465">                initializeFields(reuse);</span>
+            }
+<span class="fc" id="L467">        } else {</span>
+<span class="pc bpc" id="L468" title="2 of 4 branches missed.">            if (reuse == null || clazz != reuse.getClass()) {</span>
+<span class="nc" id="L469">                reuse = createInstance();</span>
+            }
+        }
+
+<span class="fc bfc" id="L473" title="All 2 branches covered.">        if ((flags &amp; NO_SUBCLASS) != 0) {</span>
+            try {
+<span class="fc bfc" id="L475" title="All 2 branches covered.">                for (int i = 0; i &lt; numFields; i++) {</span>
+<span class="fc" id="L476">                    boolean isNull = source.readBoolean();</span>
+
+<span class="fc bfc" id="L478" title="All 2 branches covered.">                    if (fields[i] != null) {</span>
+<span class="fc bfc" id="L479" title="All 2 branches covered.">                        if (isNull) {</span>
+<span class="fc" id="L480">                            fields[i].set(reuse, null);</span>
+                        } else {
+                            Object field;
+
+<span class="fc" id="L484">                            Object reuseField = fields[i].get(reuse);</span>
+<span class="fc bfc" id="L485" title="All 2 branches covered.">                            if (reuseField != null) {</span>
+<span class="fc" id="L486">                                field = fieldSerializers[i].deserialize(reuseField, source);</span>
+                            } else {
+<span class="fc" id="L488">                                field = fieldSerializers[i].deserialize(source);</span>
+                            }
+
+<span class="fc" id="L491">                            fields[i].set(reuse, field);</span>
+<span class="fc" id="L492">                        }</span>
+<span class="pc bpc" id="L493" title="1 of 2 branches missed.">                    } else if (!isNull) {</span>
+                        // read and dump a pre-existing field value
+<span class="fc" id="L495">                        fieldSerializers[i].deserialize(source);</span>
+                    }
+                }
+<span class="nc" id="L498">            } catch (IllegalAccessException e) {</span>
+<span class="nc" id="L499">                throw new RuntimeException(</span>
+                        &quot;Error during POJO copy, this should not happen since we check the fields before.&quot;,
+                        e);
+<span class="fc" id="L502">            }</span>
+        } else {
+<span class="pc bpc" id="L504" title="1 of 2 branches missed.">            if (subclassSerializer != null) {</span>
+<span class="fc" id="L505">                reuse = (T) subclassSerializer.deserialize(reuse, source);</span>
+            }
+        }
+
+<span class="fc" id="L509">        return reuse;</span>
+    }
+
+    @Override
+    public void copy(DataInputView source, DataOutputView target) throws IOException {
+        // copy the flags
+<span class="fc" id="L515">        int flags = source.readByte();</span>
+<span class="fc" id="L516">        target.writeByte(flags);</span>
+
+<span class="pc bpc" id="L518" title="1 of 2 branches missed.">        if ((flags &amp; IS_NULL) != 0) {</span>
+            // is a null value, nothing further to copy
+<span class="nc" id="L520">            return;</span>
+        }
+
+<span class="fc" id="L523">        TypeSerializer&lt;?&gt; subclassSerializer = null;</span>
+<span class="fc bfc" id="L524" title="All 2 branches covered.">        if ((flags &amp; IS_SUBCLASS) != 0) {</span>
+<span class="fc" id="L525">            String className = source.readUTF();</span>
+<span class="fc" id="L526">            target.writeUTF(className);</span>
+            try {
+<span class="fc" id="L528">                Class&lt;?&gt; subclass =</span>
+<span class="fc" id="L529">                        Class.forName(</span>
+<span class="fc" id="L530">                                className, true, Thread.currentThread().getContextClassLoader());</span>
+<span class="fc" id="L531">                subclassSerializer = getSubclassSerializer(subclass);</span>
+<span class="nc" id="L532">            } catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L533">                throw new RuntimeException(&quot;Cannot instantiate class.&quot;, e);</span>
+<span class="fc" id="L534">            }</span>
+<span class="fc bfc" id="L535" title="All 2 branches covered.">        } else if ((flags &amp; IS_TAGGED_SUBCLASS) != 0) {</span>
+<span class="fc" id="L536">            int subclassTag = source.readByte();</span>
+<span class="fc" id="L537">            target.writeByte(subclassTag);</span>
+<span class="fc" id="L538">            subclassSerializer = registeredSerializers[subclassTag];</span>
+        }
+
+<span class="fc bfc" id="L541" title="All 2 branches covered.">        if ((flags &amp; NO_SUBCLASS) != 0) {</span>
+<span class="fc bfc" id="L542" title="All 2 branches covered.">            for (int i = 0; i &lt; numFields; i++) {</span>
+<span class="fc" id="L543">                boolean isNull = source.readBoolean();</span>
+<span class="fc" id="L544">                target.writeBoolean(isNull);</span>
+<span class="fc bfc" id="L545" title="All 2 branches covered.">                if (!isNull) {</span>
+<span class="fc" id="L546">                    fieldSerializers[i].copy(source, target);</span>
+                }
+            }
+        } else {
+<span class="pc bpc" id="L550" title="1 of 2 branches missed.">            if (subclassSerializer != null) {</span>
+<span class="fc" id="L551">                subclassSerializer.copy(source, target);</span>
+            }
+        }
+<span class="fc" id="L554">    }</span>
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L558">        return 31</span>
+<span class="fc" id="L559">                        * (31 * Arrays.hashCode(fieldSerializers)</span>
+<span class="fc" id="L560">                                + Arrays.hashCode(registeredSerializers))</span>
+<span class="fc" id="L561">                + Objects.hash(clazz, numFields, registeredClasses);</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="pc bpc" id="L566" title="1 of 2 branches missed.">        if (obj instanceof PojoSerializer) {</span>
+<span class="fc" id="L567">            PojoSerializer&lt;?&gt; other = (PojoSerializer&lt;?&gt;) obj;</span>
+
+<span class="pc bpc" id="L569" title="1 of 2 branches missed.">            return clazz == other.clazz</span>
+<span class="pc bpc" id="L570" title="1 of 2 branches missed.">                    &amp;&amp; Arrays.equals(fieldSerializers, other.fieldSerializers)</span>
+<span class="pc bpc" id="L571" title="2 of 4 branches missed.">                    &amp;&amp; Arrays.equals(registeredSerializers, other.registeredSerializers)</span>
+                    &amp;&amp; numFields == other.numFields
+<span class="pc bpc" id="L573" title="1 of 2 branches missed.">                    &amp;&amp; registeredClasses.equals(other.registeredClasses);</span>
+        } else {
+<span class="nc" id="L575">            return false;</span>
+        }
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // Serializer configuration snapshotting &amp; compatibility
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public PojoSerializerSnapshot&lt;T&gt; snapshotConfiguration() {
+<span class="fc" id="L585">        return buildSnapshot(</span>
+                clazz,
+                registeredClasses,
+                registeredSerializers,
+                fields,
+                fieldSerializers,
+                subclassSerializerCache);
+    }
+
+    /**
+     * @deprecated This snapshot class is no longer being used. It has been fully replaced by {@link
+     *     PojoSerializerSnapshot}.
+     */
+    @Deprecated
+    public static final class PojoSerializerConfigSnapshot&lt;T&gt;
+            extends GenericTypeSerializerConfigSnapshot&lt;T&gt; {
+
+        private static final int VERSION = 1;
+
+        /**
+         * Ordered map of POJO fields to their corresponding serializers and its configuration
+         * snapshots.
+         *
+         * &lt;p&gt;Ordering of the fields is kept so that new Pojo serializers for previous data may
+         * reorder the fields in case they are different. The order of the fields need to stay the
+         * same for binary compatibility, as the field order is part of the serialization format.
+         */
+        private LinkedHashMap&lt;String, Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt;
+                fieldToSerializerConfigSnapshot;
+
+        /**
+         * Ordered map of registered subclasses to their corresponding serializers and its
+         * configuration snapshots.
+         *
+         * &lt;p&gt;Ordering of the registered subclasses is kept so that new Pojo serializers for
+         * previous data may retain the same class tag used for registered subclasses. Newly
+         * registered subclasses that weren't present before should be appended with the next
+         * available class tag.
+         */
+        private LinkedHashMap&lt;Class&lt;?&gt;, Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt;
+                registeredSubclassesToSerializerConfigSnapshots;
+
+        /**
+         * Previously cached non-registered subclass serializers and its configuration snapshots.
+         *
+         * &lt;p&gt;This is kept so that new Pojo serializers may eagerly repopulate their cache with
+         * reconfigured subclass serializers.
+         */
+        private HashMap&lt;Class&lt;?&gt;, Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt;
+                nonRegisteredSubclassesToSerializerConfigSnapshots;
+
+        private boolean ignoreTypeSerializerSerialization;
+
+        /** This empty nullary constructor is required for deserializing the configuration. */
+<span class="nc" id="L639">        public PojoSerializerConfigSnapshot() {}</span>
+
+        public PojoSerializerConfigSnapshot(
+                Class&lt;T&gt; pojoType,
+                LinkedHashMap&lt;String, Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt;
+                        fieldToSerializerConfigSnapshot,
+                LinkedHashMap&lt;Class&lt;?&gt;, Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt;
+                        registeredSubclassesToSerializerConfigSnapshots,
+                HashMap&lt;Class&lt;?&gt;, Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt;
+                        nonRegisteredSubclassesToSerializerConfigSnapshots) {
+
+<span class="nc" id="L650">            this(</span>
+                    pojoType,
+                    fieldToSerializerConfigSnapshot,
+                    registeredSubclassesToSerializerConfigSnapshots,
+                    nonRegisteredSubclassesToSerializerConfigSnapshots,
+                    false);
+<span class="nc" id="L656">        }</span>
+
+        public PojoSerializerConfigSnapshot(
+                Class&lt;T&gt; pojoType,
+                LinkedHashMap&lt;String, Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt;
+                        fieldToSerializerConfigSnapshot,
+                LinkedHashMap&lt;Class&lt;?&gt;, Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt;
+                        registeredSubclassesToSerializerConfigSnapshots,
+                HashMap&lt;Class&lt;?&gt;, Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt;
+                        nonRegisteredSubclassesToSerializerConfigSnapshots,
+                boolean ignoreTypeSerializerSerialization) {
+
+<span class="nc" id="L668">            super(pojoType);</span>
+
+<span class="nc" id="L670">            this.fieldToSerializerConfigSnapshot =</span>
+<span class="nc" id="L671">                    Preconditions.checkNotNull(fieldToSerializerConfigSnapshot);</span>
+<span class="nc" id="L672">            this.registeredSubclassesToSerializerConfigSnapshots =</span>
+<span class="nc" id="L673">                    Preconditions.checkNotNull(registeredSubclassesToSerializerConfigSnapshots);</span>
+<span class="nc" id="L674">            this.nonRegisteredSubclassesToSerializerConfigSnapshots =</span>
+<span class="nc" id="L675">                    Preconditions.checkNotNull(nonRegisteredSubclassesToSerializerConfigSnapshots);</span>
+
+<span class="nc" id="L677">            this.ignoreTypeSerializerSerialization = ignoreTypeSerializerSerialization;</span>
+<span class="nc" id="L678">        }</span>
+
+        /**
+         * This legacy snapshot delegates compatibility checks to the {@link
+         * PojoSerializerSnapshot}.
+         */
+        @Override
+        public TypeSerializerSchemaCompatibility&lt;T&gt; resolveSchemaCompatibility(
+                TypeSerializer&lt;T&gt; newSerializer) {
+<span class="nc" id="L687">            LinkedHashMap&lt;String, TypeSerializerSnapshot&lt;?&gt;&gt; legacyFieldSerializerSnapshots =</span>
+<span class="nc" id="L688">                    preprocessLegacySerializerSnapshotTuples(fieldToSerializerConfigSnapshot);</span>
+
+<span class="nc" id="L690">            int numFields = legacyFieldSerializerSnapshots.size();</span>
+<span class="nc" id="L691">            ArrayList&lt;Field&gt; fields = new ArrayList&lt;&gt;(numFields);</span>
+<span class="nc" id="L692">            ArrayList&lt;TypeSerializerSnapshot&lt;?&gt;&gt; fieldSerializerSnapshots =</span>
+                    new ArrayList&lt;&gt;(numFields);
+<span class="nc" id="L694">            legacyFieldSerializerSnapshots.forEach(</span>
+                    (fieldName, fieldSerializerSnapshot) -&gt; {
+<span class="nc" id="L696">                        fields.add(PojoFieldUtils.getField(fieldName, getTypeClass()));</span>
+<span class="nc" id="L697">                        fieldSerializerSnapshots.add(fieldSerializerSnapshot);</span>
+<span class="nc" id="L698">                    });</span>
+
+<span class="nc" id="L700">            PojoSerializerSnapshot&lt;T&gt; newSnapshot =</span>
+                    new PojoSerializerSnapshot&lt;&gt;(
+<span class="nc" id="L702">                            getTypeClass(),</span>
+<span class="nc" id="L703">                            fields.toArray(new Field[numFields]),</span>
+<span class="nc" id="L704">                            fieldSerializerSnapshots.toArray(new TypeSerializerSnapshot[numFields]),</span>
+<span class="nc" id="L705">                            preprocessLegacySerializerSnapshotTuples(</span>
+                                    registeredSubclassesToSerializerConfigSnapshots),
+<span class="nc" id="L707">                            preprocessLegacySerializerSnapshotTuples(</span>
+                                    nonRegisteredSubclassesToSerializerConfigSnapshots));
+
+<span class="nc" id="L710">            return newSnapshot.resolveSchemaCompatibility(newSerializer);</span>
+        }
+
+        @SuppressWarnings(&quot;unchecked&quot;)
+        private static &lt;K&gt;
+                LinkedHashMap&lt;K, TypeSerializerSnapshot&lt;?&gt;&gt;
+                        preprocessLegacySerializerSnapshotTuples(
+                                Map&lt;K, Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt;
+                                        originalMap) {
+<span class="nc" id="L719">            LinkedHashMap&lt;K, TypeSerializerSnapshot&lt;?&gt;&gt; converted =</span>
+<span class="nc" id="L720">                    new LinkedHashMap&lt;&gt;(originalMap.size());</span>
+
+<span class="nc" id="L722">            originalMap.forEach(</span>
+                    (key, serializerSnapshotTuple) -&gt; {
+<span class="nc" id="L724">                        TypeSerializer&lt;?&gt; serializer = serializerSnapshotTuple.f0;</span>
+<span class="nc" id="L725">                        TypeSerializerSnapshot&lt;?&gt; snapshot = serializerSnapshotTuple.f1;</span>
+
+<span class="nc bnc" id="L727" title="All 2 branches missed.">                        if (snapshot instanceof TypeSerializerConfigSnapshot) {</span>
+<span class="nc" id="L728">                            ((TypeSerializerConfigSnapshot) snapshot)</span>
+<span class="nc" id="L729">                                    .setPriorSerializer(serializer);</span>
+                        }
+
+<span class="nc bnc" id="L732" title="All 2 branches missed.">                        if (serializer instanceof LegacySerializerSnapshotTransformer) {</span>
+<span class="nc" id="L733">                            snapshot =</span>
+                                    ((LegacySerializerSnapshotTransformer) serializer)
+<span class="nc" id="L735">                                            .transformLegacySerializerSnapshot(snapshot);</span>
+                        }
+
+<span class="nc" id="L738">                        converted.put(key, snapshot);</span>
+<span class="nc" id="L739">                    });</span>
+
+<span class="nc" id="L741">            return converted;</span>
+        }
+
+        @Override
+        public void write(DataOutputView out) throws IOException {
+<span class="nc" id="L746">            super.write(out);</span>
+
+<span class="nc" id="L748">            try (ByteArrayOutputStreamWithPos outWithPos = new ByteArrayOutputStreamWithPos();</span>
+<span class="nc" id="L749">                    DataOutputViewStreamWrapper outViewWrapper =</span>
+                            new DataOutputViewStreamWrapper(outWithPos)) {
+
+                // --- write fields and their serializers, in order
+
+<span class="nc" id="L754">                out.writeInt(fieldToSerializerConfigSnapshot.size());</span>
+                for (Map.Entry&lt;String, Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt; entry :
+<span class="nc bnc" id="L756" title="All 2 branches missed.">                        fieldToSerializerConfigSnapshot.entrySet()) {</span>
+
+<span class="nc" id="L758">                    outViewWrapper.writeUTF(entry.getKey());</span>
+
+<span class="nc" id="L760">                    out.writeInt(outWithPos.getPosition());</span>
+<span class="nc bnc" id="L761" title="All 2 branches missed.">                    if (!ignoreTypeSerializerSerialization) {</span>
+<span class="nc" id="L762">                        TypeSerializerSerializationUtil.writeSerializer(</span>
+<span class="nc" id="L763">                                outViewWrapper, entry.getValue().f0);</span>
+                    }
+
+<span class="nc" id="L766">                    out.writeInt(outWithPos.getPosition());</span>
+<span class="nc" id="L767">                    TypeSerializerSnapshotSerializationUtil.writeSerializerSnapshot(</span>
+                            outViewWrapper,
+<span class="nc" id="L769">                            (TypeSerializerSnapshot) entry.getValue().f1,</span>
+<span class="nc" id="L770">                            entry.getValue().f0);</span>
+<span class="nc" id="L771">                }</span>
+
+                // --- write registered subclasses and their serializers, in registration order
+
+<span class="nc" id="L775">                out.writeInt(registeredSubclassesToSerializerConfigSnapshots.size());</span>
+                for (Map.Entry&lt;Class&lt;?&gt;, Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt;
+<span class="nc bnc" id="L777" title="All 2 branches missed.">                        entry : registeredSubclassesToSerializerConfigSnapshots.entrySet()) {</span>
+
+<span class="nc" id="L779">                    outViewWrapper.writeUTF(entry.getKey().getName());</span>
+
+<span class="nc" id="L781">                    out.writeInt(outWithPos.getPosition());</span>
+<span class="nc bnc" id="L782" title="All 2 branches missed.">                    if (!ignoreTypeSerializerSerialization) {</span>
+<span class="nc" id="L783">                        TypeSerializerSerializationUtil.writeSerializer(</span>
+<span class="nc" id="L784">                                outViewWrapper, entry.getValue().f0);</span>
+                    }
+
+<span class="nc" id="L787">                    out.writeInt(outWithPos.getPosition());</span>
+<span class="nc" id="L788">                    TypeSerializerSnapshotSerializationUtil.writeSerializerSnapshot(</span>
+                            outViewWrapper,
+<span class="nc" id="L790">                            (TypeSerializerSnapshot) entry.getValue().f1,</span>
+<span class="nc" id="L791">                            entry.getValue().f0);</span>
+<span class="nc" id="L792">                }</span>
+
+                // --- write snapshot of non-registered subclass serializer cache
+
+<span class="nc" id="L796">                out.writeInt(nonRegisteredSubclassesToSerializerConfigSnapshots.size());</span>
+                for (Map.Entry&lt;Class&lt;?&gt;, Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt;
+<span class="nc bnc" id="L798" title="All 2 branches missed.">                        entry : nonRegisteredSubclassesToSerializerConfigSnapshots.entrySet()) {</span>
+
+<span class="nc" id="L800">                    outViewWrapper.writeUTF(entry.getKey().getName());</span>
+
+<span class="nc" id="L802">                    out.writeInt(outWithPos.getPosition());</span>
+<span class="nc bnc" id="L803" title="All 2 branches missed.">                    if (!ignoreTypeSerializerSerialization) {</span>
+<span class="nc" id="L804">                        TypeSerializerSerializationUtil.writeSerializer(</span>
+<span class="nc" id="L805">                                outViewWrapper, entry.getValue().f0);</span>
+                    }
+
+<span class="nc" id="L808">                    out.writeInt(outWithPos.getPosition());</span>
+<span class="nc" id="L809">                    TypeSerializerSnapshotSerializationUtil.writeSerializerSnapshot(</span>
+                            outViewWrapper,
+<span class="nc" id="L811">                            (TypeSerializerSnapshot) entry.getValue().f1,</span>
+<span class="nc" id="L812">                            entry.getValue().f0);</span>
+<span class="nc" id="L813">                }</span>
+
+<span class="nc" id="L815">                out.writeInt(outWithPos.getPosition());</span>
+<span class="nc" id="L816">                out.write(outWithPos.getBuf(), 0, outWithPos.getPosition());</span>
+            }
+<span class="nc" id="L818">        }</span>
+
+        @Override
+        public void read(DataInputView in) throws IOException {
+<span class="nc" id="L822">            super.read(in);</span>
+
+<span class="nc" id="L824">            int numFields = in.readInt();</span>
+<span class="nc" id="L825">            int[] fieldSerializerOffsets = new int[numFields * 2];</span>
+<span class="nc bnc" id="L826" title="All 2 branches missed.">            for (int i = 0; i &lt; numFields; i++) {</span>
+<span class="nc" id="L827">                fieldSerializerOffsets[i * 2] = in.readInt();</span>
+<span class="nc" id="L828">                fieldSerializerOffsets[i * 2 + 1] = in.readInt();</span>
+            }
+
+<span class="nc" id="L831">            int numRegisteredSubclasses = in.readInt();</span>
+<span class="nc" id="L832">            int[] registeredSerializerOffsets = new int[numRegisteredSubclasses * 2];</span>
+<span class="nc bnc" id="L833" title="All 2 branches missed.">            for (int i = 0; i &lt; numRegisteredSubclasses; i++) {</span>
+<span class="nc" id="L834">                registeredSerializerOffsets[i * 2] = in.readInt();</span>
+<span class="nc" id="L835">                registeredSerializerOffsets[i * 2 + 1] = in.readInt();</span>
+            }
+
+<span class="nc" id="L838">            int numCachedSubclassSerializers = in.readInt();</span>
+<span class="nc" id="L839">            int[] cachedSerializerOffsets = new int[numCachedSubclassSerializers * 2];</span>
+<span class="nc bnc" id="L840" title="All 2 branches missed.">            for (int i = 0; i &lt; numCachedSubclassSerializers; i++) {</span>
+<span class="nc" id="L841">                cachedSerializerOffsets[i * 2] = in.readInt();</span>
+<span class="nc" id="L842">                cachedSerializerOffsets[i * 2 + 1] = in.readInt();</span>
+            }
+
+<span class="nc" id="L845">            int totalBytes = in.readInt();</span>
+<span class="nc" id="L846">            byte[] buffer = new byte[totalBytes];</span>
+<span class="nc" id="L847">            in.readFully(buffer);</span>
+
+<span class="nc" id="L849">            try (ByteArrayInputStreamWithPos inWithPos = new ByteArrayInputStreamWithPos(buffer);</span>
+<span class="nc" id="L850">                    DataInputViewStreamWrapper inViewWrapper =</span>
+                            new DataInputViewStreamWrapper(inWithPos)) {
+
+                // --- read fields and their serializers, in order
+
+<span class="nc" id="L855">                this.fieldToSerializerConfigSnapshot = new LinkedHashMap&lt;&gt;(numFields);</span>
+                String fieldName;
+                TypeSerializer&lt;?&gt; fieldSerializer;
+                TypeSerializerSnapshot fieldSerializerConfigSnapshot;
+<span class="nc bnc" id="L859" title="All 2 branches missed.">                for (int i = 0; i &lt; numFields; i++) {</span>
+<span class="nc" id="L860">                    fieldName = inViewWrapper.readUTF();</span>
+
+<span class="nc" id="L862">                    inWithPos.setPosition(fieldSerializerOffsets[i * 2]);</span>
+<span class="nc" id="L863">                    fieldSerializer =</span>
+<span class="nc" id="L864">                            TypeSerializerSerializationUtil.tryReadSerializer(</span>
+<span class="nc" id="L865">                                    inViewWrapper, getUserCodeClassLoader(), true);</span>
+
+<span class="nc" id="L867">                    inWithPos.setPosition(fieldSerializerOffsets[i * 2 + 1]);</span>
+<span class="nc" id="L868">                    fieldSerializerConfigSnapshot =</span>
+<span class="nc" id="L869">                            TypeSerializerSnapshotSerializationUtil.readSerializerSnapshot(</span>
+<span class="nc" id="L870">                                    inViewWrapper, getUserCodeClassLoader(), fieldSerializer);</span>
+
+<span class="nc" id="L872">                    fieldToSerializerConfigSnapshot.put(</span>
+                            fieldName,
+                            new Tuple2&lt;&gt;(fieldSerializer, fieldSerializerConfigSnapshot));
+                }
+
+                // --- read registered subclasses and their serializers, in registration order
+
+<span class="nc" id="L879">                this.registeredSubclassesToSerializerConfigSnapshots =</span>
+                        new LinkedHashMap&lt;&gt;(numRegisteredSubclasses);
+                String registeredSubclassname;
+                Class&lt;?&gt; registeredSubclass;
+                TypeSerializer&lt;?&gt; registeredSubclassSerializer;
+                TypeSerializerSnapshot registeredSubclassSerializerConfigSnapshot;
+<span class="nc bnc" id="L885" title="All 2 branches missed.">                for (int i = 0; i &lt; numRegisteredSubclasses; i++) {</span>
+<span class="nc" id="L886">                    registeredSubclassname = inViewWrapper.readUTF();</span>
+                    try {
+<span class="nc" id="L888">                        registeredSubclass =</span>
+<span class="nc" id="L889">                                Class.forName(</span>
+<span class="nc" id="L890">                                        registeredSubclassname, true, getUserCodeClassLoader());</span>
+<span class="nc" id="L891">                    } catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L892">                        throw new IOException(</span>
+                                &quot;Cannot find requested class &quot;
+                                        + registeredSubclassname
+                                        + &quot; in classpath.&quot;,
+                                e);
+<span class="nc" id="L897">                    }</span>
+
+<span class="nc" id="L899">                    inWithPos.setPosition(registeredSerializerOffsets[i * 2]);</span>
+<span class="nc" id="L900">                    registeredSubclassSerializer =</span>
+<span class="nc" id="L901">                            TypeSerializerSerializationUtil.tryReadSerializer(</span>
+<span class="nc" id="L902">                                    inViewWrapper, getUserCodeClassLoader(), true);</span>
+
+<span class="nc" id="L904">                    inWithPos.setPosition(registeredSerializerOffsets[i * 2 + 1]);</span>
+<span class="nc" id="L905">                    registeredSubclassSerializerConfigSnapshot =</span>
+<span class="nc" id="L906">                            TypeSerializerSnapshotSerializationUtil.readSerializerSnapshot(</span>
+                                    inViewWrapper,
+<span class="nc" id="L908">                                    getUserCodeClassLoader(),</span>
+                                    registeredSubclassSerializer);
+
+<span class="nc" id="L911">                    this.registeredSubclassesToSerializerConfigSnapshots.put(</span>
+                            registeredSubclass,
+                            new Tuple2&lt;&gt;(
+                                    registeredSubclassSerializer,
+                                    registeredSubclassSerializerConfigSnapshot));
+                }
+
+                // --- read snapshot of non-registered subclass serializer cache
+
+<span class="nc" id="L920">                this.nonRegisteredSubclassesToSerializerConfigSnapshots =</span>
+                        new HashMap&lt;&gt;(numCachedSubclassSerializers);
+                String cachedSubclassname;
+                Class&lt;?&gt; cachedSubclass;
+                TypeSerializer&lt;?&gt; cachedSubclassSerializer;
+                TypeSerializerSnapshot cachedSubclassSerializerConfigSnapshot;
+<span class="nc bnc" id="L926" title="All 2 branches missed.">                for (int i = 0; i &lt; numCachedSubclassSerializers; i++) {</span>
+<span class="nc" id="L927">                    cachedSubclassname = inViewWrapper.readUTF();</span>
+                    try {
+<span class="nc" id="L929">                        cachedSubclass =</span>
+<span class="nc" id="L930">                                Class.forName(cachedSubclassname, true, getUserCodeClassLoader());</span>
+<span class="nc" id="L931">                    } catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L932">                        throw new IOException(</span>
+                                &quot;Cannot find requested class &quot;
+                                        + cachedSubclassname
+                                        + &quot; in classpath.&quot;,
+                                e);
+<span class="nc" id="L937">                    }</span>
+
+<span class="nc" id="L939">                    inWithPos.setPosition(cachedSerializerOffsets[i * 2]);</span>
+<span class="nc" id="L940">                    cachedSubclassSerializer =</span>
+<span class="nc" id="L941">                            TypeSerializerSerializationUtil.tryReadSerializer(</span>
+<span class="nc" id="L942">                                    inViewWrapper, getUserCodeClassLoader(), true);</span>
+
+<span class="nc" id="L944">                    inWithPos.setPosition(cachedSerializerOffsets[i * 2 + 1]);</span>
+<span class="nc" id="L945">                    cachedSubclassSerializerConfigSnapshot =</span>
+<span class="nc" id="L946">                            TypeSerializerSnapshotSerializationUtil.readSerializerSnapshot(</span>
+                                    inViewWrapper,
+<span class="nc" id="L948">                                    getUserCodeClassLoader(),</span>
+                                    cachedSubclassSerializer);
+
+<span class="nc" id="L951">                    this.nonRegisteredSubclassesToSerializerConfigSnapshots.put(</span>
+                            cachedSubclass,
+                            new Tuple2&lt;&gt;(
+                                    cachedSubclassSerializer,
+                                    cachedSubclassSerializerConfigSnapshot));
+                }
+            }
+<span class="nc" id="L958">        }</span>
+
+        @Override
+        public int getVersion() {
+<span class="nc" id="L962">            return VERSION;</span>
+        }
+
+        public LinkedHashMap&lt;String, Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt;
+                getFieldToSerializerConfigSnapshot() {
+<span class="nc" id="L967">            return fieldToSerializerConfigSnapshot;</span>
+        }
+
+        public LinkedHashMap&lt;Class&lt;?&gt;, Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt;
+                getRegisteredSubclassesToSerializerConfigSnapshots() {
+<span class="nc" id="L972">            return registeredSubclassesToSerializerConfigSnapshots;</span>
+        }
+
+        public HashMap&lt;Class&lt;?&gt;, Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt;
+                getNonRegisteredSubclassesToSerializerConfigSnapshots() {
+<span class="nc" id="L977">            return nonRegisteredSubclassesToSerializerConfigSnapshots;</span>
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+<span class="nc bnc" id="L982" title="All 4 branches missed.">            return super.equals(obj)</span>
+                    &amp;&amp; (obj instanceof PojoSerializerConfigSnapshot)
+<span class="nc bnc" id="L984" title="All 2 branches missed.">                    &amp;&amp; fieldToSerializerConfigSnapshot.equals(</span>
+                            ((PojoSerializerConfigSnapshot) obj)
+<span class="nc" id="L986">                                    .getFieldToSerializerConfigSnapshot())</span>
+<span class="nc bnc" id="L987" title="All 2 branches missed.">                    &amp;&amp; registeredSubclassesToSerializerConfigSnapshots.equals(</span>
+                            ((PojoSerializerConfigSnapshot) obj)
+<span class="nc" id="L989">                                    .getRegisteredSubclassesToSerializerConfigSnapshots())</span>
+<span class="nc bnc" id="L990" title="All 2 branches missed.">                    &amp;&amp; nonRegisteredSubclassesToSerializerConfigSnapshots.equals(</span>
+                            ((PojoSerializerConfigSnapshot) obj)
+                                    .nonRegisteredSubclassesToSerializerConfigSnapshots);
+        }
+
+        @Override
+        public int hashCode() {
+<span class="nc" id="L997">            return super.hashCode()</span>
+<span class="nc" id="L998">                    + Objects.hash(</span>
+                            fieldToSerializerConfigSnapshot,
+                            registeredSubclassesToSerializerConfigSnapshots,
+                            nonRegisteredSubclassesToSerializerConfigSnapshots);
+        }
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    private void writeObject(ObjectOutputStream out) throws IOException, ClassNotFoundException {
+<span class="fc" id="L1008">        out.defaultWriteObject();</span>
+<span class="fc" id="L1009">        out.writeInt(fields.length);</span>
+<span class="fc bfc" id="L1010" title="All 2 branches covered.">        for (Field field : fields) {</span>
+<span class="fc" id="L1011">            FieldSerializer.serializeField(field, out);</span>
+        }
+<span class="fc" id="L1013">    }</span>
+
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+<span class="fc" id="L1016">        in.defaultReadObject();</span>
+<span class="fc" id="L1017">        int numFields = in.readInt();</span>
+<span class="fc" id="L1018">        fields = new Field[numFields];</span>
+<span class="fc bfc" id="L1019" title="All 2 branches covered.">        for (int i = 0; i &lt; numFields; i++) {</span>
+            // the deserialized Field may be null if the field no longer exists in the POJO;
+            // in this case, when de-/serializing and copying instances using this serializer
+            // instance, the missing fields will simply be skipped
+<span class="fc" id="L1023">            fields[i] = FieldSerializer.deserializeField(in);</span>
+        }
+
+<span class="fc" id="L1026">        cl = Thread.currentThread().getContextClassLoader();</span>
+<span class="fc" id="L1027">        subclassSerializerCache = new HashMap&lt;Class&lt;?&gt;, TypeSerializer&lt;?&gt;&gt;();</span>
+<span class="fc" id="L1028">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+    // Configuration access
+    // --------------------------------------------------------------------------------------------
+
+    Class&lt;T&gt; getPojoClass() {
+<span class="fc" id="L1035">        return clazz;</span>
+    }
+
+    Field[] getFields() {
+<span class="fc" id="L1039">        return fields;</span>
+    }
+
+    TypeSerializer&lt;?&gt;[] getFieldSerializers() {
+<span class="fc" id="L1043">        return fieldSerializers;</span>
+    }
+
+    TypeSerializer&lt;?&gt; getFieldSerializer(Field targetField) {
+<span class="nc" id="L1047">        int fieldIndex = findField(targetField.getName());</span>
+<span class="nc bnc" id="L1048" title="All 2 branches missed.">        if (fieldIndex == -1) {</span>
+<span class="nc" id="L1049">            return null;</span>
+        }
+<span class="nc" id="L1051">        return fieldSerializers[fieldIndex];</span>
+    }
+
+    ExecutionConfig getExecutionConfig() {
+<span class="fc" id="L1055">        return executionConfig;</span>
+    }
+
+    LinkedHashMap&lt;Class&lt;?&gt;, Integer&gt; getRegisteredClasses() {
+<span class="fc" id="L1059">        return registeredClasses;</span>
+    }
+
+    TypeSerializer&lt;?&gt;[] getRegisteredSerializers() {
+<span class="fc" id="L1063">        return registeredSerializers;</span>
+    }
+
+    LinkedHashMap&lt;Class&lt;?&gt;, TypeSerializer&lt;?&gt;&gt; getBundledSubclassSerializerRegistry() {
+<span class="fc" id="L1067">        final LinkedHashMap&lt;Class&lt;?&gt;, TypeSerializer&lt;?&gt;&gt; result =</span>
+<span class="fc" id="L1068">                new LinkedHashMap&lt;&gt;(registeredClasses.size());</span>
+<span class="fc" id="L1069">        registeredClasses.forEach(</span>
+<span class="fc" id="L1070">                (registeredClass, id) -&gt; result.put(registeredClass, registeredSerializers[id]));</span>
+<span class="fc" id="L1071">        return result;</span>
+    }
+
+    Map&lt;Class&lt;?&gt;, TypeSerializer&lt;?&gt;&gt; getSubclassSerializerCache() {
+<span class="fc" id="L1075">        return subclassSerializerCache;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // Utilities
+    // --------------------------------------------------------------------------------------------
+
+    /** Extracts the subclasses of the base POJO class registered in the execution config. */
+    private static LinkedHashSet&lt;Class&lt;?&gt;&gt; getRegisteredSubclassesFromExecutionConfig(
+            Class&lt;?&gt; basePojoClass, ExecutionConfig executionConfig) {
+
+<span class="fc" id="L1086">        LinkedHashSet&lt;Class&lt;?&gt;&gt; subclassesInRegistrationOrder =</span>
+<span class="fc" id="L1087">                new LinkedHashSet&lt;&gt;(executionConfig.getRegisteredPojoTypes().size());</span>
+<span class="fc bfc" id="L1088" title="All 2 branches covered.">        for (Class&lt;?&gt; registeredClass : executionConfig.getRegisteredPojoTypes()) {</span>
+<span class="fc bfc" id="L1089" title="All 2 branches covered.">            if (registeredClass.equals(basePojoClass)) {</span>
+<span class="fc" id="L1090">                continue;</span>
+            }
+<span class="fc bfc" id="L1092" title="All 2 branches covered.">            if (!basePojoClass.isAssignableFrom(registeredClass)) {</span>
+<span class="fc" id="L1093">                continue;</span>
+            }
+<span class="fc" id="L1095">            subclassesInRegistrationOrder.add(registeredClass);</span>
+<span class="fc" id="L1096">        }</span>
+
+<span class="fc" id="L1098">        return subclassesInRegistrationOrder;</span>
+    }
+
+    /**
+     * Builds map of registered subclasses to their class tags. Class tags will be integers starting
+     * from 0, assigned incrementally with the order of provided subclasses.
+     */
+    private static LinkedHashMap&lt;Class&lt;?&gt;, Integer&gt; createRegisteredSubclassTags(
+            LinkedHashSet&lt;Class&lt;?&gt;&gt; registeredSubclasses) {
+<span class="fc" id="L1107">        final LinkedHashMap&lt;Class&lt;?&gt;, Integer&gt; classToTag = new LinkedHashMap&lt;&gt;();</span>
+
+<span class="fc" id="L1109">        int id = 0;</span>
+<span class="fc bfc" id="L1110" title="All 2 branches covered.">        for (Class&lt;?&gt; registeredClass : registeredSubclasses) {</span>
+<span class="fc" id="L1111">            classToTag.put(registeredClass, id);</span>
+<span class="fc" id="L1112">            id++;</span>
+<span class="fc" id="L1113">        }</span>
+
+<span class="fc" id="L1115">        return classToTag;</span>
+    }
+
+    /**
+     * Creates an array of serializers for provided list of registered subclasses. Order of returned
+     * serializers will correspond to order of provided subclasses.
+     */
+    private static TypeSerializer&lt;?&gt;[] createRegisteredSubclassSerializers(
+            LinkedHashSet&lt;Class&lt;?&gt;&gt; registeredSubclasses, ExecutionConfig executionConfig) {
+
+<span class="fc" id="L1125">        final TypeSerializer&lt;?&gt;[] subclassSerializers =</span>
+<span class="fc" id="L1126">                new TypeSerializer[registeredSubclasses.size()];</span>
+
+<span class="fc" id="L1128">        int i = 0;</span>
+<span class="fc bfc" id="L1129" title="All 2 branches covered.">        for (Class&lt;?&gt; registeredClass : registeredSubclasses) {</span>
+<span class="fc" id="L1130">            subclassSerializers[i] =</span>
+<span class="fc" id="L1131">                    TypeExtractor.createTypeInfo(registeredClass).createSerializer(executionConfig);</span>
+<span class="fc" id="L1132">            i++;</span>
+<span class="fc" id="L1133">        }</span>
+
+<span class="fc" id="L1135">        return subclassSerializers;</span>
+    }
+
+    /**
+     * Fetches cached serializer for a non-registered subclass; also creates the serializer if it
+     * doesn't exist yet.
+     *
+     * &lt;p&gt;This method is also exposed to package-private access for testing purposes.
+     */
+    TypeSerializer&lt;?&gt; getSubclassSerializer(Class&lt;?&gt; subclass) {
+<span class="fc" id="L1145">        TypeSerializer&lt;?&gt; result = subclassSerializerCache.get(subclass);</span>
+<span class="fc bfc" id="L1146" title="All 2 branches covered.">        if (result == null) {</span>
+<span class="fc" id="L1147">            result = createSubclassSerializer(subclass);</span>
+<span class="fc" id="L1148">            subclassSerializerCache.put(subclass, result);</span>
+        }
+<span class="fc" id="L1150">        return result;</span>
+    }
+
+    private TypeSerializer&lt;?&gt; createSubclassSerializer(Class&lt;?&gt; subclass) {
+<span class="fc" id="L1154">        TypeSerializer&lt;?&gt; serializer =</span>
+<span class="fc" id="L1155">                TypeExtractor.createTypeInfo(subclass).createSerializer(executionConfig);</span>
+
+<span class="fc bfc" id="L1157" title="All 2 branches covered.">        if (serializer instanceof PojoSerializer) {</span>
+<span class="fc" id="L1158">            PojoSerializer&lt;?&gt; subclassSerializer = (PojoSerializer&lt;?&gt;) serializer;</span>
+<span class="fc" id="L1159">            subclassSerializer.copyBaseFieldOrder(this);</span>
+        }
+
+<span class="fc" id="L1162">        return serializer;</span>
+    }
+
+    /**
+     * Finds and returns the order (0-based) of a POJO field. Returns -1 if the field does not exist
+     * for this POJO.
+     */
+    private int findField(String fieldName) {
+<span class="nc" id="L1170">        int foundIndex = 0;</span>
+<span class="nc bnc" id="L1171" title="All 2 branches missed.">        for (Field field : fields) {</span>
+<span class="nc bnc" id="L1172" title="All 4 branches missed.">            if (field != null &amp;&amp; fieldName.equals(field.getName())) {</span>
+<span class="nc" id="L1173">                return foundIndex;</span>
+            }
+
+<span class="nc" id="L1176">            foundIndex++;</span>
+        }
+
+<span class="nc" id="L1179">        return -1;</span>
+    }
+
+    private void copyBaseFieldOrder(PojoSerializer&lt;?&gt; baseSerializer) {
+        // do nothing for now, but in the future, adapt subclass serializer to have same
+        // ordering as base class serializer so that binary comparison on base class fields
+        // can work
+<span class="fc" id="L1186">    }</span>
+
+    /**
+     * Build and return a snapshot of the serializer's parameters and currently cached serializers.
+     */
+    private static &lt;T&gt; PojoSerializerSnapshot&lt;T&gt; buildSnapshot(
+            Class&lt;T&gt; pojoType,
+            LinkedHashMap&lt;Class&lt;?&gt;, Integer&gt; registeredSubclassesToTags,
+            TypeSerializer&lt;?&gt;[] registeredSubclassSerializers,
+            Field[] fields,
+            TypeSerializer&lt;?&gt;[] fieldSerializers,
+            Map&lt;Class&lt;?&gt;, TypeSerializer&lt;?&gt;&gt; nonRegisteredSubclassSerializerCache) {
+
+<span class="fc" id="L1199">        final LinkedHashMap&lt;Class&lt;?&gt;, TypeSerializer&lt;?&gt;&gt; subclassRegistry =</span>
+<span class="fc" id="L1200">                new LinkedHashMap&lt;&gt;(registeredSubclassesToTags.size());</span>
+
+<span class="fc bfc" id="L1202" title="All 2 branches covered.">        for (Map.Entry&lt;Class&lt;?&gt;, Integer&gt; entry : registeredSubclassesToTags.entrySet()) {</span>
+<span class="fc" id="L1203">            subclassRegistry.put(entry.getKey(), registeredSubclassSerializers[entry.getValue()]);</span>
+<span class="fc" id="L1204">        }</span>
+
+<span class="fc" id="L1206">        return new PojoSerializerSnapshot&lt;&gt;(</span>
+                pojoType,
+                fields,
+                fieldSerializers,
+                subclassRegistry,
+                nonRegisteredSubclassSerializerCache);
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

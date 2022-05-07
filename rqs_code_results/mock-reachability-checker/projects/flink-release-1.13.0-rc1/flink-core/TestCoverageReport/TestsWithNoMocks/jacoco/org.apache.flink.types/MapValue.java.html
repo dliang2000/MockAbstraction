@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MapValue.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.types</a> &gt; <span class="el_source">MapValue.java</span></div><h1>MapValue.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.types;
+
+import org.apache.flink.annotation.Public;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.util.ReflectionUtil;
+
+import java.io.IOException;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Generic map base type for PACT programs that implements the Value and Map interfaces. The {@link
+ * MapValue} encapsulates a Java {@link HashMap} object.
+ *
+ * @see org.apache.flink.types.Value
+ * @see java.util.Map
+ * @see java.util.HashMap
+ * @param &lt;K&gt; Type of the map's key element.
+ * @param &lt;V&gt; Type of the map's value element.
+ */
+@Public
+public abstract class MapValue&lt;K extends Value, V extends Value&gt; implements Value, Map&lt;K, V&gt; {
+    private static final long serialVersionUID = 1L;
+
+    // type of the map's key
+    private final Class&lt;K&gt; keyClass;
+    // type of the map's value
+    private final Class&lt;V&gt; valueClass;
+    // encapsulated map
+    private final Map&lt;K, V&gt; map;
+
+    /** Initializes the encapsulated map with an empty HashMap. */
+<span class="nc" id="L54">    public MapValue() {</span>
+<span class="nc" id="L55">        this.keyClass = ReflectionUtil.getTemplateType1(this.getClass());</span>
+<span class="nc" id="L56">        this.valueClass = ReflectionUtil.getTemplateType2(this.getClass());</span>
+
+<span class="nc" id="L58">        this.map = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L59">    }</span>
+
+    /**
+     * Initializes the encapsulated map with a HashMap filled with all entries of the provided map.
+     *
+     * @param map Map holding all entries with which the new encapsulated map is filled.
+     */
+<span class="nc" id="L66">    public MapValue(Map&lt;K, V&gt; map) {</span>
+<span class="nc" id="L67">        this.keyClass = ReflectionUtil.getTemplateType1(this.getClass());</span>
+<span class="nc" id="L68">        this.valueClass = ReflectionUtil.getTemplateType2(this.getClass());</span>
+
+<span class="nc" id="L70">        this.map = new HashMap&lt;&gt;(map);</span>
+<span class="nc" id="L71">    }</span>
+
+    @Override
+    public void read(final DataInputView in) throws IOException {
+<span class="nc" id="L75">        int size = in.readInt();</span>
+<span class="nc" id="L76">        this.map.clear();</span>
+
+        try {
+<span class="nc bnc" id="L79" title="All 2 branches missed.">            for (; size &gt; 0; size--) {</span>
+<span class="nc" id="L80">                final K key = this.keyClass.newInstance();</span>
+<span class="nc" id="L81">                final V val = this.valueClass.newInstance();</span>
+<span class="nc" id="L82">                key.read(in);</span>
+<span class="nc" id="L83">                val.read(in);</span>
+<span class="nc" id="L84">                this.map.put(key, val);</span>
+            }
+<span class="nc" id="L86">        } catch (final InstantiationException | IllegalAccessException e) {</span>
+<span class="nc" id="L87">            throw new RuntimeException(e);</span>
+<span class="nc" id="L88">        }</span>
+<span class="nc" id="L89">    }</span>
+
+    @Override
+    public void write(final DataOutputView out) throws IOException {
+<span class="nc" id="L93">        out.writeInt(this.map.size());</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">        for (final Entry&lt;K, V&gt; entry : this.map.entrySet()) {</span>
+<span class="nc" id="L95">            entry.getKey().write(out);</span>
+<span class="nc" id="L96">            entry.getValue().write(out);</span>
+<span class="nc" id="L97">        }</span>
+<span class="nc" id="L98">    }</span>
+
+    /*
+     * (non-Javadoc)
+     * @see java.lang.Object#toString()
+     */
+    @Override
+    public String toString() {
+<span class="nc" id="L106">        return this.map.toString();</span>
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see java.lang.Object#hashCode()
+     */
+    @Override
+    public int hashCode() {
+<span class="nc" id="L115">        final int prime = 47;</span>
+<span class="nc" id="L116">        int result = 1;</span>
+<span class="nc" id="L117">        result = prime * result + this.map.hashCode();</span>
+<span class="nc" id="L118">        return result;</span>
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see java.lang.Object#equals(java.lang.Object)
+     */
+    @Override
+    public boolean equals(final Object obj) {
+<span class="nc bnc" id="L127" title="All 2 branches missed.">        if (this == obj) {</span>
+<span class="nc" id="L128">            return true;</span>
+        }
+<span class="nc bnc" id="L130" title="All 2 branches missed.">        if (obj == null) {</span>
+<span class="nc" id="L131">            return false;</span>
+        }
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        if (this.getClass() != obj.getClass()) {</span>
+<span class="nc" id="L134">            return false;</span>
+        }
+<span class="nc" id="L136">        final MapValue&lt;?, ?&gt; other = (MapValue&lt;?, ?&gt;) obj;</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">        if (this.map == null) {</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">            if (other.map != null) {</span>
+<span class="nc" id="L139">                return false;</span>
+            }
+<span class="nc bnc" id="L141" title="All 2 branches missed.">        } else if (!this.map.equals(other.map)) {</span>
+<span class="nc" id="L142">            return false;</span>
+        }
+<span class="nc" id="L144">        return true;</span>
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see java.util.Map#clear()
+     */
+    @Override
+    public void clear() {
+<span class="nc" id="L153">        this.map.clear();</span>
+<span class="nc" id="L154">    }</span>
+
+    /*
+     * (non-Javadoc)
+     * @see java.util.Map#containsKey(java.lang.Object)
+     */
+    @Override
+    public boolean containsKey(final Object key) {
+<span class="nc" id="L162">        return this.map.containsKey(key);</span>
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see java.util.Map#containsValue(java.lang.Object)
+     */
+    @Override
+    public boolean containsValue(final Object value) {
+<span class="nc" id="L171">        return this.map.containsValue(value);</span>
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see java.util.Map#entrySet()
+     */
+    @Override
+    public Set&lt;Entry&lt;K, V&gt;&gt; entrySet() {
+<span class="nc" id="L180">        return this.map.entrySet();</span>
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see java.util.Map#get(java.lang.Object)
+     */
+    @Override
+    public V get(final Object key) {
+<span class="nc" id="L189">        return this.map.get(key);</span>
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see java.util.Map#isEmpty()
+     */
+    @Override
+    public boolean isEmpty() {
+<span class="nc" id="L198">        return this.map.isEmpty();</span>
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see java.util.Map#keySet()
+     */
+    @Override
+    public Set&lt;K&gt; keySet() {
+<span class="nc" id="L207">        return this.map.keySet();</span>
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see java.util.Map#put(java.lang.Object, java.lang.Object)
+     */
+    @Override
+    public V put(final K key, final V value) {
+<span class="nc" id="L216">        return this.map.put(key, value);</span>
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see java.util.Map#putAll(java.util.Map)
+     */
+    @Override
+    public void putAll(final Map&lt;? extends K, ? extends V&gt; m) {
+<span class="nc" id="L225">        this.map.putAll(m);</span>
+<span class="nc" id="L226">    }</span>
+
+    /*
+     * (non-Javadoc)
+     * @see java.util.Map#remove(java.lang.Object)
+     */
+    @Override
+    public V remove(final Object key) {
+<span class="nc" id="L234">        return this.map.remove(key);</span>
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see java.util.Map#size()
+     */
+    @Override
+    public int size() {
+<span class="nc" id="L243">        return this.map.size();</span>
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see java.util.Map#values()
+     */
+    @Override
+    public Collection&lt;V&gt; values() {
+<span class="nc" id="L252">        return this.map.values();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

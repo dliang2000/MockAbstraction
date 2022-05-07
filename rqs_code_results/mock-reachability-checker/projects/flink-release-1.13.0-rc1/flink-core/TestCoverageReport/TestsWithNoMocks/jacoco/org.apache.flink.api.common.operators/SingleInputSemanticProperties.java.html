@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SingleInputSemanticProperties.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.operators</a> &gt; <span class="el_source">SingleInputSemanticProperties.java</span></div><h1>SingleInputSemanticProperties.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.operators;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.operators.util.FieldSet;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/** Container for the semantic properties associated to a single input operator. */
+@Internal
+public class SingleInputSemanticProperties implements SemanticProperties {
+    private static final long serialVersionUID = 1L;
+
+    /** Mapping from fields in the source record(s) to fields in the destination record(s). */
+    private Map&lt;Integer, FieldSet&gt; fieldMapping;
+
+    /** Set of fields that are read in the source record(s). */
+    private FieldSet readFields;
+
+<span class="fc" id="L38">    public SingleInputSemanticProperties() {</span>
+<span class="fc" id="L39">        this.fieldMapping = new HashMap&lt;Integer, FieldSet&gt;();</span>
+<span class="fc" id="L40">        this.readFields = null;</span>
+<span class="fc" id="L41">    }</span>
+
+    @Override
+    public FieldSet getForwardingTargetFields(int input, int sourceField) {
+<span class="fc bfc" id="L45" title="All 2 branches covered.">        if (input != 0) {</span>
+<span class="fc" id="L46">            throw new IndexOutOfBoundsException();</span>
+        }
+
+<span class="fc bfc" id="L49" title="All 2 branches covered.">        return this.fieldMapping.containsKey(sourceField)</span>
+<span class="fc" id="L50">                ? this.fieldMapping.get(sourceField)</span>
+                : FieldSet.EMPTY_SET;
+    }
+
+    @Override
+    public int getForwardingSourceField(int input, int targetField) {
+<span class="fc bfc" id="L56" title="All 2 branches covered.">        if (input != 0) {</span>
+<span class="fc" id="L57">            throw new IndexOutOfBoundsException();</span>
+        }
+
+<span class="fc bfc" id="L60" title="All 2 branches covered.">        for (Map.Entry&lt;Integer, FieldSet&gt; e : fieldMapping.entrySet()) {</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">            if (e.getValue().contains(targetField)) {</span>
+<span class="fc" id="L62">                return e.getKey();</span>
+            }
+<span class="fc" id="L64">        }</span>
+<span class="fc" id="L65">        return -1;</span>
+    }
+
+    @Override
+    public FieldSet getReadFields(int input) {
+<span class="fc bfc" id="L70" title="All 2 branches covered.">        if (input != 0) {</span>
+<span class="fc" id="L71">            throw new IndexOutOfBoundsException();</span>
+        }
+
+<span class="fc" id="L74">        return this.readFields;</span>
+    }
+
+    /**
+     * Adds, to the existing information, a field that is forwarded directly from the source
+     * record(s) to the destination record(s).
+     *
+     * @param sourceField the position in the source record(s)
+     * @param targetField the position in the destination record(s)
+     */
+    public void addForwardedField(int sourceField, int targetField) {
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        if (isTargetFieldPresent(targetField)) {</span>
+<span class="fc" id="L86">            throw new InvalidSemanticAnnotationException(</span>
+                    &quot;Target field &quot; + targetField + &quot; was added twice.&quot;);
+        }
+
+<span class="fc" id="L90">        FieldSet targetFields = fieldMapping.get(sourceField);</span>
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        if (targetFields != null) {</span>
+<span class="fc" id="L92">            fieldMapping.put(sourceField, targetFields.addField(targetField));</span>
+        } else {
+<span class="fc" id="L94">            fieldMapping.put(sourceField, new FieldSet(targetField));</span>
+        }
+<span class="fc" id="L96">    }</span>
+
+    private boolean isTargetFieldPresent(int targetField) {
+<span class="fc bfc" id="L99" title="All 2 branches covered.">        for (FieldSet targetFields : fieldMapping.values()) {</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">            if (targetFields.contains(targetField)) {</span>
+<span class="fc" id="L101">                return true;</span>
+            }
+<span class="fc" id="L103">        }</span>
+<span class="fc" id="L104">        return false;</span>
+    }
+
+    /**
+     * Adds, to the existing information, field(s) that are read in the source record(s).
+     *
+     * @param readFields the position(s) in the source record(s)
+     */
+    public void addReadFields(FieldSet readFields) {
+<span class="fc bfc" id="L113" title="All 2 branches covered.">        if (this.readFields == null) {</span>
+<span class="fc" id="L114">            this.readFields = readFields;</span>
+        } else {
+<span class="fc" id="L116">            this.readFields = this.readFields.addFields(readFields);</span>
+        }
+<span class="fc" id="L118">    }</span>
+
+    @Override
+    public String toString() {
+<span class="nc" id="L122">        return &quot;SISP(&quot; + this.fieldMapping + &quot;)&quot;;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+<span class="fc" id="L127">    public static class AllFieldsForwardedProperties extends SingleInputSemanticProperties {</span>
+
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public FieldSet getForwardingTargetFields(int input, int sourceField) {
+<span class="fc bfc" id="L133" title="All 2 branches covered.">            if (input != 0) {</span>
+<span class="fc" id="L134">                throw new IndexOutOfBoundsException();</span>
+            }
+<span class="fc" id="L136">            return new FieldSet(sourceField);</span>
+        }
+
+        @Override
+        public int getForwardingSourceField(int input, int targetField) {
+<span class="fc bfc" id="L141" title="All 2 branches covered.">            if (input != 0) {</span>
+<span class="fc" id="L142">                throw new IndexOutOfBoundsException();</span>
+            }
+<span class="fc" id="L144">            return targetField;</span>
+        }
+
+        @Override
+        public void addForwardedField(int sourceField, int targetField) {
+<span class="nc" id="L149">            throw new UnsupportedOperationException(&quot;Cannot modify forwarded fields&quot;);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

@@ -1,0 +1,1136 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FileInputFormat.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.io</a> &gt; <span class="el_source">FileInputFormat.java</span></div><h1>FileInputFormat.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.io;
+
+import org.apache.flink.annotation.Public;
+import org.apache.flink.api.common.io.compression.Bzip2InputStreamFactory;
+import org.apache.flink.api.common.io.compression.DeflateInflaterInputStreamFactory;
+import org.apache.flink.api.common.io.compression.GzipInflaterInputStreamFactory;
+import org.apache.flink.api.common.io.compression.InflaterInputStreamFactory;
+import org.apache.flink.api.common.io.compression.XZInputStreamFactory;
+import org.apache.flink.api.common.io.compression.ZStandardInputStreamFactory;
+import org.apache.flink.api.common.io.statistics.BaseStatistics;
+import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.GlobalConfiguration;
+import org.apache.flink.core.fs.BlockLocation;
+import org.apache.flink.core.fs.FSDataInputStream;
+import org.apache.flink.core.fs.FileInputSplit;
+import org.apache.flink.core.fs.FileStatus;
+import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.util.Preconditions;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * The base class for {@link RichInputFormat}s that read from files. For specific input types the
+ * {@link #nextRecord(Object)} and {@link #reachedEnd()} methods need to be implemented.
+ * Additionally, one may override {@link #open(FileInputSplit)} and {@link #close()} to change the
+ * life cycle behavior.
+ *
+ * &lt;p&gt;After the {@link #open(FileInputSplit)} method completed, the file input data is available
+ * from the {@link #stream} field.
+ */
+@Public
+public abstract class FileInputFormat&lt;OT&gt; extends RichInputFormat&lt;OT, FileInputSplit&gt; {
+
+    // -------------------------------------- Constants -------------------------------------------
+
+<span class="fc" id="L68">    private static final Logger LOG = LoggerFactory.getLogger(FileInputFormat.class);</span>
+
+    private static final long serialVersionUID = 1L;
+
+    /** The fraction that the last split may be larger than the others. */
+    private static final float MAX_SPLIT_SIZE_DISCREPANCY = 1.1f;
+
+    /** The timeout (in milliseconds) to wait for a filesystem stream to respond. */
+    private static long DEFAULT_OPENING_TIMEOUT;
+
+    /**
+     * A mapping of file extensions to decompression algorithms based on DEFLATE. Such compressions
+     * lead to unsplittable files.
+     */
+    protected static final Map&lt;String, InflaterInputStreamFactory&lt;?&gt;&gt;
+<span class="fc" id="L83">            INFLATER_INPUT_STREAM_FACTORIES = new HashMap&lt;String, InflaterInputStreamFactory&lt;?&gt;&gt;();</span>
+
+    /** The splitLength is set to -1L for reading the whole split. */
+    protected static final long READ_WHOLE_SPLIT_FLAG = -1L;
+
+    static {
+<span class="fc" id="L89">        initDefaultsFromConfiguration(GlobalConfiguration.loadConfiguration());</span>
+<span class="fc" id="L90">        initDefaultInflaterInputStreamFactories();</span>
+<span class="fc" id="L91">    }</span>
+
+    /**
+     * Initialize defaults for input format. Needs to be a static method because it is configured
+     * for local cluster execution.
+     *
+     * @param configuration The configuration to load defaults from
+     */
+    private static void initDefaultsFromConfiguration(Configuration configuration) {
+<span class="fc" id="L100">        final long to =</span>
+<span class="fc" id="L101">                configuration.getLong(</span>
+                        ConfigConstants.FS_STREAM_OPENING_TIMEOUT_KEY,
+                        ConfigConstants.DEFAULT_FS_STREAM_OPENING_TIMEOUT);
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">        if (to &lt; 0) {</span>
+<span class="nc" id="L105">            LOG.error(</span>
+                    &quot;Invalid timeout value for filesystem stream opening: &quot;
+                            + to
+                            + &quot;. Using default value of &quot;
+                            + ConfigConstants.DEFAULT_FS_STREAM_OPENING_TIMEOUT);
+<span class="nc" id="L110">            DEFAULT_OPENING_TIMEOUT = ConfigConstants.DEFAULT_FS_STREAM_OPENING_TIMEOUT;</span>
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">        } else if (to == 0) {</span>
+<span class="fc" id="L112">            DEFAULT_OPENING_TIMEOUT = 300000; // 5 minutes</span>
+        } else {
+<span class="nc" id="L114">            DEFAULT_OPENING_TIMEOUT = to;</span>
+        }
+<span class="fc" id="L116">    }</span>
+
+    private static void initDefaultInflaterInputStreamFactories() {
+<span class="fc" id="L119">        InflaterInputStreamFactory&lt;?&gt;[] defaultFactories = {</span>
+<span class="fc" id="L120">            DeflateInflaterInputStreamFactory.getInstance(),</span>
+<span class="fc" id="L121">            GzipInflaterInputStreamFactory.getInstance(),</span>
+<span class="fc" id="L122">            Bzip2InputStreamFactory.getInstance(),</span>
+<span class="fc" id="L123">            XZInputStreamFactory.getInstance(),</span>
+<span class="fc" id="L124">            ZStandardInputStreamFactory.getInstance()</span>
+        };
+<span class="fc bfc" id="L126" title="All 2 branches covered.">        for (InflaterInputStreamFactory&lt;?&gt; inputStreamFactory : defaultFactories) {</span>
+<span class="fc bfc" id="L127" title="All 2 branches covered.">            for (String fileExtension : inputStreamFactory.getCommonFileExtensions()) {</span>
+<span class="fc" id="L128">                registerInflaterInputStreamFactory(fileExtension, inputStreamFactory);</span>
+<span class="fc" id="L129">            }</span>
+        }
+<span class="fc" id="L131">    }</span>
+
+    /**
+     * Registers a decompression algorithm through a {@link
+     * org.apache.flink.api.common.io.compression.InflaterInputStreamFactory} with a file extension
+     * for transparent decompression.
+     *
+     * @param fileExtension of the compressed files
+     * @param factory to create an {@link java.util.zip.InflaterInputStream} that handles the
+     *     decompression format
+     */
+    public static void registerInflaterInputStreamFactory(
+            String fileExtension, InflaterInputStreamFactory&lt;?&gt; factory) {
+<span class="fc" id="L144">        synchronized (INFLATER_INPUT_STREAM_FACTORIES) {</span>
+<span class="pc bpc" id="L145" title="1 of 2 branches missed.">            if (INFLATER_INPUT_STREAM_FACTORIES.put(fileExtension, factory) != null) {</span>
+<span class="nc" id="L146">                LOG.warn(</span>
+                        &quot;Overwriting an existing decompression algorithm for \&quot;{}\&quot; files.&quot;,
+                        fileExtension);
+            }
+<span class="fc" id="L150">        }</span>
+<span class="fc" id="L151">    }</span>
+
+    protected static InflaterInputStreamFactory&lt;?&gt; getInflaterInputStreamFactory(
+            String fileExtension) {
+<span class="fc" id="L155">        synchronized (INFLATER_INPUT_STREAM_FACTORIES) {</span>
+<span class="fc" id="L156">            return INFLATER_INPUT_STREAM_FACTORIES.get(fileExtension);</span>
+        }
+    }
+
+    /**
+     * Returns the extension of a file name (!= a path).
+     *
+     * @return the extension of the file name or {@code null} if there is no extension.
+     */
+    protected static String extractFileExtension(String fileName) {
+<span class="fc" id="L166">        checkNotNull(fileName);</span>
+<span class="fc" id="L167">        int lastPeriodIndex = fileName.lastIndexOf('.');</span>
+<span class="fc bfc" id="L168" title="All 2 branches covered.">        if (lastPeriodIndex &lt; 0) {</span>
+<span class="fc" id="L169">            return null;</span>
+        } else {
+<span class="fc" id="L171">            return fileName.substring(lastPeriodIndex + 1);</span>
+        }
+    }
+
+    // --------------------------------------------------------------------------------------------
+    //  Variables for internal operation.
+    //  They are all transient, because we do not want them so be serialized
+    // --------------------------------------------------------------------------------------------
+
+    /** The input stream reading from the input file. */
+    protected transient FSDataInputStream stream;
+
+    /** The start of the split that this parallel instance must consume. */
+    protected transient long splitStart;
+
+    /** The length of the split that this parallel instance must consume. */
+    protected transient long splitLength;
+
+    /** The current split that this parallel instance must consume. */
+    protected transient FileInputSplit currentSplit;
+
+    // --------------------------------------------------------------------------------------------
+    //  The configuration parameters. Configured on the instance and serialized to be shipped.
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * The path to the file that contains the input.
+     *
+     * @deprecated Please override {@link FileInputFormat#supportsMultiPaths()} and use {@link
+     *     FileInputFormat#getFilePaths()} and {@link FileInputFormat#setFilePaths(Path...)}.
+     */
+    @Deprecated protected Path filePath;
+
+    /** The list of paths to files and directories that contain the input. */
+    private Path[] filePaths;
+
+    /** The minimal split size, set by the configure() method. */
+<span class="fc" id="L208">    protected long minSplitSize = 0;</span>
+
+    /** The desired number of splits, as set by the configure() method. */
+<span class="fc" id="L211">    protected int numSplits = -1;</span>
+
+    /** Stream opening timeout. */
+<span class="fc" id="L214">    protected long openTimeout = DEFAULT_OPENING_TIMEOUT;</span>
+
+    /**
+     * Some file input formats are not splittable on a block level (deflate) Therefore, the
+     * FileInputFormat can only read whole files.
+     */
+<span class="fc" id="L220">    protected boolean unsplittable = false;</span>
+
+    /**
+     * The flag to specify whether recursive traversal of the input directory structure is enabled.
+     */
+<span class="fc" id="L225">    protected boolean enumerateNestedFiles = false;</span>
+
+    /** Files filter for determining what files/directories should be included. */
+<span class="fc" id="L228">    private FilePathFilter filesFilter = new GlobFilePathFilter();</span>
+
+    // --------------------------------------------------------------------------------------------
+    //  Constructors
+    // --------------------------------------------------------------------------------------------
+
+<span class="fc" id="L234">    public FileInputFormat() {}</span>
+
+<span class="fc" id="L236">    protected FileInputFormat(Path filePath) {</span>
+<span class="pc bpc" id="L237" title="1 of 2 branches missed.">        if (filePath != null) {</span>
+<span class="nc" id="L238">            setFilePath(filePath);</span>
+        }
+<span class="fc" id="L240">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+    //  Getters/setters for the configurable parameters
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * @return The path of the file to read.
+     * @deprecated Please use getFilePaths() instead.
+     */
+    @Deprecated
+    public Path getFilePath() {
+
+<span class="fc bfc" id="L253" title="All 2 branches covered.">        if (supportsMultiPaths()) {</span>
+<span class="pc bpc" id="L254" title="2 of 4 branches missed.">            if (this.filePaths == null || this.filePaths.length == 0) {</span>
+<span class="nc" id="L255">                return null;</span>
+<span class="pc bpc" id="L256" title="1 of 2 branches missed.">            } else if (this.filePaths.length == 1) {</span>
+<span class="nc" id="L257">                return this.filePaths[0];</span>
+            } else {
+<span class="fc" id="L259">                throw new UnsupportedOperationException(</span>
+                        &quot;FileInputFormat is configured with multiple paths. Use getFilePaths() instead.&quot;);
+            }
+        } else {
+<span class="fc" id="L263">            return filePath;</span>
+        }
+    }
+
+    /**
+     * Returns the paths of all files to be read by the FileInputFormat.
+     *
+     * @return The list of all paths to read.
+     */
+    public Path[] getFilePaths() {
+
+<span class="fc bfc" id="L274" title="All 2 branches covered.">        if (supportsMultiPaths()) {</span>
+<span class="pc bpc" id="L275" title="1 of 2 branches missed.">            if (this.filePaths == null) {</span>
+<span class="nc" id="L276">                return new Path[0];</span>
+            }
+<span class="fc" id="L278">            return this.filePaths;</span>
+        } else {
+<span class="fc bfc" id="L280" title="All 2 branches covered.">            if (this.filePath == null) {</span>
+<span class="fc" id="L281">                return new Path[0];</span>
+            }
+<span class="fc" id="L283">            return new Path[] {filePath};</span>
+        }
+    }
+
+    public void setFilePath(String filePath) {
+<span class="fc bfc" id="L288" title="All 2 branches covered.">        if (filePath == null) {</span>
+<span class="fc" id="L289">            throw new IllegalArgumentException(&quot;File path cannot be null.&quot;);</span>
+        }
+
+        // TODO The job-submission web interface passes empty args (and thus empty
+        // paths) to compute the preview graph. The following is a workaround for
+        // this situation and we should fix this.
+
+        // comment (Stephan Ewen) this should be no longer relevant with the current Java/Scala
+        // APIs.
+<span class="pc bpc" id="L298" title="1 of 2 branches missed.">        if (filePath.isEmpty()) {</span>
+<span class="nc" id="L299">            setFilePath(new Path());</span>
+<span class="nc" id="L300">            return;</span>
+        }
+
+        try {
+<span class="fc" id="L304">            this.setFilePath(new Path(filePath));</span>
+<span class="nc" id="L305">        } catch (RuntimeException rex) {</span>
+<span class="nc" id="L306">            throw new RuntimeException(</span>
+                    &quot;Could not create a valid URI from the given file path name: &quot;
+<span class="nc" id="L308">                            + rex.getMessage());</span>
+<span class="fc" id="L309">        }</span>
+<span class="fc" id="L310">    }</span>
+
+    /**
+     * Sets a single path of a file to be read.
+     *
+     * @param filePath The path of the file to read.
+     */
+    public void setFilePath(Path filePath) {
+<span class="fc bfc" id="L318" title="All 2 branches covered.">        if (filePath == null) {</span>
+<span class="fc" id="L319">            throw new IllegalArgumentException(&quot;File path must not be null.&quot;);</span>
+        }
+
+<span class="fc" id="L322">        setFilePaths(filePath);</span>
+<span class="fc" id="L323">    }</span>
+
+    /**
+     * Sets multiple paths of files to be read.
+     *
+     * @param filePaths The paths of the files to read.
+     */
+    public void setFilePaths(String... filePaths) {
+<span class="fc" id="L331">        Path[] paths = new Path[filePaths.length];</span>
+<span class="fc bfc" id="L332" title="All 2 branches covered.">        for (int i = 0; i &lt; paths.length; i++) {</span>
+<span class="fc" id="L333">            paths[i] = new Path(filePaths[i]);</span>
+        }
+<span class="fc" id="L335">        setFilePaths(paths);</span>
+<span class="fc" id="L336">    }</span>
+
+    /**
+     * Sets multiple paths of files to be read.
+     *
+     * @param filePaths The paths of the files to read.
+     */
+    public void setFilePaths(Path... filePaths) {
+<span class="fc bfc" id="L344" title="All 4 branches covered.">        if (!supportsMultiPaths() &amp;&amp; filePaths.length &gt; 1) {</span>
+<span class="fc" id="L345">            throw new UnsupportedOperationException(</span>
+                    &quot;Multiple paths are not supported by this FileInputFormat.&quot;);
+        }
+<span class="fc bfc" id="L348" title="All 2 branches covered.">        if (filePaths.length &lt; 1) {</span>
+<span class="fc" id="L349">            throw new IllegalArgumentException(&quot;At least one file path must be specified.&quot;);</span>
+        }
+<span class="fc bfc" id="L351" title="All 2 branches covered.">        if (filePaths.length == 1) {</span>
+            // set for backwards compatibility
+<span class="fc" id="L353">            this.filePath = filePaths[0];</span>
+        } else {
+            // clear file path in case it had been set before
+<span class="fc" id="L356">            this.filePath = null;</span>
+        }
+
+<span class="fc" id="L359">        this.filePaths = filePaths;</span>
+<span class="fc" id="L360">    }</span>
+
+    public long getMinSplitSize() {
+<span class="nc" id="L363">        return minSplitSize;</span>
+    }
+
+    public void setMinSplitSize(long minSplitSize) {
+<span class="nc bnc" id="L367" title="All 2 branches missed.">        if (minSplitSize &lt; 0) {</span>
+<span class="nc" id="L368">            throw new IllegalArgumentException(&quot;The minimum split size cannot be negative.&quot;);</span>
+        }
+
+<span class="nc" id="L371">        this.minSplitSize = minSplitSize;</span>
+<span class="nc" id="L372">    }</span>
+
+    public int getNumSplits() {
+<span class="nc" id="L375">        return numSplits;</span>
+    }
+
+    public void setNumSplits(int numSplits) {
+<span class="nc bnc" id="L379" title="All 4 branches missed.">        if (numSplits &lt; -1 || numSplits == 0) {</span>
+<span class="nc" id="L380">            throw new IllegalArgumentException(</span>
+                    &quot;The desired number of splits must be positive or -1 (= don't care).&quot;);
+        }
+
+<span class="nc" id="L384">        this.numSplits = numSplits;</span>
+<span class="nc" id="L385">    }</span>
+
+    public long getOpenTimeout() {
+<span class="nc" id="L388">        return openTimeout;</span>
+    }
+
+    public void setOpenTimeout(long openTimeout) {
+<span class="nc bnc" id="L392" title="All 2 branches missed.">        if (openTimeout &lt; 0) {</span>
+<span class="nc" id="L393">            throw new IllegalArgumentException(</span>
+                    &quot;The timeout for opening the input splits must be positive or zero (= infinite).&quot;);
+        }
+<span class="nc" id="L396">        this.openTimeout = openTimeout;</span>
+<span class="nc" id="L397">    }</span>
+
+    public void setNestedFileEnumeration(boolean enable) {
+<span class="nc" id="L400">        this.enumerateNestedFiles = enable;</span>
+<span class="nc" id="L401">    }</span>
+
+    public boolean getNestedFileEnumeration() {
+<span class="nc" id="L404">        return this.enumerateNestedFiles;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // Getting information about the split that is currently open
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Gets the start of the current split.
+     *
+     * @return The start of the split.
+     */
+    public long getSplitStart() {
+<span class="nc" id="L417">        return splitStart;</span>
+    }
+
+    /**
+     * Gets the length or remaining length of the current split.
+     *
+     * @return The length or remaining length of the current split.
+     */
+    public long getSplitLength() {
+<span class="nc" id="L426">        return splitLength;</span>
+    }
+
+    public void setFilesFilter(FilePathFilter filesFilter) {
+<span class="fc" id="L430">        this.filesFilter =</span>
+<span class="fc" id="L431">                Preconditions.checkNotNull(filesFilter, &quot;Files filter should not be null&quot;);</span>
+<span class="fc" id="L432">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+    //  Pre-flight: Configuration, Splits, Sampling
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Configures the file input format by reading the file path from the configuration.
+     *
+     * @see
+     *     org.apache.flink.api.common.io.InputFormat#configure(org.apache.flink.configuration.Configuration)
+     */
+    @Override
+    public void configure(Configuration parameters) {
+
+<span class="fc bfc" id="L447" title="All 2 branches covered.">        if (getFilePaths().length == 0) {</span>
+            // file path was not specified yet. Try to set it from the parameters.
+<span class="fc" id="L449">            String filePath = parameters.getString(FILE_PARAMETER_KEY, null);</span>
+<span class="pc bpc" id="L450" title="1 of 2 branches missed.">            if (filePath == null) {</span>
+<span class="nc" id="L451">                throw new IllegalArgumentException(</span>
+                        &quot;File path was not specified in input format or configuration.&quot;);
+            } else {
+<span class="fc" id="L454">                setFilePath(filePath);</span>
+            }
+        }
+
+<span class="pc bpc" id="L458" title="1 of 2 branches missed.">        if (!this.enumerateNestedFiles) {</span>
+<span class="fc" id="L459">            this.enumerateNestedFiles = parameters.getBoolean(ENUMERATE_NESTED_FILES_FLAG, false);</span>
+        }
+<span class="fc" id="L461">    }</span>
+
+    /**
+     * Obtains basic file statistics containing only file size. If the input is a directory, then
+     * the size is the sum of all contained files.
+     *
+     * @see
+     *     org.apache.flink.api.common.io.InputFormat#getStatistics(org.apache.flink.api.common.io.statistics.BaseStatistics)
+     */
+    @Override
+    public FileBaseStatistics getStatistics(BaseStatistics cachedStats) throws IOException {
+
+<span class="fc bfc" id="L473" title="All 2 branches covered.">        final FileBaseStatistics cachedFileStats =</span>
+                cachedStats instanceof FileBaseStatistics ? (FileBaseStatistics) cachedStats : null;
+
+        try {
+<span class="fc" id="L477">            return getFileStats(</span>
+<span class="fc" id="L478">                    cachedFileStats, getFilePaths(), new ArrayList&lt;&gt;(getFilePaths().length));</span>
+<span class="fc" id="L479">        } catch (IOException ioex) {</span>
+<span class="pc bpc" id="L480" title="1 of 2 branches missed.">            if (LOG.isWarnEnabled()) {</span>
+<span class="nc" id="L481">                LOG.warn(</span>
+                        &quot;Could not determine statistics for paths '&quot;
+<span class="nc" id="L483">                                + Arrays.toString(getFilePaths())</span>
+                                + &quot;' due to an io error: &quot;
+<span class="nc" id="L485">                                + ioex.getMessage());</span>
+            }
+<span class="nc" id="L487">        } catch (Throwable t) {</span>
+<span class="nc bnc" id="L488" title="All 2 branches missed.">            if (LOG.isErrorEnabled()) {</span>
+<span class="nc" id="L489">                LOG.error(</span>
+                        &quot;Unexpected problem while getting the file statistics for paths '&quot;
+<span class="nc" id="L491">                                + Arrays.toString(getFilePaths())</span>
+                                + &quot;': &quot;
+<span class="nc" id="L493">                                + t.getMessage(),</span>
+                        t);
+            }
+<span class="fc" id="L496">        }</span>
+
+        // no statistics available
+<span class="fc" id="L499">        return null;</span>
+    }
+
+    protected FileBaseStatistics getFileStats(
+            FileBaseStatistics cachedStats, Path[] filePaths, ArrayList&lt;FileStatus&gt; files)
+            throws IOException {
+
+<span class="fc" id="L506">        long totalLength = 0;</span>
+<span class="fc" id="L507">        long latestModTime = 0;</span>
+
+<span class="fc bfc" id="L509" title="All 2 branches covered.">        for (Path path : filePaths) {</span>
+<span class="fc" id="L510">            final FileSystem fs = FileSystem.get(path.toUri());</span>
+<span class="fc" id="L511">            final FileBaseStatistics stats = getFileStats(cachedStats, path, fs, files);</span>
+
+<span class="pc bpc" id="L513" title="1 of 2 branches missed.">            if (stats.getTotalInputSize() == BaseStatistics.SIZE_UNKNOWN) {</span>
+<span class="nc" id="L514">                totalLength = BaseStatistics.SIZE_UNKNOWN;</span>
+<span class="pc bpc" id="L515" title="1 of 2 branches missed.">            } else if (totalLength != BaseStatistics.SIZE_UNKNOWN) {</span>
+<span class="fc" id="L516">                totalLength += stats.getTotalInputSize();</span>
+            }
+<span class="fc" id="L518">            latestModTime = Math.max(latestModTime, stats.getLastModificationTime());</span>
+        }
+
+        // check whether the cached statistics are still valid, if we have any
+<span class="fc bfc" id="L522" title="All 4 branches covered.">        if (cachedStats != null &amp;&amp; latestModTime &lt;= cachedStats.getLastModificationTime()) {</span>
+<span class="fc" id="L523">            return cachedStats;</span>
+        }
+
+<span class="fc" id="L526">        return new FileBaseStatistics(</span>
+                latestModTime, totalLength, BaseStatistics.AVG_RECORD_BYTES_UNKNOWN);
+    }
+
+    protected FileBaseStatistics getFileStats(
+            FileBaseStatistics cachedStats,
+            Path filePath,
+            FileSystem fs,
+            ArrayList&lt;FileStatus&gt; files)
+            throws IOException {
+
+        // get the file info and check whether the cached statistics are still valid.
+<span class="fc" id="L538">        final FileStatus file = fs.getFileStatus(filePath);</span>
+<span class="fc" id="L539">        long totalLength = 0;</span>
+
+        // enumerate all files
+<span class="fc bfc" id="L542" title="All 2 branches covered.">        if (file.isDir()) {</span>
+<span class="fc" id="L543">            totalLength += addFilesInDir(file.getPath(), files, false);</span>
+        } else {
+<span class="fc" id="L545">            files.add(file);</span>
+<span class="fc" id="L546">            testForUnsplittable(file);</span>
+<span class="fc" id="L547">            totalLength += file.getLen();</span>
+        }
+
+        // check the modification time stamp
+<span class="fc" id="L551">        long latestModTime = 0;</span>
+<span class="fc bfc" id="L552" title="All 2 branches covered.">        for (FileStatus f : files) {</span>
+<span class="fc" id="L553">            latestModTime = Math.max(f.getModificationTime(), latestModTime);</span>
+<span class="fc" id="L554">        }</span>
+
+        // check whether the cached statistics are still valid, if we have any
+<span class="fc bfc" id="L557" title="All 4 branches covered.">        if (cachedStats != null &amp;&amp; latestModTime &lt;= cachedStats.getLastModificationTime()) {</span>
+<span class="fc" id="L558">            return cachedStats;</span>
+        }
+
+        // sanity check
+<span class="pc bpc" id="L562" title="1 of 2 branches missed.">        if (totalLength &lt;= 0) {</span>
+<span class="nc" id="L563">            totalLength = BaseStatistics.SIZE_UNKNOWN;</span>
+        }
+<span class="fc" id="L565">        return new FileBaseStatistics(</span>
+                latestModTime, totalLength, BaseStatistics.AVG_RECORD_BYTES_UNKNOWN);
+    }
+
+    @Override
+    public LocatableInputSplitAssigner getInputSplitAssigner(FileInputSplit[] splits) {
+<span class="nc" id="L571">        return new LocatableInputSplitAssigner(splits);</span>
+    }
+
+    /**
+     * Computes the input splits for the file. By default, one file block is one split. If more
+     * splits are requested than blocks are available, then a split may be a fraction of a block and
+     * splits may cross block boundaries.
+     *
+     * @param minNumSplits The minimum desired number of file splits.
+     * @return The computed file splits.
+     * @see org.apache.flink.api.common.io.InputFormat#createInputSplits(int)
+     */
+    @Override
+    public FileInputSplit[] createInputSplits(int minNumSplits) throws IOException {
+<span class="pc bpc" id="L585" title="1 of 2 branches missed.">        if (minNumSplits &lt; 1) {</span>
+<span class="nc" id="L586">            throw new IllegalArgumentException(&quot;Number of input splits has to be at least 1.&quot;);</span>
+        }
+
+        // take the desired number of splits into account
+<span class="fc" id="L590">        minNumSplits = Math.max(minNumSplits, this.numSplits);</span>
+
+<span class="fc" id="L592">        final List&lt;FileInputSplit&gt; inputSplits = new ArrayList&lt;FileInputSplit&gt;(minNumSplits);</span>
+
+        // get all the files that are involved in the splits
+<span class="fc" id="L595">        List&lt;FileStatus&gt; files = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L596">        long totalLength = 0;</span>
+
+<span class="fc bfc" id="L598" title="All 2 branches covered.">        for (Path path : getFilePaths()) {</span>
+<span class="fc" id="L599">            final FileSystem fs = path.getFileSystem();</span>
+<span class="fc" id="L600">            final FileStatus pathFile = fs.getFileStatus(path);</span>
+
+<span class="fc bfc" id="L602" title="All 2 branches covered.">            if (pathFile.isDir()) {</span>
+<span class="fc" id="L603">                totalLength += addFilesInDir(path, files, true);</span>
+            } else {
+<span class="fc" id="L605">                testForUnsplittable(pathFile);</span>
+
+<span class="fc" id="L607">                files.add(pathFile);</span>
+<span class="fc" id="L608">                totalLength += pathFile.getLen();</span>
+            }
+        }
+
+        // returns if unsplittable
+<span class="fc bfc" id="L613" title="All 2 branches covered.">        if (unsplittable) {</span>
+<span class="fc" id="L614">            int splitNum = 0;</span>
+<span class="fc bfc" id="L615" title="All 2 branches covered.">            for (final FileStatus file : files) {</span>
+<span class="fc" id="L616">                final FileSystem fs = file.getPath().getFileSystem();</span>
+<span class="fc" id="L617">                final BlockLocation[] blocks = fs.getFileBlockLocations(file, 0, file.getLen());</span>
+<span class="fc" id="L618">                Set&lt;String&gt; hosts = new HashSet&lt;String&gt;();</span>
+<span class="fc bfc" id="L619" title="All 2 branches covered.">                for (BlockLocation block : blocks) {</span>
+<span class="fc" id="L620">                    hosts.addAll(Arrays.asList(block.getHosts()));</span>
+                }
+<span class="fc" id="L622">                long len = file.getLen();</span>
+<span class="fc bfc" id="L623" title="All 2 branches covered.">                if (testForUnsplittable(file)) {</span>
+<span class="fc" id="L624">                    len = READ_WHOLE_SPLIT_FLAG;</span>
+                }
+<span class="fc" id="L626">                FileInputSplit fis =</span>
+                        new FileInputSplit(
+                                splitNum++,
+<span class="fc" id="L629">                                file.getPath(),</span>
+                                0,
+                                len,
+<span class="fc" id="L632">                                hosts.toArray(new String[hosts.size()]));</span>
+<span class="fc" id="L633">                inputSplits.add(fis);</span>
+<span class="fc" id="L634">            }</span>
+<span class="fc" id="L635">            return inputSplits.toArray(new FileInputSplit[inputSplits.size()]);</span>
+        }
+
+<span class="fc bfc" id="L638" title="All 2 branches covered.">        final long maxSplitSize =</span>
+                totalLength / minNumSplits + (totalLength % minNumSplits == 0 ? 0 : 1);
+
+        // now that we have the files, generate the splits
+<span class="fc" id="L642">        int splitNum = 0;</span>
+<span class="fc bfc" id="L643" title="All 2 branches covered.">        for (final FileStatus file : files) {</span>
+
+<span class="fc" id="L645">            final FileSystem fs = file.getPath().getFileSystem();</span>
+<span class="fc" id="L646">            final long len = file.getLen();</span>
+<span class="fc" id="L647">            final long blockSize = file.getBlockSize();</span>
+
+            final long minSplitSize;
+<span class="pc bpc" id="L650" title="1 of 2 branches missed.">            if (this.minSplitSize &lt;= blockSize) {</span>
+<span class="fc" id="L651">                minSplitSize = this.minSplitSize;</span>
+            } else {
+<span class="nc bnc" id="L653" title="All 2 branches missed.">                if (LOG.isWarnEnabled()) {</span>
+<span class="nc" id="L654">                    LOG.warn(</span>
+                            &quot;Minimal split size of &quot;
+                                    + this.minSplitSize
+                                    + &quot; is larger than the block size of &quot;
+                                    + blockSize
+                                    + &quot;. Decreasing minimal split size to block size.&quot;);
+                }
+<span class="nc" id="L661">                minSplitSize = blockSize;</span>
+            }
+
+<span class="fc" id="L664">            final long splitSize = Math.max(minSplitSize, Math.min(maxSplitSize, blockSize));</span>
+<span class="fc" id="L665">            final long halfSplit = splitSize &gt;&gt;&gt; 1;</span>
+
+<span class="fc" id="L667">            final long maxBytesForLastSplit = (long) (splitSize * MAX_SPLIT_SIZE_DISCREPANCY);</span>
+
+<span class="pc bpc" id="L669" title="1 of 2 branches missed.">            if (len &gt; 0) {</span>
+
+                // get the block locations and make sure they are in order with respect to their
+                // offset
+<span class="fc" id="L673">                final BlockLocation[] blocks = fs.getFileBlockLocations(file, 0, len);</span>
+<span class="fc" id="L674">                Arrays.sort(blocks);</span>
+
+<span class="fc" id="L676">                long bytesUnassigned = len;</span>
+<span class="fc" id="L677">                long position = 0;</span>
+
+<span class="fc" id="L679">                int blockIndex = 0;</span>
+
+<span class="fc bfc" id="L681" title="All 2 branches covered.">                while (bytesUnassigned &gt; maxBytesForLastSplit) {</span>
+                    // get the block containing the majority of the data
+<span class="fc" id="L683">                    blockIndex = getBlockIndexForPosition(blocks, position, halfSplit, blockIndex);</span>
+                    // create a new split
+<span class="fc" id="L685">                    FileInputSplit fis =</span>
+                            new FileInputSplit(
+                                    splitNum++,
+<span class="fc" id="L688">                                    file.getPath(),</span>
+                                    position,
+                                    splitSize,
+<span class="fc" id="L691">                                    blocks[blockIndex].getHosts());</span>
+<span class="fc" id="L692">                    inputSplits.add(fis);</span>
+
+                    // adjust the positions
+<span class="fc" id="L695">                    position += splitSize;</span>
+<span class="fc" id="L696">                    bytesUnassigned -= splitSize;</span>
+<span class="fc" id="L697">                }</span>
+
+                // assign the last split
+<span class="pc bpc" id="L700" title="1 of 2 branches missed.">                if (bytesUnassigned &gt; 0) {</span>
+<span class="fc" id="L701">                    blockIndex = getBlockIndexForPosition(blocks, position, halfSplit, blockIndex);</span>
+<span class="fc" id="L702">                    final FileInputSplit fis =</span>
+                            new FileInputSplit(
+                                    splitNum++,
+<span class="fc" id="L705">                                    file.getPath(),</span>
+                                    position,
+                                    bytesUnassigned,
+<span class="fc" id="L708">                                    blocks[blockIndex].getHosts());</span>
+<span class="fc" id="L709">                    inputSplits.add(fis);</span>
+                }
+<span class="fc" id="L711">            } else {</span>
+                // special case with a file of zero bytes size
+<span class="nc" id="L713">                final BlockLocation[] blocks = fs.getFileBlockLocations(file, 0, 0);</span>
+                String[] hosts;
+<span class="nc bnc" id="L715" title="All 2 branches missed.">                if (blocks.length &gt; 0) {</span>
+<span class="nc" id="L716">                    hosts = blocks[0].getHosts();</span>
+                } else {
+<span class="nc" id="L718">                    hosts = new String[0];</span>
+                }
+<span class="nc" id="L720">                final FileInputSplit fis =</span>
+<span class="nc" id="L721">                        new FileInputSplit(splitNum++, file.getPath(), 0, 0, hosts);</span>
+<span class="nc" id="L722">                inputSplits.add(fis);</span>
+            }
+<span class="fc" id="L724">        }</span>
+
+<span class="fc" id="L726">        return inputSplits.toArray(new FileInputSplit[inputSplits.size()]);</span>
+    }
+
+    /**
+     * Enumerate all files in the directory and recursive if enumerateNestedFiles is true.
+     *
+     * @return the total length of accepted files.
+     */
+    private long addFilesInDir(Path path, List&lt;FileStatus&gt; files, boolean logExcludedFiles)
+            throws IOException {
+<span class="fc" id="L736">        final FileSystem fs = path.getFileSystem();</span>
+
+<span class="fc" id="L738">        long length = 0;</span>
+
+<span class="fc bfc" id="L740" title="All 2 branches covered.">        for (FileStatus dir : fs.listStatus(path)) {</span>
+<span class="fc bfc" id="L741" title="All 2 branches covered.">            if (dir.isDir()) {</span>
+<span class="fc bfc" id="L742" title="All 4 branches covered.">                if (acceptFile(dir) &amp;&amp; enumerateNestedFiles) {</span>
+<span class="fc" id="L743">                    length += addFilesInDir(dir.getPath(), files, logExcludedFiles);</span>
+                } else {
+<span class="pc bpc" id="L745" title="2 of 4 branches missed.">                    if (logExcludedFiles &amp;&amp; LOG.isDebugEnabled()) {</span>
+<span class="nc" id="L746">                        LOG.debug(</span>
+                                &quot;Directory &quot;
+<span class="nc" id="L748">                                        + dir.getPath().toString()</span>
+                                        + &quot; did not pass the file-filter and is excluded.&quot;);
+                    }
+                }
+            } else {
+<span class="fc bfc" id="L753" title="All 2 branches covered.">                if (acceptFile(dir)) {</span>
+<span class="fc" id="L754">                    files.add(dir);</span>
+<span class="fc" id="L755">                    length += dir.getLen();</span>
+<span class="fc" id="L756">                    testForUnsplittable(dir);</span>
+                } else {
+<span class="pc bpc" id="L758" title="1 of 4 branches missed.">                    if (logExcludedFiles &amp;&amp; LOG.isDebugEnabled()) {</span>
+<span class="nc" id="L759">                        LOG.debug(</span>
+                                &quot;Directory &quot;
+<span class="nc" id="L761">                                        + dir.getPath().toString()</span>
+                                        + &quot; did not pass the file-filter and is excluded.&quot;);
+                    }
+                }
+            }
+        }
+<span class="fc" id="L767">        return length;</span>
+    }
+
+    protected boolean testForUnsplittable(FileStatus pathFile) {
+<span class="fc bfc" id="L771" title="All 2 branches covered.">        if (getInflaterInputStreamFactory(pathFile.getPath()) != null) {</span>
+<span class="fc" id="L772">            unsplittable = true;</span>
+<span class="fc" id="L773">            return true;</span>
+        }
+<span class="fc" id="L775">        return false;</span>
+    }
+
+    private InflaterInputStreamFactory&lt;?&gt; getInflaterInputStreamFactory(Path path) {
+<span class="fc" id="L779">        String fileExtension = extractFileExtension(path.getName());</span>
+<span class="fc bfc" id="L780" title="All 2 branches covered.">        if (fileExtension != null) {</span>
+<span class="fc" id="L781">            return getInflaterInputStreamFactory(fileExtension);</span>
+        } else {
+<span class="fc" id="L783">            return null;</span>
+        }
+    }
+
+    /**
+     * A simple hook to filter files and directories from the input. The method may be overridden.
+     * Hadoop's FileInputFormat has a similar mechanism and applies the same filters by default.
+     *
+     * @param fileStatus The file status to check.
+     * @return true, if the given file or directory is accepted
+     */
+    public boolean acceptFile(FileStatus fileStatus) {
+<span class="fc" id="L795">        final String name = fileStatus.getPath().getName();</span>
+<span class="fc bfc" id="L796" title="All 2 branches covered.">        return !name.startsWith(&quot;_&quot;)</span>
+<span class="pc bpc" id="L797" title="1 of 2 branches missed.">                &amp;&amp; !name.startsWith(&quot;.&quot;)</span>
+<span class="fc bfc" id="L798" title="All 2 branches covered.">                &amp;&amp; !filesFilter.filterPath(fileStatus.getPath());</span>
+    }
+
+    /**
+     * Retrieves the index of the &lt;tt&gt;BlockLocation&lt;/tt&gt; that contains the part of the file
+     * described by the given offset.
+     *
+     * @param blocks The different blocks of the file. Must be ordered by their offset.
+     * @param offset The offset of the position in the file.
+     * @param startIndex The earliest index to look at.
+     * @return The index of the block containing the given position.
+     */
+    private int getBlockIndexForPosition(
+            BlockLocation[] blocks, long offset, long halfSplitSize, int startIndex) {
+        // go over all indexes after the startIndex
+<span class="pc bpc" id="L813" title="1 of 2 branches missed.">        for (int i = startIndex; i &lt; blocks.length; i++) {</span>
+<span class="fc" id="L814">            long blockStart = blocks[i].getOffset();</span>
+<span class="fc" id="L815">            long blockEnd = blockStart + blocks[i].getLength();</span>
+
+<span class="pc bpc" id="L817" title="2 of 4 branches missed.">            if (offset &gt;= blockStart &amp;&amp; offset &lt; blockEnd) {</span>
+                // got the block where the split starts
+                // check if the next block contains more than this one does
+<span class="pc bpc" id="L820" title="3 of 4 branches missed.">                if (i &lt; blocks.length - 1 &amp;&amp; blockEnd - offset &lt; halfSplitSize) {</span>
+<span class="nc" id="L821">                    return i + 1;</span>
+                } else {
+<span class="fc" id="L823">                    return i;</span>
+                }
+            }
+        }
+<span class="nc" id="L827">        throw new IllegalArgumentException(&quot;The given offset is not contained in the any block.&quot;);</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Opens an input stream to the file defined in the input format. The stream is positioned at
+     * the beginning of the given split.
+     *
+     * &lt;p&gt;The stream is actually opened in an asynchronous thread to make sure any interruptions to
+     * the thread working on the input format do not reach the file system.
+     */
+    @Override
+    public void open(FileInputSplit fileSplit) throws IOException {
+
+<span class="fc" id="L842">        this.currentSplit = fileSplit;</span>
+<span class="fc" id="L843">        this.splitStart = fileSplit.getStart();</span>
+<span class="fc" id="L844">        this.splitLength = fileSplit.getLength();</span>
+
+<span class="pc bpc" id="L846" title="1 of 2 branches missed.">        if (LOG.isDebugEnabled()) {</span>
+<span class="nc" id="L847">            LOG.debug(</span>
+                    &quot;Opening input split &quot;
+<span class="nc" id="L849">                            + fileSplit.getPath()</span>
+                            + &quot; [&quot;
+                            + this.splitStart
+                            + &quot;,&quot;
+                            + this.splitLength
+                            + &quot;]&quot;);
+        }
+
+        // open the split in an asynchronous thread
+<span class="fc" id="L858">        final InputSplitOpenThread isot = new InputSplitOpenThread(fileSplit, this.openTimeout);</span>
+<span class="fc" id="L859">        isot.start();</span>
+
+        try {
+<span class="fc" id="L862">            this.stream = isot.waitForCompletion();</span>
+<span class="fc" id="L863">            this.stream = decorateInputStream(this.stream, fileSplit);</span>
+<span class="nc" id="L864">        } catch (Throwable t) {</span>
+<span class="nc" id="L865">            throw new IOException(</span>
+                    &quot;Error opening the Input Split &quot;
+<span class="nc" id="L867">                            + fileSplit.getPath()</span>
+                            + &quot; [&quot;
+                            + splitStart
+                            + &quot;,&quot;
+                            + splitLength
+                            + &quot;]: &quot;
+<span class="nc" id="L873">                            + t.getMessage(),</span>
+                    t);
+<span class="fc" id="L875">        }</span>
+
+        // get FSDataInputStream
+<span class="fc bfc" id="L878" title="All 2 branches covered.">        if (this.splitStart != 0) {</span>
+<span class="fc" id="L879">            this.stream.seek(this.splitStart);</span>
+        }
+<span class="fc" id="L881">    }</span>
+
+    /**
+     * This method allows to wrap/decorate the raw {@link FSDataInputStream} for a certain file
+     * split, e.g., for decoding. When overriding this method, also consider adapting {@link
+     * FileInputFormat#testForUnsplittable} if your stream decoration renders the input file
+     * unsplittable. Also consider calling existing superclass implementations.
+     *
+     * @param inputStream is the input stream to decorated
+     * @param fileSplit is the file split for which the input stream shall be decorated
+     * @return the decorated input stream
+     * @throws Throwable if the decoration fails
+     * @see org.apache.flink.api.common.io.InputStreamFSInputWrapper
+     */
+    protected FSDataInputStream decorateInputStream(
+            FSDataInputStream inputStream, FileInputSplit fileSplit) throws Throwable {
+        // Wrap stream in a extracting (decompressing) stream if file ends with a known compression
+        // file extension.
+<span class="fc" id="L899">        InflaterInputStreamFactory&lt;?&gt; inflaterInputStreamFactory =</span>
+<span class="fc" id="L900">                getInflaterInputStreamFactory(fileSplit.getPath());</span>
+<span class="fc bfc" id="L901" title="All 2 branches covered.">        if (inflaterInputStreamFactory != null) {</span>
+<span class="fc" id="L902">            return new InputStreamFSInputWrapper(inflaterInputStreamFactory.create(stream));</span>
+        }
+
+<span class="fc" id="L905">        return inputStream;</span>
+    }
+
+    /** Closes the file input stream of the input format. */
+    @Override
+    public void close() throws IOException {
+<span class="fc bfc" id="L911" title="All 2 branches covered.">        if (this.stream != null) {</span>
+            // close input stream
+<span class="fc" id="L913">            this.stream.close();</span>
+<span class="fc" id="L914">            stream = null;</span>
+        }
+<span class="fc" id="L916">    }</span>
+
+    /**
+     * Override this method to supports multiple paths. When this method will be removed, all
+     * FileInputFormats have to support multiple paths.
+     *
+     * @return True if the FileInputFormat supports multiple paths, false otherwise.
+     * @deprecated Will be removed for Flink 2.0.
+     */
+    @Deprecated
+    public boolean supportsMultiPaths() {
+<span class="fc" id="L927">        return false;</span>
+    }
+
+    public String toString() {
+<span class="pc bpc" id="L931" title="2 of 4 branches missed.">        return getFilePaths() == null || getFilePaths().length == 0</span>
+                ? &quot;File Input (unknown file)&quot;
+<span class="nc" id="L933">                : &quot;File Input (&quot; + Arrays.toString(this.getFilePaths()) + ')';</span>
+    }
+
+    // ============================================================================================
+
+    /**
+     * Encapsulation of the basic statistics the optimizer obtains about a file. Contained are the
+     * size of the file and the average bytes of a single record. The statistics also have a
+     * time-stamp that records the modification time of the file and indicates as such for which
+     * time the statistics were valid.
+     */
+    public static class FileBaseStatistics implements BaseStatistics {
+
+        protected final long fileModTime; // timestamp of the last modification
+
+        protected final long fileSize; // size of the file(s) in bytes
+
+        protected final float avgBytesPerRecord; // the average number of bytes for a record
+
+        /**
+         * Creates a new statistics object.
+         *
+         * @param fileModTime The timestamp of the latest modification of any of the involved files.
+         * @param fileSize The size of the file, in bytes. &lt;code&gt;-1&lt;/code&gt;, if unknown.
+         * @param avgBytesPerRecord The average number of byte in a record, or &lt;code&gt;-1.0f&lt;/code&gt;,
+         *     if unknown.
+         */
+<span class="fc" id="L960">        public FileBaseStatistics(long fileModTime, long fileSize, float avgBytesPerRecord) {</span>
+<span class="fc" id="L961">            this.fileModTime = fileModTime;</span>
+<span class="fc" id="L962">            this.fileSize = fileSize;</span>
+<span class="fc" id="L963">            this.avgBytesPerRecord = avgBytesPerRecord;</span>
+<span class="fc" id="L964">        }</span>
+
+        /**
+         * Gets the timestamp of the last modification.
+         *
+         * @return The timestamp of the last modification.
+         */
+        public long getLastModificationTime() {
+<span class="fc" id="L972">            return fileModTime;</span>
+        }
+
+        /**
+         * Gets the file size.
+         *
+         * @return The fileSize.
+         * @see org.apache.flink.api.common.io.statistics.BaseStatistics#getTotalInputSize()
+         */
+        @Override
+        public long getTotalInputSize() {
+<span class="fc" id="L983">            return this.fileSize;</span>
+        }
+
+        /**
+         * Gets the estimates number of records in the file, computed as the file size divided by
+         * the average record width, rounded up.
+         *
+         * @return The estimated number of records in the file.
+         * @see org.apache.flink.api.common.io.statistics.BaseStatistics#getNumberOfRecords()
+         */
+        @Override
+        public long getNumberOfRecords() {
+<span class="pc bpc" id="L995" title="2 of 4 branches missed.">            return (this.fileSize == SIZE_UNKNOWN</span>
+                            || this.avgBytesPerRecord == AVG_RECORD_BYTES_UNKNOWN)
+                    ? NUM_RECORDS_UNKNOWN
+<span class="fc" id="L998">                    : (long) Math.ceil(this.fileSize / this.avgBytesPerRecord);</span>
+        }
+
+        /**
+         * Gets the estimated average number of bytes per record.
+         *
+         * @return The average number of bytes per record.
+         * @see org.apache.flink.api.common.io.statistics.BaseStatistics#getAverageRecordWidth()
+         */
+        @Override
+        public float getAverageRecordWidth() {
+<span class="fc" id="L1009">            return this.avgBytesPerRecord;</span>
+        }
+
+        @Override
+        public String toString() {
+<span class="nc" id="L1014">            return &quot;size=&quot;</span>
+                    + this.fileSize
+                    + &quot;, recWidth=&quot;
+                    + this.avgBytesPerRecord
+                    + &quot;, modAt=&quot;
+                    + this.fileModTime;
+        }
+    }
+
+    // ============================================================================================
+
+    /**
+     * Obtains a DataInputStream in an thread that is not interrupted. This is a necessary hack
+     * around the problem that the HDFS client is very sensitive to InterruptedExceptions.
+     */
+    public static class InputSplitOpenThread extends Thread {
+
+        private final FileInputSplit split;
+
+        private final long timeout;
+
+        private volatile FSDataInputStream fdis;
+
+        private volatile Throwable error;
+
+        private volatile boolean aborted;
+
+        public InputSplitOpenThread(FileInputSplit split, long timeout) {
+<span class="fc" id="L1042">            super(&quot;Transient InputSplit Opener&quot;);</span>
+<span class="fc" id="L1043">            setDaemon(true);</span>
+
+<span class="fc" id="L1045">            this.split = split;</span>
+<span class="fc" id="L1046">            this.timeout = timeout;</span>
+<span class="fc" id="L1047">        }</span>
+
+        @Override
+        public void run() {
+            try {
+<span class="fc" id="L1052">                final FileSystem fs = FileSystem.get(this.split.getPath().toUri());</span>
+<span class="fc" id="L1053">                this.fdis = fs.open(this.split.getPath());</span>
+
+                // check for canceling and close the stream in that case, because no one will obtain
+                // it
+<span class="pc bpc" id="L1057" title="1 of 2 branches missed.">                if (this.aborted) {</span>
+<span class="nc" id="L1058">                    final FSDataInputStream f = this.fdis;</span>
+<span class="nc" id="L1059">                    this.fdis = null;</span>
+<span class="nc" id="L1060">                    f.close();</span>
+                }
+<span class="nc" id="L1062">            } catch (Throwable t) {</span>
+<span class="nc" id="L1063">                this.error = t;</span>
+<span class="fc" id="L1064">            }</span>
+<span class="fc" id="L1065">        }</span>
+
+        public FSDataInputStream waitForCompletion() throws Throwable {
+<span class="fc" id="L1068">            final long start = System.currentTimeMillis();</span>
+<span class="fc" id="L1069">            long remaining = this.timeout;</span>
+
+            do {
+                try {
+                    // wait for the task completion
+<span class="fc" id="L1074">                    this.join(remaining);</span>
+<span class="nc" id="L1075">                } catch (InterruptedException iex) {</span>
+                    // we were canceled, so abort the procedure
+<span class="nc" id="L1077">                    abortWait();</span>
+<span class="nc" id="L1078">                    throw iex;</span>
+<span class="fc" id="L1079">                }</span>
+<span class="pc bpc" id="L1080" title="2 of 4 branches missed.">            } while (this.error == null</span>
+                    &amp;&amp; this.fdis == null
+<span class="nc bnc" id="L1082" title="All 2 branches missed.">                    &amp;&amp; (remaining = this.timeout + start - System.currentTimeMillis()) &gt; 0);</span>
+
+<span class="pc bpc" id="L1084" title="1 of 2 branches missed.">            if (this.error != null) {</span>
+<span class="nc" id="L1085">                throw this.error;</span>
+            }
+<span class="pc bpc" id="L1087" title="1 of 2 branches missed.">            if (this.fdis != null) {</span>
+<span class="fc" id="L1088">                return this.fdis;</span>
+            } else {
+                // double-check that the stream has not been set by now. we don't know here whether
+                // a) the opener thread recognized the canceling and closed the stream
+                // b) the flag was set such that the stream did not see it and we have a valid
+                // stream
+                // In any case, close the stream and throw an exception.
+<span class="nc" id="L1095">                abortWait();</span>
+
+<span class="nc" id="L1097">                final boolean stillAlive = this.isAlive();</span>
+<span class="nc" id="L1098">                final StringBuilder bld = new StringBuilder(256);</span>
+<span class="nc bnc" id="L1099" title="All 2 branches missed.">                for (StackTraceElement e : this.getStackTrace()) {</span>
+<span class="nc" id="L1100">                    bld.append(&quot;\tat &quot;).append(e.toString()).append('\n');</span>
+                }
+<span class="nc bnc" id="L1102" title="All 2 branches missed.">                throw new IOException(</span>
+                        &quot;Input opening request timed out. Opener was &quot;
+                                + (stillAlive ? &quot;&quot; : &quot;NOT &quot;)
+                                + &quot; alive. Stack of split open thread:\n&quot;
+<span class="nc" id="L1106">                                + bld.toString());</span>
+            }
+        }
+
+        /** Double checked procedure setting the abort flag and closing the stream. */
+        private void abortWait() {
+<span class="nc" id="L1112">            this.aborted = true;</span>
+<span class="nc" id="L1113">            final FSDataInputStream inStream = this.fdis;</span>
+<span class="nc" id="L1114">            this.fdis = null;</span>
+<span class="nc bnc" id="L1115" title="All 2 branches missed.">            if (inStream != null) {</span>
+                try {
+<span class="nc" id="L1117">                    inStream.close();</span>
+<span class="nc" id="L1118">                } catch (Throwable t) {</span>
+<span class="nc" id="L1119">                }</span>
+            }
+<span class="nc" id="L1121">        }</span>
+    }
+
+    // ============================================================================================
+    //  Parameterization via configuration
+    // ============================================================================================
+
+    // ------------------------------------- Config Keys ------------------------------------------
+
+    /** The config parameter which defines the input file path. */
+    private static final String FILE_PARAMETER_KEY = &quot;input.file.path&quot;;
+
+    /** The config parameter which defines whether input directories are recursively traversed. */
+    public static final String ENUMERATE_NESTED_FILES_FLAG = &quot;recursive.file.enumeration&quot;;
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

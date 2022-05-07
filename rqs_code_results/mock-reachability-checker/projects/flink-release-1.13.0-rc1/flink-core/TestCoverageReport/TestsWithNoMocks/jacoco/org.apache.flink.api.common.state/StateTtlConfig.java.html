@@ -1,0 +1,455 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StateTtlConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.state</a> &gt; <span class="el_source">StateTtlConfig.java</span></div><h1>StateTtlConfig.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.state;
+
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.time.Time;
+import org.apache.flink.util.Preconditions;
+
+import javax.annotation.Nonnegative;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+import java.io.Serializable;
+import java.util.EnumMap;
+
+import static org.apache.flink.api.common.state.StateTtlConfig.CleanupStrategies.EMPTY_STRATEGY;
+import static org.apache.flink.api.common.state.StateTtlConfig.IncrementalCleanupStrategy.DEFAULT_INCREMENTAL_CLEANUP_STRATEGY;
+import static org.apache.flink.api.common.state.StateTtlConfig.RocksdbCompactFilterCleanupStrategy.DEFAULT_ROCKSDB_COMPACT_FILTER_CLEANUP_STRATEGY;
+import static org.apache.flink.api.common.state.StateTtlConfig.StateVisibility.NeverReturnExpired;
+import static org.apache.flink.api.common.state.StateTtlConfig.TtlTimeCharacteristic.ProcessingTime;
+import static org.apache.flink.api.common.state.StateTtlConfig.UpdateType.OnCreateAndWrite;
+import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * Configuration of state TTL logic.
+ *
+ * &lt;p&gt;Note: The map state with TTL currently supports {@code null} user values only if the user
+ * value serializer can handle {@code null} values. If the serializer does not support {@code null}
+ * values, it can be wrapped with {@link
+ * org.apache.flink.api.java.typeutils.runtime.NullableSerializer} at the cost of an extra byte in
+ * the serialized form.
+ */
+@PublicEvolving
+public class StateTtlConfig implements Serializable {
+
+    private static final long serialVersionUID = -7592693245044289793L;
+
+<span class="fc" id="L55">    public static final StateTtlConfig DISABLED =</span>
+<span class="fc" id="L56">            newBuilder(Time.milliseconds(Long.MAX_VALUE))</span>
+<span class="fc" id="L57">                    .setUpdateType(UpdateType.Disabled)</span>
+<span class="fc" id="L58">                    .build();</span>
+
+    /**
+     * This option value configures when to update last access timestamp which prolongs state TTL.
+     */
+<span class="fc" id="L63">    public enum UpdateType {</span>
+        /** TTL is disabled. State does not expire. */
+<span class="fc" id="L65">        Disabled,</span>
+        /**
+         * Last access timestamp is initialised when state is created and updated on every write
+         * operation.
+         */
+<span class="fc" id="L70">        OnCreateAndWrite,</span>
+        /** The same as &lt;code&gt;OnCreateAndWrite&lt;/code&gt; but also updated on read. */
+<span class="fc" id="L72">        OnReadAndWrite</span>
+    }
+
+    /** This option configures whether expired user value can be returned or not. */
+<span class="fc" id="L76">    public enum StateVisibility {</span>
+        /** Return expired user value if it is not cleaned up yet. */
+<span class="fc" id="L78">        ReturnExpiredIfNotCleanedUp,</span>
+        /** Never return expired user value. */
+<span class="fc" id="L80">        NeverReturnExpired</span>
+    }
+
+    /** This option configures time scale to use for ttl. */
+<span class="fc" id="L84">    public enum TtlTimeCharacteristic {</span>
+        /**
+         * Processing time, see also &lt;code&gt;
+         * org.apache.flink.streaming.api.TimeCharacteristic.ProcessingTime&lt;/code&gt;.
+         */
+<span class="fc" id="L89">        ProcessingTime</span>
+    }
+
+    private final UpdateType updateType;
+    private final StateVisibility stateVisibility;
+    private final TtlTimeCharacteristic ttlTimeCharacteristic;
+    private final Time ttl;
+    private final CleanupStrategies cleanupStrategies;
+
+    private StateTtlConfig(
+            UpdateType updateType,
+            StateVisibility stateVisibility,
+            TtlTimeCharacteristic ttlTimeCharacteristic,
+            Time ttl,
+<span class="fc" id="L103">            CleanupStrategies cleanupStrategies) {</span>
+<span class="fc" id="L104">        this.updateType = checkNotNull(updateType);</span>
+<span class="fc" id="L105">        this.stateVisibility = checkNotNull(stateVisibility);</span>
+<span class="fc" id="L106">        this.ttlTimeCharacteristic = checkNotNull(ttlTimeCharacteristic);</span>
+<span class="fc" id="L107">        this.ttl = checkNotNull(ttl);</span>
+<span class="fc" id="L108">        this.cleanupStrategies = cleanupStrategies;</span>
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">        checkArgument(ttl.toMilliseconds() &gt; 0, &quot;TTL is expected to be positive.&quot;);</span>
+<span class="fc" id="L110">    }</span>
+
+    @Nonnull
+    public UpdateType getUpdateType() {
+<span class="nc" id="L114">        return updateType;</span>
+    }
+
+    @Nonnull
+    public StateVisibility getStateVisibility() {
+<span class="nc" id="L119">        return stateVisibility;</span>
+    }
+
+    @Nonnull
+    public Time getTtl() {
+<span class="nc" id="L124">        return ttl;</span>
+    }
+
+    @Nonnull
+    public TtlTimeCharacteristic getTtlTimeCharacteristic() {
+<span class="nc" id="L129">        return ttlTimeCharacteristic;</span>
+    }
+
+    public boolean isEnabled() {
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        return updateType != UpdateType.Disabled;</span>
+    }
+
+    @Nonnull
+    public CleanupStrategies getCleanupStrategies() {
+<span class="fc" id="L138">        return cleanupStrategies;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L143">        return &quot;StateTtlConfig{&quot;</span>
+                + &quot;updateType=&quot;
+                + updateType
+                + &quot;, stateVisibility=&quot;
+                + stateVisibility
+                + &quot;, ttlTimeCharacteristic=&quot;
+                + ttlTimeCharacteristic
+                + &quot;, ttl=&quot;
+                + ttl
+                + '}';
+    }
+
+    @Nonnull
+    public static Builder newBuilder(@Nonnull Time ttl) {
+<span class="fc" id="L157">        return new Builder(ttl);</span>
+    }
+
+    /** Builder for the {@link StateTtlConfig}. */
+    public static class Builder {
+
+<span class="fc" id="L163">        private UpdateType updateType = OnCreateAndWrite;</span>
+<span class="fc" id="L164">        private StateVisibility stateVisibility = NeverReturnExpired;</span>
+<span class="fc" id="L165">        private TtlTimeCharacteristic ttlTimeCharacteristic = ProcessingTime;</span>
+        private Time ttl;
+<span class="fc" id="L167">        private boolean isCleanupInBackground = true;</span>
+<span class="fc" id="L168">        private final EnumMap&lt;CleanupStrategies.Strategies, CleanupStrategies.CleanupStrategy&gt;</span>
+                strategies = new EnumMap&lt;&gt;(CleanupStrategies.Strategies.class);
+
+<span class="fc" id="L171">        public Builder(@Nonnull Time ttl) {</span>
+<span class="fc" id="L172">            this.ttl = ttl;</span>
+<span class="fc" id="L173">        }</span>
+
+        /**
+         * Sets the ttl update type.
+         *
+         * @param updateType The ttl update type configures when to update last access timestamp
+         *     which prolongs state TTL.
+         */
+        @Nonnull
+        public Builder setUpdateType(UpdateType updateType) {
+<span class="fc" id="L183">            this.updateType = updateType;</span>
+<span class="fc" id="L184">            return this;</span>
+        }
+
+        @Nonnull
+        public Builder updateTtlOnCreateAndWrite() {
+<span class="nc" id="L189">            return setUpdateType(UpdateType.OnCreateAndWrite);</span>
+        }
+
+        @Nonnull
+        public Builder updateTtlOnReadAndWrite() {
+<span class="nc" id="L194">            return setUpdateType(UpdateType.OnReadAndWrite);</span>
+        }
+
+        /**
+         * Sets the state visibility.
+         *
+         * @param stateVisibility The state visibility configures whether expired user value can be
+         *     returned or not.
+         */
+        @Nonnull
+        public Builder setStateVisibility(@Nonnull StateVisibility stateVisibility) {
+<span class="nc" id="L205">            this.stateVisibility = stateVisibility;</span>
+<span class="nc" id="L206">            return this;</span>
+        }
+
+        @Nonnull
+        public Builder returnExpiredIfNotCleanedUp() {
+<span class="nc" id="L211">            return setStateVisibility(StateVisibility.ReturnExpiredIfNotCleanedUp);</span>
+        }
+
+        @Nonnull
+        public Builder neverReturnExpired() {
+<span class="nc" id="L216">            return setStateVisibility(StateVisibility.NeverReturnExpired);</span>
+        }
+
+        /**
+         * Sets the time characteristic.
+         *
+         * @param ttlTimeCharacteristic The time characteristic configures time scale to use for
+         *     ttl.
+         */
+        @Nonnull
+        public Builder setTtlTimeCharacteristic(
+                @Nonnull TtlTimeCharacteristic ttlTimeCharacteristic) {
+<span class="nc" id="L228">            this.ttlTimeCharacteristic = ttlTimeCharacteristic;</span>
+<span class="nc" id="L229">            return this;</span>
+        }
+
+        @Nonnull
+        public Builder useProcessingTime() {
+<span class="nc" id="L234">            return setTtlTimeCharacteristic(ProcessingTime);</span>
+        }
+
+        /** Cleanup expired state in full snapshot on checkpoint. */
+        @Nonnull
+        public Builder cleanupFullSnapshot() {
+<span class="nc" id="L240">            strategies.put(CleanupStrategies.Strategies.FULL_STATE_SCAN_SNAPSHOT, EMPTY_STRATEGY);</span>
+<span class="nc" id="L241">            return this;</span>
+        }
+
+        /**
+         * Cleanup expired state incrementally cleanup local state.
+         *
+         * &lt;p&gt;Upon every state access this cleanup strategy checks a bunch of state keys for
+         * expiration and cleans up expired ones. It keeps a lazy iterator through all keys with
+         * relaxed consistency if backend supports it. This way all keys should be regularly checked
+         * and cleaned eventually over time if any state is constantly being accessed.
+         *
+         * &lt;p&gt;Additionally to the incremental cleanup upon state access, it can also run per every
+         * record. Caution: if there are a lot of registered states using this option, they all will
+         * be iterated for every record to check if there is something to cleanup.
+         *
+         * &lt;p&gt;Note: if no access happens to this state or no records are processed in case of {@code
+         * runCleanupForEveryRecord}, expired state will persist.
+         *
+         * &lt;p&gt;Note: Time spent for the incremental cleanup increases record processing latency.
+         *
+         * &lt;p&gt;Note: At the moment incremental cleanup is implemented only for Heap state backend.
+         * Setting it for RocksDB will have no effect.
+         *
+         * &lt;p&gt;Note: If heap state backend is used with synchronous snapshotting, the global iterator
+         * keeps a copy of all keys while iterating because of its specific implementation which
+         * does not support concurrent modifications. Enabling of this feature will increase memory
+         * consumption then. Asynchronous snapshotting does not have this problem.
+         *
+         * @param cleanupSize max number of keys pulled from queue for clean up upon state touch for
+         *     any key
+         * @param runCleanupForEveryRecord run incremental cleanup per each processed record
+         */
+        @Nonnull
+        public Builder cleanupIncrementally(
+                @Nonnegative int cleanupSize, boolean runCleanupForEveryRecord) {
+<span class="nc" id="L276">            strategies.put(</span>
+                    CleanupStrategies.Strategies.INCREMENTAL_CLEANUP,
+                    new IncrementalCleanupStrategy(cleanupSize, runCleanupForEveryRecord));
+<span class="nc" id="L279">            return this;</span>
+        }
+
+        /**
+         * Cleanup expired state while Rocksdb compaction is running.
+         *
+         * &lt;p&gt;RocksDB compaction filter will query current timestamp, used to check expiration, from
+         * Flink every time after processing {@code queryTimeAfterNumEntries} number of state
+         * entries. Updating the timestamp more often can improve cleanup speed but it decreases
+         * compaction performance because it uses JNI call from native code.
+         *
+         * @param queryTimeAfterNumEntries number of state entries to process by compaction filter
+         *     before updating current timestamp
+         */
+        @Nonnull
+        public Builder cleanupInRocksdbCompactFilter(long queryTimeAfterNumEntries) {
+<span class="nc" id="L295">            strategies.put(</span>
+                    CleanupStrategies.Strategies.ROCKSDB_COMPACTION_FILTER,
+                    new RocksdbCompactFilterCleanupStrategy(queryTimeAfterNumEntries));
+<span class="nc" id="L298">            return this;</span>
+        }
+
+        /**
+         * Disable default cleanup of expired state in background (enabled by default).
+         *
+         * &lt;p&gt;If some specific cleanup is configured, e.g. {@link #cleanupIncrementally(int,
+         * boolean)} or {@link #cleanupInRocksdbCompactFilter(long)}, this setting does not disable
+         * it.
+         */
+        @Nonnull
+        public Builder disableCleanupInBackground() {
+<span class="fc" id="L310">            isCleanupInBackground = false;</span>
+<span class="fc" id="L311">            return this;</span>
+        }
+
+        /**
+         * Sets the ttl time.
+         *
+         * @param ttl The ttl time.
+         */
+        @Nonnull
+        public Builder setTtl(@Nonnull Time ttl) {
+<span class="nc" id="L321">            this.ttl = ttl;</span>
+<span class="nc" id="L322">            return this;</span>
+        }
+
+        @Nonnull
+        public StateTtlConfig build() {
+<span class="fc" id="L327">            return new StateTtlConfig(</span>
+                    updateType,
+                    stateVisibility,
+                    ttlTimeCharacteristic,
+                    ttl,
+                    new CleanupStrategies(strategies, isCleanupInBackground));
+        }
+    }
+
+    /**
+     * TTL cleanup strategies.
+     *
+     * &lt;p&gt;This class configures when to cleanup expired state with TTL. By default, state is always
+     * cleaned up on explicit read access if found expired. Currently cleanup of state full snapshot
+     * can be additionally activated.
+     */
+    public static class CleanupStrategies implements Serializable {
+        private static final long serialVersionUID = -1617740467277313524L;
+
+<span class="fc" id="L346">        static final CleanupStrategy EMPTY_STRATEGY = new EmptyCleanupStrategy();</span>
+
+        private final boolean isCleanupInBackground;
+
+        private final EnumMap&lt;Strategies, CleanupStrategy&gt; strategies;
+
+        /** Fixed strategies ordinals in {@code strategies} config field. */
+<span class="fc" id="L353">        enum Strategies {</span>
+<span class="fc" id="L354">            FULL_STATE_SCAN_SNAPSHOT,</span>
+<span class="fc" id="L355">            INCREMENTAL_CLEANUP,</span>
+<span class="fc" id="L356">            ROCKSDB_COMPACTION_FILTER</span>
+        }
+
+        /** Base interface for cleanup strategies configurations. */
+        interface CleanupStrategy extends Serializable {}
+
+<span class="fc" id="L362">        static class EmptyCleanupStrategy implements CleanupStrategy {</span>
+            private static final long serialVersionUID = 1373998465131443873L;
+        }
+
+        private CleanupStrategies(
+<span class="fc" id="L367">                EnumMap&lt;Strategies, CleanupStrategy&gt; strategies, boolean isCleanupInBackground) {</span>
+<span class="fc" id="L368">            this.strategies = strategies;</span>
+<span class="fc" id="L369">            this.isCleanupInBackground = isCleanupInBackground;</span>
+<span class="fc" id="L370">        }</span>
+
+        public boolean inFullSnapshot() {
+<span class="nc" id="L373">            return strategies.containsKey(Strategies.FULL_STATE_SCAN_SNAPSHOT);</span>
+        }
+
+        public boolean isCleanupInBackground() {
+<span class="fc" id="L377">            return isCleanupInBackground;</span>
+        }
+
+        @Nullable
+        public IncrementalCleanupStrategy getIncrementalCleanupStrategy() {
+<span class="fc bfc" id="L382" title="All 2 branches covered.">            IncrementalCleanupStrategy defaultStrategy =</span>
+                    isCleanupInBackground ? DEFAULT_INCREMENTAL_CLEANUP_STRATEGY : null;
+<span class="fc" id="L384">            return (IncrementalCleanupStrategy)</span>
+<span class="fc" id="L385">                    strategies.getOrDefault(Strategies.INCREMENTAL_CLEANUP, defaultStrategy);</span>
+        }
+
+        public boolean inRocksdbCompactFilter() {
+<span class="fc bfc" id="L389" title="All 2 branches covered.">            return getRocksdbCompactFilterCleanupStrategy() != null;</span>
+        }
+
+        @Nullable
+        public RocksdbCompactFilterCleanupStrategy getRocksdbCompactFilterCleanupStrategy() {
+<span class="fc bfc" id="L394" title="All 2 branches covered.">            RocksdbCompactFilterCleanupStrategy defaultStrategy =</span>
+                    isCleanupInBackground ? DEFAULT_ROCKSDB_COMPACT_FILTER_CLEANUP_STRATEGY : null;
+<span class="fc" id="L396">            return (RocksdbCompactFilterCleanupStrategy)</span>
+<span class="fc" id="L397">                    strategies.getOrDefault(Strategies.ROCKSDB_COMPACTION_FILTER, defaultStrategy);</span>
+        }
+    }
+
+    /** Configuration of cleanup strategy while taking the full snapshot. */
+    public static class IncrementalCleanupStrategy implements CleanupStrategies.CleanupStrategy {
+        private static final long serialVersionUID = 3109278696501988780L;
+
+<span class="fc" id="L405">        static final IncrementalCleanupStrategy DEFAULT_INCREMENTAL_CLEANUP_STRATEGY =</span>
+                new IncrementalCleanupStrategy(5, false);
+
+        /** Max number of keys pulled from queue for clean up upon state touch for any key. */
+        private final int cleanupSize;
+
+        /** Whether to run incremental cleanup per each processed record. */
+        private final boolean runCleanupForEveryRecord;
+
+<span class="fc" id="L414">        private IncrementalCleanupStrategy(int cleanupSize, boolean runCleanupForEveryRecord) {</span>
+<span class="fc bfc" id="L415" title="All 2 branches covered.">            Preconditions.checkArgument(</span>
+                    cleanupSize &gt; 0,
+                    &quot;Number of incrementally cleaned up state entries should be positive.&quot;);
+<span class="fc" id="L418">            this.cleanupSize = cleanupSize;</span>
+<span class="fc" id="L419">            this.runCleanupForEveryRecord = runCleanupForEveryRecord;</span>
+<span class="fc" id="L420">        }</span>
+
+        public int getCleanupSize() {
+<span class="fc" id="L423">            return cleanupSize;</span>
+        }
+
+        public boolean runCleanupForEveryRecord() {
+<span class="fc" id="L427">            return runCleanupForEveryRecord;</span>
+        }
+    }
+
+    /** Configuration of cleanup strategy using custom compaction filter in RocksDB. */
+    public static class RocksdbCompactFilterCleanupStrategy
+            implements CleanupStrategies.CleanupStrategy {
+        private static final long serialVersionUID = 3109278796506988980L;
+
+        static final RocksdbCompactFilterCleanupStrategy
+<span class="fc" id="L437">                DEFAULT_ROCKSDB_COMPACT_FILTER_CLEANUP_STRATEGY =</span>
+                        new RocksdbCompactFilterCleanupStrategy(1000L);
+
+        /**
+         * Number of state entries to process by compaction filter before updating current
+         * timestamp.
+         */
+        private final long queryTimeAfterNumEntries;
+
+<span class="fc" id="L446">        private RocksdbCompactFilterCleanupStrategy(long queryTimeAfterNumEntries) {</span>
+<span class="fc" id="L447">            this.queryTimeAfterNumEntries = queryTimeAfterNumEntries;</span>
+<span class="fc" id="L448">        }</span>
+
+        public long getQueryTimeAfterNumEntries() {
+<span class="fc" id="L451">            return queryTimeAfterNumEntries;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

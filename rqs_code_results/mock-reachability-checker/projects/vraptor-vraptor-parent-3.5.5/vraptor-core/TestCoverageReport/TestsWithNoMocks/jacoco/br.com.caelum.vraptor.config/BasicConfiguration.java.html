@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BasicConfiguration.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.config</a> &gt; <span class="el_source">BasicConfiguration.java</span></div><h1>BasicConfiguration.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package br.com.caelum.vraptor.config;
+
+import java.lang.reflect.InvocationTargetException;
+
+import javax.servlet.ServletContext;
+import javax.servlet.ServletException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import br.com.caelum.vraptor.ioc.ContainerProvider;
+import br.com.caelum.vraptor.ioc.guice.GuiceProvider;
+import br.com.caelum.vraptor.ioc.pico.PicoProvider;
+import br.com.caelum.vraptor.ioc.spring.MissingConfigurationException;
+import br.com.caelum.vraptor.ioc.spring.SpringProvider;
+
+/**
+ * VRaptors servlet context init parameter configuration reader.
+ *
+ * @author Guilherme Silveira
+ */
+public class BasicConfiguration {
+
+<span class="fc" id="L41">	private static final Logger logger = LoggerFactory.getLogger(BasicConfiguration.class);</span>
+
+	/**
+	 * context parameter that represents the class of IoC provider
+	 */
+	public static final String CONTAINER_PROVIDER = &quot;br.com.caelum.vraptor.provider&quot;;
+
+	/**
+	 * context parameter that represents application character encoding
+	 */
+	public static final String ENCODING = &quot;br.com.caelum.vraptor.encoding&quot;;
+
+	/**
+	 * context parameter that represents the base package(s) of your application
+	 */
+	public static final String BASE_PACKAGES_PARAMETER_NAME = &quot;br.com.caelum.vraptor.packages&quot;;
+
+	/**
+	 * Disables/enables classpath scanning
+	 */
+	public static final String SCANNING_PARAM = &quot;br.com.caelum.vraptor.scanning&quot;;
+
+	private final ServletContext servletContext;
+
+<span class="fc" id="L65">	public BasicConfiguration(ServletContext servletContext) {</span>
+<span class="fc" id="L66">		this.servletContext = servletContext;</span>
+<span class="fc" id="L67">	}</span>
+
+	public ContainerProvider getProvider() throws ServletException {
+<span class="nc" id="L70">		Class&lt;? extends ContainerProvider&gt; providerType = getProviderType();</span>
+<span class="nc" id="L71">		logger.info(&quot;Using {} as Container Provider&quot;, providerType);</span>
+		try {
+<span class="nc" id="L73">			return providerType.getDeclaredConstructor().newInstance();</span>
+<span class="nc" id="L74">		} catch (InvocationTargetException e) {</span>
+<span class="nc" id="L75">			throw new ServletException(e.getCause());</span>
+<span class="nc" id="L76">		} catch (Exception e) {</span>
+<span class="nc" id="L77">			throw new ServletException(e);</span>
+		}
+	}
+
+	private Class&lt;? extends ContainerProvider&gt; getProviderType() {
+<span class="nc" id="L82">		String provider = servletContext.getInitParameter(CONTAINER_PROVIDER);</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">		if (provider != null) {</span>
+			try {
+<span class="nc" id="L85">				return (Class&lt;? extends ContainerProvider&gt;) Class.forName(provider);</span>
+<span class="nc" id="L86">			} catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L87">				throw new IllegalArgumentException(&quot;You must configure a class that exists on the &quot;</span>
+						+ CONTAINER_PROVIDER + &quot; context param.&quot;, e);
+			}
+		}
+<span class="nc bnc" id="L91" title="All 2 branches missed.">		if (classExists(&quot;org.springframework.context.ApplicationContext&quot;)) {</span>
+<span class="nc" id="L92">			return SpringProvider.class;</span>
+		}
+<span class="nc bnc" id="L94" title="All 2 branches missed.">		if (classExists(&quot;com.google.inject.Guice&quot;)) {</span>
+<span class="nc" id="L95">			return GuiceProvider.class;</span>
+		}
+
+<span class="nc bnc" id="L98" title="All 2 branches missed.">		if (classExists(&quot;org.picocontainer.PicoContainer&quot;)) {</span>
+<span class="nc" id="L99">			return PicoProvider.class;</span>
+		}
+<span class="nc" id="L101">		throw new IllegalArgumentException(&quot;You don't have any DI container jars on your classpath. &quot; +</span>
+				&quot;You can find them on vraptor-3.x.x.zip, so you must put one of the &quot; +
+				&quot;lib/containers/&lt;container&gt; jars on your classpath, where &lt;container&gt; is your preferred container.&quot;);
+	}
+
+	protected boolean classExists(String className) {
+		try {
+<span class="nc" id="L108">			Class.forName(className);</span>
+<span class="nc" id="L109">			return true;</span>
+<span class="nc" id="L110">		} catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L111">			return false;</span>
+		}
+	}
+
+	public boolean hasBasePackages() {
+<span class="nc bnc" id="L116" title="All 2 branches missed.">		return servletContext.getInitParameter(BasicConfiguration.BASE_PACKAGES_PARAMETER_NAME) != null;</span>
+	}
+
+	public String[] getBasePackages() {
+<span class="nc" id="L120">		String packages = servletContext.getInitParameter(BasicConfiguration.BASE_PACKAGES_PARAMETER_NAME);</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">		if (packages == null) {</span>
+<span class="nc" id="L122">			throw new MissingConfigurationException(BasicConfiguration.BASE_PACKAGES_PARAMETER_NAME</span>
+					+ &quot; context-param not found in web.xml. Set this parameter with your base package&quot;);
+		}
+<span class="nc" id="L125">		return packages.trim().split(&quot;,\\s*&quot;);</span>
+	}
+
+	public String getEncoding() {
+<span class="nc" id="L129">		return servletContext.getInitParameter(ENCODING);</span>
+	}
+
+	public String getWebinfClassesDirectory() {
+<span class="nc" id="L133">		return servletContext.getRealPath(&quot;/WEB-INF/classes/&quot;);</span>
+	}
+
+	public ServletContext getServletContext() {
+<span class="fc" id="L137">		return servletContext;</span>
+	}
+
+	public boolean isClasspathScanningEnabled() {
+<span class="fc" id="L141">		String scanningParam = servletContext.getInitParameter(SCANNING_PARAM);</span>
+<span class="fc" id="L142">		logger.info(&quot;{} = {}&quot;, SCANNING_PARAM, servletContext.getInitParameter(SCANNING_PARAM));</span>
+<span class="pc bpc" id="L143" title="2 of 4 branches missed.">		return scanningParam == null || !scanningParam.trim().equals(&quot;disabled&quot;);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

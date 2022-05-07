@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TypeSerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeutils</a> &gt; <span class="el_source">TypeSerializer.java</span></div><h1>TypeSerializer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeutils;
+
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+
+import java.io.IOException;
+import java.io.Serializable;
+
+/**
+ * This interface describes the methods that are required for a data type to be handled by the Flink
+ * runtime. Specifically, this interface contains the serialization and copying methods.
+ *
+ * &lt;p&gt;The methods in this class are not necessarily thread safe. To avoid unpredictable side
+ * effects, it is recommended to call {@code duplicate()} method and use one serializer instance per
+ * thread.
+ *
+ * &lt;p&gt;&lt;b&gt;Upgrading TypeSerializers to the new TypeSerializerSnapshot model&lt;/b&gt;
+ *
+ * &lt;p&gt;This section is relevant if you implemented a TypeSerializer in Flink versions up to 1.6 and
+ * want to adapt that implementation to the new interfaces that support proper state schema
+ * evolution, while maintaining backwards compatibility. Please follow these steps:
+ *
+ * &lt;ul&gt;
+ *   &lt;li&gt;Change the type serializer's config snapshot to implement {@link TypeSerializerSnapshot},
+ *       rather than extending {@code TypeSerializerConfigSnapshot} (as previously).
+ *   &lt;li&gt;If the above step was completed, then the upgrade is done. Otherwise, if changing to
+ *       implement {@link TypeSerializerSnapshot} directly in-place as the same class isn't possible
+ *       (perhaps because the new snapshot is intended to have completely different written contents
+ *       or intended to have a different class name), retain the old serializer snapshot class
+ *       (extending {@code TypeSerializerConfigSnapshot}) under the same name and give the updated
+ *       serializer snapshot class (the one extending {@code TypeSerializerSnapshot}) a new name.
+ *   &lt;li&gt;Override the {@code
+ *       TypeSerializerConfigSnapshot#resolveSchemaCompatibility(TypeSerializer)} method to perform
+ *       the compatibility check based on configuration written by the old serializer snapshot
+ *       class.
+ * &lt;/ul&gt;
+ *
+ * @param &lt;T&gt; The data type that the serializer serializes.
+ */
+@PublicEvolving
+<span class="fc" id="L60">public abstract class TypeSerializer&lt;T&gt; implements Serializable {</span>
+
+    private static final long serialVersionUID = 1L;
+
+    // --------------------------------------------------------------------------------------------
+    // General information about the type and the serializer
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Gets whether the type is an immutable type.
+     *
+     * @return True, if the type is immutable.
+     */
+    public abstract boolean isImmutableType();
+
+    /**
+     * Creates a deep copy of this serializer if it is necessary, i.e. if it is stateful. This can
+     * return itself if the serializer is not stateful.
+     *
+     * &lt;p&gt;We need this because Serializers might be used in several threads. Stateless serializers
+     * are inherently thread-safe while stateful serializers might not be thread-safe.
+     */
+    public abstract TypeSerializer&lt;T&gt; duplicate();
+
+    // --------------------------------------------------------------------------------------------
+    // Instantiation &amp; Cloning
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Creates a new instance of the data type.
+     *
+     * @return A new instance of the data type.
+     */
+    public abstract T createInstance();
+
+    /**
+     * Creates a deep copy of the given element in a new element.
+     *
+     * @param from The element reuse be copied.
+     * @return A deep copy of the element.
+     */
+    public abstract T copy(T from);
+
+    /**
+     * Creates a copy from the given element. The method makes an attempt to store the copy in the
+     * given reuse element, if the type is mutable. This is, however, not guaranteed.
+     *
+     * @param from The element to be copied.
+     * @param reuse The element to be reused. May or may not be used.
+     * @return A deep copy of the element.
+     */
+    public abstract T copy(T from, T reuse);
+
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Gets the length of the data type, if it is a fix length data type.
+     *
+     * @return The length of the data type, or &lt;code&gt;-1&lt;/code&gt; for variable length data types.
+     */
+    public abstract int getLength();
+
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Serializes the given record to the given target output view.
+     *
+     * @param record The record to serialize.
+     * @param target The output view to write the serialized data to.
+     * @throws IOException Thrown, if the serialization encountered an I/O related error. Typically
+     *     raised by the output view, which may have an underlying I/O channel to which it
+     *     delegates.
+     */
+    public abstract void serialize(T record, DataOutputView target) throws IOException;
+
+    /**
+     * De-serializes a record from the given source input view.
+     *
+     * @param source The input view from which to read the data.
+     * @return The deserialized element.
+     * @throws IOException Thrown, if the de-serialization encountered an I/O related error.
+     *     Typically raised by the input view, which may have an underlying I/O channel from which
+     *     it reads.
+     */
+    public abstract T deserialize(DataInputView source) throws IOException;
+
+    /**
+     * De-serializes a record from the given source input view into the given reuse record instance
+     * if mutable.
+     *
+     * @param reuse The record instance into which to de-serialize the data.
+     * @param source The input view from which to read the data.
+     * @return The deserialized element.
+     * @throws IOException Thrown, if the de-serialization encountered an I/O related error.
+     *     Typically raised by the input view, which may have an underlying I/O channel from which
+     *     it reads.
+     */
+    public abstract T deserialize(T reuse, DataInputView source) throws IOException;
+
+    /**
+     * Copies exactly one record from the source input view to the target output view. Whether this
+     * operation works on binary data or partially de-serializes the record to determine its length
+     * (such as for records of variable length) is up to the implementer. Binary copies are
+     * typically faster. A copy of a record containing two integer numbers (8 bytes total) is most
+     * efficiently implemented as {@code target.write(source, 8);}.
+     *
+     * @param source The input view from which to read the record.
+     * @param target The target output view to which to write the record.
+     * @throws IOException Thrown if any of the two views raises an exception.
+     */
+    public abstract void copy(DataInputView source, DataOutputView target) throws IOException;
+
+    public abstract boolean equals(Object obj);
+
+    public abstract int hashCode();
+
+    // --------------------------------------------------------------------------------------------
+    // Serializer configuration snapshot for checkpoints/savepoints
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Snapshots the configuration of this TypeSerializer. This method is only relevant if the
+     * serializer is used to state stored in checkpoints/savepoints.
+     *
+     * &lt;p&gt;The snapshot of the TypeSerializer is supposed to contain all information that affects the
+     * serialization format of the serializer. The snapshot serves two purposes: First, to reproduce
+     * the serializer when the checkpoint/savepoint is restored, and second, to check whether the
+     * serialization format is compatible with the serializer used in the restored program.
+     *
+     * &lt;p&gt;&lt;b&gt;IMPORTANT:&lt;/b&gt; TypeSerializerSnapshots changed after Flink 1.6. Serializers implemented
+     * against Flink versions up to 1.6 should still work, but adjust to new model to enable state
+     * evolution and be future-proof. See the class-level comments, section &quot;Upgrading
+     * TypeSerializers to the new TypeSerializerSnapshot model&quot; for details.
+     *
+     * @see TypeSerializerSnapshot#resolveSchemaCompatibility(TypeSerializer)
+     * @return snapshot of the serializer's current configuration (cannot be {@code null}).
+     */
+    public abstract TypeSerializerSnapshot&lt;T&gt; snapshotConfiguration();
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

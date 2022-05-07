@@ -1,0 +1,375 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ArtifactResolutionResult.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.artifact.resolver</a> &gt; <span class="el_source">ArtifactResolutionResult.java</span></div><h1>ArtifactResolutionResult.java</h1><pre class="source lang-java linenums">package org.apache.maven.artifact.resolver;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.apache.maven.artifact.versioning.OverConstrainedVersionException;
+
+/**
+ * Specific problems during resolution that we want to account for:
+ * &lt;ul&gt;
+ *   &lt;li&gt;missing metadata&lt;/li&gt;
+ *   &lt;li&gt;version range violations&lt;/li&gt;
+ *   &lt;li&gt;version circular dependencies&lt;/li&gt;
+ *   &lt;li&gt;missing artifacts&lt;/li&gt;
+ *   &lt;li&gt;network/transfer errors&lt;/li&gt;
+ *   &lt;li&gt;file system errors: permissions&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * @author Jason van Zyl
+ * TODO carlos: all these possible has*Exceptions and get*Exceptions methods make the clients too
+ *       complex requiring a long list of checks, need to create a parent/interface/encapsulation
+ *       for the types of exceptions
+ */
+<span class="nc" id="L48">public class ArtifactResolutionResult</span>
+{
+    private Artifact originatingArtifact;
+
+    private List&lt;Artifact&gt; missingArtifacts;
+
+    // Exceptions
+
+    private List&lt;Exception&gt; exceptions;
+
+    private List&lt;Exception&gt; versionRangeViolations;
+
+    private List&lt;ArtifactResolutionException&gt; metadataResolutionExceptions;
+
+    private List&lt;CyclicDependencyException&gt; circularDependencyExceptions;
+
+    private List&lt;ArtifactResolutionException&gt; errorArtifactExceptions;
+
+    // file system errors
+
+    private List&lt;ArtifactRepository&gt; repositories;
+
+    private Set&lt;Artifact&gt; artifacts;
+
+    private Set&lt;ResolutionNode&gt; resolutionNodes;
+
+    public Artifact getOriginatingArtifact()
+    {
+<span class="nc" id="L76">        return originatingArtifact;</span>
+    }
+
+    public ArtifactResolutionResult setOriginatingArtifact( final Artifact originatingArtifact )
+    {
+<span class="nc" id="L81">        this.originatingArtifact = originatingArtifact;</span>
+
+<span class="nc" id="L83">        return this;</span>
+    }
+
+    public void addArtifact( Artifact artifact )
+    {
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        if ( artifacts == null )</span>
+        {
+<span class="nc" id="L90">            artifacts = new LinkedHashSet&lt;&gt;();</span>
+        }
+
+<span class="nc" id="L93">        artifacts.add( artifact );</span>
+<span class="nc" id="L94">    }</span>
+
+    public Set&lt;Artifact&gt; getArtifacts()
+    {
+<span class="nc bnc" id="L98" title="All 2 branches missed.">        if ( artifacts == null )</span>
+        {
+<span class="nc" id="L100">            artifacts = new LinkedHashSet&lt;&gt;();</span>
+        }
+
+<span class="nc" id="L103">        return artifacts;</span>
+    }
+
+    public void setArtifacts( Set&lt;Artifact&gt; artifacts )
+    {
+<span class="nc" id="L108">        this.artifacts = artifacts;</span>
+<span class="nc" id="L109">    }</span>
+
+    public Set&lt;ResolutionNode&gt; getArtifactResolutionNodes()
+    {
+<span class="nc bnc" id="L113" title="All 2 branches missed.">        if ( resolutionNodes == null )</span>
+        {
+<span class="nc" id="L115">            resolutionNodes = new LinkedHashSet&lt;&gt;();</span>
+        }
+
+<span class="nc" id="L118">        return resolutionNodes;</span>
+    }
+
+    public void setArtifactResolutionNodes( Set&lt;ResolutionNode&gt; resolutionNodes )
+    {
+<span class="nc" id="L123">        this.resolutionNodes = resolutionNodes;</span>
+<span class="nc" id="L124">    }</span>
+
+    public boolean hasMissingArtifacts()
+    {
+<span class="nc bnc" id="L128" title="All 4 branches missed.">        return missingArtifacts != null &amp;&amp; !missingArtifacts.isEmpty();</span>
+    }
+
+    public List&lt;Artifact&gt; getMissingArtifacts()
+    {
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        return missingArtifacts == null</span>
+<span class="nc" id="L134">                   ? Collections.&lt;Artifact&gt;emptyList()</span>
+<span class="nc" id="L135">                   : Collections.unmodifiableList( missingArtifacts );</span>
+
+    }
+
+    public ArtifactResolutionResult addMissingArtifact( Artifact artifact )
+    {
+<span class="nc" id="L141">        missingArtifacts = initList( missingArtifacts );</span>
+
+<span class="nc" id="L143">        missingArtifacts.add( artifact );</span>
+
+<span class="nc" id="L145">        return this;</span>
+    }
+
+    public ArtifactResolutionResult setUnresolvedArtifacts( final List&lt;Artifact&gt; unresolvedArtifacts )
+    {
+<span class="nc" id="L150">        this.missingArtifacts = unresolvedArtifacts;</span>
+
+<span class="nc" id="L152">        return this;</span>
+    }
+
+    public boolean isSuccess()
+    {
+<span class="nc bnc" id="L157" title="All 4 branches missed.">        return !( hasMissingArtifacts() || hasExceptions() );</span>
+    }
+
+    // ------------------------------------------------------------------------
+    // Exceptions
+    // ------------------------------------------------------------------------
+
+    public boolean hasExceptions()
+    {
+<span class="nc bnc" id="L166" title="All 4 branches missed.">        return exceptions != null &amp;&amp; !exceptions.isEmpty();</span>
+    }
+
+    public List&lt;Exception&gt; getExceptions()
+    {
+<span class="nc bnc" id="L171" title="All 2 branches missed.">        return exceptions == null</span>
+<span class="nc" id="L172">                   ? Collections.&lt;Exception&gt;emptyList()</span>
+<span class="nc" id="L173">                   : Collections.unmodifiableList( exceptions );</span>
+
+    }
+
+    // ------------------------------------------------------------------------
+    // Version Range Violations
+    // ------------------------------------------------------------------------
+
+    public boolean hasVersionRangeViolations()
+    {
+<span class="nc bnc" id="L183" title="All 2 branches missed.">        return versionRangeViolations != null;</span>
+    }
+
+    /**
+     * TODO this needs to accept a {@link OverConstrainedVersionException} as returned by
+     *       {@link #getVersionRangeViolation(int)} but it's not used like that in
+     *       DefaultLegacyArtifactCollector
+     */
+    public ArtifactResolutionResult addVersionRangeViolation( Exception e )
+    {
+<span class="nc" id="L193">        versionRangeViolations = initList( versionRangeViolations );</span>
+
+<span class="nc" id="L195">        versionRangeViolations.add( e );</span>
+
+<span class="nc" id="L197">        exceptions = initList( exceptions );</span>
+
+<span class="nc" id="L199">        exceptions.add( e );</span>
+
+<span class="nc" id="L201">        return this;</span>
+    }
+
+    public OverConstrainedVersionException getVersionRangeViolation( int i )
+    {
+<span class="nc" id="L206">        return (OverConstrainedVersionException) versionRangeViolations.get( i );</span>
+    }
+
+    public List&lt;Exception&gt; getVersionRangeViolations()
+    {
+<span class="nc bnc" id="L211" title="All 2 branches missed.">        return versionRangeViolations == null</span>
+<span class="nc" id="L212">                   ? Collections.&lt;Exception&gt;emptyList()</span>
+<span class="nc" id="L213">                   : Collections.unmodifiableList( versionRangeViolations );</span>
+
+    }
+
+    // ------------------------------------------------------------------------
+    // Metadata Resolution Exceptions: ArtifactResolutionExceptions
+    // ------------------------------------------------------------------------
+
+    public boolean hasMetadataResolutionExceptions()
+    {
+<span class="nc bnc" id="L223" title="All 2 branches missed.">        return metadataResolutionExceptions != null;</span>
+    }
+
+    public ArtifactResolutionResult addMetadataResolutionException( ArtifactResolutionException e )
+    {
+<span class="nc" id="L228">        metadataResolutionExceptions = initList( metadataResolutionExceptions );</span>
+
+<span class="nc" id="L230">        metadataResolutionExceptions.add( e );</span>
+
+<span class="nc" id="L232">        exceptions = initList( exceptions );</span>
+
+<span class="nc" id="L234">        exceptions.add( e );</span>
+
+<span class="nc" id="L236">        return this;</span>
+    }
+
+    public ArtifactResolutionException getMetadataResolutionException( int i )
+    {
+<span class="nc" id="L241">        return metadataResolutionExceptions.get( i );</span>
+    }
+
+    public List&lt;ArtifactResolutionException&gt; getMetadataResolutionExceptions()
+    {
+<span class="nc bnc" id="L246" title="All 2 branches missed.">        return metadataResolutionExceptions == null</span>
+<span class="nc" id="L247">                   ? Collections.&lt;ArtifactResolutionException&gt;emptyList()</span>
+<span class="nc" id="L248">                   : Collections.unmodifiableList( metadataResolutionExceptions );</span>
+
+    }
+
+    // ------------------------------------------------------------------------
+    // ErrorArtifactExceptions: ArtifactResolutionExceptions
+    // ------------------------------------------------------------------------
+
+    public boolean hasErrorArtifactExceptions()
+    {
+<span class="nc bnc" id="L258" title="All 2 branches missed.">        return errorArtifactExceptions != null;</span>
+    }
+
+    public ArtifactResolutionResult addErrorArtifactException( ArtifactResolutionException e )
+    {
+<span class="nc" id="L263">        errorArtifactExceptions = initList( errorArtifactExceptions );</span>
+
+<span class="nc" id="L265">        errorArtifactExceptions.add( e );</span>
+
+<span class="nc" id="L267">        exceptions = initList( exceptions );</span>
+
+<span class="nc" id="L269">        exceptions.add( e );</span>
+
+<span class="nc" id="L271">        return this;</span>
+    }
+
+    public List&lt;ArtifactResolutionException&gt; getErrorArtifactExceptions()
+    {
+<span class="nc bnc" id="L276" title="All 2 branches missed.">        if ( errorArtifactExceptions == null )</span>
+        {
+<span class="nc" id="L278">            return Collections.emptyList();</span>
+        }
+
+<span class="nc" id="L281">        return Collections.unmodifiableList( errorArtifactExceptions );</span>
+    }
+
+    // ------------------------------------------------------------------------
+    // Circular Dependency Exceptions
+    // ------------------------------------------------------------------------
+
+    public boolean hasCircularDependencyExceptions()
+    {
+<span class="nc bnc" id="L290" title="All 2 branches missed.">        return circularDependencyExceptions != null;</span>
+    }
+
+    public ArtifactResolutionResult addCircularDependencyException( CyclicDependencyException e )
+    {
+<span class="nc" id="L295">        circularDependencyExceptions = initList( circularDependencyExceptions );</span>
+
+<span class="nc" id="L297">        circularDependencyExceptions.add( e );</span>
+
+<span class="nc" id="L299">        exceptions = initList( exceptions );</span>
+
+<span class="nc" id="L301">        exceptions.add( e );</span>
+
+<span class="nc" id="L303">        return this;</span>
+    }
+
+    public CyclicDependencyException getCircularDependencyException( int i )
+    {
+<span class="nc" id="L308">        return circularDependencyExceptions.get( i );</span>
+    }
+
+    public List&lt;CyclicDependencyException&gt; getCircularDependencyExceptions()
+    {
+<span class="nc bnc" id="L313" title="All 2 branches missed.">        if ( circularDependencyExceptions == null )</span>
+        {
+<span class="nc" id="L315">            return Collections.emptyList();</span>
+        }
+
+<span class="nc" id="L318">        return Collections.unmodifiableList( circularDependencyExceptions );</span>
+    }
+
+    // ------------------------------------------------------------------------
+    // Repositories
+    // ------------------------------------------------------------------------
+
+    public List&lt;ArtifactRepository&gt; getRepositories()
+    {
+<span class="nc bnc" id="L327" title="All 2 branches missed.">        if ( repositories == null )</span>
+        {
+<span class="nc" id="L329">            return Collections.emptyList();</span>
+        }
+
+<span class="nc" id="L332">        return Collections.unmodifiableList( repositories );</span>
+    }
+
+    public ArtifactResolutionResult setRepositories( final List&lt;ArtifactRepository&gt; repositories )
+    {
+<span class="nc" id="L337">        this.repositories = repositories;</span>
+
+<span class="nc" id="L339">        return this;</span>
+    }
+
+    //
+    // Internal
+    //
+
+    private &lt;T&gt; List&lt;T&gt; initList( final List&lt;T&gt; l )
+    {
+<span class="nc bnc" id="L348" title="All 2 branches missed.">        if ( l == null )</span>
+        {
+<span class="nc" id="L350">            return new ArrayList&lt;&gt;();</span>
+        }
+<span class="nc" id="L352">        return l;</span>
+    }
+
+    public String toString()
+    {
+<span class="nc" id="L357">        StringBuilder sb = new StringBuilder();</span>
+
+<span class="nc bnc" id="L359" title="All 2 branches missed.">        if ( artifacts != null )</span>
+        {
+<span class="nc" id="L361">            int i = 1;</span>
+<span class="nc" id="L362">            sb.append( &quot;---------\n&quot; );</span>
+<span class="nc" id="L363">            sb.append( artifacts.size() ).append( '\n' );</span>
+<span class="nc bnc" id="L364" title="All 2 branches missed.">            for ( Artifact a : artifacts )</span>
+            {
+<span class="nc" id="L366">                sb.append( i ).append( ' ' ).append( a ).append( '\n' );</span>
+<span class="nc" id="L367">                i++;</span>
+<span class="nc" id="L368">            }</span>
+<span class="nc" id="L369">            sb.append( &quot;---------\n&quot; );</span>
+        }
+
+<span class="nc" id="L372">        return sb.toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

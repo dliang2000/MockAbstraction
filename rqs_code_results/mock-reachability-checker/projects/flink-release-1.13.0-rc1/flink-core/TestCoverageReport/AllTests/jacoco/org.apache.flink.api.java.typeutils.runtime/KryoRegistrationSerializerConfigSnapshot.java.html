@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KryoRegistrationSerializerConfigSnapshot.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.java.typeutils.runtime</a> &gt; <span class="el_source">KryoRegistrationSerializerConfigSnapshot.java</span></div><h1>KryoRegistrationSerializerConfigSnapshot.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.java.typeutils.runtime;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.typeutils.GenericTypeSerializerConfigSnapshot;
+import org.apache.flink.api.java.typeutils.runtime.kryo.KryoSerializer;
+import org.apache.flink.core.io.IOReadableWritable;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.util.InstantiationUtil;
+import org.apache.flink.util.Preconditions;
+
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.Serializer;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.InvalidClassException;
+import java.io.Serializable;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/**
+ * Configuration snapshot base class for serializers that use Kryo for serialization.
+ *
+ * &lt;p&gt;The configuration captures the order of Kryo serializer registrations, so that new Kryo
+ * serializers can determine how to reconfigure their registration order to retain backwards
+ * compatibility.
+ *
+ * @param &lt;T&gt; the data type that the Kryo serializer handles.
+ */
+@Internal
+public abstract class KryoRegistrationSerializerConfigSnapshot&lt;T&gt;
+        extends GenericTypeSerializerConfigSnapshot&lt;T&gt; {
+
+<span class="fc" id="L57">    private static final Logger LOG =</span>
+<span class="fc" id="L58">            LoggerFactory.getLogger(KryoRegistrationSerializerConfigSnapshot.class);</span>
+
+    /** Map of class tag to the registration, with ordering. */
+    private LinkedHashMap&lt;String, KryoRegistration&gt; kryoRegistrations;
+
+    /** This empty nullary constructor is required for deserializing the configuration. */
+<span class="fc" id="L64">    public KryoRegistrationSerializerConfigSnapshot() {}</span>
+
+    public KryoRegistrationSerializerConfigSnapshot(
+            Class&lt;T&gt; typeClass, LinkedHashMap&lt;String, KryoRegistration&gt; kryoRegistrations) {
+
+<span class="nc" id="L69">        super(typeClass);</span>
+
+<span class="nc" id="L71">        this.kryoRegistrations = Preconditions.checkNotNull(kryoRegistrations);</span>
+<span class="nc" id="L72">    }</span>
+
+    @Override
+    public void write(DataOutputView out) throws IOException {
+<span class="nc" id="L76">        super.write(out);</span>
+
+<span class="nc" id="L78">        out.writeInt(kryoRegistrations.size());</span>
+        for (Map.Entry&lt;String, KryoRegistration&gt; kryoRegistrationEntry :
+<span class="nc bnc" id="L80" title="All 2 branches missed.">                kryoRegistrations.entrySet()) {</span>
+<span class="nc" id="L81">            out.writeUTF(kryoRegistrationEntry.getKey());</span>
+<span class="nc" id="L82">            new KryoRegistrationSerializationProxy&lt;&gt;(kryoRegistrationEntry.getValue()).write(out);</span>
+<span class="nc" id="L83">        }</span>
+<span class="nc" id="L84">    }</span>
+
+    @Override
+    public void read(DataInputView in) throws IOException {
+<span class="fc" id="L88">        super.read(in);</span>
+
+<span class="fc" id="L90">        int numKryoRegistrations = in.readInt();</span>
+<span class="fc" id="L91">        kryoRegistrations = new LinkedHashMap&lt;&gt;(numKryoRegistrations);</span>
+
+        KryoRegistrationSerializationProxy proxy;
+<span class="fc bfc" id="L94" title="All 2 branches covered.">        for (int i = 0; i &lt; numKryoRegistrations; i++) {</span>
+<span class="fc" id="L95">            String classTag = in.readUTF();</span>
+
+<span class="fc" id="L97">            proxy = new KryoRegistrationSerializationProxy(getUserCodeClassLoader());</span>
+<span class="fc" id="L98">            proxy.read(in);</span>
+
+<span class="fc" id="L100">            kryoRegistrations.put(classTag, proxy.kryoRegistration);</span>
+        }
+<span class="fc" id="L102">    }</span>
+
+    public LinkedHashMap&lt;String, KryoRegistration&gt; getKryoRegistrations() {
+<span class="nc" id="L105">        return kryoRegistrations;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    private static class KryoRegistrationSerializationProxy&lt;RC&gt; implements IOReadableWritable {
+
+        private ClassLoader userCodeClassLoader;
+
+        private KryoRegistration kryoRegistration;
+
+<span class="fc" id="L116">        public KryoRegistrationSerializationProxy(ClassLoader userCodeClassLoader) {</span>
+<span class="fc" id="L117">            this.userCodeClassLoader = Preconditions.checkNotNull(userCodeClassLoader);</span>
+<span class="fc" id="L118">        }</span>
+
+<span class="nc" id="L120">        public KryoRegistrationSerializationProxy(KryoRegistration kryoRegistration) {</span>
+<span class="nc" id="L121">            this.kryoRegistration = Preconditions.checkNotNull(kryoRegistration);</span>
+<span class="nc" id="L122">        }</span>
+
+        @Override
+        public void write(DataOutputView out) throws IOException {
+<span class="nc" id="L126">            out.writeUTF(kryoRegistration.getRegisteredClass().getName());</span>
+
+<span class="nc" id="L128">            final KryoRegistration.SerializerDefinitionType serializerDefinitionType =</span>
+<span class="nc" id="L129">                    kryoRegistration.getSerializerDefinitionType();</span>
+
+<span class="nc" id="L131">            out.writeInt(serializerDefinitionType.ordinal());</span>
+<span class="nc bnc" id="L132" title="All 4 branches missed.">            switch (serializerDefinitionType) {</span>
+                case UNSPECIFIED:
+                    // nothing else to write
+<span class="nc" id="L135">                    break;</span>
+                case CLASS:
+<span class="nc" id="L137">                    out.writeUTF(kryoRegistration.getSerializerClass().getName());</span>
+<span class="nc" id="L138">                    break;</span>
+                case INSTANCE:
+<span class="nc" id="L140">                    try (final DataOutputViewStream outViewWrapper =</span>
+                            new DataOutputViewStream(out)) {
+<span class="nc" id="L142">                        InstantiationUtil.serializeObject(</span>
+                                outViewWrapper,
+<span class="nc" id="L144">                                kryoRegistration.getSerializableSerializerInstance());</span>
+                    }
+<span class="nc" id="L146">                    break;</span>
+                default:
+                    // this should not happen; adding as a guard for the future
+<span class="nc" id="L149">                    throw new IllegalStateException(</span>
+                            &quot;Unrecognized Kryo registration serializer definition type: &quot;
+                                    + serializerDefinitionType);
+            }
+<span class="nc" id="L153">        }</span>
+
+        @SuppressWarnings(&quot;unchecked&quot;)
+        @Override
+        public void read(DataInputView in) throws IOException {
+<span class="fc" id="L158">            String registeredClassname = in.readUTF();</span>
+
+            Class&lt;RC&gt; registeredClass;
+            try {
+<span class="fc" id="L162">                registeredClass =</span>
+<span class="fc" id="L163">                        (Class&lt;RC&gt;) Class.forName(registeredClassname, true, userCodeClassLoader);</span>
+<span class="fc" id="L164">            } catch (ClassNotFoundException e) {</span>
+<span class="fc" id="L165">                LOG.warn(</span>
+                        &quot;Cannot find registered class &quot;
+                                + registeredClassname
+                                + &quot; for Kryo serialization in classpath;&quot;
+                                + &quot; using a dummy class as a placeholder.&quot;,
+                        e);
+
+<span class="fc" id="L172">                registeredClass = (Class) DummyRegisteredClass.class;</span>
+<span class="fc" id="L173">            }</span>
+
+            final KryoRegistration.SerializerDefinitionType serializerDefinitionType =
+<span class="fc" id="L176">                    KryoRegistration.SerializerDefinitionType.values()[in.readInt()];</span>
+
+<span class="pc bpc" id="L178" title="2 of 4 branches missed.">            switch (serializerDefinitionType) {</span>
+                case UNSPECIFIED:
+<span class="fc" id="L180">                    kryoRegistration = new KryoRegistration(registeredClass);</span>
+<span class="fc" id="L181">                    break;</span>
+
+                case CLASS:
+<span class="nc" id="L184">                    String serializerClassname = in.readUTF();</span>
+
+                    Class serializerClass;
+                    try {
+<span class="nc" id="L188">                        serializerClass =</span>
+<span class="nc" id="L189">                                Class.forName(serializerClassname, true, userCodeClassLoader);</span>
+<span class="nc" id="L190">                    } catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L191">                        LOG.warn(</span>
+                                &quot;Cannot find registered Kryo serializer class for class &quot;
+                                        + registeredClassname
+                                        + &quot; in classpath; using a dummy Kryo serializer that should be replaced as soon as&quot;
+                                        + &quot; a new Kryo serializer for the class is present&quot;,
+                                e);
+
+<span class="nc" id="L198">                        serializerClass = DummyKryoSerializerClass.class;</span>
+<span class="nc" id="L199">                    }</span>
+
+<span class="nc" id="L201">                    kryoRegistration = new KryoRegistration(registeredClass, serializerClass);</span>
+<span class="nc" id="L202">                    break;</span>
+
+                case INSTANCE:
+                    ExecutionConfig.SerializableSerializer&lt;? extends Serializer&lt;RC&gt;&gt;
+                            serializerInstance;
+
+<span class="fc" id="L208">                    try (final DataInputViewStream inViewWrapper = new DataInputViewStream(in)) {</span>
+<span class="fc" id="L209">                        serializerInstance =</span>
+<span class="fc" id="L210">                                InstantiationUtil.deserializeObject(</span>
+                                        inViewWrapper, userCodeClassLoader);
+<span class="nc" id="L212">                    } catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L213">                        LOG.warn(</span>
+                                &quot;Cannot find registered Kryo serializer class for class &quot;
+                                        + registeredClassname
+                                        + &quot; in classpath; using a dummy Kryo serializer that should be replaced as soon as&quot;
+                                        + &quot; a new Kryo serializer for the class is present&quot;,
+                                e);
+
+<span class="nc" id="L220">                        serializerInstance =</span>
+                                new ExecutionConfig.SerializableSerializer&lt;&gt;(
+                                        new DummyKryoSerializerClass&lt;RC&gt;());
+<span class="nc" id="L223">                    } catch (InvalidClassException e) {</span>
+<span class="nc" id="L224">                        LOG.warn(</span>
+                                &quot;The registered Kryo serializer class for class &quot;
+                                        + registeredClassname
+                                        + &quot; has changed and is no longer valid; using a dummy Kryo serializer that should be replaced&quot;
+                                        + &quot; as soon as a new Kryo serializer for the class is present.&quot;,
+                                e);
+
+<span class="nc" id="L231">                        serializerInstance =</span>
+                                new ExecutionConfig.SerializableSerializer&lt;&gt;(
+                                        new DummyKryoSerializerClass&lt;RC&gt;());
+<span class="pc" id="L234">                    }</span>
+
+<span class="fc" id="L236">                    kryoRegistration = new KryoRegistration(registeredClass, serializerInstance);</span>
+<span class="fc" id="L237">                    break;</span>
+
+                default:
+                    // this should not happen; adding as a guard for the future
+<span class="nc" id="L241">                    throw new IllegalStateException(</span>
+                            &quot;Unrecognized Kryo registration serializer definition type: &quot;
+                                    + serializerDefinitionType);
+            }
+<span class="fc" id="L245">        }</span>
+    }
+
+    /**
+     * Placeholder dummy for a previously registered class that can no longer be found in classpath
+     * on restore.
+     */
+<span class="nc" id="L252">    public static class DummyRegisteredClass implements Serializable {}</span>
+
+    /**
+     * Placeholder dummy for a previously registered Kryo serializer that is no longer valid or in
+     * classpath on restore.
+     */
+<span class="nc" id="L258">    public static class DummyKryoSerializerClass&lt;RC&gt; extends Serializer&lt;RC&gt;</span>
+            implements Serializable {
+
+        private static final long serialVersionUID = -6172780797425739308L;
+
+        @Override
+        public void write(Kryo kryo, Output output, Object o) {
+<span class="nc" id="L265">            throw new UnsupportedOperationException(</span>
+                    &quot;This exception indicates that you're trying to write a data type&quot;
+                            + &quot; that no longer has a valid Kryo serializer registered for it.&quot;);
+        }
+
+        @Override
+        public Object read(Kryo kryo, Input input, Class aClass) {
+<span class="nc" id="L272">            throw new UnsupportedOperationException(</span>
+                    &quot;This exception indicates that you're trying to read a data type&quot;
+                            + &quot; that no longer has a valid Kryo serializer registered for it.&quot;);
+        }
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="nc bnc" id="L280" title="All 2 branches missed.">        return super.equals(obj)</span>
+<span class="nc bnc" id="L281" title="All 2 branches missed.">                &amp;&amp; kryoRegistrations.equals(</span>
+<span class="nc" id="L282">                        ((KryoSerializer.KryoSerializerConfigSnapshot) obj).getKryoRegistrations());</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L287">        return super.hashCode() + kryoRegistrations.hashCode();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

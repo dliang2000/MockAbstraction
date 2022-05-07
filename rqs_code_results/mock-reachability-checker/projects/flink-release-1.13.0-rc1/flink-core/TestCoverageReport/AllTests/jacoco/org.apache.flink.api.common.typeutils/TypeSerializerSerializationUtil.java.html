@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TypeSerializerSerializationUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeutils</a> &gt; <span class="el_source">TypeSerializerSerializationUtil.java</span></div><h1>TypeSerializerSerializationUtil.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeutils;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.core.io.VersionedIOReadableWritable;
+import org.apache.flink.core.memory.ByteArrayInputStreamWithPos;
+import org.apache.flink.core.memory.ByteArrayOutputStreamWithPos;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataInputViewStreamWrapper;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
+import org.apache.flink.util.InstantiationUtil;
+import org.apache.flink.util.Preconditions;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InvalidClassException;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Utility methods for serialization of {@link TypeSerializer}.
+ *
+ * @deprecated This utility class was used to write serializers into checkpoints. Starting from
+ *     Flink 1.6.x, this should no longer happen, and therefore this class is deprecated. It remains
+ *     here for backwards compatibility paths.
+ */
+@Internal
+@Deprecated
+<span class="nc" id="L51">public class TypeSerializerSerializationUtil {</span>
+
+<span class="fc" id="L53">    private static final Logger LOG =</span>
+<span class="fc" id="L54">            LoggerFactory.getLogger(TypeSerializerSerializationUtil.class);</span>
+
+    /**
+     * Writes a {@link TypeSerializer} to the provided data output view.
+     *
+     * &lt;p&gt;It is written with a format that can be later read again using {@link
+     * #tryReadSerializer(DataInputView, ClassLoader, boolean)}.
+     *
+     * @param out the data output view.
+     * @param serializer the serializer to write.
+     * @param &lt;T&gt; Data type of the serializer.
+     * @throws IOException
+     */
+    public static &lt;T&gt; void writeSerializer(DataOutputView out, TypeSerializer&lt;T&gt; serializer)
+            throws IOException {
+<span class="fc" id="L69">        new TypeSerializerSerializationUtil.TypeSerializerSerializationProxy&lt;&gt;(serializer)</span>
+<span class="fc" id="L70">                .write(out);</span>
+<span class="fc" id="L71">    }</span>
+
+    /**
+     * Reads from a data input view a {@link TypeSerializer} that was previously written using
+     * {@link #writeSerializer(DataOutputView, TypeSerializer)}.
+     *
+     * &lt;p&gt;If deserialization fails for any reason (corrupted serializer bytes, serializer class no
+     * longer in classpath, serializer class no longer valid, etc.), an {@link IOException} is
+     * thrown.
+     *
+     * @param in the data input view.
+     * @param userCodeClassLoader the user code class loader to use.
+     * @param &lt;T&gt; Data type of the serializer.
+     * @return the deserialized serializer.
+     */
+    public static &lt;T&gt; TypeSerializer&lt;T&gt; tryReadSerializer(
+            DataInputView in, ClassLoader userCodeClassLoader) throws IOException {
+<span class="fc" id="L88">        return tryReadSerializer(in, userCodeClassLoader, false);</span>
+    }
+
+    /**
+     * Reads from a data input view a {@link TypeSerializer} that was previously written using
+     * {@link #writeSerializer(DataOutputView, TypeSerializer)}.
+     *
+     * &lt;p&gt;If deserialization fails due to any exception, users can opt to use a dummy {@link
+     * UnloadableDummyTypeSerializer} to hold the serializer bytes, otherwise an {@link IOException}
+     * is thrown.
+     *
+     * @param in the data input view.
+     * @param userCodeClassLoader the user code class loader to use.
+     * @param useDummyPlaceholder whether or not to use a dummy {@link
+     *     UnloadableDummyTypeSerializer} to hold the serializer bytes in the case of a {@link
+     *     ClassNotFoundException} or {@link InvalidClassException}.
+     * @param &lt;T&gt; Data type of the serializer.
+     * @return the deserialized serializer.
+     */
+    public static &lt;T&gt; TypeSerializer&lt;T&gt; tryReadSerializer(
+            DataInputView in, ClassLoader userCodeClassLoader, boolean useDummyPlaceholder)
+            throws IOException {
+
+<span class="fc" id="L111">        final TypeSerializerSerializationUtil.TypeSerializerSerializationProxy&lt;T&gt; proxy =</span>
+                new TypeSerializerSerializationUtil.TypeSerializerSerializationProxy&lt;&gt;(
+                        userCodeClassLoader);
+
+        try {
+<span class="fc" id="L116">            proxy.read(in);</span>
+<span class="fc" id="L117">            return proxy.getTypeSerializer();</span>
+<span class="fc" id="L118">        } catch (UnloadableTypeSerializerException e) {</span>
+<span class="pc bpc" id="L119" title="1 of 2 branches missed.">            if (useDummyPlaceholder) {</span>
+<span class="fc" id="L120">                LOG.warn(</span>
+                        &quot;Could not read a requested serializer. Replaced with a UnloadableDummyTypeSerializer.&quot;,
+<span class="fc" id="L122">                        e.getCause());</span>
+<span class="fc" id="L123">                return new UnloadableDummyTypeSerializer&lt;&gt;(e.getSerializerBytes(), e.getCause());</span>
+            } else {
+<span class="nc" id="L125">                throw e;</span>
+            }
+        }
+    }
+
+    /**
+     * Write a list of serializers and their corresponding config snapshots to the provided data
+     * output view. This method writes in a fault tolerant way, so that when read again using {@link
+     * #readSerializersAndConfigsWithResilience(DataInputView, ClassLoader)}, if deserialization of
+     * the serializer fails, its configuration snapshot will remain intact.
+     *
+     * &lt;p&gt;Specifically, all written serializers and their config snapshots are indexed by their
+     * offset positions within the serialized bytes. The serialization format is as follows:
+     *
+     * &lt;ul&gt;
+     *   &lt;li&gt;1. number of serializer and configuration snapshot pairs.
+     *   &lt;li&gt;2. offsets of each serializer and configuration snapshot, in order.
+     *   &lt;li&gt;3. total number of bytes for the serialized serializers and the config snapshots.
+     *   &lt;li&gt;4. serialized serializers and the config snapshots.
+     * &lt;/ul&gt;
+     *
+     * @param out the data output view.
+     * @param serializersAndConfigs serializer and configuration snapshot pairs
+     * @throws IOException
+     */
+    public static void writeSerializersAndConfigsWithResilience(
+            DataOutputView out,
+            List&lt;Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt; serializersAndConfigs)
+            throws IOException {
+
+<span class="fc" id="L155">        try (ByteArrayOutputStreamWithPos bufferWithPos = new ByteArrayOutputStreamWithPos();</span>
+<span class="fc" id="L156">                DataOutputViewStreamWrapper bufferWrapper =</span>
+                        new DataOutputViewStreamWrapper(bufferWithPos)) {
+
+<span class="fc" id="L159">            out.writeInt(serializersAndConfigs.size());</span>
+            for (Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt; serAndConfSnapshot :
+<span class="fc bfc" id="L161" title="All 2 branches covered.">                    serializersAndConfigs) {</span>
+<span class="fc" id="L162">                out.writeInt(bufferWithPos.getPosition());</span>
+<span class="fc" id="L163">                writeSerializer(bufferWrapper, serAndConfSnapshot.f0);</span>
+
+<span class="fc" id="L165">                out.writeInt(bufferWithPos.getPosition());</span>
+<span class="fc" id="L166">                TypeSerializerSnapshotSerializationUtil.writeSerializerSnapshot(</span>
+                        bufferWrapper,
+                        (TypeSerializerSnapshot) serAndConfSnapshot.f1,
+                        serAndConfSnapshot.f0);
+<span class="fc" id="L170">            }</span>
+
+<span class="fc" id="L172">            out.writeInt(bufferWithPos.getPosition());</span>
+<span class="fc" id="L173">            out.write(bufferWithPos.getBuf(), 0, bufferWithPos.getPosition());</span>
+        }
+<span class="fc" id="L175">    }</span>
+
+    /**
+     * Reads from a data input view a list of serializers and their corresponding config snapshots
+     * written using {@link #writeSerializersAndConfigsWithResilience(DataOutputView, List)}.
+     *
+     * &lt;p&gt;If deserialization for serializers fails due to any exception, users can opt to use a
+     * dummy {@link UnloadableDummyTypeSerializer} to hold the serializer bytes
+     *
+     * @param in the data input view.
+     * @param userCodeClassLoader the user code class loader to use.
+     * @return the deserialized serializer and config snapshot pairs.
+     * @throws IOException
+     */
+    public static List&lt;Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt;
+            readSerializersAndConfigsWithResilience(
+                    DataInputView in, ClassLoader userCodeClassLoader) throws IOException {
+
+<span class="fc" id="L193">        int numSerializersAndConfigSnapshots = in.readInt();</span>
+
+<span class="fc" id="L195">        int[] offsets = new int[numSerializersAndConfigSnapshots * 2];</span>
+
+<span class="fc bfc" id="L197" title="All 2 branches covered.">        for (int i = 0; i &lt; numSerializersAndConfigSnapshots; i++) {</span>
+<span class="fc" id="L198">            offsets[i * 2] = in.readInt();</span>
+<span class="fc" id="L199">            offsets[i * 2 + 1] = in.readInt();</span>
+        }
+
+<span class="fc" id="L202">        int totalBytes = in.readInt();</span>
+<span class="fc" id="L203">        byte[] buffer = new byte[totalBytes];</span>
+<span class="fc" id="L204">        in.readFully(buffer);</span>
+
+<span class="fc" id="L206">        List&lt;Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt; serializersAndConfigSnapshots =</span>
+                new ArrayList&lt;&gt;(numSerializersAndConfigSnapshots);
+
+        TypeSerializer&lt;?&gt; serializer;
+        TypeSerializerSnapshot&lt;?&gt; configSnapshot;
+<span class="fc" id="L211">        try (ByteArrayInputStreamWithPos bufferWithPos = new ByteArrayInputStreamWithPos(buffer);</span>
+<span class="fc" id="L212">                DataInputViewStreamWrapper bufferWrapper =</span>
+                        new DataInputViewStreamWrapper(bufferWithPos)) {
+
+<span class="fc bfc" id="L215" title="All 2 branches covered.">            for (int i = 0; i &lt; numSerializersAndConfigSnapshots; i++) {</span>
+
+<span class="fc" id="L217">                bufferWithPos.setPosition(offsets[i * 2]);</span>
+<span class="fc" id="L218">                serializer = tryReadSerializer(bufferWrapper, userCodeClassLoader, true);</span>
+
+<span class="fc" id="L220">                bufferWithPos.setPosition(offsets[i * 2 + 1]);</span>
+
+<span class="fc" id="L222">                configSnapshot =</span>
+<span class="fc" id="L223">                        TypeSerializerSnapshotSerializationUtil.readSerializerSnapshot(</span>
+                                bufferWrapper, userCodeClassLoader, serializer);
+
+<span class="pc bpc" id="L226" title="1 of 2 branches missed.">                if (serializer instanceof LegacySerializerSnapshotTransformer) {</span>
+<span class="nc" id="L227">                    configSnapshot = transformLegacySnapshot(serializer, configSnapshot);</span>
+                }
+
+<span class="fc" id="L230">                serializersAndConfigSnapshots.add(new Tuple2&lt;&gt;(serializer, configSnapshot));</span>
+            }
+        }
+
+<span class="fc" id="L234">        return serializersAndConfigSnapshots;</span>
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private static &lt;T, U&gt; TypeSerializerSnapshot&lt;T&gt; transformLegacySnapshot(
+            TypeSerializer&lt;T&gt; serializer, TypeSerializerSnapshot&lt;U&gt; configSnapshot) {
+
+<span class="nc" id="L241">        LegacySerializerSnapshotTransformer&lt;T&gt; transformation =</span>
+                (LegacySerializerSnapshotTransformer&lt;T&gt;) serializer;
+<span class="nc" id="L243">        return transformation.transformLegacySerializerSnapshot(configSnapshot);</span>
+    }
+
+    // -----------------------------------------------------------------------------------------------------
+
+    /** Utility serialization proxy for a {@link TypeSerializer}. */
+    public static final class TypeSerializerSerializationProxy&lt;T&gt;
+            extends VersionedIOReadableWritable {
+
+        private static final int VERSION = 1;
+
+        private ClassLoader userClassLoader;
+        private TypeSerializer&lt;T&gt; typeSerializer;
+
+<span class="fc" id="L257">        public TypeSerializerSerializationProxy(ClassLoader userClassLoader) {</span>
+<span class="fc" id="L258">            this.userClassLoader = userClassLoader;</span>
+<span class="fc" id="L259">        }</span>
+
+<span class="fc" id="L261">        public TypeSerializerSerializationProxy(TypeSerializer&lt;T&gt; typeSerializer) {</span>
+<span class="fc" id="L262">            this.typeSerializer = Preconditions.checkNotNull(typeSerializer);</span>
+<span class="fc" id="L263">        }</span>
+
+        public TypeSerializer&lt;T&gt; getTypeSerializer() {
+<span class="fc" id="L266">            return typeSerializer;</span>
+        }
+
+        @Override
+        public void write(DataOutputView out) throws IOException {
+<span class="fc" id="L271">            super.write(out);</span>
+
+<span class="pc bpc" id="L273" title="1 of 2 branches missed.">            if (typeSerializer instanceof UnloadableDummyTypeSerializer) {</span>
+<span class="nc" id="L274">                UnloadableDummyTypeSerializer&lt;T&gt; dummyTypeSerializer =</span>
+                        (UnloadableDummyTypeSerializer&lt;T&gt;) this.typeSerializer;
+
+<span class="nc" id="L277">                byte[] serializerBytes = dummyTypeSerializer.getActualBytes();</span>
+<span class="nc" id="L278">                out.write(serializerBytes.length);</span>
+<span class="nc" id="L279">                out.write(serializerBytes);</span>
+<span class="nc" id="L280">            } else {</span>
+                // write in a way that allows the stream to recover from exceptions
+<span class="fc" id="L282">                try (ByteArrayOutputStreamWithPos streamWithPos =</span>
+                        new ByteArrayOutputStreamWithPos()) {
+<span class="fc" id="L284">                    InstantiationUtil.serializeObject(streamWithPos, typeSerializer);</span>
+<span class="fc" id="L285">                    out.writeInt(streamWithPos.getPosition());</span>
+<span class="fc" id="L286">                    out.write(streamWithPos.getBuf(), 0, streamWithPos.getPosition());</span>
+                }
+            }
+<span class="fc" id="L289">        }</span>
+
+        @SuppressWarnings(&quot;unchecked&quot;)
+        @Override
+        public void read(DataInputView in) throws IOException {
+<span class="fc" id="L294">            super.read(in);</span>
+
+            // read in a way that allows the stream to recover from exceptions
+<span class="fc" id="L297">            int serializerBytes = in.readInt();</span>
+<span class="fc" id="L298">            byte[] buffer = new byte[serializerBytes];</span>
+<span class="fc" id="L299">            in.readFully(buffer);</span>
+
+<span class="fc" id="L301">            ClassLoader previousClassLoader = Thread.currentThread().getContextClassLoader();</span>
+<span class="fc" id="L302">            try (InstantiationUtil.FailureTolerantObjectInputStream ois =</span>
+                    new InstantiationUtil.FailureTolerantObjectInputStream(
+                            new ByteArrayInputStream(buffer), userClassLoader)) {
+
+<span class="fc" id="L306">                Thread.currentThread().setContextClassLoader(userClassLoader);</span>
+<span class="fc" id="L307">                typeSerializer = (TypeSerializer&lt;T&gt;) ois.readObject();</span>
+<span class="fc" id="L308">            } catch (Exception e) {</span>
+<span class="fc" id="L309">                throw new UnloadableTypeSerializerException(e, buffer);</span>
+            } finally {
+<span class="fc" id="L311">                Thread.currentThread().setContextClassLoader(previousClassLoader);</span>
+            }
+<span class="fc" id="L313">        }</span>
+
+        @Override
+        public int getVersion() {
+<span class="fc" id="L317">            return VERSION;</span>
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    //  utility exception
+    // ------------------------------------------------------------------------
+
+    /**
+     * An exception thrown to indicate that a serializer cannot be read. It wraps the cause of the
+     * read error, as well as the original bytes of the written serializer.
+     */
+    @Internal
+    private static class UnloadableTypeSerializerException extends IOException {
+
+        private static final long serialVersionUID = 1L;
+
+        private final byte[] serializerBytes;
+
+        /**
+         * Creates a new exception, with the cause of the read error and the original serializer
+         * bytes.
+         *
+         * @param cause the cause of the read error.
+         * @param serializerBytes the original serializer bytes.
+         */
+        public UnloadableTypeSerializerException(Exception cause, byte[] serializerBytes) {
+<span class="fc" id="L344">            super(cause);</span>
+<span class="fc" id="L345">            this.serializerBytes = Preconditions.checkNotNull(serializerBytes);</span>
+<span class="fc" id="L346">        }</span>
+
+        public byte[] getSerializerBytes() {
+<span class="fc" id="L349">            return serializerBytes;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

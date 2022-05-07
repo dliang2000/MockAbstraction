@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Histogram.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.accumulators</a> &gt; <span class="el_source">Histogram.java</span></div><h1>Histogram.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.accumulators;
+
+import org.apache.flink.annotation.Public;
+
+import java.util.Map;
+import java.util.TreeMap;
+
+/**
+ * Histogram accumulator, which builds a histogram in a distributed manner. Implemented as a
+ * Integer-&amp;gt;Integer TreeMap, so that the entries are sorted according to the values.
+ *
+ * &lt;p&gt;This class does not extend to continuous values later, because it makes no attempt to put the
+ * data in bins.
+ */
+@Public
+<span class="nc" id="L34">public class Histogram implements Accumulator&lt;Integer, TreeMap&lt;Integer, Integer&gt;&gt; {</span>
+
+    private static final long serialVersionUID = 1L;
+
+<span class="nc" id="L38">    private TreeMap&lt;Integer, Integer&gt; treeMap = new TreeMap&lt;Integer, Integer&gt;();</span>
+
+    @Override
+    public void add(Integer value) {
+<span class="nc" id="L42">        Integer current = treeMap.get(value);</span>
+<span class="nc bnc" id="L43" title="All 2 branches missed.">        Integer newValue = (current != null ? current : 0) + 1;</span>
+<span class="nc" id="L44">        this.treeMap.put(value, newValue);</span>
+<span class="nc" id="L45">    }</span>
+
+    @Override
+    public TreeMap&lt;Integer, Integer&gt; getLocalValue() {
+<span class="nc" id="L49">        return this.treeMap;</span>
+    }
+
+    @Override
+    public void merge(Accumulator&lt;Integer, TreeMap&lt;Integer, Integer&gt;&gt; other) {
+        // Merge the values into this map
+<span class="nc bnc" id="L55" title="All 2 branches missed.">        for (Map.Entry&lt;Integer, Integer&gt; entryFromOther : other.getLocalValue().entrySet()) {</span>
+<span class="nc" id="L56">            Integer ownValue = this.treeMap.get(entryFromOther.getKey());</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">            if (ownValue == null) {</span>
+<span class="nc" id="L58">                this.treeMap.put(entryFromOther.getKey(), entryFromOther.getValue());</span>
+            } else {
+<span class="nc" id="L60">                this.treeMap.put(entryFromOther.getKey(), entryFromOther.getValue() + ownValue);</span>
+            }
+<span class="nc" id="L62">        }</span>
+<span class="nc" id="L63">    }</span>
+
+    @Override
+    public void resetLocal() {
+<span class="nc" id="L67">        this.treeMap.clear();</span>
+<span class="nc" id="L68">    }</span>
+
+    @Override
+    public String toString() {
+<span class="nc" id="L72">        return this.treeMap.toString();</span>
+    }
+
+    @Override
+    public Accumulator&lt;Integer, TreeMap&lt;Integer, Integer&gt;&gt; clone() {
+<span class="nc" id="L77">        Histogram result = new Histogram();</span>
+<span class="nc" id="L78">        result.treeMap = new TreeMap&lt;Integer, Integer&gt;(treeMap);</span>
+<span class="nc" id="L79">        return result;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

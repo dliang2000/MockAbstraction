@@ -1,0 +1,540 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ObjectRule.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jsonschema2pojo-core</a> &gt; <a href="index.source.html" class="el_package">org.jsonschema2pojo.rules</a> &gt; <span class="el_source">ObjectRule.java</span></div><h1>ObjectRule.java</h1><pre class="source lang-java linenums">/**
+ * Copyright © 2010-2020 Nokia
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.jsonschema2pojo.rules;
+
+import static org.apache.commons.lang3.StringUtils.*;
+import static org.jsonschema2pojo.rules.PrimitiveTypes.*;
+import static org.jsonschema2pojo.util.TypeUtil.*;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+
+import org.jsonschema2pojo.AnnotationStyle;
+import org.jsonschema2pojo.Annotator;
+import org.jsonschema2pojo.Schema;
+import org.jsonschema2pojo.exception.ClassAlreadyExistsException;
+import org.jsonschema2pojo.exception.GenerationException;
+import org.jsonschema2pojo.util.ParcelableHelper;
+import org.jsonschema2pojo.util.ReflectionHelper;
+import org.jsonschema2pojo.util.SerializableHelper;
+import org.jsonschema2pojo.util.AnnotationHelper;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.sun.codemodel.ClassType;
+import com.sun.codemodel.JAnnotationUse;
+import com.sun.codemodel.JBlock;
+import com.sun.codemodel.JClass;
+import com.sun.codemodel.JClassAlreadyExistsException;
+import com.sun.codemodel.JConditional;
+import com.sun.codemodel.JDefinedClass;
+import com.sun.codemodel.JExpr;
+import com.sun.codemodel.JExpression;
+import com.sun.codemodel.JFieldRef;
+import com.sun.codemodel.JFieldVar;
+import com.sun.codemodel.JMethod;
+import com.sun.codemodel.JMod;
+import com.sun.codemodel.JOp;
+import com.sun.codemodel.JPackage;
+import com.sun.codemodel.JType;
+import com.sun.codemodel.JVar;
+
+/**
+ * Applies the generation steps required for schemas of type &quot;object&quot;.
+ *
+ * @see &lt;a href=
+ *      &quot;http://tools.ietf.org/html/draft-zyp-json-schema-03#section-5.1&quot;&gt;http:/
+ *      /tools.ietf.org/html/draft-zyp-json-schema-03#section-5.1&lt;/a&gt;
+ */
+public class ObjectRule implements Rule&lt;JPackage, JType&gt; {
+
+    private final RuleFactory ruleFactory;
+    private final ReflectionHelper reflectionHelper;
+    private final ParcelableHelper parcelableHelper;
+
+<span class="fc" id="L72">    protected ObjectRule(RuleFactory ruleFactory, ParcelableHelper parcelableHelper, ReflectionHelper reflectionHelper) {</span>
+<span class="fc" id="L73">        this.ruleFactory = ruleFactory;</span>
+<span class="fc" id="L74">        this.parcelableHelper = parcelableHelper;</span>
+<span class="fc" id="L75">        this.reflectionHelper = reflectionHelper;</span>
+<span class="fc" id="L76">    }</span>
+
+    /**
+     * Applies this schema rule to take the required code generation steps.
+     * &lt;p&gt;
+     * When this rule is applied for schemas of type object, the properties of
+     * the schema are used to generate a new Java class and determine its
+     * characteristics. See other implementers of {@link Rule} for details.
+     */
+    @Override
+    public JType apply(String nodeName, JsonNode node, JsonNode parent, JPackage _package, Schema schema) {
+
+<span class="fc" id="L88">        JType superType = reflectionHelper.getSuperType(nodeName, node, _package, schema);</span>
+<span class="pc bpc" id="L89" title="2 of 4 branches missed.">        if (superType.isPrimitive() || reflectionHelper.isFinal(superType)) {</span>
+<span class="nc" id="L90">            return superType;</span>
+        }
+
+        JDefinedClass jclass;
+        try {
+<span class="fc" id="L95">            jclass = createClass(nodeName, node, _package);</span>
+<span class="nc" id="L96">        } catch (ClassAlreadyExistsException e) {</span>
+<span class="nc" id="L97">            return e.getExistingClass();</span>
+<span class="fc" id="L98">        }</span>
+
+<span class="fc" id="L100">        jclass._extends((JClass) superType);</span>
+
+<span class="fc" id="L102">        schema.setJavaTypeIfEmpty(jclass);</span>
+
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">        if (node.has(&quot;title&quot;)) {</span>
+<span class="nc" id="L105">            ruleFactory.getTitleRule().apply(nodeName, node.get(&quot;title&quot;), node, jclass, schema);</span>
+        }
+
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">        if (node.has(&quot;description&quot;)) {</span>
+<span class="nc" id="L109">            ruleFactory.getDescriptionRule().apply(nodeName, node.get(&quot;description&quot;), node, jclass, schema);</span>
+        }
+
+<span class="pc bpc" id="L112" title="1 of 2 branches missed.">        if (node.has(&quot;$comment&quot;)) {</span>
+<span class="nc" id="L113">            ruleFactory.getCommentRule().apply(nodeName, node.get(&quot;$comment&quot;), node, jclass, schema);</span>
+        }
+
+        // Creates the class definition for the builder
+<span class="pc bpc" id="L117" title="3 of 4 branches missed.">        if(ruleFactory.getGenerationConfig().isGenerateBuilders() &amp;&amp; ruleFactory.getGenerationConfig().isUseInnerClassBuilders()){</span>
+<span class="nc" id="L118">            ruleFactory.getBuilderRule().apply(nodeName, node, parent, jclass, schema);</span>
+        }
+
+<span class="fc" id="L121">        ruleFactory.getPropertiesRule().apply(nodeName, node.get(&quot;properties&quot;), node, jclass, schema);</span>
+
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">        if (node.has(&quot;javaInterfaces&quot;)) {</span>
+<span class="nc" id="L124">            addInterfaces(jclass, node.get(&quot;javaInterfaces&quot;));</span>
+        }
+
+<span class="fc" id="L127">        ruleFactory.getAdditionalPropertiesRule().apply(nodeName, node.get(&quot;additionalProperties&quot;), node, jclass, schema);</span>
+
+<span class="fc" id="L129">        ruleFactory.getDynamicPropertiesRule().apply(nodeName, node.get(&quot;properties&quot;), node, jclass, schema);</span>
+
+<span class="fc bfc" id="L131" title="All 2 branches covered.">        if (node.has(&quot;required&quot;)) {</span>
+<span class="fc" id="L132">            ruleFactory.getRequiredArrayRule().apply(nodeName, node.get(&quot;required&quot;), node, jclass, schema);</span>
+        }
+       
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">        if (ruleFactory.getGenerationConfig().isIncludeGeneratedAnnotation()) {</span>
+<span class="nc" id="L136">        	AnnotationHelper.addGeneratedAnnotation(jclass);</span>
+        }
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">        if (ruleFactory.getGenerationConfig().isIncludeToString()) {</span>
+<span class="nc" id="L139">            addToString(jclass);</span>
+        }
+
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">        if (ruleFactory.getGenerationConfig().isIncludeHashcodeAndEquals()) {</span>
+<span class="nc" id="L143">            addHashCode(jclass, node);</span>
+<span class="nc" id="L144">            addEquals(jclass, node);</span>
+        }
+
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">        if (ruleFactory.getGenerationConfig().isParcelable()) {</span>
+<span class="nc" id="L148">            addParcelSupport(jclass);</span>
+        }
+
+<span class="pc bpc" id="L151" title="1 of 2 branches missed.">        if (ruleFactory.getGenerationConfig().isIncludeConstructors()) {</span>
+<span class="nc" id="L152">            ruleFactory.getConstructorRule().apply(nodeName, node, parent, jclass, schema);</span>
+
+        }
+
+<span class="pc bpc" id="L156" title="1 of 2 branches missed.">        if (ruleFactory.getGenerationConfig().isSerializable()) {</span>
+<span class="nc" id="L157">            SerializableHelper.addSerializableSupport(jclass);</span>
+        }
+
+<span class="fc" id="L160">        return jclass;</span>
+
+    }
+
+    private void addParcelSupport(JDefinedClass jclass) {
+<span class="nc" id="L165">        jclass._implements(jclass.owner().directClass(&quot;android.os.Parcelable&quot;));</span>
+
+<span class="nc" id="L167">        parcelableHelper.addWriteToParcel(jclass);</span>
+<span class="nc" id="L168">        parcelableHelper.addDescribeContents(jclass);</span>
+<span class="nc" id="L169">        parcelableHelper.addCreator(jclass);</span>
+<span class="nc" id="L170">        parcelableHelper.addConstructorFromParcel(jclass);</span>
+        // #742 : includeConstructors will include the default constructor
+<span class="nc bnc" id="L172" title="All 2 branches missed.">        if (!ruleFactory.getGenerationConfig().isIncludeConstructors()) {</span>
+            // Add empty constructor
+<span class="nc" id="L174">            jclass.constructor(JMod.PUBLIC);</span>
+        }
+<span class="nc" id="L176">    }</span>
+
+
+
+    /**
+     * Creates a new Java class that will be generated.
+     *
+     * @param nodeName
+     *            the node name which may be used to dictate the new class name
+     * @param node
+     *            the node representing the schema that caused the need for a
+     *            new class. This node may include a 'javaType' property which
+     *            if present will override the fully qualified name of the newly
+     *            generated class.
+     * @param _package
+     *            the package which may contain a new class after this method
+     *            call
+     * @return a reference to a newly created class
+     * @throws ClassAlreadyExistsException
+     *             if the given arguments cause an attempt to create a class
+     *             that already exists, either on the classpath or in the
+     *             current map of classes to be generated.
+     */
+    private JDefinedClass createClass(String nodeName, JsonNode node, JPackage _package) throws ClassAlreadyExistsException {
+
+        JDefinedClass newType;
+
+<span class="fc" id="L203">        Annotator annotator = ruleFactory.getAnnotator();</span>
+
+        try {
+<span class="pc bpc" id="L206" title="1 of 2 branches missed.">            if (node.has(&quot;existingJavaType&quot;)) {</span>
+<span class="nc" id="L207">                String fqn = substringBefore(node.get(&quot;existingJavaType&quot;).asText(), &quot;&lt;&quot;);</span>
+
+<span class="nc bnc" id="L209" title="All 2 branches missed.">                if (isPrimitive(fqn, _package.owner())) {</span>
+<span class="nc" id="L210">                    throw new ClassAlreadyExistsException(primitiveType(fqn, _package.owner()));</span>
+                }
+
+<span class="nc bnc" id="L213" title="All 2 branches missed.">                JClass existingClass = resolveType(_package, fqn + (node.get(&quot;existingJavaType&quot;).asText().contains(&quot;&lt;&quot;) ? &quot;&lt;&quot; + substringAfter(node.get(&quot;existingJavaType&quot;).asText(), &quot;&lt;&quot;) : &quot;&quot;));</span>
+<span class="nc" id="L214">                throw new ClassAlreadyExistsException(existingClass);</span>
+            }
+
+<span class="fc" id="L217">            boolean usePolymorphicDeserialization = annotator.isPolymorphicDeserializationSupported(node);</span>
+
+<span class="pc bpc" id="L219" title="1 of 2 branches missed.">            if (node.has(&quot;javaType&quot;)) {</span>
+<span class="nc" id="L220">                String fqn = node.path(&quot;javaType&quot;).asText();</span>
+
+<span class="nc bnc" id="L222" title="All 2 branches missed.">                if (isPrimitive(fqn, _package.owner())) {</span>
+<span class="nc" id="L223">                    throw new GenerationException(&quot;javaType cannot refer to a primitive type (&quot; + fqn + &quot;), did you mean to use existingJavaType?&quot;);</span>
+                }
+
+<span class="nc bnc" id="L226" title="All 2 branches missed.">                if (fqn.contains(&quot;&lt;&quot;)) {</span>
+<span class="nc" id="L227">                    throw new GenerationException(&quot;javaType does not support generic args (&quot; + fqn + &quot;), did you mean to use existingJavaType?&quot;);</span>
+                }
+
+<span class="nc" id="L230">                int index = fqn.lastIndexOf(&quot;.&quot;) + 1;</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">                if (index == 0) { //Actually not a fully qualified name</span>
+<span class="nc" id="L232">                    fqn = _package.name() + &quot;.&quot; + fqn;</span>
+<span class="nc" id="L233">                    index = fqn.lastIndexOf(&quot;.&quot;) + 1;</span>
+                }
+
+<span class="nc bnc" id="L236" title="All 4 branches missed.">                if (index &gt;= 0 &amp;&amp; index &lt; fqn.length()) {</span>
+<span class="nc" id="L237">                    fqn = fqn.substring(0, index) + ruleFactory.getGenerationConfig().getClassNamePrefix() + fqn.substring(index) + ruleFactory.getGenerationConfig().getClassNameSuffix();</span>
+                }
+
+<span class="nc bnc" id="L240" title="All 2 branches missed.">                if (usePolymorphicDeserialization) {</span>
+<span class="nc" id="L241">                    newType = _package.owner()._class(JMod.PUBLIC, fqn, ClassType.CLASS);</span>
+                } else {
+<span class="nc" id="L243">                    newType = _package.owner()._class(fqn);</span>
+                }
+<span class="nc" id="L245">            } else {</span>
+<span class="pc bpc" id="L246" title="1 of 2 branches missed.">                if (usePolymorphicDeserialization) {</span>
+<span class="nc" id="L247">                    newType = _package._class(JMod.PUBLIC, ruleFactory.getNameHelper().getUniqueClassName(nodeName, node, _package), ClassType.CLASS);</span>
+                } else {
+<span class="fc" id="L249">                    newType = _package._class(ruleFactory.getNameHelper().getUniqueClassName(nodeName, node, _package));</span>
+                }
+            }
+<span class="nc" id="L252">        } catch (JClassAlreadyExistsException e) {</span>
+<span class="nc" id="L253">            throw new ClassAlreadyExistsException(e.getExistingClass());</span>
+<span class="fc" id="L254">        }</span>
+
+<span class="fc" id="L256">        annotator.typeInfo(newType, node);</span>
+<span class="fc" id="L257">        annotator.propertyInclusion(newType, node);</span>
+
+<span class="fc" id="L259">        return newType;</span>
+
+    }
+
+    private void addToString(JDefinedClass jclass) {
+<span class="nc" id="L264">        Map&lt;String, JFieldVar&gt; fields = jclass.fields();</span>
+<span class="nc" id="L265">        JMethod toString = jclass.method(JMod.PUBLIC, String.class, &quot;toString&quot;);</span>
+<span class="nc" id="L266">        Set&lt;String&gt; excludes = new HashSet&lt;&gt;(Arrays.asList(ruleFactory.getGenerationConfig().getToStringExcludes()));</span>
+
+<span class="nc" id="L268">        JBlock body = toString.body();</span>
+
+        // The following toString implementation roughly matches the commons ToStringBuilder for
+        // backward compatibility
+<span class="nc" id="L272">        JClass stringBuilderClass = jclass.owner().ref(StringBuilder.class);</span>
+<span class="nc" id="L273">        JVar sb = body.decl(stringBuilderClass, &quot;sb&quot;, JExpr._new(stringBuilderClass));</span>
+
+        // Write the header, e.g.: example.domain.MyClass@85e382a7[
+<span class="nc" id="L276">        body.add(sb</span>
+<span class="nc" id="L277">                .invoke(&quot;append&quot;).arg(jclass.dotclass().invoke(&quot;getName&quot;))</span>
+<span class="nc" id="L278">                .invoke(&quot;append&quot;).arg(JExpr.lit('@'))</span>
+<span class="nc" id="L279">                .invoke(&quot;append&quot;).arg(</span>
+<span class="nc" id="L280">                        jclass.owner().ref(Integer.class).staticInvoke(&quot;toHexString&quot;).arg(</span>
+<span class="nc" id="L281">                                jclass.owner().ref(System.class).staticInvoke(&quot;identityHashCode&quot;).arg(JExpr._this())))</span>
+<span class="nc" id="L282">                .invoke(&quot;append&quot;).arg(JExpr.lit('[')));</span>
+
+        // If this has a parent class, include its toString()
+<span class="nc bnc" id="L285" title="All 2 branches missed.">        if (!jclass._extends().fullName().equals(Object.class.getName())) {</span>
+<span class="nc" id="L286">            JVar baseLength = body.decl(jclass.owner().INT, &quot;baseLength&quot;, sb.invoke(&quot;length&quot;));</span>
+<span class="nc" id="L287">            JVar superString = body.decl(jclass.owner().ref(String.class), &quot;superString&quot;, JExpr._super().invoke(&quot;toString&quot;));</span>
+
+<span class="nc" id="L289">            JBlock superToStringBlock = body._if(superString.ne(JExpr._null()))._then();</span>
+
+            // If super.toString() is in the Clazz@2ee6529d[field=10] format, extract the fields
+            // from the wrapper
+<span class="nc" id="L293">            JVar contentStart = superToStringBlock.decl(jclass.owner().INT, &quot;contentStart&quot;,</span>
+<span class="nc" id="L294">                    superString.invoke(&quot;indexOf&quot;).arg(JExpr.lit('[')));</span>
+<span class="nc" id="L295">            JVar contentEnd = superToStringBlock.decl(jclass.owner().INT, &quot;contentEnd&quot;,</span>
+<span class="nc" id="L296">                    superString.invoke(&quot;lastIndexOf&quot;).arg(JExpr.lit(']')));</span>
+
+<span class="nc" id="L298">            JConditional superToStringInnerConditional = superToStringBlock._if(</span>
+<span class="nc" id="L299">                    contentStart.gte(JExpr.lit(0)).cand(contentEnd.gt(contentStart)));</span>
+
+<span class="nc" id="L301">            superToStringInnerConditional._then().add(</span>
+<span class="nc" id="L302">                    sb.invoke(&quot;append&quot;)</span>
+<span class="nc" id="L303">                    .arg(superString)</span>
+<span class="nc" id="L304">                    .arg(contentStart.plus(JExpr.lit(1)))</span>
+<span class="nc" id="L305">                    .arg(contentEnd));</span>
+
+            // Otherwise, just append super.toString()
+<span class="nc" id="L308">            superToStringInnerConditional._else().add(sb.invoke(&quot;append&quot;).arg(superString));</span>
+
+            // Append a comma if needed
+<span class="nc" id="L311">            body._if(sb.invoke(&quot;length&quot;).gt(baseLength))</span>
+<span class="nc" id="L312">            ._then().add(sb.invoke(&quot;append&quot;).arg(JExpr.lit(',')));</span>
+        }
+
+        // For each included instance field, add to the StringBuilder in the field=value format
+<span class="nc bnc" id="L316" title="All 2 branches missed.">        for (JFieldVar fieldVar : fields.values()) {</span>
+<span class="nc bnc" id="L317" title="All 4 branches missed.">            if (excludes.contains(fieldVar.name()) || (fieldVar.mods().getValue() &amp; JMod.STATIC) == JMod.STATIC) {</span>
+<span class="nc" id="L318">                continue;</span>
+            }
+
+<span class="nc" id="L321">            body.add(sb.invoke(&quot;append&quot;).arg(fieldVar.name()));</span>
+<span class="nc" id="L322">            body.add(sb.invoke(&quot;append&quot;).arg(JExpr.lit('=')));</span>
+
+<span class="nc bnc" id="L324" title="All 2 branches missed.">            if (fieldVar.type().isPrimitive()) {</span>
+<span class="nc" id="L325">                body.add(sb.invoke(&quot;append&quot;).arg(JExpr.refthis(fieldVar.name())));</span>
+<span class="nc bnc" id="L326" title="All 2 branches missed.">            } else if (fieldVar.type().isArray()) {</span>
+                // Only primitive arrays are supported
+<span class="nc bnc" id="L328" title="All 2 branches missed.">                if (!fieldVar.type().elementType().isPrimitive()) {</span>
+<span class="nc" id="L329">                    throw new UnsupportedOperationException(&quot;Only primitive arrays are supported&quot;);</span>
+                }
+
+                // Leverage Arrays.toString()
+<span class="nc" id="L333">                body.add(sb.invoke(&quot;append&quot;)</span>
+<span class="nc" id="L334">                        .arg(JOp.cond(</span>
+<span class="nc" id="L335">                                JExpr.refthis(fieldVar.name()).eq(JExpr._null()),</span>
+<span class="nc" id="L336">                                JExpr.lit(&quot;&lt;null&gt;&quot;),</span>
+<span class="nc" id="L337">                                jclass.owner().ref(Arrays.class).staticInvoke(&quot;toString&quot;)</span>
+<span class="nc" id="L338">                                .arg(JExpr.refthis(fieldVar.name()))</span>
+<span class="nc" id="L339">                                .invoke(&quot;replace&quot;).arg(JExpr.lit('[')).arg(JExpr.lit('{'))</span>
+<span class="nc" id="L340">                                .invoke(&quot;replace&quot;).arg(JExpr.lit(']')).arg(JExpr.lit('}'))</span>
+<span class="nc" id="L341">                                .invoke(&quot;replace&quot;).arg(JExpr.lit(&quot;, &quot;)).arg(JExpr.lit(&quot;,&quot;)))));</span>
+            } else {
+<span class="nc" id="L343">                body.add(sb.invoke(&quot;append&quot;)</span>
+<span class="nc" id="L344">                        .arg(JOp.cond(</span>
+<span class="nc" id="L345">                                JExpr.refthis(fieldVar.name()).eq(JExpr._null()),</span>
+<span class="nc" id="L346">                                JExpr.lit(&quot;&lt;null&gt;&quot;),</span>
+<span class="nc" id="L347">                                JExpr.refthis(fieldVar.name()))));</span>
+            }
+
+<span class="nc" id="L350">            body.add(sb.invoke(&quot;append&quot;).arg(JExpr.lit(',')));</span>
+<span class="nc" id="L351">        }</span>
+
+        // Add the trailer
+<span class="nc" id="L354">        JConditional trailerConditional = body._if(</span>
+<span class="nc" id="L355">                sb.invoke(&quot;charAt&quot;).arg(sb.invoke(&quot;length&quot;).minus(JExpr.lit(1)))</span>
+<span class="nc" id="L356">                .eq(JExpr.lit(',')));</span>
+
+<span class="nc" id="L358">        trailerConditional._then().add(</span>
+<span class="nc" id="L359">                sb.invoke(&quot;setCharAt&quot;)</span>
+<span class="nc" id="L360">                .arg(sb.invoke(&quot;length&quot;).minus(JExpr.lit(1)))</span>
+<span class="nc" id="L361">                .arg(JExpr.lit(']')));</span>
+
+<span class="nc" id="L363">        trailerConditional._else().add(</span>
+<span class="nc" id="L364">                sb.invoke(&quot;append&quot;).arg(JExpr.lit(']')));</span>
+
+
+<span class="nc" id="L367">        body._return(sb.invoke(&quot;toString&quot;));</span>
+
+<span class="nc" id="L369">        toString.annotate(Override.class);</span>
+<span class="nc" id="L370">    }</span>
+
+    private void addHashCode(JDefinedClass jclass, JsonNode node) {
+<span class="nc" id="L373">        Map&lt;String, JFieldVar&gt; fields = removeFieldsExcludedFromEqualsAndHashCode(jclass.fields(), node);</span>
+
+<span class="nc" id="L375">        JMethod hashCode = jclass.method(JMod.PUBLIC, int.class, &quot;hashCode&quot;);</span>
+<span class="nc" id="L376">        JBlock body = hashCode.body();</span>
+<span class="nc" id="L377">        JVar result = body.decl(jclass.owner().INT, &quot;result&quot;, JExpr.lit(1));</span>
+
+        // Incorporate each non-excluded field in the hashCode calculation
+<span class="nc bnc" id="L380" title="All 2 branches missed.">        for (JFieldVar fieldVar : fields.values()) {</span>
+<span class="nc bnc" id="L381" title="All 2 branches missed.">            if ((fieldVar.mods().getValue() &amp; JMod.STATIC) == JMod.STATIC) {</span>
+<span class="nc" id="L382">                continue;</span>
+            }
+
+<span class="nc" id="L385">            JFieldRef fieldRef = JExpr.refthis(fieldVar.name());</span>
+
+            JExpression fieldHash;
+<span class="nc bnc" id="L388" title="All 2 branches missed.">            if (fieldVar.type().isPrimitive()) {</span>
+<span class="nc bnc" id="L389" title="All 2 branches missed.">                if (&quot;long&quot;.equals(fieldVar.type().name())) {</span>
+<span class="nc" id="L390">                    fieldHash = JExpr.cast(jclass.owner().INT, fieldRef.xor(fieldRef.shrz(JExpr.lit(32))));</span>
+<span class="nc bnc" id="L391" title="All 2 branches missed.">                } else if (&quot;boolean&quot;.equals(fieldVar.type().name())) {</span>
+<span class="nc" id="L392">                    fieldHash = JOp.cond(fieldRef, JExpr.lit(1), JExpr.lit(0));</span>
+<span class="nc bnc" id="L393" title="All 2 branches missed.">                } else if (&quot;int&quot;.equals(fieldVar.type().name())) {</span>
+<span class="nc" id="L394">                    fieldHash = fieldRef;</span>
+<span class="nc bnc" id="L395" title="All 2 branches missed.">                } else if (&quot;double&quot;.equals(fieldVar.type().name())) {</span>
+<span class="nc" id="L396">                    JClass doubleClass = jclass.owner().ref(Double.class);</span>
+<span class="nc" id="L397">                    JExpression longField = doubleClass.staticInvoke(&quot;doubleToLongBits&quot;).arg(fieldRef);</span>
+<span class="nc" id="L398">                    fieldHash = JExpr.cast(jclass.owner().INT,</span>
+<span class="nc" id="L399">                            longField.xor(longField.shrz(JExpr.lit(32))));</span>
+<span class="nc bnc" id="L400" title="All 2 branches missed.">                } else if (&quot;float&quot;.equals(fieldVar.type().name())) {</span>
+<span class="nc" id="L401">                    fieldHash = jclass.owner().ref(Float.class).staticInvoke(&quot;floatToIntBits&quot;).arg(fieldRef);</span>
+                } else {
+<span class="nc" id="L403">                    fieldHash = JExpr.cast(jclass.owner().INT, fieldRef);</span>
+                }
+<span class="nc bnc" id="L405" title="All 2 branches missed.">            } else if (fieldVar.type().isArray()) {</span>
+<span class="nc bnc" id="L406" title="All 2 branches missed.">                if (!fieldVar.type().elementType().isPrimitive()) {</span>
+<span class="nc" id="L407">                    throw new UnsupportedOperationException(&quot;Only primitive arrays are supported&quot;);</span>
+                }
+
+<span class="nc" id="L410">                fieldHash = jclass.owner().ref(Arrays.class).staticInvoke(&quot;hashCode&quot;).arg(fieldRef);</span>
+            } else {
+<span class="nc" id="L412">                fieldHash = JOp.cond(fieldRef.eq(JExpr._null()), JExpr.lit(0), fieldRef.invoke(&quot;hashCode&quot;));</span>
+            }
+
+<span class="nc" id="L415">            body.assign(result, result.mul(JExpr.lit(31)).plus(fieldHash));</span>
+<span class="nc" id="L416">        }</span>
+
+        // Add super.hashCode()
+<span class="nc bnc" id="L419" title="All 2 branches missed.">        if (!jclass._extends().fullName().equals(Object.class.getName())) {</span>
+<span class="nc" id="L420">            body.assign(result, result.mul(JExpr.lit(31)).plus(JExpr._super().invoke(&quot;hashCode&quot;)));</span>
+        }
+
+<span class="nc" id="L423">        body._return(result);</span>
+<span class="nc" id="L424">        hashCode.annotate(Override.class);</span>
+<span class="nc" id="L425">    }</span>
+
+    private Map&lt;String, JFieldVar&gt; removeFieldsExcludedFromEqualsAndHashCode(Map&lt;String, JFieldVar&gt; fields, JsonNode node) {
+<span class="nc" id="L428">        Map&lt;String, JFieldVar&gt; filteredFields = new HashMap&lt;&gt;(fields);</span>
+
+<span class="nc" id="L430">        JsonNode properties = node.get(&quot;properties&quot;);</span>
+
+<span class="nc bnc" id="L432" title="All 2 branches missed.">        if (properties != null) {</span>
+<span class="nc bnc" id="L433" title="All 2 branches missed.">            if (node.has(&quot;excludedFromEqualsAndHashCode&quot;)) {</span>
+<span class="nc" id="L434">                JsonNode excludedArray = node.get(&quot;excludedFromEqualsAndHashCode&quot;);</span>
+
+<span class="nc bnc" id="L436" title="All 2 branches missed.">                for (Iterator&lt;JsonNode&gt; iterator = excludedArray.elements(); iterator.hasNext(); ) {</span>
+<span class="nc" id="L437">                    String excludedPropertyName = iterator.next().asText();</span>
+<span class="nc" id="L438">                    JsonNode excludedPropertyNode = properties.get(excludedPropertyName);</span>
+<span class="nc" id="L439">                    filteredFields.remove(ruleFactory.getNameHelper().getPropertyName(excludedPropertyName, excludedPropertyNode));</span>
+<span class="nc" id="L440">                }</span>
+            }
+
+<span class="nc bnc" id="L443" title="All 2 branches missed.">            for (Iterator&lt;Map.Entry&lt;String, JsonNode&gt;&gt; iterator = properties.fields(); iterator.hasNext(); ) {</span>
+<span class="nc" id="L444">                Map.Entry&lt;String, JsonNode&gt; entry = iterator.next();</span>
+<span class="nc" id="L445">                String propertyName = entry.getKey();</span>
+<span class="nc" id="L446">                JsonNode propertyNode = entry.getValue();</span>
+
+<span class="nc bnc" id="L448" title="All 2 branches missed.">                if (propertyNode.has(&quot;excludedFromEqualsAndHashCode&quot;) &amp;&amp;</span>
+<span class="nc bnc" id="L449" title="All 2 branches missed.">                        propertyNode.get(&quot;excludedFromEqualsAndHashCode&quot;).asBoolean()) {</span>
+<span class="nc" id="L450">                    filteredFields.remove(ruleFactory.getNameHelper().getPropertyName(propertyName, propertyNode));</span>
+                }
+<span class="nc" id="L452">            }</span>
+        }
+
+<span class="nc" id="L455">        return filteredFields;</span>
+    }
+
+    private void addEquals(JDefinedClass jclass, JsonNode node) {
+<span class="nc" id="L459">        Map&lt;String, JFieldVar&gt; fields = removeFieldsExcludedFromEqualsAndHashCode(jclass.fields(), node);</span>
+
+<span class="nc" id="L461">        JMethod equals = jclass.method(JMod.PUBLIC, boolean.class, &quot;equals&quot;);</span>
+<span class="nc" id="L462">        JVar otherObject = equals.param(Object.class, &quot;other&quot;);</span>
+
+<span class="nc" id="L464">        JBlock body = equals.body();</span>
+
+<span class="nc" id="L466">        body._if(otherObject.eq(JExpr._this()))._then()._return(JExpr.TRUE);</span>
+<span class="nc" id="L467">        body._if(otherObject._instanceof(jclass).eq(JExpr.FALSE))._then()._return(JExpr.FALSE);</span>
+
+<span class="nc" id="L469">        JVar rhsVar = body.decl(jclass, &quot;rhs&quot;).init(JExpr.cast(jclass, otherObject));</span>
+
+<span class="nc" id="L471">        JExpression result = JExpr.lit(true);</span>
+
+        // First, check super.equals(other)
+<span class="nc bnc" id="L474" title="All 2 branches missed.">        if (!jclass._extends().fullName().equals(Object.class.getName())) {</span>
+<span class="nc" id="L475">            result = result.cand(JExpr._super().invoke(&quot;equals&quot;).arg(rhsVar));</span>
+        }
+
+        // Chain the results of checking all other fields
+<span class="nc bnc" id="L479" title="All 2 branches missed.">        for (JFieldVar fieldVar : fields.values()) {</span>
+<span class="nc bnc" id="L480" title="All 2 branches missed.">            if ((fieldVar.mods().getValue() &amp; JMod.STATIC) == JMod.STATIC) {</span>
+<span class="nc" id="L481">                continue;</span>
+            }
+
+<span class="nc" id="L484">            JFieldRef thisFieldRef = JExpr.refthis(fieldVar.name());</span>
+<span class="nc" id="L485">            JFieldRef otherFieldRef = JExpr.ref(rhsVar, fieldVar.name());</span>
+            JExpression fieldEquals;
+
+<span class="nc bnc" id="L488" title="All 2 branches missed.">            if (fieldVar.type().isPrimitive()) {</span>
+<span class="nc bnc" id="L489" title="All 2 branches missed.">                if (&quot;double&quot;.equals(fieldVar.type().name())) {</span>
+<span class="nc" id="L490">                    JClass doubleClass = jclass.owner().ref(Double.class);</span>
+<span class="nc" id="L491">                    fieldEquals = doubleClass.staticInvoke(&quot;doubleToLongBits&quot;).arg(thisFieldRef).eq(</span>
+<span class="nc" id="L492">                            doubleClass.staticInvoke(&quot;doubleToLongBits&quot;).arg(otherFieldRef));</span>
+<span class="nc bnc" id="L493" title="All 2 branches missed.">                } else if (&quot;float&quot;.equals(fieldVar.type().name())) {</span>
+<span class="nc" id="L494">                    JClass floatClass = jclass.owner().ref(Float.class);</span>
+<span class="nc" id="L495">                    fieldEquals = floatClass.staticInvoke(&quot;floatToIntBits&quot;).arg(thisFieldRef).eq(</span>
+<span class="nc" id="L496">                            floatClass.staticInvoke(&quot;floatToIntBits&quot;).arg(otherFieldRef));</span>
+<span class="nc" id="L497">                } else {</span>
+<span class="nc" id="L498">                    fieldEquals = thisFieldRef.eq(otherFieldRef);</span>
+                }
+<span class="nc bnc" id="L500" title="All 2 branches missed.">            } else if (fieldVar.type().isArray()) {</span>
+<span class="nc bnc" id="L501" title="All 2 branches missed.">                if (!fieldVar.type().elementType().isPrimitive()) {</span>
+<span class="nc" id="L502">                    throw new UnsupportedOperationException(&quot;Only primitive arrays are supported&quot;);</span>
+                }
+
+<span class="nc" id="L505">                fieldEquals = jclass.owner().ref(Arrays.class).staticInvoke(&quot;equals&quot;).arg(thisFieldRef).arg(otherFieldRef);</span>
+            } else {
+<span class="nc" id="L507">                fieldEquals = thisFieldRef.eq(otherFieldRef).cor(</span>
+<span class="nc" id="L508">                        thisFieldRef.ne(JExpr._null())</span>
+<span class="nc" id="L509">                        .cand(thisFieldRef.invoke(&quot;equals&quot;).arg(otherFieldRef)));</span>
+            }
+
+            // Chain the equality of this field with the previous comparisons
+<span class="nc" id="L513">            result = result.cand(fieldEquals);</span>
+<span class="nc" id="L514">        }</span>
+
+<span class="nc" id="L516">        body._return(result);</span>
+
+<span class="nc" id="L518">        equals.annotate(Override.class);</span>
+<span class="nc" id="L519">    }</span>
+
+    private void addInterfaces(JDefinedClass jclass, JsonNode javaInterfaces) {
+<span class="nc bnc" id="L522" title="All 2 branches missed.">        for (JsonNode i : javaInterfaces) {</span>
+<span class="nc" id="L523">            jclass._implements(resolveType(jclass._package(), i.asText()));</span>
+<span class="nc" id="L524">        }</span>
+<span class="nc" id="L525">    }</span>
+
+    private boolean usesPolymorphicDeserialization(JsonNode node) {
+
+<span class="nc" id="L529">        AnnotationStyle annotationStyle = ruleFactory.getGenerationConfig().getAnnotationStyle();</span>
+
+<span class="nc bnc" id="L531" title="All 4 branches missed.">        if (annotationStyle == AnnotationStyle.JACKSON</span>
+                || annotationStyle == AnnotationStyle.JACKSON2) {
+<span class="nc bnc" id="L533" title="All 4 branches missed.">            return ruleFactory.getGenerationConfig().isIncludeTypeInfo() || node.has(&quot;deserializationClassProperty&quot;);</span>
+        }
+
+<span class="nc" id="L536">        return false;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

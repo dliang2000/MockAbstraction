@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CoreExtensionEntry.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.extension.internal</a> &gt; <span class="el_source">CoreExtensionEntry.java</span></div><h1>CoreExtensionEntry.java</h1><pre class="source lang-java linenums">package org.apache.maven.extension.internal;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import org.apache.maven.project.ExtensionDescriptor;
+import org.apache.maven.project.ExtensionDescriptorBuilder;
+import org.codehaus.plexus.classworlds.realm.ClassRealm;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Set;
+
+/**
+ * Provides information about artifacts (identified by groupId:artifactId string key) and classpath elements exported by
+ * Maven core itself or a Maven core extension.
+ *
+ * @since 3.3.0
+ */
+public class CoreExtensionEntry
+{
+    private final ClassRealm realm;
+
+    private final Set&lt;String&gt; artifacts;
+
+    private final Set&lt;String&gt; packages;
+
+    public CoreExtensionEntry( ClassRealm realm, Collection&lt;String&gt; artifacts, Collection&lt;String&gt; packages )
+<span class="fc" id="L52">    {</span>
+<span class="fc" id="L53">        this.realm = realm;</span>
+<span class="fc" id="L54">        this.artifacts = Collections.unmodifiableSet( new HashSet&lt;&gt;( artifacts ) );</span>
+<span class="fc" id="L55">        this.packages = Collections.unmodifiableSet( new HashSet&lt;&gt;( packages ) );</span>
+<span class="fc" id="L56">    }</span>
+
+    /**
+     * Returns ClassLoader used to load extension classes.
+     */
+    public ClassRealm getClassRealm()
+    {
+<span class="fc" id="L63">        return realm;</span>
+    }
+
+    /**
+     * Returns artifacts exported by the extension, identified by groupId:artifactId string key.
+     */
+    public Set&lt;String&gt; getExportedArtifacts()
+    {
+<span class="fc" id="L71">        return artifacts;</span>
+    }
+
+    /**
+     * Returns classpath elements exported by the extension.
+     */
+    public Set&lt;String&gt; getExportedPackages()
+    {
+<span class="fc" id="L79">        return packages;</span>
+    }
+
+<span class="fc" id="L82">    private static final ExtensionDescriptorBuilder BUILDER = new ExtensionDescriptorBuilder();</span>
+
+    public static CoreExtensionEntry discoverFrom( ClassRealm loader )
+    {
+<span class="fc" id="L86">        Set&lt;String&gt; artifacts = new LinkedHashSet&lt;&gt;();</span>
+<span class="fc" id="L87">        Set&lt;String&gt; packages = new LinkedHashSet&lt;&gt;();</span>
+
+        try
+        {
+<span class="fc" id="L91">            Enumeration&lt;URL&gt; urls = loader.getResources( BUILDER.getExtensionDescriptorLocation() );</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">            while ( urls.hasMoreElements() )</span>
+            {
+
+<span class="fc" id="L95">                try ( InputStream is = urls.nextElement().openStream() )</span>
+                {
+<span class="fc" id="L97">                    ExtensionDescriptor descriptor = BUILDER.build( is );</span>
+<span class="fc" id="L98">                    artifacts.addAll( descriptor.getExportedArtifacts() );</span>
+<span class="fc" id="L99">                    packages.addAll( descriptor.getExportedPackages() );</span>
+<span class="fc" id="L100">                }</span>
+            }
+        }
+<span class="nc" id="L103">        catch ( IOException ignored )</span>
+        {
+            // exports descriptors are entirely optional
+<span class="fc" id="L106">        }</span>
+
+<span class="fc" id="L108">        return new CoreExtensionEntry( loader, artifacts, packages );</span>
+    }
+
+    public static CoreExtensionEntry discoverFrom( ClassRealm loader, Collection&lt;File&gt; classpath )
+    {
+<span class="nc" id="L113">        Set&lt;String&gt; artifacts = new LinkedHashSet&lt;&gt;();</span>
+<span class="nc" id="L114">        Set&lt;String&gt; packages = new LinkedHashSet&lt;&gt;();</span>
+
+        try
+        {
+<span class="nc bnc" id="L118" title="All 2 branches missed.">            for ( File entry : classpath )</span>
+            {
+<span class="nc" id="L120">                ExtensionDescriptor descriptor = BUILDER.build( entry );</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">                if ( descriptor != null )</span>
+                {
+<span class="nc" id="L123">                    artifacts.addAll( descriptor.getExportedArtifacts() );</span>
+<span class="nc" id="L124">                    packages.addAll( descriptor.getExportedPackages() );</span>
+                }
+<span class="nc" id="L126">            }</span>
+        }
+<span class="nc" id="L128">        catch ( IOException ignored )</span>
+        {
+            // exports descriptors are entirely optional
+<span class="nc" id="L131">        }</span>
+
+<span class="nc" id="L133">        return new CoreExtensionEntry( loader, artifacts, packages );</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>IOUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.util</a> &gt; <span class="el_source">IOUtils.java</span></div><h1>IOUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.util;
+
+import org.slf4j.Logger;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static java.util.Arrays.asList;
+
+/** An utility class for I/O related functionality. */
+public final class IOUtils {
+
+    /** The block size for byte operations in byte. */
+    private static final int BLOCKSIZE = 4096;
+
+    // ------------------------------------------------------------------------
+    //  Byte copy operations
+    // ------------------------------------------------------------------------
+
+    /**
+     * Copies from one stream to another.
+     *
+     * @param in InputStream to read from
+     * @param out OutputStream to write to
+     * @param buffSize the size of the buffer
+     * @param close whether or not close the InputStream and OutputStream at the end. The streams
+     *     are closed in the finally clause.
+     * @throws IOException thrown if an error occurred while writing to the output stream
+     */
+    public static void copyBytes(
+            final InputStream in, final OutputStream out, final int buffSize, final boolean close)
+            throws IOException {
+
+        @SuppressWarnings(&quot;resource&quot;)
+<span class="pc bpc" id="L58" title="1 of 2 branches missed.">        final PrintStream ps = out instanceof PrintStream ? (PrintStream) out : null;</span>
+<span class="fc" id="L59">        final byte[] buf = new byte[buffSize];</span>
+        try {
+<span class="fc" id="L61">            int bytesRead = in.read(buf);</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">            while (bytesRead &gt;= 0) {</span>
+<span class="fc" id="L63">                out.write(buf, 0, bytesRead);</span>
+<span class="pc bpc" id="L64" title="3 of 4 branches missed.">                if ((ps != null) &amp;&amp; ps.checkError()) {</span>
+<span class="nc" id="L65">                    throw new IOException(&quot;Unable to write to output stream.&quot;);</span>
+                }
+<span class="fc" id="L67">                bytesRead = in.read(buf);</span>
+            }
+        } finally {
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">            if (close) {</span>
+<span class="nc" id="L71">                out.close();</span>
+<span class="nc" id="L72">                in.close();</span>
+            }
+        }
+<span class="fc" id="L75">    }</span>
+
+    /**
+     * Copies from one stream to another. &lt;strong&gt;closes the input and output streams at the
+     * end&lt;/strong&gt;.
+     *
+     * @param in InputStream to read from
+     * @param out OutputStream to write to
+     * @throws IOException thrown if an I/O error occurs while copying
+     */
+    public static void copyBytes(final InputStream in, final OutputStream out) throws IOException {
+<span class="nc" id="L86">        copyBytes(in, out, BLOCKSIZE, true);</span>
+<span class="nc" id="L87">    }</span>
+
+    /**
+     * Copies from one stream to another.
+     *
+     * @param in InputStream to read from
+     * @param out OutputStream to write to
+     * @param close whether or not close the InputStream and OutputStream at the end. The streams
+     *     are closed in the finally clause.
+     * @throws IOException thrown if an I/O error occurs while copying
+     */
+    public static void copyBytes(final InputStream in, final OutputStream out, final boolean close)
+            throws IOException {
+<span class="fc" id="L100">        copyBytes(in, out, BLOCKSIZE, close);</span>
+<span class="fc" id="L101">    }</span>
+
+    // ------------------------------------------------------------------------
+    //  Stream input skipping
+    // ------------------------------------------------------------------------
+
+    /**
+     * Reads len bytes in a loop.
+     *
+     * @param in The InputStream to read from
+     * @param buf The buffer to fill
+     * @param off offset from the buffer
+     * @param len the length of bytes to read
+     * @throws IOException if it could not read requested number of bytes for any reason (including
+     *     EOF)
+     */
+    public static void readFully(final InputStream in, final byte[] buf, int off, final int len)
+            throws IOException {
+<span class="nc" id="L119">        int toRead = len;</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">        while (toRead &gt; 0) {</span>
+<span class="nc" id="L121">            final int ret = in.read(buf, off, toRead);</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">            if (ret &lt; 0) {</span>
+<span class="nc" id="L123">                throw new IOException(&quot;Premeture EOF from inputStream&quot;);</span>
+            }
+<span class="nc" id="L125">            toRead -= ret;</span>
+<span class="nc" id="L126">            off += ret;</span>
+<span class="nc" id="L127">        }</span>
+<span class="nc" id="L128">    }</span>
+
+    /**
+     * Similar to {@link #readFully(InputStream, byte[], int, int)}. Returns the total number of
+     * bytes read into the buffer.
+     *
+     * @param in The InputStream to read from
+     * @param buf The buffer to fill
+     * @return The total number of bytes read into the buffer
+     * @throws IOException If the first byte cannot be read for any reason other than end of file,
+     *     or if the input stream has been closed, or if some other I/O error occurs.
+     */
+    public static int tryReadFully(final InputStream in, final byte[] buf) throws IOException {
+<span class="fc" id="L141">        int totalRead = 0;</span>
+<span class="fc bfc" id="L142" title="All 2 branches covered.">        while (totalRead != buf.length) {</span>
+<span class="fc" id="L143">            int read = in.read(buf, totalRead, buf.length - totalRead);</span>
+<span class="fc bfc" id="L144" title="All 2 branches covered.">            if (read == -1) {</span>
+<span class="fc" id="L145">                break;</span>
+            }
+<span class="fc" id="L147">            totalRead += read;</span>
+<span class="fc" id="L148">        }</span>
+<span class="fc" id="L149">        return totalRead;</span>
+    }
+
+    /**
+     * Similar to readFully(). Skips bytes in a loop.
+     *
+     * @param in The InputStream to skip bytes from
+     * @param len number of bytes to skip
+     * @throws IOException if it could not skip requested number of bytes for any reason (including
+     *     EOF)
+     */
+    public static void skipFully(final InputStream in, long len) throws IOException {
+<span class="nc bnc" id="L161" title="All 2 branches missed.">        while (len &gt; 0) {</span>
+<span class="nc" id="L162">            final long ret = in.skip(len);</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">            if (ret &lt; 0) {</span>
+<span class="nc" id="L164">                throw new IOException(&quot;Premeture EOF from inputStream&quot;);</span>
+            }
+<span class="nc" id="L166">            len -= ret;</span>
+<span class="nc" id="L167">        }</span>
+<span class="nc" id="L168">    }</span>
+
+    // ------------------------------------------------------------------------
+    //  Silent I/O cleanup / closing
+    // ------------------------------------------------------------------------
+
+    /**
+     * Close the AutoCloseable objects and &lt;b&gt;ignore&lt;/b&gt; any {@link Exception} or null pointers.
+     * Must only be used for cleanup in exception handlers.
+     *
+     * @param log the log to record problems to at debug level. Can be &lt;code&gt;null&lt;/code&gt;.
+     * @param closeables the objects to close
+     */
+    public static void cleanup(final Logger log, final AutoCloseable... closeables) {
+<span class="nc bnc" id="L182" title="All 2 branches missed.">        for (AutoCloseable c : closeables) {</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">            if (c != null) {</span>
+                try {
+<span class="nc" id="L185">                    c.close();</span>
+<span class="nc" id="L186">                } catch (Exception e) {</span>
+<span class="nc bnc" id="L187" title="All 4 branches missed.">                    if (log != null &amp;&amp; log.isDebugEnabled()) {</span>
+<span class="nc" id="L188">                        log.debug(&quot;Exception in closing &quot; + c, e);</span>
+                    }
+<span class="nc" id="L190">                }</span>
+            }
+        }
+<span class="nc" id="L193">    }</span>
+
+    /**
+     * Closes the stream ignoring {@link IOException}. Must only be called in cleaning up from
+     * exception handlers.
+     *
+     * @param stream the stream to close
+     */
+    public static void closeStream(final java.io.Closeable stream) {
+<span class="nc" id="L202">        cleanup(null, stream);</span>
+<span class="nc" id="L203">    }</span>
+
+    /**
+     * Closes the socket ignoring {@link IOException}.
+     *
+     * @param sock the socket to close
+     */
+    public static void closeSocket(final Socket sock) {
+        // avoids try { close() } dance
+<span class="nc bnc" id="L212" title="All 2 branches missed.">        if (sock != null) {</span>
+            try {
+<span class="nc" id="L214">                sock.close();</span>
+<span class="nc" id="L215">            } catch (IOException ignored) {</span>
+<span class="nc" id="L216">            }</span>
+        }
+<span class="nc" id="L218">    }</span>
+
+    /** @see #closeAll(Iterable) */
+    public static void closeAll(AutoCloseable... closeables) throws Exception {
+<span class="fc" id="L222">        closeAll(asList(closeables));</span>
+<span class="fc" id="L223">    }</span>
+
+    /**
+     * Closes all {@link AutoCloseable} objects in the parameter, suppressing exceptions. Exception
+     * will be emitted after calling close() on every object.
+     *
+     * @param closeables iterable with closeables to close.
+     * @throws Exception collected exceptions that occurred during closing
+     */
+    public static void closeAll(Iterable&lt;? extends AutoCloseable&gt; closeables) throws Exception {
+<span class="pc bpc" id="L233" title="1 of 2 branches missed.">        if (null != closeables) {</span>
+
+<span class="fc" id="L235">            Exception collectedExceptions = null;</span>
+
+<span class="fc bfc" id="L237" title="All 2 branches covered.">            for (AutoCloseable closeable : closeables) {</span>
+                try {
+<span class="pc bpc" id="L239" title="1 of 2 branches missed.">                    if (null != closeable) {</span>
+<span class="fc" id="L240">                        closeable.close();</span>
+                    }
+<span class="fc" id="L242">                } catch (Exception e) {</span>
+<span class="fc" id="L243">                    collectedExceptions = ExceptionUtils.firstOrSuppressed(e, collectedExceptions);</span>
+<span class="fc" id="L244">                }</span>
+<span class="fc" id="L245">            }</span>
+
+<span class="fc bfc" id="L247" title="All 2 branches covered.">            if (null != collectedExceptions) {</span>
+<span class="fc" id="L248">                throw collectedExceptions;</span>
+            }
+        }
+<span class="fc" id="L251">    }</span>
+
+    /** Closes all elements in the iterable with closeQuietly(). */
+    public static void closeAllQuietly(AutoCloseable... closeables) {
+<span class="nc" id="L255">        closeAllQuietly(asList(closeables));</span>
+<span class="nc" id="L256">    }</span>
+
+    /** Closes all elements in the iterable with closeQuietly(). */
+    public static void closeAllQuietly(Iterable&lt;? extends AutoCloseable&gt; closeables) {
+<span class="pc bpc" id="L260" title="1 of 2 branches missed.">        if (null != closeables) {</span>
+<span class="fc bfc" id="L261" title="All 2 branches covered.">            for (AutoCloseable closeable : closeables) {</span>
+<span class="fc" id="L262">                closeQuietly(closeable);</span>
+<span class="fc" id="L263">            }</span>
+        }
+<span class="fc" id="L265">    }</span>
+
+    /**
+     * Closes the given AutoCloseable.
+     *
+     * &lt;p&gt;&lt;b&gt;Important:&lt;/b&gt; This method is expected to never throw an exception.
+     */
+    public static void closeQuietly(AutoCloseable closeable) {
+        try {
+<span class="pc bpc" id="L274" title="1 of 2 branches missed.">            if (closeable != null) {</span>
+<span class="fc" id="L275">                closeable.close();</span>
+            }
+<span class="nc" id="L277">        } catch (Throwable ignored) {</span>
+<span class="fc" id="L278">        }</span>
+<span class="fc" id="L279">    }</span>
+
+    /**
+     * Deletes the given file.
+     *
+     * &lt;p&gt;&lt;b&gt;Important:&lt;/b&gt; This method is expected to never throw an exception.
+     */
+    public static void deleteFileQuietly(Path path) {
+        try {
+<span class="nc" id="L288">            Files.deleteIfExists(path);</span>
+<span class="nc" id="L289">        } catch (Throwable ignored) {</span>
+<span class="nc" id="L290">        }</span>
+<span class="nc" id="L291">    }</span>
+
+    // ------------------------------------------------------------------------
+
+    /** Private constructor to prevent instantiation. */
+    private IOUtils() {}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

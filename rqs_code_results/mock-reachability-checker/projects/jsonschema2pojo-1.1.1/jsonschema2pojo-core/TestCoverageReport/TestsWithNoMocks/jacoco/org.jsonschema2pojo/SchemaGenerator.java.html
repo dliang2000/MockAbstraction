@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SchemaGenerator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jsonschema2pojo-core</a> &gt; <a href="index.source.html" class="el_package">org.jsonschema2pojo</a> &gt; <span class="el_source">SchemaGenerator.java</span></div><h1>SchemaGenerator.java</h1><pre class="source lang-java linenums">/**
+ * Copyright © 2010-2020 Nokia
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.jsonschema2pojo;
+
+import java.io.IOException;
+import java.net.URL;
+import java.util.Iterator;
+
+import org.jsonschema2pojo.exception.GenerationException;
+
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.jsonschema.SchemaAware;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ser.BeanSerializerFactory;
+import com.fasterxml.jackson.databind.ser.DefaultSerializerProvider;
+import com.fasterxml.jackson.databind.ser.std.NullSerializer;
+
+public class SchemaGenerator {
+
+    private final ObjectMapper objectMapper;
+
+    public SchemaGenerator() {
+<span class="nc" id="L44">        this(null);</span>
+<span class="nc" id="L45">    }</span>
+
+<span class="nc" id="L47">    public SchemaGenerator(JsonFactory jsonFactory) {</span>
+<span class="nc" id="L48">        this.objectMapper = new ObjectMapper(jsonFactory)</span>
+<span class="nc" id="L49">                .enable(JsonParser.Feature.ALLOW_COMMENTS)</span>
+<span class="nc" id="L50">                .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);</span>
+<span class="nc" id="L51">    }</span>
+
+    public ObjectNode schemaFromExample(URL example) {
+
+        try {
+<span class="nc" id="L56">            JsonNode content = this.objectMapper.readTree(example);</span>
+<span class="nc" id="L57">            return schemaFromExample(content);</span>
+<span class="nc" id="L58">        } catch (IOException e) {</span>
+<span class="nc" id="L59">            throw new GenerationException(&quot;Could not process JSON in source file&quot;, e);</span>
+        }
+
+    }
+
+    public ObjectNode schemaFromExample(JsonNode example) {
+
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        if (example.isObject()) {</span>
+<span class="nc" id="L67">            return objectSchema(example);</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        } else if (example.isArray()) {</span>
+<span class="nc" id="L69">            return arraySchema(example);</span>
+        } else {
+<span class="nc" id="L71">            return simpleTypeSchema(example);</span>
+        }
+
+    }
+
+    private ObjectNode objectSchema(JsonNode exampleObject) {
+
+<span class="nc" id="L78">        ObjectNode schema = this.objectMapper.createObjectNode();</span>
+<span class="nc" id="L79">        schema.put(&quot;type&quot;, &quot;object&quot;);</span>
+
+<span class="nc" id="L81">        ObjectNode properties = this.objectMapper.createObjectNode();</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">        for (Iterator&lt;String&gt; iter = exampleObject.fieldNames(); iter.hasNext();) {</span>
+<span class="nc" id="L83">            String property = iter.next();</span>
+<span class="nc" id="L84">            properties.set(property, schemaFromExample(exampleObject.get(property)));</span>
+<span class="nc" id="L85">        }</span>
+<span class="nc" id="L86">        schema.set(&quot;properties&quot;, properties);</span>
+
+<span class="nc" id="L88">        return schema;</span>
+    }
+
+    private ObjectNode arraySchema(JsonNode exampleArray) {
+<span class="nc" id="L92">        ObjectNode schema = this.objectMapper.createObjectNode();</span>
+
+<span class="nc" id="L94">        schema.put(&quot;type&quot;, &quot;array&quot;);</span>
+
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        if (exampleArray.size() &gt; 0) {</span>
+
+<span class="nc bnc" id="L98" title="All 2 branches missed.">            JsonNode exampleItem = exampleArray.get(0).isObject() ? mergeArrayItems(exampleArray) : exampleArray.get(0);</span>
+
+<span class="nc" id="L100">            schema.set(&quot;items&quot;, schemaFromExample(exampleItem));</span>
+        }
+
+<span class="nc" id="L103">        return schema;</span>
+    }
+
+    private JsonNode mergeArrayItems(JsonNode exampleArray) {
+
+<span class="nc" id="L108">        ObjectNode mergedItems = this.objectMapper.createObjectNode();</span>
+
+<span class="nc bnc" id="L110" title="All 2 branches missed.">        for (JsonNode item : exampleArray) {</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">            if (item.isObject()) {</span>
+<span class="nc" id="L112">                mergeObjectNodes(mergedItems, (ObjectNode) item);</span>
+            }
+<span class="nc" id="L114">        }</span>
+
+<span class="nc" id="L116">        return mergedItems;</span>
+    }
+
+    private ObjectNode mergeObjectNodes(ObjectNode targetNode, ObjectNode updateNode) {
+<span class="nc" id="L120">        Iterator&lt;String&gt; fieldNames = updateNode.fieldNames();</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        while (fieldNames.hasNext()) {</span>
+
+<span class="nc" id="L123">            String fieldName = fieldNames.next();</span>
+<span class="nc" id="L124">            JsonNode targetValue = targetNode.get(fieldName);</span>
+<span class="nc" id="L125">            JsonNode updateValue = updateNode.get(fieldName);</span>
+
+<span class="nc bnc" id="L127" title="All 2 branches missed.">            if (targetValue == null) {</span>
+                // Target node doesn't have this field from update node: just add it
+<span class="nc" id="L129">                targetNode.set(fieldName, updateValue);</span>
+
+            } else {
+                // Both nodes have the same field: merge the values
+<span class="nc bnc" id="L133" title="All 4 branches missed.">                if (targetValue.isObject() &amp;&amp; updateValue.isObject()) {</span>
+                    // Both values are objects: recurse
+<span class="nc" id="L135">                    targetNode.set(fieldName, mergeObjectNodes((ObjectNode) targetValue, (ObjectNode) updateValue));</span>
+<span class="nc bnc" id="L136" title="All 4 branches missed.">                } else if (targetValue.isArray() &amp;&amp; updateValue.isArray()) {</span>
+                    // Both values are arrays: concatenate them to be merged later
+<span class="nc" id="L138">                    ((ArrayNode) targetValue).addAll((ArrayNode) updateValue);</span>
+                } else {
+                    // Values have different types: use the one from the update node
+<span class="nc" id="L141">                    targetNode.set(fieldName, updateValue);</span>
+                }
+            }
+<span class="nc" id="L144">        }</span>
+
+<span class="nc" id="L146">        return targetNode;</span>
+    }
+
+    private ObjectNode simpleTypeSchema(JsonNode exampleValue) {
+
+        try {
+
+<span class="nc" id="L153">            Object valueAsJavaType = this.objectMapper.treeToValue(exampleValue, Object.class);</span>
+
+<span class="nc" id="L155">            SerializerProvider serializerProvider = new DefaultSerializerProvider.Impl().createInstance(this.objectMapper.getSerializationConfig(), BeanSerializerFactory.instance);</span>
+
+<span class="nc bnc" id="L157" title="All 2 branches missed.">            if (valueAsJavaType == null) {</span>
+<span class="nc" id="L158">                SchemaAware valueSerializer = NullSerializer.instance;</span>
+<span class="nc" id="L159">                return (ObjectNode) valueSerializer.getSchema(serializerProvider, null);</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">            } else if (valueAsJavaType instanceof Long) {</span>
+                // longs are 'integers' in schema terms
+<span class="nc" id="L162">                SchemaAware valueSerializer = (SchemaAware) serializerProvider.findValueSerializer(Integer.class, null);</span>
+<span class="nc" id="L163">                ObjectNode schema = (ObjectNode) valueSerializer.getSchema(serializerProvider, null);</span>
+<span class="nc" id="L164">                schema.put(&quot;minimum&quot;, Long.MAX_VALUE);</span>
+<span class="nc" id="L165">                return schema;</span>
+            } else {
+<span class="nc" id="L167">                Class&lt;? extends Object&gt; javaTypeForValue = valueAsJavaType.getClass();</span>
+<span class="nc" id="L168">                SchemaAware valueSerializer = (SchemaAware) serializerProvider.findValueSerializer(javaTypeForValue, null);</span>
+<span class="nc" id="L169">                return (ObjectNode) valueSerializer.getSchema(serializerProvider, null);</span>
+            }
+<span class="nc" id="L171">        } catch (JsonProcessingException e) {</span>
+<span class="nc" id="L172">            throw new GenerationException(&quot;Unable to generate a schema for this json example: &quot; + exampleValue, e);</span>
+        }
+
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultRepositoryLayout.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.artifact.repository.layout</a> &gt; <span class="el_source">DefaultRepositoryLayout.java</span></div><h1>DefaultRepositoryLayout.java</h1><pre class="source lang-java linenums">package org.apache.maven.artifact.repository.layout;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.handler.ArtifactHandler;
+import org.apache.maven.artifact.metadata.ArtifactMetadata;
+import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.codehaus.plexus.component.annotations.Component;
+
+/**
+ * @author jdcasey
+ */
+@Component( role = ArtifactRepositoryLayout.class, hint = &quot;default&quot; )
+<span class="nc" id="L32">public class DefaultRepositoryLayout</span>
+    implements ArtifactRepositoryLayout
+{
+    private static final char PATH_SEPARATOR = '/';
+
+    private static final char GROUP_SEPARATOR = '.';
+
+    private static final char ARTIFACT_SEPARATOR = '-';
+
+    public String getId()
+    {
+<span class="nc" id="L43">        return &quot;default&quot;;</span>
+    }
+
+    public String pathOf( Artifact artifact )
+    {
+<span class="nc" id="L48">        ArtifactHandler artifactHandler = artifact.getArtifactHandler();</span>
+
+<span class="nc" id="L50">        StringBuilder path = new StringBuilder( 128 );</span>
+
+<span class="nc" id="L52">        path.append( formatAsDirectory( artifact.getGroupId() ) ).append( PATH_SEPARATOR );</span>
+<span class="nc" id="L53">        path.append( artifact.getArtifactId() ).append( PATH_SEPARATOR );</span>
+<span class="nc" id="L54">        path.append( artifact.getBaseVersion() ).append( PATH_SEPARATOR );</span>
+<span class="nc" id="L55">        path.append( artifact.getArtifactId() ).append( ARTIFACT_SEPARATOR ).append( artifact.getVersion() );</span>
+
+<span class="nc bnc" id="L57" title="All 2 branches missed.">        if ( artifact.hasClassifier() )</span>
+        {
+<span class="nc" id="L59">            path.append( ARTIFACT_SEPARATOR ).append( artifact.getClassifier() );</span>
+        }
+
+<span class="nc bnc" id="L62" title="All 4 branches missed.">        if ( artifactHandler.getExtension() != null &amp;&amp; artifactHandler.getExtension().length() &gt; 0 )</span>
+        {
+<span class="nc" id="L64">            path.append( GROUP_SEPARATOR ).append( artifactHandler.getExtension() );</span>
+        }
+
+<span class="nc" id="L67">        return path.toString();</span>
+    }
+
+    public String pathOfLocalRepositoryMetadata( ArtifactMetadata metadata, ArtifactRepository repository )
+    {
+<span class="nc" id="L72">        return pathOfRepositoryMetadata( metadata, metadata.getLocalFilename( repository ) );</span>
+    }
+
+    private String pathOfRepositoryMetadata( ArtifactMetadata metadata,
+                                             String filename )
+    {
+<span class="nc" id="L78">        StringBuilder path = new StringBuilder( 128 );</span>
+
+<span class="nc" id="L80">        path.append( formatAsDirectory( metadata.getGroupId() ) ).append( PATH_SEPARATOR );</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">        if ( !metadata.storedInGroupDirectory() )</span>
+        {
+<span class="nc" id="L83">            path.append( metadata.getArtifactId() ).append( PATH_SEPARATOR );</span>
+
+<span class="nc bnc" id="L85" title="All 2 branches missed.">            if ( metadata.storedInArtifactVersionDirectory() )</span>
+            {
+<span class="nc" id="L87">                path.append( metadata.getBaseVersion() ).append( PATH_SEPARATOR );</span>
+            }
+        }
+
+<span class="nc" id="L91">        path.append( filename );</span>
+
+<span class="nc" id="L93">        return path.toString();</span>
+    }
+
+    public String pathOfRemoteRepositoryMetadata( ArtifactMetadata metadata )
+    {
+<span class="nc" id="L98">        return pathOfRepositoryMetadata( metadata, metadata.getRemoteFilename() );</span>
+    }
+
+    private String formatAsDirectory( String directory )
+    {
+<span class="nc" id="L103">        return directory.replace( GROUP_SEPARATOR, PATH_SEPARATOR );</span>
+    }
+
+    @Override
+    public String toString()
+    {
+<span class="nc" id="L109">        return getId();</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

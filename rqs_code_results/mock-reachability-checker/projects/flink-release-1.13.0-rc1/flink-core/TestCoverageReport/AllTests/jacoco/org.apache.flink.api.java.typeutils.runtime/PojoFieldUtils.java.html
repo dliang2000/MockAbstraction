@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PojoFieldUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.java.typeutils.runtime</a> &gt; <span class="el_source">PojoFieldUtils.java</span></div><h1>PojoFieldUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.java.typeutils.runtime;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.util.InstantiationUtil;
+
+import javax.annotation.Nullable;
+
+import java.io.IOException;
+import java.lang.reflect.Field;
+
+/** Utility class for reading, writing, and finding POJO fields. */
+@Internal
+<span class="nc" id="L33">final class PojoFieldUtils {</span>
+
+    /**
+     * Writes a field to the given {@link DataOutputView}.
+     *
+     * &lt;p&gt;This write method avoids Java serialization, by writing only the classname of the field's
+     * declaring class and the field name. The written field can be read using {@link
+     * #readField(DataInputView, ClassLoader)}.
+     *
+     * @param out the output view to write to.
+     * @param field the field to write.
+     */
+    static void writeField(DataOutputView out, Field field) throws IOException {
+<span class="fc" id="L46">        Class&lt;?&gt; declaringClass = field.getDeclaringClass();</span>
+<span class="fc" id="L47">        out.writeUTF(declaringClass.getName());</span>
+<span class="fc" id="L48">        out.writeUTF(field.getName());</span>
+<span class="fc" id="L49">    }</span>
+
+    /**
+     * Reads a field from the given {@link DataInputView}.
+     *
+     * &lt;p&gt;This read methods avoids Java serialization, by reading the classname of the field's
+     * declaring class and dynamically loading it. The field is also read by field name and obtained
+     * via reflection.
+     *
+     * @param in the input view to read from.
+     * @param userCodeClassLoader the user classloader.
+     * @return the read field.
+     */
+    static Field readField(DataInputView in, ClassLoader userCodeClassLoader) throws IOException {
+<span class="fc" id="L63">        Class&lt;?&gt; declaringClass = InstantiationUtil.resolveClassByName(in, userCodeClassLoader);</span>
+<span class="fc" id="L64">        String fieldName = in.readUTF();</span>
+<span class="fc" id="L65">        return getField(fieldName, declaringClass);</span>
+    }
+
+    /**
+     * Finds a field by name from its declaring class. This also searches for the field in super
+     * classes.
+     *
+     * @param fieldName the name of the field to find.
+     * @param declaringClass the declaring class of the field.
+     * @return the field.
+     */
+    @Nullable
+    static Field getField(String fieldName, Class&lt;?&gt; declaringClass) {
+<span class="fc" id="L78">        Class&lt;?&gt; clazz = declaringClass;</span>
+
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        while (clazz != null) {</span>
+            try {
+<span class="fc" id="L82">                Field field = clazz.getDeclaredField(fieldName);</span>
+<span class="fc" id="L83">                field.setAccessible(true);</span>
+<span class="fc" id="L84">                return field;</span>
+<span class="fc" id="L85">            } catch (NoSuchFieldException e) {</span>
+<span class="fc" id="L86">                clazz = clazz.getSuperclass();</span>
+<span class="fc" id="L87">            }</span>
+        }
+
+<span class="fc" id="L90">        return null;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

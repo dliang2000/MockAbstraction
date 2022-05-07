@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VRaptorAbstractModule.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.ioc.guice</a> &gt; <span class="el_source">VRaptorAbstractModule.java</span></div><h1>VRaptorAbstractModule.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+package br.com.caelum.vraptor.ioc.guice;
+
+import static com.google.inject.matcher.Matchers.annotatedWith;
+import static com.google.inject.matcher.Matchers.not;
+
+import java.util.Map;
+import java.util.Map.Entry;
+
+import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import br.com.caelum.vraptor.ComponentRegistry;
+import br.com.caelum.vraptor.core.BaseComponents;
+import br.com.caelum.vraptor.core.RequestInfo;
+import br.com.caelum.vraptor.http.MutableRequest;
+import br.com.caelum.vraptor.http.MutableResponse;
+import br.com.caelum.vraptor.ioc.ApplicationScoped;
+import br.com.caelum.vraptor.ioc.Container;
+import br.com.caelum.vraptor.ioc.PrototypeScoped;
+import br.com.caelum.vraptor.ioc.RequestScoped;
+import br.com.caelum.vraptor.ioc.SessionScoped;
+import br.com.caelum.vraptor.ioc.StereotypeHandler;
+import br.com.caelum.vraptor.ioc.spring.VRaptorRequestHolder;
+import br.com.caelum.vraptor.serialization.xstream.XStreamJSONSerialization;
+import br.com.caelum.vraptor.serialization.xstream.XStreamXMLSerialization;
+
+import com.google.inject.AbstractModule;
+import com.google.inject.Provider;
+import com.google.inject.Scopes;
+import com.google.inject.TypeLiteral;
+import com.google.inject.matcher.AbstractMatcher;
+import com.google.inject.matcher.Matcher;
+import com.google.inject.multibindings.Multibinder;
+
+/**
+ *
+ * An AbstractModule that wires VRaptor components.
+ *
+ * @author Lucas Cavalcanti
+ * @author Sergio Lopes
+ *
+ * @since 3.2
+ *
+ */
+public class VRaptorAbstractModule extends AbstractModule {
+
+<span class="fc" id="L67">	private static final Logger logger = LoggerFactory.getLogger(VRaptorAbstractModule.class);</span>
+
+	private final ServletContext context;
+	private final Container container;
+
+<span class="fc" id="L72">	public VRaptorAbstractModule(ServletContext context, Container container) {</span>
+<span class="fc" id="L73">		this.context = context;</span>
+<span class="fc" id="L74">		this.container = container;</span>
+<span class="fc" id="L75">	}</span>
+
+	@Override
+	protected void configure() {
+<span class="fc" id="L79">		bindScope(RequestScoped.class, GuiceProvider.REQUEST);</span>
+<span class="fc" id="L80">		bindScope(SessionScoped.class, GuiceProvider.SESSION);</span>
+<span class="fc" id="L81">		bindScope(ApplicationScoped.class,  Scopes.SINGLETON);</span>
+<span class="fc" id="L82">		bindScope(PrototypeScoped.class,  Scopes.NO_SCOPE);</span>
+
+<span class="fc" id="L84">		Matcher&lt;TypeLiteral&lt;?&gt;&gt; isApplication = type(annotatedWith(ApplicationScoped.class));</span>
+<span class="fc" id="L85">		Matcher&lt;TypeLiteral&lt;?&gt;&gt; isSession = type(annotatedWith(SessionScoped.class));</span>
+
+<span class="fc" id="L87">		bindListener(isApplication, new ScopeLifecycleListener(GuiceProvider.APPLICATION));</span>
+<span class="fc" id="L88">		bindListener(isSession, new ScopeLifecycleListener(GuiceProvider.SESSION));</span>
+<span class="fc" id="L89">		bindListener(not(isApplication).and(not(isSession)), new ScopeLifecycleListener(GuiceProvider.REQUEST));</span>
+
+<span class="fc" id="L91">		requestInfoBindings();</span>
+
+<span class="fc" id="L93">		bind(Container.class).toInstance(container);</span>
+
+<span class="fc" id="L95">		GuiceComponentRegistry registry = new GuiceComponentRegistry(binder(), Multibinder.newSetBinder(binder(), StereotypeHandler.class));</span>
+
+<span class="fc" id="L97">		bind(ComponentRegistry.class).toInstance(registry);</span>
+
+<span class="fc" id="L99">		registry.registerInScope((Map) BaseComponents.getApplicationScoped(), GuiceProvider.APPLICATION);</span>
+<span class="fc" id="L100">		registry.registerInScope((Map) BaseComponents.getPrototypeScoped(), Scopes.NO_SCOPE);</span>
+<span class="fc" id="L101">		registry.registerInScope((Map) BaseComponents.getRequestScoped(), GuiceProvider.REQUEST);</span>
+
+<span class="fc bfc" id="L103" title="All 2 branches covered.">		for (Class converter : BaseComponents.getBundledConverters()) {</span>
+<span class="fc" id="L104">			registry.register(converter, converter);</span>
+<span class="fc" id="L105">		}</span>
+
+
+<span class="fc bfc" id="L108" title="All 2 branches covered.">		for (Class handler : BaseComponents.getStereotypeHandlers()) {</span>
+<span class="fc" id="L109">			registry.register(handler, handler);</span>
+		}
+
+<span class="pc bpc" id="L112" title="1 of 2 branches missed.">		for (Entry&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt; entry : BaseComponents.getCachedComponents().entrySet()) {</span>
+<span class="nc" id="L113">			registry.register(entry.getKey(), entry.getValue());</span>
+<span class="nc" id="L114">		}</span>
+
+		//XXX
+<span class="fc" id="L117">		registry.register(XStreamXMLSerialization.class, XStreamXMLSerialization.class);</span>
+<span class="fc" id="L118">		registry.register(XStreamJSONSerialization.class, XStreamJSONSerialization.class);</span>
+
+<span class="fc" id="L120">	}</span>
+
+	private void requestInfoBindings() {
+<span class="fc" id="L123">		bind(MutableRequest.class).toProvider(new Provider&lt;MutableRequest&gt;() {</span>
+
+			public MutableRequest get() {
+<span class="fc" id="L126">				return VRaptorRequestHolder.currentRequest().getRequest();</span>
+			}
+		});
+
+<span class="fc" id="L130">		bind(RequestInfo.class).toProvider(new Provider&lt;RequestInfo&gt;() {</span>
+
+			public RequestInfo get() {
+<span class="fc" id="L133">				return VRaptorRequestHolder.currentRequest();</span>
+			}
+		});
+
+<span class="fc" id="L137">		bind(HttpSession.class).toProvider(new Provider&lt;HttpSession&gt;() {</span>
+
+			public HttpSession get() {
+<span class="fc" id="L140">				return VRaptorRequestHolder.currentRequest().getRequest().getSession();</span>
+			}
+		});
+<span class="fc" id="L143">		bind(MutableResponse.class).toProvider(new Provider&lt;MutableResponse&gt;() {</span>
+
+			public MutableResponse get() {
+<span class="fc" id="L146">				return VRaptorRequestHolder.currentRequest().getResponse();</span>
+			}
+		});
+<span class="fc" id="L149">		bind(HttpServletResponse.class).to(MutableResponse.class);</span>
+<span class="fc" id="L150">		bind(HttpServletRequest.class).to(MutableRequest.class);</span>
+<span class="fc" id="L151">		bind(ServletContext.class).toInstance(context);</span>
+<span class="fc" id="L152">	}</span>
+
+	static Matcher&lt;TypeLiteral&lt;?&gt;&gt; type(final Matcher&lt;? super Class&gt; matcher) {
+<span class="fc" id="L155">		return new AbstractMatcher&lt;TypeLiteral&lt;?&gt;&gt;() {</span>
+			public boolean matches(TypeLiteral&lt;?&gt; literal) {
+<span class="fc" id="L157">				return matcher.matches(literal.getRawType());</span>
+			}
+		};
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

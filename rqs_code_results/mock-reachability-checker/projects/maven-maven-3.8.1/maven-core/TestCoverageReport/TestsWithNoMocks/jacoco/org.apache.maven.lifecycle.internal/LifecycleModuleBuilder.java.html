@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LifecycleModuleBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.lifecycle.internal</a> &gt; <span class="el_source">LifecycleModuleBuilder.java</span></div><h1>LifecycleModuleBuilder.java</h1><pre class="source lang-java linenums">package org.apache.maven.lifecycle.internal;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.util.HashSet;
+import java.util.List;
+
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.execution.BuildSuccess;
+import org.apache.maven.execution.ExecutionEvent;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.execution.ProjectExecutionEvent;
+import org.apache.maven.execution.ProjectExecutionListener;
+import org.apache.maven.lifecycle.MavenExecutionPlan;
+import org.apache.maven.lifecycle.internal.builder.BuilderCommon;
+import org.apache.maven.plugin.MojoExecution;
+import org.apache.maven.project.MavenProject;
+import org.apache.maven.session.scope.internal.SessionScope;
+import org.codehaus.plexus.component.annotations.Component;
+import org.codehaus.plexus.component.annotations.Requirement;
+
+/**
+ * &lt;p&gt;
+ * Builds one or more lifecycles for a full module
+ * &lt;/p&gt;
+ * &lt;strong&gt;NOTE:&lt;/strong&gt; This class is not part of any public api and can be changed or deleted without prior notice.
+ * 
+ * @since 3.0
+ * @author Benjamin Bentmann
+ * @author Jason van Zyl
+ * @author Kristian Rosenvold (extracted class)
+ */
+@Component( role = LifecycleModuleBuilder.class )
+<span class="fc" id="L51">public class LifecycleModuleBuilder</span>
+{
+
+    @Requirement
+    private MojoExecutor mojoExecutor;
+
+    @Requirement
+    private BuilderCommon builderCommon;
+
+    @Requirement
+    private ExecutionEventCatapult eventCatapult;
+
+    private ProjectExecutionListener projectExecutionListener;
+
+    // this tricks plexus-component-metadata generate required metadata
+    @Requirement
+    private List&lt;ProjectExecutionListener&gt; projectExecutionListeners;
+
+    @Requirement
+    private SessionScope sessionScope;
+
+    public void setProjectExecutionListeners( final List&lt;ProjectExecutionListener&gt; listeners )
+    {
+<span class="fc" id="L74">        this.projectExecutionListeners = listeners;</span>
+<span class="fc" id="L75">        this.projectExecutionListener = new CompoundProjectExecutionListener( listeners );</span>
+<span class="fc" id="L76">    }</span>
+
+    public void buildProject( MavenSession session, ReactorContext reactorContext, MavenProject currentProject,
+                              TaskSegment taskSegment )
+    {
+<span class="fc" id="L81">        buildProject( session, session, reactorContext, currentProject, taskSegment );</span>
+<span class="fc" id="L82">    }</span>
+
+    public void buildProject( MavenSession session, MavenSession rootSession, ReactorContext reactorContext,
+                              MavenProject currentProject, TaskSegment taskSegment )
+    {
+<span class="fc" id="L87">        session.setCurrentProject( currentProject );</span>
+
+<span class="fc" id="L89">        long buildStartTime = System.currentTimeMillis();</span>
+
+        // session may be different from rootSession seeded in DefaultMaven
+        // explicitly seed the right session here to make sure it is used by Guice
+<span class="fc" id="L93">        sessionScope.enter( reactorContext.getSessionScopeMemento() );</span>
+<span class="fc" id="L94">        sessionScope.seed( MavenSession.class, session );</span>
+        try
+        {
+
+<span class="pc bpc" id="L98" title="1 of 2 branches missed.">            if ( reactorContext.getReactorBuildStatus().isHaltedOrBlacklisted( currentProject ) )</span>
+            {
+<span class="nc" id="L100">                eventCatapult.fire( ExecutionEvent.Type.ProjectSkipped, session, null );</span>
+<span class="nc" id="L101">                return;</span>
+            }
+
+<span class="fc" id="L104">            BuilderCommon.attachToThread( currentProject );</span>
+
+<span class="fc" id="L106">            projectExecutionListener.beforeProjectExecution( new ProjectExecutionEvent( session, currentProject ) );</span>
+
+<span class="fc" id="L108">            eventCatapult.fire( ExecutionEvent.Type.ProjectStarted, session, null );</span>
+
+<span class="fc" id="L110">            MavenExecutionPlan executionPlan =</span>
+<span class="fc" id="L111">                builderCommon.resolveBuildPlan( session, currentProject, taskSegment, new HashSet&lt;Artifact&gt;() );</span>
+<span class="fc" id="L112">            List&lt;MojoExecution&gt; mojoExecutions = executionPlan.getMojoExecutions();</span>
+
+<span class="fc" id="L114">            projectExecutionListener.beforeProjectLifecycleExecution( new ProjectExecutionEvent( session,</span>
+                                                                                                 currentProject,
+                                                                                                 mojoExecutions ) );
+<span class="fc" id="L117">            mojoExecutor.execute( session, mojoExecutions, reactorContext.getProjectIndex() );</span>
+
+<span class="fc" id="L119">            long buildEndTime = System.currentTimeMillis();</span>
+
+<span class="fc" id="L121">            projectExecutionListener.afterProjectExecutionSuccess( new ProjectExecutionEvent( session, currentProject,</span>
+                                                                                              mojoExecutions ) );
+
+<span class="fc" id="L124">            reactorContext.getResult().addBuildSummary( new BuildSuccess( currentProject,</span>
+                                                                          buildEndTime - buildStartTime ) );
+
+<span class="fc" id="L127">            eventCatapult.fire( ExecutionEvent.Type.ProjectSucceeded, session, null );</span>
+        }
+<span class="nc" id="L129">        catch ( Throwable t )</span>
+        {
+<span class="nc" id="L131">            builderCommon.handleBuildError( reactorContext, rootSession, session, currentProject, t, buildStartTime );</span>
+
+<span class="nc" id="L133">            projectExecutionListener.afterProjectExecutionFailure( new ProjectExecutionEvent( session, currentProject,</span>
+                                                                                              t ) );
+
+            // rethrow original errors and runtime exceptions
+<span class="nc bnc" id="L137" title="All 2 branches missed.">            if ( t instanceof RuntimeException )</span>
+            {
+<span class="nc" id="L139">                throw (RuntimeException) t;</span>
+            }
+<span class="nc bnc" id="L141" title="All 2 branches missed.">            if ( t instanceof Error )</span>
+            {
+<span class="nc" id="L143">                throw (Error) t;</span>
+            }
+        }
+        finally
+        {
+<span class="fc" id="L148">            sessionScope.exit();</span>
+
+<span class="fc" id="L150">            session.setCurrentProject( null );</span>
+
+<span class="fc" id="L152">            Thread.currentThread().setContextClassLoader( reactorContext.getOriginalContextClassLoader() );</span>
+        }
+<span class="fc" id="L154">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

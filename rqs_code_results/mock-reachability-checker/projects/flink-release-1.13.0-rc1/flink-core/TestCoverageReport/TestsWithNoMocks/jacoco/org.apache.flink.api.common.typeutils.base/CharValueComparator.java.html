@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CharValueComparator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeutils.base</a> &gt; <span class="el_source">CharValueComparator.java</span></div><h1>CharValueComparator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeutils.base;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.TypeComparator;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.types.CharValue;
+import org.apache.flink.types.NormalizableKey;
+
+import java.io.IOException;
+
+/** Specialized comparator for CharValue based on CopyableValueComparator. */
+@Internal
+public class CharValueComparator extends TypeComparator&lt;CharValue&gt; {
+
+    private static final long serialVersionUID = 1L;
+
+    private final boolean ascendingComparison;
+
+<span class="nc" id="L39">    private final CharValue reference = new CharValue();</span>
+
+<span class="nc" id="L41">    private final CharValue tempReference = new CharValue();</span>
+
+<span class="nc" id="L43">    private final TypeComparator&lt;?&gt;[] comparators = new TypeComparator[] {this};</span>
+
+<span class="nc" id="L45">    public CharValueComparator(boolean ascending) {</span>
+<span class="nc" id="L46">        this.ascendingComparison = ascending;</span>
+<span class="nc" id="L47">    }</span>
+
+    @Override
+    public int hash(CharValue record) {
+<span class="nc" id="L51">        return record.hashCode();</span>
+    }
+
+    @Override
+    public void setReference(CharValue toCompare) {
+<span class="nc" id="L56">        toCompare.copyTo(reference);</span>
+<span class="nc" id="L57">    }</span>
+
+    @Override
+    public boolean equalToReference(CharValue candidate) {
+<span class="nc" id="L61">        return candidate.equals(this.reference);</span>
+    }
+
+    @Override
+    public int compareToReference(TypeComparator&lt;CharValue&gt; referencedComparator) {
+<span class="nc" id="L66">        CharValue otherRef = ((CharValueComparator) referencedComparator).reference;</span>
+<span class="nc" id="L67">        int comp = otherRef.compareTo(reference);</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        return ascendingComparison ? comp : -comp;</span>
+    }
+
+    @Override
+    public int compare(CharValue first, CharValue second) {
+<span class="nc" id="L73">        int comp = first.compareTo(second);</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        return ascendingComparison ? comp : -comp;</span>
+    }
+
+    @Override
+    public int compareSerialized(DataInputView firstSource, DataInputView secondSource)
+            throws IOException {
+<span class="nc" id="L80">        reference.read(firstSource);</span>
+<span class="nc" id="L81">        tempReference.read(secondSource);</span>
+<span class="nc" id="L82">        int comp = reference.compareTo(tempReference);</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">        return ascendingComparison ? comp : -comp;</span>
+    }
+
+    @Override
+    public boolean supportsNormalizedKey() {
+<span class="nc" id="L88">        return NormalizableKey.class.isAssignableFrom(CharValue.class);</span>
+    }
+
+    @Override
+    public int getNormalizeKeyLen() {
+<span class="nc" id="L93">        return reference.getMaxNormalizedKeyLen();</span>
+    }
+
+    @Override
+    public boolean isNormalizedKeyPrefixOnly(int keyBytes) {
+<span class="nc bnc" id="L98" title="All 2 branches missed.">        return keyBytes &lt; getNormalizeKeyLen();</span>
+    }
+
+    @Override
+    public void putNormalizedKey(CharValue record, MemorySegment target, int offset, int numBytes) {
+<span class="nc" id="L103">        record.copyNormalizedKey(target, offset, numBytes);</span>
+<span class="nc" id="L104">    }</span>
+
+    @Override
+    public boolean invertNormalizedKey() {
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        return !ascendingComparison;</span>
+    }
+
+    @Override
+    public TypeComparator&lt;CharValue&gt; duplicate() {
+<span class="nc" id="L113">        return new CharValueComparator(ascendingComparison);</span>
+    }
+
+    @Override
+    public int extractKeys(Object record, Object[] target, int index) {
+<span class="nc" id="L118">        target[index] = record;</span>
+<span class="nc" id="L119">        return 1;</span>
+    }
+
+    @Override
+    public TypeComparator&lt;?&gt;[] getFlatComparators() {
+<span class="nc" id="L124">        return comparators;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // unsupported normalization
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public boolean supportsSerializationWithKeyNormalization() {
+<span class="nc" id="L133">        return false;</span>
+    }
+
+    @Override
+    public void writeWithKeyNormalization(CharValue record, DataOutputView target)
+            throws IOException {
+<span class="nc" id="L139">        throw new UnsupportedOperationException();</span>
+    }
+
+    @Override
+    public CharValue readWithKeyDenormalization(CharValue reuse, DataInputView source)
+            throws IOException {
+<span class="nc" id="L145">        throw new UnsupportedOperationException();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

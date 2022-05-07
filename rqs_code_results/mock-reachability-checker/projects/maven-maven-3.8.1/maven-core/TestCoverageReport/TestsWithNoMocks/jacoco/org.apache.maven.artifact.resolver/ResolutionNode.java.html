@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ResolutionNode.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.artifact.resolver</a> &gt; <span class="el_source">ResolutionNode.java</span></div><h1>ResolutionNode.java</h1><pre class="source lang-java linenums">package org.apache.maven.artifact.resolver;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
+import org.apache.maven.artifact.versioning.ArtifactVersion;
+import org.apache.maven.artifact.versioning.OverConstrainedVersionException;
+
+/**
+ * ResolutionNode
+ */
+public class ResolutionNode
+{
+    private Artifact artifact;
+
+    private List&lt;ResolutionNode&gt; children;
+
+    private final List&lt;Object&gt; parents;
+
+    private final int depth;
+
+    private final ResolutionNode parent;
+
+    private final List&lt;ArtifactRepository&gt; remoteRepositories;
+
+<span class="nc" id="L52">    private boolean active = true;</span>
+
+    private List&lt;Artifact&gt; trail;
+
+    public ResolutionNode( Artifact artifact, List&lt;ArtifactRepository&gt; remoteRepositories )
+<span class="nc" id="L57">    {</span>
+<span class="nc" id="L58">        this.artifact = artifact;</span>
+<span class="nc" id="L59">        this.remoteRepositories = remoteRepositories;</span>
+<span class="nc" id="L60">        depth = 0;</span>
+<span class="nc" id="L61">        parents = Collections.emptyList();</span>
+<span class="nc" id="L62">        parent = null;</span>
+<span class="nc" id="L63">    }</span>
+
+    public ResolutionNode( Artifact artifact, List&lt;ArtifactRepository&gt; remoteRepositories, ResolutionNode parent )
+<span class="nc" id="L66">    {</span>
+<span class="nc" id="L67">        this.artifact = artifact;</span>
+<span class="nc" id="L68">        this.remoteRepositories = remoteRepositories;</span>
+<span class="nc" id="L69">        depth = parent.depth + 1;</span>
+<span class="nc" id="L70">        parents = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L71">        parents.addAll( parent.parents );</span>
+<span class="nc" id="L72">        parents.add( parent.getKey() );</span>
+<span class="nc" id="L73">        this.parent = parent;</span>
+<span class="nc" id="L74">    }</span>
+
+    public Artifact getArtifact()
+    {
+<span class="nc" id="L78">        return artifact;</span>
+    }
+
+    public Object getKey()
+    {
+<span class="nc" id="L83">        return artifact.getDependencyConflictId();</span>
+    }
+
+    public void addDependencies( Set&lt;Artifact&gt; artifacts, List&lt;ArtifactRepository&gt; remoteRepositories,
+                                 ArtifactFilter filter )
+        throws CyclicDependencyException, OverConstrainedVersionException
+    {
+<span class="nc bnc" id="L90" title="All 4 branches missed.">        if ( artifacts != null &amp;&amp; !artifacts.isEmpty() )</span>
+        {
+<span class="nc" id="L92">            children = new ArrayList&lt;&gt;( artifacts.size() );</span>
+
+<span class="nc bnc" id="L94" title="All 2 branches missed.">            for ( Artifact a : artifacts )</span>
+            {
+<span class="nc bnc" id="L96" title="All 2 branches missed.">                if ( parents.contains( a.getDependencyConflictId() ) )</span>
+                {
+<span class="nc" id="L98">                    a.setDependencyTrail( getDependencyTrail() );</span>
+
+<span class="nc" id="L100">                    throw new CyclicDependencyException( &quot;A dependency has introduced a cycle&quot;, a );</span>
+                }
+
+<span class="nc" id="L103">                children.add( new ResolutionNode( a, remoteRepositories, this ) );</span>
+<span class="nc" id="L104">            }</span>
+<span class="nc" id="L105">            children = Collections.unmodifiableList( children );</span>
+        }
+        else
+        {
+<span class="nc" id="L109">            children = Collections.emptyList();</span>
+        }
+<span class="nc" id="L111">        trail = null;</span>
+<span class="nc" id="L112">    }</span>
+
+    /**
+     * @return {@link List} &amp;lt; {@link String} &amp;gt; with artifact ids
+     * @throws OverConstrainedVersionException
+     */
+    public List&lt;String&gt; getDependencyTrail()
+        throws OverConstrainedVersionException
+    {
+<span class="nc" id="L121">        List&lt;Artifact&gt; trial = getTrail();</span>
+
+<span class="nc" id="L123">        List&lt;String&gt; ret = new ArrayList&lt;&gt;( trial.size() );</span>
+
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        for ( Artifact artifact : trial )</span>
+        {
+<span class="nc" id="L127">            ret.add( artifact.getId() );</span>
+<span class="nc" id="L128">        }</span>
+
+<span class="nc" id="L130">        return ret;</span>
+    }
+
+    private List&lt;Artifact&gt; getTrail()
+        throws OverConstrainedVersionException
+    {
+<span class="nc bnc" id="L136" title="All 2 branches missed.">        if ( trail == null )</span>
+        {
+<span class="nc" id="L138">            List&lt;Artifact&gt; ids = new LinkedList&lt;&gt;();</span>
+<span class="nc" id="L139">            ResolutionNode node = this;</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">            while ( node != null )</span>
+            {
+<span class="nc" id="L142">                Artifact artifact = node.getArtifact();</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">                if ( artifact.getVersion() == null )</span>
+                {
+                    // set the recommended version
+<span class="nc" id="L146">                    ArtifactVersion selected = artifact.getSelectedVersion();</span>
+                    // MNG-2123: null is a valid response to getSelectedVersion, don't
+                    // assume it won't ever be.
+<span class="nc bnc" id="L149" title="All 2 branches missed.">                    if ( selected != null )</span>
+                    {
+<span class="nc" id="L151">                        artifact.selectVersion( selected.toString() );</span>
+                    }
+                    else
+                    {
+<span class="nc" id="L155">                        throw new OverConstrainedVersionException( &quot;Unable to get a selected Version for &quot;</span>
+<span class="nc" id="L156">                            + artifact.getArtifactId(), artifact );</span>
+                    }
+                }
+
+<span class="nc" id="L160">                ids.add( 0, artifact );</span>
+<span class="nc" id="L161">                node = node.parent;</span>
+<span class="nc" id="L162">            }</span>
+<span class="nc" id="L163">            trail = ids;</span>
+        }
+<span class="nc" id="L165">        return trail;</span>
+    }
+
+    public boolean isResolved()
+    {
+<span class="nc bnc" id="L170" title="All 2 branches missed.">        return children != null;</span>
+    }
+
+    /**
+     * Test whether the node is direct or transitive dependency.
+     */
+    public boolean isChildOfRootNode()
+    {
+<span class="nc bnc" id="L178" title="All 4 branches missed.">        return parent != null &amp;&amp; parent.parent == null;</span>
+    }
+
+    public Iterator&lt;ResolutionNode&gt; getChildrenIterator()
+    {
+<span class="nc" id="L183">        return children.iterator();</span>
+    }
+
+    public int getDepth()
+    {
+<span class="nc" id="L188">        return depth;</span>
+    }
+
+    public List&lt;ArtifactRepository&gt; getRemoteRepositories()
+    {
+<span class="nc" id="L193">        return remoteRepositories;</span>
+    }
+
+    public boolean isActive()
+    {
+<span class="nc" id="L198">        return active;</span>
+    }
+
+    public void enable()
+    {
+<span class="nc" id="L203">        active = true;</span>
+
+        // TODO if it was null, we really need to go find them now... or is this taken care of by the ordering?
+<span class="nc bnc" id="L206" title="All 2 branches missed.">        if ( children != null )</span>
+        {
+<span class="nc bnc" id="L208" title="All 2 branches missed.">            for ( ResolutionNode node : children )</span>
+            {
+<span class="nc" id="L210">                node.enable();</span>
+<span class="nc" id="L211">            }</span>
+        }
+<span class="nc" id="L213">    }</span>
+
+    public void disable()
+    {
+<span class="nc" id="L217">        active = false;</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">        if ( children != null )</span>
+        {
+<span class="nc bnc" id="L220" title="All 2 branches missed.">            for ( ResolutionNode node : children )</span>
+            {
+<span class="nc" id="L222">                node.disable();</span>
+<span class="nc" id="L223">            }</span>
+        }
+<span class="nc" id="L225">    }</span>
+
+    public boolean filterTrail( ArtifactFilter filter )
+        throws OverConstrainedVersionException
+    {
+<span class="nc" id="L230">        boolean success = true;</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">        if ( filter != null )</span>
+        {
+<span class="nc bnc" id="L233" title="All 2 branches missed.">            for ( Artifact artifact : getTrail() )</span>
+            {
+<span class="nc bnc" id="L235" title="All 2 branches missed.">                if ( !filter.include( artifact ) )</span>
+                {
+<span class="nc" id="L237">                    success = false;</span>
+                }
+<span class="nc" id="L239">            }</span>
+        }
+<span class="nc" id="L241">        return success;</span>
+    }
+
+    @Override
+    public String toString()
+    {
+<span class="nc bnc" id="L247" title="All 2 branches missed.">        return artifact.toString() + &quot; (&quot; + depth + &quot;; &quot; + ( active ? &quot;enabled&quot; : &quot;disabled&quot; ) + &quot;)&quot;;</span>
+    }
+
+    public void setArtifact( Artifact artifact )
+    {
+<span class="nc" id="L252">        this.artifact = artifact;</span>
+<span class="nc" id="L253">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

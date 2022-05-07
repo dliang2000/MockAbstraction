@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SafetyNetWrapperFileSystem.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.core.fs</a> &gt; <span class="el_source">SafetyNetWrapperFileSystem.java</span></div><h1>SafetyNetWrapperFileSystem.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.core.fs;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.WrappingProxy;
+
+import java.io.IOException;
+import java.net.URI;
+
+/**
+ * This is a {@link WrappingProxy} around {@link FileSystem} which (i) wraps all opened streams as
+ * {@link ClosingFSDataInputStream} or {@link ClosingFSDataOutputStream} and (ii) registers them to
+ * a {@link SafetyNetCloseableRegistry}.
+ *
+ * &lt;p&gt;Streams obtained by this are therefore managed by the {@link SafetyNetCloseableRegistry} to
+ * prevent resource leaks from unclosed streams.
+ */
+@Internal
+public class SafetyNetWrapperFileSystem extends FileSystem implements WrappingProxy&lt;FileSystem&gt; {
+
+    private final SafetyNetCloseableRegistry registry;
+    private final FileSystem unsafeFileSystem;
+
+    public SafetyNetWrapperFileSystem(
+<span class="fc" id="L43">            FileSystem unsafeFileSystem, SafetyNetCloseableRegistry registry) {</span>
+<span class="fc" id="L44">        this.registry = Preconditions.checkNotNull(registry);</span>
+<span class="fc" id="L45">        this.unsafeFileSystem = Preconditions.checkNotNull(unsafeFileSystem);</span>
+<span class="fc" id="L46">    }</span>
+
+    @Override
+    public Path getWorkingDirectory() {
+<span class="nc" id="L50">        return unsafeFileSystem.getWorkingDirectory();</span>
+    }
+
+    @Override
+    public Path getHomeDirectory() {
+<span class="nc" id="L55">        return unsafeFileSystem.getHomeDirectory();</span>
+    }
+
+    @Override
+    public URI getUri() {
+<span class="nc" id="L60">        return unsafeFileSystem.getUri();</span>
+    }
+
+    @Override
+    public FileStatus getFileStatus(Path f) throws IOException {
+<span class="nc" id="L65">        return unsafeFileSystem.getFileStatus(f);</span>
+    }
+
+    @Override
+    public RecoverableWriter createRecoverableWriter() throws IOException {
+<span class="nc" id="L70">        return unsafeFileSystem.createRecoverableWriter();</span>
+    }
+
+    @Override
+    public BlockLocation[] getFileBlockLocations(FileStatus file, long start, long len)
+            throws IOException {
+<span class="nc" id="L76">        return unsafeFileSystem.getFileBlockLocations(file, start, len);</span>
+    }
+
+    @Override
+    public FSDataInputStream open(Path f, int bufferSize) throws IOException {
+<span class="nc" id="L81">        FSDataInputStream innerStream = unsafeFileSystem.open(f, bufferSize);</span>
+<span class="nc" id="L82">        return ClosingFSDataInputStream.wrapSafe(innerStream, registry, String.valueOf(f));</span>
+    }
+
+    @Override
+    public FSDataInputStream open(Path f) throws IOException {
+<span class="nc" id="L87">        FSDataInputStream innerStream = unsafeFileSystem.open(f);</span>
+<span class="nc" id="L88">        return ClosingFSDataInputStream.wrapSafe(innerStream, registry, String.valueOf(f));</span>
+    }
+
+    @Override
+    @SuppressWarnings(&quot;deprecation&quot;)
+    public long getDefaultBlockSize() {
+<span class="nc" id="L94">        return unsafeFileSystem.getDefaultBlockSize();</span>
+    }
+
+    @Override
+    public FileStatus[] listStatus(Path f) throws IOException {
+<span class="nc" id="L99">        return unsafeFileSystem.listStatus(f);</span>
+    }
+
+    @Override
+    public boolean exists(Path f) throws IOException {
+<span class="nc" id="L104">        return unsafeFileSystem.exists(f);</span>
+    }
+
+    @Override
+    public boolean delete(Path f, boolean recursive) throws IOException {
+<span class="nc" id="L109">        return unsafeFileSystem.delete(f, recursive);</span>
+    }
+
+    @Override
+    public boolean mkdirs(Path f) throws IOException {
+<span class="nc" id="L114">        return unsafeFileSystem.mkdirs(f);</span>
+    }
+
+    @Override
+    @SuppressWarnings(&quot;deprecation&quot;)
+    public FSDataOutputStream create(
+            Path f, boolean overwrite, int bufferSize, short replication, long blockSize)
+            throws IOException {
+
+<span class="nc" id="L123">        FSDataOutputStream innerStream =</span>
+<span class="nc" id="L124">                unsafeFileSystem.create(f, overwrite, bufferSize, replication, blockSize);</span>
+<span class="nc" id="L125">        return ClosingFSDataOutputStream.wrapSafe(innerStream, registry, String.valueOf(f));</span>
+    }
+
+    @Override
+    public FSDataOutputStream create(Path f, WriteMode overwrite) throws IOException {
+<span class="fc" id="L130">        FSDataOutputStream innerStream = unsafeFileSystem.create(f, overwrite);</span>
+<span class="fc" id="L131">        return ClosingFSDataOutputStream.wrapSafe(innerStream, registry, String.valueOf(f));</span>
+    }
+
+    @Override
+    public boolean rename(Path src, Path dst) throws IOException {
+<span class="nc" id="L136">        return unsafeFileSystem.rename(src, dst);</span>
+    }
+
+    @Override
+    public boolean initOutPathLocalFS(Path outPath, WriteMode writeMode, boolean createDirectory)
+            throws IOException {
+<span class="nc" id="L142">        return unsafeFileSystem.initOutPathLocalFS(outPath, writeMode, createDirectory);</span>
+    }
+
+    @Override
+    public boolean initOutPathDistFS(Path outPath, WriteMode writeMode, boolean createDirectory)
+            throws IOException {
+<span class="nc" id="L148">        return unsafeFileSystem.initOutPathDistFS(outPath, writeMode, createDirectory);</span>
+    }
+
+    @Override
+    public boolean isDistributedFS() {
+<span class="nc" id="L153">        return unsafeFileSystem.isDistributedFS();</span>
+    }
+
+    @Override
+    public FileSystemKind getKind() {
+<span class="nc" id="L158">        return unsafeFileSystem.getKind();</span>
+    }
+
+    @Override
+    public FileSystem getWrappedDelegate() {
+<span class="fc" id="L163">        return unsafeFileSystem;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

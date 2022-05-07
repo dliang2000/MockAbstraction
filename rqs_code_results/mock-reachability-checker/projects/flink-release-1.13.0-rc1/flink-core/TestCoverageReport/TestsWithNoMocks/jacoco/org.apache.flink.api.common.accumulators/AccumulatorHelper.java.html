@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AccumulatorHelper.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.accumulators</a> &gt; <span class="el_source">AccumulatorHelper.java</span></div><h1>AccumulatorHelper.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.accumulators;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.util.FlinkException;
+import org.apache.flink.util.OptionalFailure;
+import org.apache.flink.util.SerializedValue;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Supplier;
+
+/** Helper functions for the interaction with {@link Accumulator}. */
+@Internal
+<span class="nc" id="L39">public class AccumulatorHelper {</span>
+<span class="nc" id="L40">    private static final Logger LOG = LoggerFactory.getLogger(AccumulatorHelper.class);</span>
+
+    /**
+     * Merge two collections of accumulators. The second will be merged into the first.
+     *
+     * @param target The collection of accumulators that will be updated
+     * @param toMerge The collection of accumulators that will be merged into the other
+     */
+    public static void mergeInto(
+            Map&lt;String, OptionalFailure&lt;Accumulator&lt;?, ?&gt;&gt;&gt; target,
+            Map&lt;String, Accumulator&lt;?, ?&gt;&gt; toMerge) {
+<span class="nc bnc" id="L51" title="All 2 branches missed.">        for (Map.Entry&lt;String, Accumulator&lt;?, ?&gt;&gt; otherEntry : toMerge.entrySet()) {</span>
+<span class="nc" id="L52">            OptionalFailure&lt;Accumulator&lt;?, ?&gt;&gt; ownAccumulator = target.get(otherEntry.getKey());</span>
+<span class="nc bnc" id="L53" title="All 2 branches missed.">            if (ownAccumulator == null) {</span>
+                // Create initial counter (copy!)
+<span class="nc" id="L55">                target.put(</span>
+<span class="nc" id="L56">                        otherEntry.getKey(),</span>
+<span class="nc" id="L57">                        wrapUnchecked(otherEntry.getKey(), () -&gt; otherEntry.getValue().clone()));</span>
+<span class="nc bnc" id="L58" title="All 2 branches missed.">            } else if (ownAccumulator.isFailure()) {</span>
+<span class="nc" id="L59">                continue;</span>
+            } else {
+<span class="nc" id="L61">                Accumulator&lt;?, ?&gt; accumulator = ownAccumulator.getUnchecked();</span>
+                // Both should have the same type
+<span class="nc" id="L63">                compareAccumulatorTypes(</span>
+<span class="nc" id="L64">                        otherEntry.getKey(),</span>
+<span class="nc" id="L65">                        accumulator.getClass(),</span>
+<span class="nc" id="L66">                        otherEntry.getValue().getClass());</span>
+                // Merge target counter with other counter
+
+<span class="nc" id="L69">                target.put(</span>
+<span class="nc" id="L70">                        otherEntry.getKey(),</span>
+<span class="nc" id="L71">                        wrapUnchecked(</span>
+<span class="nc" id="L72">                                otherEntry.getKey(),</span>
+<span class="nc" id="L73">                                () -&gt; mergeSingle(accumulator, otherEntry.getValue().clone())));</span>
+            }
+<span class="nc" id="L75">        }</span>
+<span class="nc" id="L76">    }</span>
+
+    /** Workaround method for type safety. */
+    private static &lt;V, R extends Serializable&gt; Accumulator&lt;V, R&gt; mergeSingle(
+            Accumulator&lt;?, ?&gt; target, Accumulator&lt;?, ?&gt; toMerge) {
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L82">        Accumulator&lt;V, R&gt; typedTarget = (Accumulator&lt;V, R&gt;) target;</span>
+
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L85">        Accumulator&lt;V, R&gt; typedToMerge = (Accumulator&lt;V, R&gt;) toMerge;</span>
+
+<span class="nc" id="L87">        typedTarget.merge(typedToMerge);</span>
+
+<span class="nc" id="L89">        return typedTarget;</span>
+    }
+
+    /** Compare both classes and throw {@link UnsupportedOperationException} if they differ. */
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    public static void compareAccumulatorTypes(
+            Object name, Class&lt;? extends Accumulator&gt; first, Class&lt;? extends Accumulator&gt; second)
+            throws UnsupportedOperationException {
+<span class="nc bnc" id="L97" title="All 4 branches missed.">        if (first == null || second == null) {</span>
+<span class="nc" id="L98">            throw new NullPointerException();</span>
+        }
+
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        if (first != second) {</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">            if (!first.getName().equals(second.getName())) {</span>
+<span class="nc" id="L103">                throw new UnsupportedOperationException(</span>
+                        &quot;The accumulator object '&quot;
+                                + name
+                                + &quot;' was created with two different types: &quot;
+<span class="nc" id="L107">                                + first.getName()</span>
+                                + &quot; and &quot;
+<span class="nc" id="L109">                                + second.getName());</span>
+            } else {
+                // damn, name is the same, but different classloaders
+<span class="nc" id="L112">                throw new UnsupportedOperationException(</span>
+                        &quot;The accumulator object '&quot;
+                                + name
+                                + &quot;' was created with two different classes: &quot;
+                                + first
+                                + &quot; and &quot;
+                                + second
+                                + &quot; Both have the same type (&quot;
+<span class="nc" id="L120">                                + first.getName()</span>
+                                + &quot;) but different classloaders: &quot;
+<span class="nc" id="L122">                                + first.getClassLoader()</span>
+                                + &quot; and &quot;
+<span class="nc" id="L124">                                + second.getClassLoader());</span>
+            }
+        }
+<span class="nc" id="L127">    }</span>
+
+    /** Transform the Map with accumulators into a Map containing only the results. */
+    public static Map&lt;String, OptionalFailure&lt;Object&gt;&gt; toResultMap(
+            Map&lt;String, Accumulator&lt;?, ?&gt;&gt; accumulators) {
+<span class="nc" id="L132">        Map&lt;String, OptionalFailure&lt;Object&gt;&gt; resultMap = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        for (Map.Entry&lt;String, Accumulator&lt;?, ?&gt;&gt; entry : accumulators.entrySet()) {</span>
+<span class="nc" id="L134">            resultMap.put(</span>
+<span class="nc" id="L135">                    entry.getKey(),</span>
+<span class="nc" id="L136">                    wrapUnchecked(entry.getKey(), () -&gt; entry.getValue().getLocalValue()));</span>
+<span class="nc" id="L137">        }</span>
+<span class="nc" id="L138">        return resultMap;</span>
+    }
+
+    private static &lt;R&gt; OptionalFailure&lt;R&gt; wrapUnchecked(String name, Supplier&lt;R&gt; supplier) {
+<span class="nc" id="L142">        return OptionalFailure.createFrom(</span>
+                () -&gt; {
+                    try {
+<span class="nc" id="L145">                        return supplier.get();</span>
+<span class="nc" id="L146">                    } catch (RuntimeException ex) {</span>
+<span class="nc" id="L147">                        LOG.error(&quot;Unexpected error while handling accumulator [&quot; + name + &quot;]&quot;, ex);</span>
+<span class="nc" id="L148">                        throw new FlinkException(ex);</span>
+                    }
+                });
+    }
+
+    public static String getResultsFormatted(Map&lt;String, Object&gt; map) {
+<span class="nc" id="L154">        StringBuilder builder = new StringBuilder();</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">        for (Map.Entry&lt;String, Object&gt; entry : map.entrySet()) {</span>
+<span class="nc" id="L156">            builder.append(&quot;- &quot;)</span>
+<span class="nc" id="L157">                    .append(entry.getKey())</span>
+<span class="nc" id="L158">                    .append(&quot; (&quot;)</span>
+<span class="nc" id="L159">                    .append(entry.getValue().getClass().getName())</span>
+<span class="nc" id="L160">                    .append(&quot;)&quot;);</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">            if (entry.getValue() instanceof Collection) {</span>
+<span class="nc" id="L162">                builder.append(&quot; [&quot;)</span>
+<span class="nc" id="L163">                        .append(((Collection) entry.getValue()).size())</span>
+<span class="nc" id="L164">                        .append(&quot; elements]&quot;);</span>
+            } else {
+<span class="nc" id="L166">                builder.append(&quot;: &quot;).append(entry.getValue().toString());</span>
+            }
+<span class="nc" id="L168">            builder.append(System.lineSeparator());</span>
+<span class="nc" id="L169">        }</span>
+<span class="nc" id="L170">        return builder.toString();</span>
+    }
+
+    public static Map&lt;String, Accumulator&lt;?, ?&gt;&gt; copy(Map&lt;String, Accumulator&lt;?, ?&gt;&gt; accumulators) {
+<span class="nc" id="L174">        Map&lt;String, Accumulator&lt;?, ?&gt;&gt; result = new HashMap&lt;String, Accumulator&lt;?, ?&gt;&gt;();</span>
+
+<span class="nc bnc" id="L176" title="All 2 branches missed.">        for (Map.Entry&lt;String, Accumulator&lt;?, ?&gt;&gt; entry : accumulators.entrySet()) {</span>
+<span class="nc" id="L177">            result.put(entry.getKey(), entry.getValue().clone());</span>
+<span class="nc" id="L178">        }</span>
+
+<span class="nc" id="L180">        return result;</span>
+    }
+
+    /**
+     * Takes the serialized accumulator results and tries to deserialize them using the provided
+     * class loader.
+     *
+     * @param serializedAccumulators The serialized accumulator results.
+     * @param loader The class loader to use.
+     * @return The deserialized accumulator results.
+     */
+    public static Map&lt;String, OptionalFailure&lt;Object&gt;&gt; deserializeAccumulators(
+            Map&lt;String, SerializedValue&lt;OptionalFailure&lt;Object&gt;&gt;&gt; serializedAccumulators,
+            ClassLoader loader)
+            throws IOException, ClassNotFoundException {
+
+<span class="nc bnc" id="L196" title="All 4 branches missed.">        if (serializedAccumulators == null || serializedAccumulators.isEmpty()) {</span>
+<span class="nc" id="L197">            return Collections.emptyMap();</span>
+        }
+
+<span class="nc" id="L200">        Map&lt;String, OptionalFailure&lt;Object&gt;&gt; accumulators =</span>
+<span class="nc" id="L201">                new HashMap&lt;&gt;(serializedAccumulators.size());</span>
+
+        for (Map.Entry&lt;String, SerializedValue&lt;OptionalFailure&lt;Object&gt;&gt;&gt; entry :
+<span class="nc bnc" id="L204" title="All 2 branches missed.">                serializedAccumulators.entrySet()) {</span>
+
+<span class="nc" id="L206">            OptionalFailure&lt;Object&gt; value = null;</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">            if (entry.getValue() != null) {</span>
+<span class="nc" id="L208">                value = entry.getValue().deserializeValue(loader);</span>
+            }
+
+<span class="nc" id="L211">            accumulators.put(entry.getKey(), value);</span>
+<span class="nc" id="L212">        }</span>
+
+<span class="nc" id="L214">        return accumulators;</span>
+    }
+
+    /**
+     * Takes the serialized accumulator results and tries to deserialize them using the provided
+     * class loader, and then try to unwrap the value unchecked.
+     *
+     * @param serializedAccumulators The serialized accumulator results.
+     * @param loader The class loader to use.
+     * @return The deserialized and unwrapped accumulator results.
+     */
+    public static Map&lt;String, Object&gt; deserializeAndUnwrapAccumulators(
+            Map&lt;String, SerializedValue&lt;OptionalFailure&lt;Object&gt;&gt;&gt; serializedAccumulators,
+            ClassLoader loader)
+            throws IOException, ClassNotFoundException {
+
+<span class="nc" id="L230">        Map&lt;String, OptionalFailure&lt;Object&gt;&gt; deserializedAccumulators =</span>
+<span class="nc" id="L231">                deserializeAccumulators(serializedAccumulators, loader);</span>
+
+<span class="nc bnc" id="L233" title="All 2 branches missed.">        if (deserializedAccumulators.isEmpty()) {</span>
+<span class="nc" id="L234">            return Collections.emptyMap();</span>
+        }
+
+<span class="nc" id="L237">        Map&lt;String, Object&gt; accumulators = new HashMap&lt;&gt;(serializedAccumulators.size());</span>
+
+        for (Map.Entry&lt;String, OptionalFailure&lt;Object&gt;&gt; entry :
+<span class="nc bnc" id="L240" title="All 2 branches missed.">                deserializedAccumulators.entrySet()) {</span>
+<span class="nc" id="L241">            accumulators.put(entry.getKey(), entry.getValue().getUnchecked());</span>
+<span class="nc" id="L242">        }</span>
+
+<span class="nc" id="L244">        return accumulators;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

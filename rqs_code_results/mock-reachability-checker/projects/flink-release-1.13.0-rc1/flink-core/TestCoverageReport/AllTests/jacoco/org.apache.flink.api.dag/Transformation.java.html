@@ -1,0 +1,577 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Transformation.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.dag</a> &gt; <span class="el_source">Transformation.java</span></div><h1>Transformation.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.dag;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.functions.InvalidTypesException;
+import org.apache.flink.api.common.operators.ResourceSpec;
+import org.apache.flink.api.common.operators.util.OperatorValidationUtils;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.typeutils.MissingTypeInfo;
+import org.apache.flink.core.memory.ManagedMemoryUseCase;
+import org.apache.flink.util.Preconditions;
+
+import javax.annotation.Nullable;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * A {@code Transformation} represents the operation that creates a DataStream. Every DataStream has
+ * an underlying {@code Transformation} that is the origin of said DataStream.
+ *
+ * &lt;p&gt;API operations such as DataStream#map create a tree of {@code Transformation}s underneath.
+ * When the stream program is to be executed this graph is translated to a StreamGraph using
+ * StreamGraphGenerator.
+ *
+ * &lt;p&gt;A {@code Transformation} does not necessarily correspond to a physical operation at runtime.
+ * Some operations are only logical concepts. Examples of this are union, split/select data stream,
+ * partitioning.
+ *
+ * &lt;p&gt;The following graph of {@code Transformations}:
+ *
+ * &lt;pre&gt;{@code
+ *   Source              Source
+ *      +                   +
+ *      |                   |
+ *      v                   v
+ *  Rebalance          HashPartition
+ *      +                   +
+ *      |                   |
+ *      |                   |
+ *      +------&gt;Union&lt;------+
+ *                +
+ *                |
+ *                v
+ *              Split
+ *                +
+ *                |
+ *                v
+ *              Select
+ *                +
+ *                v
+ *               Map
+ *                +
+ *                |
+ *                v
+ *              Sink
+ * }&lt;/pre&gt;
+ *
+ * &lt;p&gt;Would result in this graph of operations at runtime:
+ *
+ * &lt;pre&gt;{@code
+ * Source              Source
+ *   +                   +
+ *   |                   |
+ *   |                   |
+ *   +-------&gt;Map&lt;-------+
+ *             +
+ *             |
+ *             v
+ *            Sink
+ * }&lt;/pre&gt;
+ *
+ * &lt;p&gt;The information about partitioning, union, split/select end up being encoded in the edges that
+ * connect the sources to the map operation.
+ *
+ * @param &lt;T&gt; The type of the elements that result from this {@code Transformation}
+ */
+@Internal
+public abstract class Transformation&lt;T&gt; {
+
+    // Has to be equal to StreamGraphGenerator.UPPER_BOUND_MAX_PARALLELISM
+    public static final int UPPER_BOUND_MAX_PARALLELISM = 1 &lt;&lt; 15;
+
+    // This is used to assign a unique ID to every Transformation
+<span class="fc" id="L110">    protected static Integer idCounter = 0;</span>
+
+    public static int getNewNodeId() {
+<span class="fc" id="L113">        idCounter++;</span>
+<span class="fc" id="L114">        return idCounter;</span>
+    }
+
+    protected final int id;
+
+    protected String name;
+
+    protected TypeInformation&lt;T&gt; outputType;
+    // This is used to handle MissingTypeInfo. As long as the outputType has not been queried
+    // it can still be changed using setOutputType(). Afterwards an exception is thrown when
+    // trying to change the output type.
+    protected boolean typeUsed;
+
+    private int parallelism;
+
+    /**
+     * The maximum parallelism for this stream transformation. It defines the upper limit for
+     * dynamic scaling and the number of key groups used for partitioned state.
+     */
+<span class="fc" id="L133">    private int maxParallelism = -1;</span>
+
+    /**
+     * The minimum resources for this stream transformation. It defines the lower limit for dynamic
+     * resources resize in future plan.
+     */
+<span class="fc" id="L139">    private ResourceSpec minResources = ResourceSpec.DEFAULT;</span>
+
+    /**
+     * The preferred resources for this stream transformation. It defines the upper limit for
+     * dynamic resource resize in future plan.
+     */
+<span class="fc" id="L145">    private ResourceSpec preferredResources = ResourceSpec.DEFAULT;</span>
+
+    /**
+     * Each entry in this map represents a operator scope use case that this transformation needs
+     * managed memory for. The keys indicate the use cases, while the values are the
+     * use-case-specific weights for this transformation. Managed memory reserved for a use case
+     * will be shared by all the declaring transformations within a slot according to this weight.
+     */
+<span class="fc" id="L153">    private final Map&lt;ManagedMemoryUseCase, Integer&gt; managedMemoryOperatorScopeUseCaseWeights =</span>
+            new HashMap&lt;&gt;();
+
+    /** Slot scope use cases that this transformation needs managed memory for. */
+<span class="fc" id="L157">    private final Set&lt;ManagedMemoryUseCase&gt; managedMemorySlotScopeUseCases = new HashSet&lt;&gt;();</span>
+
+    /**
+     * User-specified ID for this transformation. This is used to assign the same operator ID across
+     * job restarts. There is also the automatically generated {@link #id}, which is assigned from a
+     * static counter. That field is independent from this.
+     */
+    private String uid;
+
+    private String userProvidedNodeHash;
+
+<span class="fc" id="L168">    protected long bufferTimeout = -1;</span>
+
+    private String slotSharingGroup;
+
+    @Nullable private String coLocationGroupKey;
+
+    /**
+     * Creates a new {@code Transformation} with the given name, output type and parallelism.
+     *
+     * @param name The name of the {@code Transformation}, this will be shown in Visualizations and
+     *     the Log
+     * @param outputType The output type of this {@code Transformation}
+     * @param parallelism The parallelism of this {@code Transformation}
+     */
+<span class="fc" id="L182">    public Transformation(String name, TypeInformation&lt;T&gt; outputType, int parallelism) {</span>
+<span class="fc" id="L183">        this.id = getNewNodeId();</span>
+<span class="fc" id="L184">        this.name = Preconditions.checkNotNull(name);</span>
+<span class="fc" id="L185">        this.outputType = outputType;</span>
+<span class="fc" id="L186">        this.parallelism = parallelism;</span>
+<span class="fc" id="L187">        this.slotSharingGroup = null;</span>
+<span class="fc" id="L188">    }</span>
+
+    /** Returns the unique ID of this {@code Transformation}. */
+    public int getId() {
+<span class="nc" id="L192">        return id;</span>
+    }
+
+    /** Changes the name of this {@code Transformation}. */
+    public void setName(String name) {
+<span class="nc" id="L197">        this.name = name;</span>
+<span class="nc" id="L198">    }</span>
+
+    /** Returns the name of this {@code Transformation}. */
+    public String getName() {
+<span class="nc" id="L202">        return name;</span>
+    }
+
+    /** Returns the parallelism of this {@code Transformation}. */
+    public int getParallelism() {
+<span class="nc" id="L207">        return parallelism;</span>
+    }
+
+    /**
+     * Sets the parallelism of this {@code Transformation}.
+     *
+     * @param parallelism The new parallelism to set on this {@code Transformation}.
+     */
+    public void setParallelism(int parallelism) {
+<span class="nc" id="L216">        OperatorValidationUtils.validateParallelism(parallelism);</span>
+<span class="nc" id="L217">        this.parallelism = parallelism;</span>
+<span class="nc" id="L218">    }</span>
+
+    /**
+     * Gets the maximum parallelism for this stream transformation.
+     *
+     * @return Maximum parallelism of this transformation.
+     */
+    public int getMaxParallelism() {
+<span class="nc" id="L226">        return maxParallelism;</span>
+    }
+
+    /**
+     * Sets the maximum parallelism for this stream transformation.
+     *
+     * @param maxParallelism Maximum parallelism for this stream transformation.
+     */
+    public void setMaxParallelism(int maxParallelism) {
+<span class="nc" id="L235">        OperatorValidationUtils.validateMaxParallelism(maxParallelism, UPPER_BOUND_MAX_PARALLELISM);</span>
+<span class="nc" id="L236">        this.maxParallelism = maxParallelism;</span>
+<span class="nc" id="L237">    }</span>
+
+    /**
+     * Sets the minimum and preferred resources for this stream transformation.
+     *
+     * @param minResources The minimum resource of this transformation.
+     * @param preferredResources The preferred resource of this transformation.
+     */
+    public void setResources(ResourceSpec minResources, ResourceSpec preferredResources) {
+<span class="nc" id="L246">        OperatorValidationUtils.validateMinAndPreferredResources(minResources, preferredResources);</span>
+<span class="nc" id="L247">        this.minResources = checkNotNull(minResources);</span>
+<span class="nc" id="L248">        this.preferredResources = checkNotNull(preferredResources);</span>
+<span class="nc" id="L249">    }</span>
+
+    /**
+     * Gets the minimum resource of this stream transformation.
+     *
+     * @return The minimum resource of this transformation.
+     */
+    public ResourceSpec getMinResources() {
+<span class="nc" id="L257">        return minResources;</span>
+    }
+
+    /**
+     * Gets the preferred resource of this stream transformation.
+     *
+     * @return The preferred resource of this transformation.
+     */
+    public ResourceSpec getPreferredResources() {
+<span class="nc" id="L266">        return preferredResources;</span>
+    }
+
+    /**
+     * Declares that this transformation contains certain operator scope managed memory use case.
+     *
+     * @param managedMemoryUseCase The use case that this transformation declares needing managed
+     *     memory for.
+     * @param weight Use-case-specific weights for this transformation. Used for sharing managed
+     *     memory across transformations for OPERATOR scope use cases.
+     * @return The previous weight, if exist.
+     */
+    public Optional&lt;Integer&gt; declareManagedMemoryUseCaseAtOperatorScope(
+            ManagedMemoryUseCase managedMemoryUseCase, int weight) {
+<span class="fc" id="L280">        Preconditions.checkNotNull(managedMemoryUseCase);</span>
+<span class="fc bfc" id="L281" title="All 2 branches covered.">        Preconditions.checkArgument(</span>
+                managedMemoryUseCase.scope == ManagedMemoryUseCase.Scope.OPERATOR,
+                &quot;Use case is not operator scope.&quot;);
+<span class="fc bfc" id="L284" title="All 2 branches covered.">        Preconditions.checkArgument(</span>
+                weight &gt; 0, &quot;Weights for operator scope use cases must be greater than 0.&quot;);
+
+<span class="fc" id="L287">        return Optional.ofNullable(</span>
+<span class="fc" id="L288">                managedMemoryOperatorScopeUseCaseWeights.put(managedMemoryUseCase, weight));</span>
+    }
+
+    /**
+     * Declares that this transformation contains certain slot scope managed memory use case.
+     *
+     * @param managedMemoryUseCase The use case that this transformation declares needing managed
+     *     memory for.
+     */
+    public void declareManagedMemoryUseCaseAtSlotScope(ManagedMemoryUseCase managedMemoryUseCase) {
+<span class="fc" id="L298">        Preconditions.checkNotNull(managedMemoryUseCase);</span>
+<span class="fc bfc" id="L299" title="All 2 branches covered.">        Preconditions.checkArgument(managedMemoryUseCase.scope == ManagedMemoryUseCase.Scope.SLOT);</span>
+
+<span class="fc" id="L301">        managedMemorySlotScopeUseCases.add(managedMemoryUseCase);</span>
+<span class="fc" id="L302">    }</span>
+
+    protected void updateManagedMemoryStateBackendUseCase(boolean hasStateBackend) {
+<span class="nc bnc" id="L305" title="All 2 branches missed.">        if (hasStateBackend) {</span>
+<span class="nc" id="L306">            managedMemorySlotScopeUseCases.add(ManagedMemoryUseCase.STATE_BACKEND);</span>
+        } else {
+<span class="nc" id="L308">            managedMemorySlotScopeUseCases.remove(ManagedMemoryUseCase.STATE_BACKEND);</span>
+        }
+<span class="nc" id="L310">    }</span>
+
+    /**
+     * Get operator scope use cases that this transformation needs managed memory for, and the
+     * use-case-specific weights for this transformation. The weights are used for sharing managed
+     * memory across transformations for the use cases.
+     */
+    public Map&lt;ManagedMemoryUseCase, Integer&gt; getManagedMemoryOperatorScopeUseCaseWeights() {
+<span class="fc" id="L318">        return Collections.unmodifiableMap(managedMemoryOperatorScopeUseCaseWeights);</span>
+    }
+
+    /** Get slot scope use cases that this transformation needs managed memory for. */
+    public Set&lt;ManagedMemoryUseCase&gt; getManagedMemorySlotScopeUseCases() {
+<span class="fc" id="L323">        return Collections.unmodifiableSet(managedMemorySlotScopeUseCases);</span>
+    }
+
+    /**
+     * Sets an user provided hash for this operator. This will be used AS IS the create the
+     * JobVertexID.
+     *
+     * &lt;p&gt;The user provided hash is an alternative to the generated hashes, that is considered when
+     * identifying an operator through the default hash mechanics fails (e.g. because of changes
+     * between Flink versions).
+     *
+     * &lt;p&gt;&lt;strong&gt;Important&lt;/strong&gt;: this should be used as a workaround or for trouble shooting.
+     * The provided hash needs to be unique per transformation and job. Otherwise, job submission
+     * will fail. Furthermore, you cannot assign user-specified hash to intermediate nodes in an
+     * operator chain and trying so will let your job fail.
+     *
+     * &lt;p&gt;A use case for this is in migration between Flink versions or changing the jobs in a way
+     * that changes the automatically generated hashes. In this case, providing the previous hashes
+     * directly through this method (e.g. obtained from old logs) can help to reestablish a lost
+     * mapping from states to their target operator.
+     *
+     * @param uidHash The user provided hash for this operator. This will become the JobVertexID,
+     *     which is shown in the logs and web ui.
+     */
+    public void setUidHash(String uidHash) {
+
+<span class="nc" id="L349">        Preconditions.checkNotNull(uidHash);</span>
+<span class="nc" id="L350">        Preconditions.checkArgument(</span>
+<span class="nc" id="L351">                uidHash.matches(&quot;^[0-9A-Fa-f]{32}$&quot;),</span>
+                &quot;Node hash must be a 32 character String that describes a hex code. Found: &quot;
+                        + uidHash);
+
+<span class="nc" id="L355">        this.userProvidedNodeHash = uidHash;</span>
+<span class="nc" id="L356">    }</span>
+
+    /**
+     * Gets the user provided hash.
+     *
+     * @return The user provided hash.
+     */
+    public String getUserProvidedNodeHash() {
+<span class="nc" id="L364">        return userProvidedNodeHash;</span>
+    }
+
+    /**
+     * Sets an ID for this {@link Transformation}. This is will later be hashed to a uidHash which
+     * is then used to create the JobVertexID (that is shown in logs and the web ui).
+     *
+     * &lt;p&gt;The specified ID is used to assign the same operator ID across job submissions (for
+     * example when starting a job from a savepoint).
+     *
+     * &lt;p&gt;&lt;strong&gt;Important&lt;/strong&gt;: this ID needs to be unique per transformation and job.
+     * Otherwise, job submission will fail.
+     *
+     * @param uid The unique user-specified ID of this transformation.
+     */
+    public void setUid(String uid) {
+<span class="nc" id="L380">        this.uid = uid;</span>
+<span class="nc" id="L381">    }</span>
+
+    /**
+     * Returns the user-specified ID of this transformation.
+     *
+     * @return The unique user-specified ID of this transformation.
+     */
+    public String getUid() {
+<span class="nc" id="L389">        return uid;</span>
+    }
+
+    /**
+     * Returns the slot sharing group of this transformation.
+     *
+     * @see #setSlotSharingGroup(String)
+     */
+    public String getSlotSharingGroup() {
+<span class="nc" id="L398">        return slotSharingGroup;</span>
+    }
+
+    /**
+     * Sets the slot sharing group of this transformation. Parallel instances of operations that are
+     * in the same slot sharing group will be co-located in the same TaskManager slot, if possible.
+     *
+     * &lt;p&gt;Initially, an operation is in the default slot sharing group. This can be explicitly set
+     * using {@code setSlotSharingGroup(&quot;default&quot;)}.
+     *
+     * @param slotSharingGroup The slot sharing group name.
+     */
+    public void setSlotSharingGroup(String slotSharingGroup) {
+<span class="nc" id="L411">        this.slotSharingGroup = slotSharingGroup;</span>
+<span class="nc" id="L412">    }</span>
+
+    /**
+     * &lt;b&gt;NOTE:&lt;/b&gt; This is an internal undocumented feature for now. It is not clear whether this
+     * will be supported and stable in the long term.
+     *
+     * &lt;p&gt;Sets the key that identifies the co-location group. Operators with the same co-location
+     * key will have their corresponding subtasks placed into the same slot by the scheduler.
+     *
+     * &lt;p&gt;Setting this to null means there is no co-location constraint.
+     */
+    public void setCoLocationGroupKey(@Nullable String coLocationGroupKey) {
+<span class="nc" id="L424">        this.coLocationGroupKey = coLocationGroupKey;</span>
+<span class="nc" id="L425">    }</span>
+
+    /**
+     * &lt;b&gt;NOTE:&lt;/b&gt; This is an internal undocumented feature for now. It is not clear whether this
+     * will be supported and stable in the long term.
+     *
+     * &lt;p&gt;Gets the key that identifies the co-location group. Operators with the same co-location
+     * key will have their corresponding subtasks placed into the same slot by the scheduler.
+     *
+     * &lt;p&gt;If this is null (which is the default), it means there is no co-location constraint.
+     */
+    @Nullable
+    public String getCoLocationGroupKey() {
+<span class="nc" id="L438">        return coLocationGroupKey;</span>
+    }
+
+    /**
+     * Tries to fill in the type information. Type information can be filled in later when the
+     * program uses a type hint. This method checks whether the type information has ever been
+     * accessed before and does not allow modifications if the type was accessed already. This
+     * ensures consistency by making sure different parts of the operation do not assume different
+     * type information.
+     *
+     * @param outputType The type information to fill in.
+     * @throws IllegalStateException Thrown, if the type information has been accessed before.
+     */
+    public void setOutputType(TypeInformation&lt;T&gt; outputType) {
+<span class="nc bnc" id="L452" title="All 2 branches missed.">        if (typeUsed) {</span>
+<span class="nc" id="L453">            throw new IllegalStateException(</span>
+                    &quot;TypeInformation cannot be filled in for the type after it has been used. &quot;
+                            + &quot;Please make sure that the type info hints are the first call after&quot;
+                            + &quot; the transformation function, &quot;
+                            + &quot;before any access to types or semantic properties, etc.&quot;);
+        }
+<span class="nc" id="L459">        this.outputType = outputType;</span>
+<span class="nc" id="L460">    }</span>
+
+    /**
+     * Returns the output type of this {@code Transformation} as a {@link TypeInformation}. Once
+     * this is used once the output type cannot be changed anymore using {@link #setOutputType}.
+     *
+     * @return The output type of this {@code Transformation}
+     */
+    public TypeInformation&lt;T&gt; getOutputType() {
+<span class="nc bnc" id="L469" title="All 2 branches missed.">        if (outputType instanceof MissingTypeInfo) {</span>
+<span class="nc" id="L470">            MissingTypeInfo typeInfo = (MissingTypeInfo) this.outputType;</span>
+<span class="nc" id="L471">            throw new InvalidTypesException(</span>
+                    &quot;The return type of function '&quot;
+<span class="nc" id="L473">                            + typeInfo.getFunctionName()</span>
+                            + &quot;' could not be determined automatically, due to type erasure. &quot;
+                            + &quot;You can give type information hints by using the returns(...) &quot;
+                            + &quot;method on the result of the transformation call, or by letting &quot;
+                            + &quot;your function implement the 'ResultTypeQueryable' &quot;
+                            + &quot;interface.&quot;,
+<span class="nc" id="L479">                    typeInfo.getTypeException());</span>
+        }
+<span class="nc" id="L481">        typeUsed = true;</span>
+<span class="nc" id="L482">        return this.outputType;</span>
+    }
+
+    /**
+     * Set the buffer timeout of this {@code Transformation}. The timeout defines how long data may
+     * linger in a partially full buffer before being sent over the network.
+     *
+     * &lt;p&gt;Lower timeouts lead to lower tail latencies, but may affect throughput. For Flink 1.5+,
+     * timeouts of 1ms are feasible for jobs with high parallelism.
+     *
+     * &lt;p&gt;A value of -1 means that the default buffer timeout should be used. A value of zero
+     * indicates that no buffering should happen, and all records/events should be immediately sent
+     * through the network, without additional buffering.
+     */
+    public void setBufferTimeout(long bufferTimeout) {
+<span class="nc bnc" id="L497" title="All 2 branches missed.">        checkArgument(bufferTimeout &gt;= -1);</span>
+<span class="nc" id="L498">        this.bufferTimeout = bufferTimeout;</span>
+<span class="nc" id="L499">    }</span>
+
+    /**
+     * Returns the buffer timeout of this {@code Transformation}.
+     *
+     * @see #setBufferTimeout(long)
+     */
+    public long getBufferTimeout() {
+<span class="nc" id="L507">        return bufferTimeout;</span>
+    }
+
+    /**
+     * Returns all transitive predecessor {@code Transformation}s of this {@code Transformation}.
+     * This is, for example, used when determining whether a feedback edge of an iteration actually
+     * has the iteration head as a predecessor.
+     *
+     * @return The list of transitive predecessors.
+     */
+    public abstract List&lt;Transformation&lt;?&gt;&gt; getTransitivePredecessors();
+
+    /**
+     * Returns the {@link Transformation transformations} that are the immediate predecessors of the
+     * current transformation in the transformation graph.
+     */
+    public abstract List&lt;Transformation&lt;?&gt;&gt; getInputs();
+
+    @Override
+    public String toString() {
+<span class="nc" id="L527">        return getClass().getSimpleName()</span>
+                + &quot;{&quot;
+                + &quot;id=&quot;
+                + id
+                + &quot;, name='&quot;
+                + name
+                + '\''
+                + &quot;, outputType=&quot;
+                + outputType
+                + &quot;, parallelism=&quot;
+                + parallelism
+                + '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="nc bnc" id="L543" title="All 2 branches missed.">        if (this == o) {</span>
+<span class="nc" id="L544">            return true;</span>
+        }
+<span class="nc bnc" id="L546" title="All 2 branches missed.">        if (!(o instanceof Transformation)) {</span>
+<span class="nc" id="L547">            return false;</span>
+        }
+
+<span class="nc" id="L550">        Transformation&lt;?&gt; that = (Transformation&lt;?&gt;) o;</span>
+
+<span class="nc bnc" id="L552" title="All 2 branches missed.">        if (bufferTimeout != that.bufferTimeout) {</span>
+<span class="nc" id="L553">            return false;</span>
+        }
+<span class="nc bnc" id="L555" title="All 2 branches missed.">        if (id != that.id) {</span>
+<span class="nc" id="L556">            return false;</span>
+        }
+<span class="nc bnc" id="L558" title="All 2 branches missed.">        if (parallelism != that.parallelism) {</span>
+<span class="nc" id="L559">            return false;</span>
+        }
+<span class="nc bnc" id="L561" title="All 2 branches missed.">        if (!name.equals(that.name)) {</span>
+<span class="nc" id="L562">            return false;</span>
+        }
+<span class="nc bnc" id="L564" title="All 4 branches missed.">        return outputType != null ? outputType.equals(that.outputType) : that.outputType == null;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L569">        int result = id;</span>
+<span class="nc" id="L570">        result = 31 * result + name.hashCode();</span>
+<span class="nc bnc" id="L571" title="All 2 branches missed.">        result = 31 * result + (outputType != null ? outputType.hashCode() : 0);</span>
+<span class="nc" id="L572">        result = 31 * result + parallelism;</span>
+<span class="nc" id="L573">        result = 31 * result + (int) (bufferTimeout ^ (bufferTimeout &gt;&gt;&gt; 32));</span>
+<span class="nc" id="L574">        return result;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

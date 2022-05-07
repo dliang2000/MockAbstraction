@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VRaptor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor</a> &gt; <span class="el_source">VRaptor.java</span></div><h1>VRaptor.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package br.com.caelum.vraptor;
+
+import java.io.IOException;
+
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletContext;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import br.com.caelum.vraptor.config.BasicConfiguration;
+import br.com.caelum.vraptor.core.Execution;
+import br.com.caelum.vraptor.core.RequestExecution;
+import br.com.caelum.vraptor.core.RequestInfo;
+import br.com.caelum.vraptor.core.StaticContentHandler;
+import br.com.caelum.vraptor.http.EncodingHandler;
+import br.com.caelum.vraptor.http.VRaptorRequest;
+import br.com.caelum.vraptor.http.VRaptorResponse;
+import br.com.caelum.vraptor.interceptor.ApplicationLogicException;
+import br.com.caelum.vraptor.ioc.Container;
+import br.com.caelum.vraptor.ioc.ContainerProvider;
+
+/**
+ * VRaptor entry point.&lt;br&gt;
+ * Provider configuration is supported through init parameter.
+ *
+ * @author Guilherme Silveira
+ * @author Fabio Kung
+ */
+<span class="nc" id="L54">public class VRaptor implements Filter {</span>
+	private static final String VERSION = &quot;3.5.5&quot;;
+	
+	private ContainerProvider provider;
+	private ServletContext servletContext;
+
+	private StaticContentHandler staticHandler;
+
+<span class="nc" id="L62">	private static final Logger logger = LoggerFactory.getLogger(VRaptor.class);</span>
+
+	public void destroy() {
+<span class="nc" id="L65">		provider.stop();</span>
+<span class="nc" id="L66">		provider = null;</span>
+<span class="nc" id="L67">		servletContext = null;</span>
+<span class="nc" id="L68">	}</span>
+
+	public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain) throws IOException,
+			ServletException {
+
+<span class="nc bnc" id="L73" title="All 4 branches missed.">		if (!(req instanceof HttpServletRequest) || !(res instanceof HttpServletResponse)) {</span>
+<span class="nc" id="L74">			throw new ServletException(</span>
+					&quot;VRaptor must be run inside a Servlet environment. Portlets and others aren't supported.&quot;);
+		}
+
+<span class="nc" id="L78">		final HttpServletRequest baseRequest = (HttpServletRequest) req;</span>
+<span class="nc" id="L79">		final HttpServletResponse baseResponse = (HttpServletResponse) res;</span>
+
+<span class="nc bnc" id="L81" title="All 2 branches missed.">		if (staticHandler.requestingStaticFile(baseRequest)) {</span>
+<span class="nc" id="L82">			staticHandler.deferProcessingToContainer(chain, baseRequest, baseResponse);</span>
+		} else {
+<span class="nc" id="L84">			logger.debug(&quot;VRaptor received a new request&quot;);</span>
+<span class="nc" id="L85">			logger.trace(&quot;Request: {}&quot;, req);</span>
+
+<span class="nc" id="L87">			VRaptorRequest mutableRequest = new VRaptorRequest(baseRequest);</span>
+<span class="nc" id="L88">			VRaptorResponse mutableResponse = new VRaptorResponse(baseResponse);</span>
+
+<span class="nc" id="L90">			final RequestInfo request = new RequestInfo(servletContext, chain, mutableRequest, mutableResponse);</span>
+
+<span class="nc" id="L92">			Execution&lt;Object&gt; execution = new Execution&lt;Object&gt;() {</span>
+				public Object insideRequest(Container container) {
+<span class="nc" id="L94">					container.instanceFor(EncodingHandler.class).setEncoding(baseRequest, baseResponse);</span>
+<span class="nc" id="L95">					container.instanceFor(RequestExecution.class).execute();</span>
+<span class="nc" id="L96">					return null;</span>
+				}
+			};
+
+			try {
+<span class="nc" id="L101">				provider.provideForRequest(request, execution);</span>
+<span class="nc" id="L102">			} catch (ApplicationLogicException e) {</span>
+				// it is a business logic exception, we dont need to show
+				// all interceptors stack trace
+<span class="nc" id="L105">				throw new ServletException(e.getMessage(), e.getCause());</span>
+<span class="nc" id="L106">			}</span>
+
+<span class="nc" id="L108">			logger.debug(&quot;VRaptor ended the request&quot;);</span>
+		}
+<span class="nc" id="L110">	}</span>
+
+	public void init(FilterConfig cfg) throws ServletException {
+<span class="nc" id="L113">		servletContext = cfg.getServletContext();</span>
+<span class="nc" id="L114">		BasicConfiguration config = new BasicConfiguration(servletContext);</span>
+<span class="nc" id="L115">		init(config.getProvider());</span>
+<span class="nc" id="L116">		logger.info(&quot;VRaptor {} successfuly initialized&quot;, VERSION);</span>
+<span class="nc" id="L117">	}</span>
+
+	void init(ContainerProvider provider) {
+<span class="nc" id="L120">		this.provider = provider;</span>
+<span class="nc" id="L121">		this.provider.start(servletContext);</span>
+<span class="nc" id="L122">		this.staticHandler = provider.getContainer().instanceFor(StaticContentHandler.class);</span>
+<span class="nc" id="L123">	}</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

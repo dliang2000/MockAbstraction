@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MapOperatorBase.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.operators.base</a> &gt; <span class="el_source">MapOperatorBase.java</span></div><h1>MapOperatorBase.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.operators.base;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.api.common.functions.RuntimeContext;
+import org.apache.flink.api.common.functions.util.FunctionUtils;
+import org.apache.flink.api.common.operators.SingleInputOperator;
+import org.apache.flink.api.common.operators.UnaryOperatorInformation;
+import org.apache.flink.api.common.operators.util.UserCodeClassWrapper;
+import org.apache.flink.api.common.operators.util.UserCodeObjectWrapper;
+import org.apache.flink.api.common.operators.util.UserCodeWrapper;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * @param &lt;IN&gt; The input type.
+ * @param &lt;OUT&gt; The result type.
+ * @param &lt;FT&gt; The type of the user-defined function.
+ */
+@Internal
+public class MapOperatorBase&lt;IN, OUT, FT extends MapFunction&lt;IN, OUT&gt;&gt;
+        extends SingleInputOperator&lt;IN, OUT, FT&gt; {
+
+    public MapOperatorBase(
+            UserCodeWrapper&lt;FT&gt; udf, UnaryOperatorInformation&lt;IN, OUT&gt; operatorInfo, String name) {
+<span class="nc" id="L47">        super(udf, operatorInfo, name);</span>
+<span class="nc" id="L48">    }</span>
+
+    public MapOperatorBase(FT udf, UnaryOperatorInformation&lt;IN, OUT&gt; operatorInfo, String name) {
+<span class="fc" id="L51">        super(new UserCodeObjectWrapper&lt;FT&gt;(udf), operatorInfo, name);</span>
+<span class="fc" id="L52">    }</span>
+
+    public MapOperatorBase(
+            Class&lt;? extends FT&gt; udf, UnaryOperatorInformation&lt;IN, OUT&gt; operatorInfo, String name) {
+<span class="nc" id="L56">        super(new UserCodeClassWrapper&lt;FT&gt;(udf), operatorInfo, name);</span>
+<span class="nc" id="L57">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    protected List&lt;OUT&gt; executeOnCollections(
+            List&lt;IN&gt; inputData, RuntimeContext ctx, ExecutionConfig executionConfig)
+            throws Exception {
+<span class="fc" id="L65">        MapFunction&lt;IN, OUT&gt; function = this.userFunction.getUserCodeObject();</span>
+
+<span class="fc" id="L67">        FunctionUtils.setFunctionRuntimeContext(function, ctx);</span>
+<span class="fc" id="L68">        FunctionUtils.openFunction(function, this.parameters);</span>
+
+<span class="fc" id="L70">        ArrayList&lt;OUT&gt; result = new ArrayList&lt;OUT&gt;(inputData.size());</span>
+
+<span class="fc" id="L72">        TypeSerializer&lt;IN&gt; inSerializer =</span>
+<span class="fc" id="L73">                getOperatorInfo().getInputType().createSerializer(executionConfig);</span>
+<span class="fc" id="L74">        TypeSerializer&lt;OUT&gt; outSerializer =</span>
+<span class="fc" id="L75">                getOperatorInfo().getOutputType().createSerializer(executionConfig);</span>
+
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        for (IN element : inputData) {</span>
+<span class="fc" id="L78">            IN inCopy = inSerializer.copy(element);</span>
+<span class="fc" id="L79">            OUT out = function.map(inCopy);</span>
+<span class="fc" id="L80">            result.add(outSerializer.copy(out));</span>
+<span class="fc" id="L81">        }</span>
+
+<span class="fc" id="L83">        FunctionUtils.closeFunction(function);</span>
+
+<span class="fc" id="L85">        return result;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

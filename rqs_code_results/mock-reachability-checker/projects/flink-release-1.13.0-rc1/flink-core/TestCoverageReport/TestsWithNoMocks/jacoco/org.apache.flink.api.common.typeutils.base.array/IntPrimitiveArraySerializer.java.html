@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>IntPrimitiveArraySerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeutils.base.array</a> &gt; <span class="el_source">IntPrimitiveArraySerializer.java</span></div><h1>IntPrimitiveArraySerializer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeutils.base.array;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.SimpleTypeSerializerSnapshot;
+import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
+import org.apache.flink.api.common.typeutils.base.TypeSerializerSingleton;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+
+import java.io.IOException;
+
+/** A serializer for int arrays. */
+@Internal
+<span class="fc" id="L32">public class IntPrimitiveArraySerializer extends TypeSerializerSingleton&lt;int[]&gt; {</span>
+
+    private static final long serialVersionUID = 1L;
+
+<span class="fc" id="L36">    private static final int[] EMPTY = new int[0];</span>
+
+<span class="fc" id="L38">    public static final IntPrimitiveArraySerializer INSTANCE = new IntPrimitiveArraySerializer();</span>
+
+    @Override
+    public boolean isImmutableType() {
+<span class="fc" id="L42">        return false;</span>
+    }
+
+    @Override
+    public int[] createInstance() {
+<span class="nc" id="L47">        return EMPTY;</span>
+    }
+
+    @Override
+    public int[] copy(int[] from) {
+<span class="fc" id="L52">        int[] copy = new int[from.length];</span>
+<span class="fc" id="L53">        System.arraycopy(from, 0, copy, 0, from.length);</span>
+<span class="fc" id="L54">        return copy;</span>
+    }
+
+    @Override
+    public int[] copy(int[] from, int[] reuse) {
+<span class="nc" id="L59">        return copy(from);</span>
+    }
+
+    @Override
+    public int getLength() {
+<span class="nc" id="L64">        return -1;</span>
+    }
+
+    @Override
+    public void serialize(int[] record, DataOutputView target) throws IOException {
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">        if (record == null) {</span>
+<span class="nc" id="L70">            throw new IllegalArgumentException(&quot;The record must not be null.&quot;);</span>
+        }
+
+<span class="fc" id="L73">        final int len = record.length;</span>
+<span class="fc" id="L74">        target.writeInt(len);</span>
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        for (int i = 0; i &lt; len; i++) {</span>
+<span class="fc" id="L76">            target.writeInt(record[i]);</span>
+        }
+<span class="fc" id="L78">    }</span>
+
+    @Override
+    public int[] deserialize(DataInputView source) throws IOException {
+<span class="fc" id="L82">        final int len = source.readInt();</span>
+<span class="fc" id="L83">        int[] result = new int[len];</span>
+
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        for (int i = 0; i &lt; len; i++) {</span>
+<span class="fc" id="L86">            result[i] = source.readInt();</span>
+        }
+
+<span class="fc" id="L89">        return result;</span>
+    }
+
+    @Override
+    public int[] deserialize(int[] reuse, DataInputView source) throws IOException {
+<span class="nc" id="L94">        return deserialize(source);</span>
+    }
+
+    @Override
+    public void copy(DataInputView source, DataOutputView target) throws IOException {
+<span class="fc" id="L99">        final int len = source.readInt();</span>
+<span class="fc" id="L100">        target.writeInt(len);</span>
+<span class="fc" id="L101">        target.write(source, len * 4);</span>
+<span class="fc" id="L102">    }</span>
+
+    @Override
+    public TypeSerializerSnapshot&lt;int[]&gt; snapshotConfiguration() {
+<span class="fc" id="L106">        return new IntPrimitiveArraySerializerSnapshot();</span>
+    }
+
+    // ------------------------------------------------------------------------
+
+    /** Serializer configuration snapshot for compatibility and format evolution. */
+    @SuppressWarnings(&quot;WeakerAccess&quot;)
+    public static final class IntPrimitiveArraySerializerSnapshot
+            extends SimpleTypeSerializerSnapshot&lt;int[]&gt; {
+
+        public IntPrimitiveArraySerializerSnapshot() {
+<span class="fc" id="L117">            super(() -&gt; INSTANCE);</span>
+<span class="fc" id="L118">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

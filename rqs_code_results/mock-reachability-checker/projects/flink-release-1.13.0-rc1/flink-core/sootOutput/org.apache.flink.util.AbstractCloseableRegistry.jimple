@@ -1,0 +1,437 @@
+public abstract class org.apache.flink.util.AbstractCloseableRegistry extends java.lang.Object implements java.io.Closeable
+{
+    private final java.lang.Object lock;
+    protected final java.util.Map closeableToRef;
+    private boolean closed;
+
+    public void <init>(java.util.Map)
+    {
+        org.apache.flink.util.AbstractCloseableRegistry r0;
+        java.util.Map r1, $r4;
+        java.lang.Object $r2, $r3;
+
+        r0 := @this: org.apache.flink.util.AbstractCloseableRegistry;
+
+        r1 := @parameter0: java.util.Map;
+
+        specialinvoke r0.<java.lang.Object: void <init>()>();
+
+        $r2 = new java.lang.Object;
+
+        specialinvoke $r2.<java.lang.Object: void <init>()>();
+
+        r0.<org.apache.flink.util.AbstractCloseableRegistry: java.lang.Object lock> = $r2;
+
+        $r3 = staticinvoke <org.apache.flink.util.Preconditions: java.lang.Object checkNotNull(java.lang.Object)>(r1);
+
+        $r4 = (java.util.Map) $r3;
+
+        r0.<org.apache.flink.util.AbstractCloseableRegistry: java.util.Map closeableToRef> = $r4;
+
+        r0.<org.apache.flink.util.AbstractCloseableRegistry: boolean closed> = 0;
+
+        return;
+    }
+
+    public final void registerCloseable(java.io.Closeable) throws java.io.IOException
+    {
+        org.apache.flink.util.AbstractCloseableRegistry r0;
+        java.io.Closeable r1;
+        java.lang.Object $r4;
+        boolean $z0;
+        java.io.IOException $r5;
+        java.util.Map $r6;
+        java.lang.Throwable $r7;
+
+        r0 := @this: org.apache.flink.util.AbstractCloseableRegistry;
+
+        r1 := @parameter0: java.io.Closeable;
+
+        if null != r1 goto label1;
+
+        return;
+
+     label1:
+        $r4 = virtualinvoke r0.<org.apache.flink.util.AbstractCloseableRegistry: java.lang.Object getSynchronizationLock()>();
+
+        entermonitor $r4;
+
+     label2:
+        $z0 = r0.<org.apache.flink.util.AbstractCloseableRegistry: boolean closed>;
+
+        if $z0 != 0 goto label4;
+
+        $r6 = r0.<org.apache.flink.util.AbstractCloseableRegistry: java.util.Map closeableToRef>;
+
+        virtualinvoke r0.<org.apache.flink.util.AbstractCloseableRegistry: void doRegister(java.io.Closeable,java.util.Map)>(r1, $r6);
+
+        exitmonitor $r4;
+
+     label3:
+        return;
+
+     label4:
+        exitmonitor $r4;
+
+     label5:
+        goto label8;
+
+     label6:
+        $r7 := @caughtexception;
+
+        exitmonitor $r4;
+
+     label7:
+        throw $r7;
+
+     label8:
+        staticinvoke <org.apache.flink.util.IOUtils: void closeQuietly(java.lang.AutoCloseable)>(r1);
+
+        $r5 = new java.io.IOException;
+
+        specialinvoke $r5.<java.io.IOException: void <init>(java.lang.String)>("Cannot register Closeable, registry is already closed. Closing argument.");
+
+        throw $r5;
+
+        catch java.lang.Throwable from label2 to label3 with label6;
+        catch java.lang.Throwable from label4 to label5 with label6;
+        catch java.lang.Throwable from label6 to label7 with label6;
+    }
+
+    public final boolean unregisterCloseable(java.io.Closeable)
+    {
+        org.apache.flink.util.AbstractCloseableRegistry r0;
+        java.io.Closeable r1;
+        java.lang.Object $r4;
+        java.util.Map $r5;
+        boolean $z0;
+        java.lang.Throwable $r6;
+
+        r0 := @this: org.apache.flink.util.AbstractCloseableRegistry;
+
+        r1 := @parameter0: java.io.Closeable;
+
+        if null != r1 goto label1;
+
+        return 0;
+
+     label1:
+        $r4 = virtualinvoke r0.<org.apache.flink.util.AbstractCloseableRegistry: java.lang.Object getSynchronizationLock()>();
+
+        entermonitor $r4;
+
+     label2:
+        $r5 = r0.<org.apache.flink.util.AbstractCloseableRegistry: java.util.Map closeableToRef>;
+
+        $z0 = virtualinvoke r0.<org.apache.flink.util.AbstractCloseableRegistry: boolean doUnRegister(java.io.Closeable,java.util.Map)>(r1, $r5);
+
+        exitmonitor $r4;
+
+     label3:
+        return $z0;
+
+     label4:
+        $r6 := @caughtexception;
+
+        exitmonitor $r4;
+
+     label5:
+        throw $r6;
+
+        catch java.lang.Throwable from label2 to label3 with label4;
+        catch java.lang.Throwable from label4 to label5 with label4;
+    }
+
+    public void close() throws java.io.IOException
+    {
+        org.apache.flink.util.AbstractCloseableRegistry r0;
+        java.util.Collection r1;
+        java.lang.Object $r4;
+        boolean $z0;
+        java.util.Map $r5;
+        java.lang.Throwable $r6;
+
+        r0 := @this: org.apache.flink.util.AbstractCloseableRegistry;
+
+        $r4 = virtualinvoke r0.<org.apache.flink.util.AbstractCloseableRegistry: java.lang.Object getSynchronizationLock()>();
+
+        entermonitor $r4;
+
+     label1:
+        $z0 = r0.<org.apache.flink.util.AbstractCloseableRegistry: boolean closed>;
+
+        if $z0 == 0 goto label3;
+
+        exitmonitor $r4;
+
+     label2:
+        return;
+
+     label3:
+        r0.<org.apache.flink.util.AbstractCloseableRegistry: boolean closed> = 1;
+
+        r1 = virtualinvoke r0.<org.apache.flink.util.AbstractCloseableRegistry: java.util.Collection getReferencesToClose()>();
+
+        $r5 = r0.<org.apache.flink.util.AbstractCloseableRegistry: java.util.Map closeableToRef>;
+
+        interfaceinvoke $r5.<java.util.Map: void clear()>();
+
+        exitmonitor $r4;
+
+     label4:
+        goto label7;
+
+     label5:
+        $r6 := @caughtexception;
+
+        exitmonitor $r4;
+
+     label6:
+        throw $r6;
+
+     label7:
+        staticinvoke <org.apache.flink.util.IOUtils: void closeAllQuietly(java.lang.Iterable)>(r1);
+
+        return;
+
+        catch java.lang.Throwable from label1 to label2 with label5;
+        catch java.lang.Throwable from label3 to label4 with label5;
+        catch java.lang.Throwable from label5 to label6 with label5;
+    }
+
+    public boolean isClosed()
+    {
+        org.apache.flink.util.AbstractCloseableRegistry r0;
+        java.lang.Object $r3;
+        boolean $z0;
+        java.lang.Throwable $r4;
+
+        r0 := @this: org.apache.flink.util.AbstractCloseableRegistry;
+
+        $r3 = virtualinvoke r0.<org.apache.flink.util.AbstractCloseableRegistry: java.lang.Object getSynchronizationLock()>();
+
+        entermonitor $r3;
+
+     label1:
+        $z0 = r0.<org.apache.flink.util.AbstractCloseableRegistry: boolean closed>;
+
+        exitmonitor $r3;
+
+     label2:
+        return $z0;
+
+     label3:
+        $r4 := @caughtexception;
+
+        exitmonitor $r3;
+
+     label4:
+        throw $r4;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+
+    protected java.util.Collection getReferencesToClose()
+    {
+        org.apache.flink.util.AbstractCloseableRegistry r0;
+        java.util.ArrayList $r1;
+        java.util.Map $r2;
+        java.util.Set $r3;
+
+        r0 := @this: org.apache.flink.util.AbstractCloseableRegistry;
+
+        $r1 = new java.util.ArrayList;
+
+        $r2 = r0.<org.apache.flink.util.AbstractCloseableRegistry: java.util.Map closeableToRef>;
+
+        $r3 = interfaceinvoke $r2.<java.util.Map: java.util.Set keySet()>();
+
+        specialinvoke $r1.<java.util.ArrayList: void <init>(java.util.Collection)>($r3);
+
+        return $r1;
+    }
+
+    protected abstract void doRegister(java.io.Closeable, java.util.Map);
+
+    protected abstract boolean doUnRegister(java.io.Closeable, java.util.Map);
+
+    protected final java.lang.Object getSynchronizationLock()
+    {
+        org.apache.flink.util.AbstractCloseableRegistry r0;
+        java.lang.Object $r1;
+
+        r0 := @this: org.apache.flink.util.AbstractCloseableRegistry;
+
+        $r1 = r0.<org.apache.flink.util.AbstractCloseableRegistry: java.lang.Object lock>;
+
+        return $r1;
+    }
+
+    protected final void addCloseableInternal(java.io.Closeable, java.lang.Object)
+    {
+        org.apache.flink.util.AbstractCloseableRegistry r0;
+        java.io.Closeable r1;
+        java.lang.Object r2, $r5;
+        java.util.Map $r6;
+        java.lang.Throwable $r8;
+
+        r0 := @this: org.apache.flink.util.AbstractCloseableRegistry;
+
+        r1 := @parameter0: java.io.Closeable;
+
+        r2 := @parameter1: java.lang.Object;
+
+        $r5 = virtualinvoke r0.<org.apache.flink.util.AbstractCloseableRegistry: java.lang.Object getSynchronizationLock()>();
+
+        entermonitor $r5;
+
+     label1:
+        $r6 = r0.<org.apache.flink.util.AbstractCloseableRegistry: java.util.Map closeableToRef>;
+
+        interfaceinvoke $r6.<java.util.Map: java.lang.Object put(java.lang.Object,java.lang.Object)>(r1, r2);
+
+        exitmonitor $r5;
+
+     label2:
+        goto label5;
+
+     label3:
+        $r8 := @caughtexception;
+
+        exitmonitor $r5;
+
+     label4:
+        throw $r8;
+
+     label5:
+        return;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+
+    protected final boolean removeCloseableInternal(java.io.Closeable)
+    {
+        org.apache.flink.util.AbstractCloseableRegistry r0;
+        java.io.Closeable r1;
+        java.lang.Object $r4, $r6;
+        java.util.Map $r5;
+        java.lang.Throwable $r7;
+        boolean $z0;
+
+        r0 := @this: org.apache.flink.util.AbstractCloseableRegistry;
+
+        r1 := @parameter0: java.io.Closeable;
+
+        $r4 = virtualinvoke r0.<org.apache.flink.util.AbstractCloseableRegistry: java.lang.Object getSynchronizationLock()>();
+
+        entermonitor $r4;
+
+     label1:
+        $r5 = r0.<org.apache.flink.util.AbstractCloseableRegistry: java.util.Map closeableToRef>;
+
+        $r6 = interfaceinvoke $r5.<java.util.Map: java.lang.Object remove(java.lang.Object)>(r1);
+
+        if $r6 == null goto label2;
+
+        $z0 = 1;
+
+        goto label3;
+
+     label2:
+        $z0 = 0;
+
+     label3:
+        exitmonitor $r4;
+
+     label4:
+        return $z0;
+
+     label5:
+        $r7 := @caughtexception;
+
+        exitmonitor $r4;
+
+     label6:
+        throw $r7;
+
+        catch java.lang.Throwable from label1 to label4 with label5;
+        catch java.lang.Throwable from label5 to label6 with label5;
+    }
+
+    public final int getNumberOfRegisteredCloseables()
+    {
+        org.apache.flink.util.AbstractCloseableRegistry r0;
+        java.lang.Object $r3;
+        java.util.Map $r4;
+        int $i0;
+        java.lang.Throwable $r5;
+
+        r0 := @this: org.apache.flink.util.AbstractCloseableRegistry;
+
+        $r3 = virtualinvoke r0.<org.apache.flink.util.AbstractCloseableRegistry: java.lang.Object getSynchronizationLock()>();
+
+        entermonitor $r3;
+
+     label1:
+        $r4 = r0.<org.apache.flink.util.AbstractCloseableRegistry: java.util.Map closeableToRef>;
+
+        $i0 = interfaceinvoke $r4.<java.util.Map: int size()>();
+
+        exitmonitor $r3;
+
+     label2:
+        return $i0;
+
+     label3:
+        $r5 := @caughtexception;
+
+        exitmonitor $r3;
+
+     label4:
+        throw $r5;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+
+    public final boolean isCloseableRegistered(java.io.Closeable)
+    {
+        org.apache.flink.util.AbstractCloseableRegistry r0;
+        java.io.Closeable r1;
+        java.lang.Object $r4;
+        java.util.Map $r5;
+        boolean $z0;
+        java.lang.Throwable $r6;
+
+        r0 := @this: org.apache.flink.util.AbstractCloseableRegistry;
+
+        r1 := @parameter0: java.io.Closeable;
+
+        $r4 = virtualinvoke r0.<org.apache.flink.util.AbstractCloseableRegistry: java.lang.Object getSynchronizationLock()>();
+
+        entermonitor $r4;
+
+     label1:
+        $r5 = r0.<org.apache.flink.util.AbstractCloseableRegistry: java.util.Map closeableToRef>;
+
+        $z0 = interfaceinvoke $r5.<java.util.Map: boolean containsKey(java.lang.Object)>(r1);
+
+        exitmonitor $r4;
+
+     label2:
+        return $z0;
+
+     label3:
+        $r6 := @caughtexception;
+
+        exitmonitor $r4;
+
+     label4:
+        throw $r6;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+        catch java.lang.Throwable from label3 to label4 with label3;
+    }
+}

@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultPluginPrefixResolver.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.plugin.prefix.internal</a> &gt; <span class="el_source">DefaultPluginPrefixResolver.java</span></div><h1>DefaultPluginPrefixResolver.java</h1><pre class="source lang-java linenums">package org.apache.maven.plugin.prefix.internal;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.maven.artifact.repository.metadata.Metadata;
+import org.apache.maven.artifact.repository.metadata.io.MetadataReader;
+import org.apache.maven.model.Build;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.plugin.BuildPluginManager;
+import org.apache.maven.plugin.descriptor.PluginDescriptor;
+import org.apache.maven.plugin.prefix.NoPluginFoundForPrefixException;
+import org.apache.maven.plugin.prefix.PluginPrefixRequest;
+import org.apache.maven.plugin.prefix.PluginPrefixResolver;
+import org.apache.maven.plugin.prefix.PluginPrefixResult;
+import org.codehaus.plexus.component.annotations.Component;
+import org.codehaus.plexus.component.annotations.Requirement;
+import org.codehaus.plexus.logging.Logger;
+import org.eclipse.aether.RepositoryEvent.EventType;
+import org.eclipse.aether.DefaultRepositorySystemSession;
+import org.eclipse.aether.RepositoryEvent;
+import org.eclipse.aether.RepositoryListener;
+import org.eclipse.aether.RepositorySystem;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.RequestTrace;
+import org.eclipse.aether.metadata.DefaultMetadata;
+import org.eclipse.aether.repository.ArtifactRepository;
+import org.eclipse.aether.repository.RemoteRepository;
+import org.eclipse.aether.repository.RepositoryPolicy;
+import org.eclipse.aether.resolution.MetadataRequest;
+import org.eclipse.aether.resolution.MetadataResult;
+
+/**
+ * Resolves a plugin prefix.
+ *
+ * @since 3.0
+ * @author Benjamin Bentmann
+ */
+@Component( role = PluginPrefixResolver.class )
+<span class="fc" id="L62">public class DefaultPluginPrefixResolver</span>
+    implements PluginPrefixResolver
+{
+
+    private static final String REPOSITORY_CONTEXT = &quot;plugin&quot;;
+
+    @Requirement
+    private Logger logger;
+
+    @Requirement
+    private BuildPluginManager pluginManager;
+
+    @Requirement
+    private RepositorySystem repositorySystem;
+
+    @Requirement
+    private MetadataReader metadataReader;
+
+    public PluginPrefixResult resolve( PluginPrefixRequest request )
+        throws NoPluginFoundForPrefixException
+    {
+<span class="fc" id="L83">        logger.debug( &quot;Resolving plugin prefix &quot; + request.getPrefix() + &quot; from &quot; + request.getPluginGroups() );</span>
+
+<span class="fc" id="L85">        PluginPrefixResult result = resolveFromProject( request );</span>
+
+<span class="pc bpc" id="L87" title="1 of 2 branches missed.">        if ( result == null )</span>
+        {
+<span class="nc" id="L89">            result = resolveFromRepository( request );</span>
+
+<span class="nc bnc" id="L91" title="All 2 branches missed.">            if ( result == null )</span>
+            {
+<span class="nc" id="L93">                throw new NoPluginFoundForPrefixException( request.getPrefix(), request.getPluginGroups(),</span>
+<span class="nc" id="L94">                                                           request.getRepositorySession().getLocalRepository(),</span>
+<span class="nc" id="L95">                                                           request.getRepositories() );</span>
+            }
+<span class="nc bnc" id="L97" title="All 2 branches missed.">            else if ( logger.isDebugEnabled() )</span>
+            {
+<span class="nc" id="L99">                logger.debug( &quot;Resolved plugin prefix &quot; + request.getPrefix() + &quot; to &quot; + result.getGroupId() + &quot;:&quot;</span>
+<span class="nc" id="L100">                    + result.getArtifactId() + &quot; from repository &quot;</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">                    + ( result.getRepository() != null ? result.getRepository().getId() : &quot;null&quot; ) );</span>
+            }
+        }
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">        else if ( logger.isDebugEnabled() )</span>
+        {
+<span class="nc" id="L106">            logger.debug( &quot;Resolved plugin prefix &quot; + request.getPrefix() + &quot; to &quot; + result.getGroupId() + &quot;:&quot;</span>
+<span class="nc" id="L107">                + result.getArtifactId() + &quot; from POM &quot; + request.getPom() );</span>
+        }
+
+<span class="fc" id="L110">        return result;</span>
+    }
+
+    private PluginPrefixResult resolveFromProject( PluginPrefixRequest request )
+    {
+<span class="fc" id="L115">        PluginPrefixResult result = null;</span>
+
+<span class="pc bpc" id="L117" title="2 of 4 branches missed.">        if ( request.getPom() != null &amp;&amp; request.getPom().getBuild() != null )</span>
+        {
+<span class="fc" id="L119">            Build build = request.getPom().getBuild();</span>
+
+<span class="fc" id="L121">            result = resolveFromProject( request, build.getPlugins() );</span>
+
+<span class="pc bpc" id="L123" title="3 of 4 branches missed.">            if ( result == null &amp;&amp; build.getPluginManagement() != null )</span>
+            {
+<span class="nc" id="L125">                result = resolveFromProject( request, build.getPluginManagement().getPlugins() );</span>
+            }
+        }
+
+<span class="fc" id="L129">        return result;</span>
+    }
+
+    private PluginPrefixResult resolveFromProject( PluginPrefixRequest request, List&lt;Plugin&gt; plugins )
+    {
+<span class="pc bpc" id="L134" title="1 of 2 branches missed.">        for ( Plugin plugin : plugins )</span>
+        {
+            try
+            {
+<span class="fc" id="L138">                PluginDescriptor pluginDescriptor =</span>
+<span class="fc" id="L139">                    pluginManager.loadPlugin( plugin, request.getRepositories(), request.getRepositorySession() );</span>
+
+<span class="fc bfc" id="L141" title="All 2 branches covered.">                if ( request.getPrefix().equals( pluginDescriptor.getGoalPrefix() ) )</span>
+                {
+<span class="fc" id="L143">                    return new DefaultPluginPrefixResult( plugin );</span>
+                }
+            }
+<span class="nc" id="L146">            catch ( Exception e )</span>
+            {
+<span class="nc bnc" id="L148" title="All 2 branches missed.">                if ( logger.isDebugEnabled() )</span>
+                {
+<span class="nc" id="L150">                    logger.warn( &quot;Failed to retrieve plugin descriptor for &quot; + plugin.getId() + &quot;: &quot; + e.getMessage(),</span>
+                                 e );
+                }
+                else
+                {
+<span class="nc" id="L155">                    logger.warn( &quot;Failed to retrieve plugin descriptor for &quot; + plugin.getId() + &quot;: &quot; + e.getMessage() );</span>
+                }
+<span class="fc" id="L157">            }</span>
+<span class="fc" id="L158">        }</span>
+
+<span class="nc" id="L160">        return null;</span>
+    }
+
+    private PluginPrefixResult resolveFromRepository( PluginPrefixRequest request )
+    {
+<span class="nc" id="L165">        RequestTrace trace = RequestTrace.newChild( null, request );</span>
+
+<span class="nc" id="L167">        List&lt;MetadataRequest&gt; requests = new ArrayList&lt;&gt;();</span>
+
+<span class="nc bnc" id="L169" title="All 2 branches missed.">        for ( String pluginGroup : request.getPluginGroups() )</span>
+        {
+<span class="nc" id="L171">            org.eclipse.aether.metadata.Metadata metadata =</span>
+                new DefaultMetadata( pluginGroup, &quot;maven-metadata.xml&quot;, DefaultMetadata.Nature.RELEASE_OR_SNAPSHOT );
+
+<span class="nc" id="L174">            requests.add( new MetadataRequest( metadata, null, REPOSITORY_CONTEXT ).setTrace( trace ) );</span>
+
+<span class="nc bnc" id="L176" title="All 2 branches missed.">            for ( RemoteRepository repository : request.getRepositories() )</span>
+            {
+<span class="nc" id="L178">                requests.add( new MetadataRequest( metadata, repository, REPOSITORY_CONTEXT ).setTrace( trace ) );</span>
+<span class="nc" id="L179">            }</span>
+<span class="nc" id="L180">        }</span>
+
+        // initial try, use locally cached metadata
+
+<span class="nc" id="L184">        List&lt;MetadataResult&gt; results = repositorySystem.resolveMetadata( request.getRepositorySession(), requests );</span>
+<span class="nc" id="L185">        requests.clear();</span>
+
+<span class="nc" id="L187">        PluginPrefixResult result = processResults( request, trace, results, requests );</span>
+
+<span class="nc bnc" id="L189" title="All 2 branches missed.">        if ( result != null )</span>
+        {
+<span class="nc" id="L191">            return result;</span>
+        }
+
+        // second try, refetch all (possibly outdated) metadata that wasn't updated in the first attempt
+
+<span class="nc bnc" id="L196" title="All 4 branches missed.">        if ( !request.getRepositorySession().isOffline() &amp;&amp; !requests.isEmpty() )</span>
+        {
+<span class="nc" id="L198">            DefaultRepositorySystemSession session =</span>
+<span class="nc" id="L199">                new DefaultRepositorySystemSession( request.getRepositorySession() );</span>
+<span class="nc" id="L200">            session.setUpdatePolicy( RepositoryPolicy.UPDATE_POLICY_ALWAYS );</span>
+
+<span class="nc" id="L202">            results = repositorySystem.resolveMetadata( session, requests );</span>
+
+<span class="nc" id="L204">            return processResults( request, trace, results, null );</span>
+        }
+
+<span class="nc" id="L207">        return null;</span>
+    }
+
+    private PluginPrefixResult processResults( PluginPrefixRequest request, RequestTrace trace,
+                                               List&lt;MetadataResult&gt; results, List&lt;MetadataRequest&gt; requests )
+    {
+<span class="nc bnc" id="L213" title="All 2 branches missed.">        for ( MetadataResult res : results )</span>
+        {
+<span class="nc" id="L215">            org.eclipse.aether.metadata.Metadata metadata = res.getMetadata();</span>
+
+<span class="nc bnc" id="L217" title="All 2 branches missed.">            if ( metadata != null )</span>
+            {
+<span class="nc" id="L219">                ArtifactRepository repository = res.getRequest().getRepository();</span>
+<span class="nc bnc" id="L220" title="All 2 branches missed.">                if ( repository == null )</span>
+                {
+<span class="nc" id="L222">                    repository = request.getRepositorySession().getLocalRepository();</span>
+                }
+
+<span class="nc" id="L225">                PluginPrefixResult result =</span>
+<span class="nc" id="L226">                    resolveFromRepository( request, trace, metadata.getGroupId(), metadata, repository );</span>
+
+<span class="nc bnc" id="L228" title="All 2 branches missed.">                if ( result != null )</span>
+                {
+<span class="nc" id="L230">                    return result;</span>
+                }
+            }
+
+<span class="nc bnc" id="L234" title="All 4 branches missed.">            if ( requests != null &amp;&amp; !res.isUpdated() )</span>
+            {
+<span class="nc" id="L236">                requests.add( res.getRequest() );</span>
+            }
+<span class="nc" id="L238">        }</span>
+
+<span class="nc" id="L240">        return null;</span>
+    }
+
+    private PluginPrefixResult resolveFromRepository( PluginPrefixRequest request, RequestTrace trace,
+                                                      String pluginGroup,
+                                                      org.eclipse.aether.metadata.Metadata metadata,
+                                                      ArtifactRepository repository )
+    {
+<span class="nc bnc" id="L248" title="All 6 branches missed.">        if ( metadata != null &amp;&amp; metadata.getFile() != null &amp;&amp; metadata.getFile().isFile() )</span>
+        {
+            try
+            {
+<span class="nc" id="L252">                Map&lt;String, ?&gt; options = Collections.singletonMap( MetadataReader.IS_STRICT, Boolean.FALSE );</span>
+
+<span class="nc" id="L254">                Metadata pluginGroupMetadata = metadataReader.read( metadata.getFile(), options );</span>
+
+<span class="nc" id="L256">                List&lt;org.apache.maven.artifact.repository.metadata.Plugin&gt; plugins = pluginGroupMetadata.getPlugins();</span>
+
+<span class="nc bnc" id="L258" title="All 2 branches missed.">                if ( plugins != null )</span>
+                {
+<span class="nc bnc" id="L260" title="All 2 branches missed.">                    for ( org.apache.maven.artifact.repository.metadata.Plugin plugin : plugins )</span>
+                    {
+<span class="nc bnc" id="L262" title="All 2 branches missed.">                        if ( request.getPrefix().equals( plugin.getPrefix() ) )</span>
+                        {
+<span class="nc" id="L264">                            return new DefaultPluginPrefixResult( pluginGroup, plugin.getArtifactId(), repository );</span>
+                        }
+<span class="nc" id="L266">                    }</span>
+                }
+            }
+<span class="nc" id="L269">            catch ( IOException e )</span>
+            {
+<span class="nc" id="L271">                invalidMetadata( request.getRepositorySession(), trace, metadata, repository, e );</span>
+<span class="nc" id="L272">            }</span>
+        }
+
+<span class="nc" id="L275">        return null;</span>
+    }
+
+    private void invalidMetadata( RepositorySystemSession session, RequestTrace trace,
+                                  org.eclipse.aether.metadata.Metadata metadata, ArtifactRepository repository,
+                                  Exception exception )
+    {
+<span class="nc" id="L282">        RepositoryListener listener = session.getRepositoryListener();</span>
+<span class="nc bnc" id="L283" title="All 2 branches missed.">        if ( listener != null )</span>
+        {
+<span class="nc" id="L285">            RepositoryEvent.Builder event = new RepositoryEvent.Builder( session, EventType.METADATA_INVALID );</span>
+<span class="nc" id="L286">            event.setTrace( trace );</span>
+<span class="nc" id="L287">            event.setMetadata( metadata );</span>
+<span class="nc" id="L288">            event.setException( exception );</span>
+<span class="nc" id="L289">            event.setRepository( repository );</span>
+<span class="nc" id="L290">            listener.metadataInvalid( event.build() );</span>
+        }
+<span class="nc" id="L292">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

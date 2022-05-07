@@ -1,0 +1,405 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ResourceSpec.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.operators</a> &gt; <span class="el_source">ResourceSpec.java</span></div><h1>ResourceSpec.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.operators;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.resources.CPUResource;
+import org.apache.flink.api.common.resources.ExternalResource;
+import org.apache.flink.configuration.MemorySize;
+
+import javax.annotation.Nullable;
+
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * Describe the different resource factors of the operator with UDF.
+ *
+ * &lt;p&gt;Resource provides {@link #merge(ResourceSpec)} method for chained operators when generating
+ * job graph.
+ *
+ * &lt;p&gt;Resource provides {@link #lessThanOrEqual(ResourceSpec)} method to compare these fields in
+ * sequence:
+ *
+ * &lt;ol&gt;
+ *   &lt;li&gt;CPU cores
+ *   &lt;li&gt;Task Heap Memory
+ *   &lt;li&gt;Task Off-Heap Memory
+ *   &lt;li&gt;Managed Memory
+ *   &lt;li&gt;Extended resources
+ * &lt;/ol&gt;
+ */
+@Internal
+public final class ResourceSpec implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    /** A ResourceSpec that indicates an unknown set of resources. */
+<span class="fc" id="L64">    public static final ResourceSpec UNKNOWN = new ResourceSpec();</span>
+
+    /**
+     * The default ResourceSpec used for operators and transformation functions. Currently equal to
+     * {@link #UNKNOWN}.
+     */
+<span class="fc" id="L70">    public static final ResourceSpec DEFAULT = UNKNOWN;</span>
+
+    /** A ResourceSpec that indicates zero amount of resources. */
+<span class="fc" id="L73">    public static final ResourceSpec ZERO = ResourceSpec.newBuilder(0.0, 0).build();</span>
+
+    /** How many cpu cores are needed. Can be null only if it is unknown. */
+    @Nullable private final CPUResource cpuCores;
+
+    /** How much task heap memory is needed. */
+    @Nullable // can be null only for UNKNOWN
+    private final MemorySize taskHeapMemory;
+
+    /** How much task off-heap memory is needed. */
+    @Nullable // can be null only for UNKNOWN
+    private final MemorySize taskOffHeapMemory;
+
+    /** How much managed memory is needed. */
+    @Nullable // can be null only for UNKNOWN
+    private final MemorySize managedMemory;
+
+    private final Map&lt;String, ExternalResource&gt; extendedResources;
+
+    private ResourceSpec(
+            final CPUResource cpuCores,
+            final MemorySize taskHeapMemory,
+            final MemorySize taskOffHeapMemory,
+            final MemorySize managedMemory,
+<span class="fc" id="L97">            final Map&lt;String, ExternalResource&gt; extendedResources) {</span>
+
+<span class="fc" id="L99">        checkNotNull(cpuCores);</span>
+
+<span class="fc" id="L101">        this.cpuCores = cpuCores;</span>
+<span class="fc" id="L102">        this.taskHeapMemory = checkNotNull(taskHeapMemory);</span>
+<span class="fc" id="L103">        this.taskOffHeapMemory = checkNotNull(taskOffHeapMemory);</span>
+<span class="fc" id="L104">        this.managedMemory = checkNotNull(managedMemory);</span>
+
+<span class="fc" id="L106">        this.extendedResources =</span>
+<span class="fc" id="L107">                checkNotNull(extendedResources).entrySet().stream()</span>
+<span class="fc bfc" id="L108" title="All 2 branches covered.">                        .filter(entry -&gt; !checkNotNull(entry.getValue()).isZero())</span>
+<span class="fc" id="L109">                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));</span>
+<span class="fc" id="L110">    }</span>
+
+    /** Creates a new ResourceSpec with all fields unknown. */
+<span class="fc" id="L113">    private ResourceSpec() {</span>
+<span class="fc" id="L114">        this.cpuCores = null;</span>
+<span class="fc" id="L115">        this.taskHeapMemory = null;</span>
+<span class="fc" id="L116">        this.taskOffHeapMemory = null;</span>
+<span class="fc" id="L117">        this.managedMemory = null;</span>
+<span class="fc" id="L118">        this.extendedResources = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L119">    }</span>
+
+    /**
+     * Used by system internally to merge the other resources of chained operators when generating
+     * the job graph.
+     *
+     * @param other Reference to resource to merge in.
+     * @return The new resource with merged values.
+     */
+    public ResourceSpec merge(final ResourceSpec other) {
+<span class="fc" id="L129">        checkNotNull(other, &quot;Cannot merge with null resources&quot;);</span>
+
+<span class="fc bfc" id="L131" title="All 4 branches covered.">        if (this.equals(UNKNOWN) || other.equals(UNKNOWN)) {</span>
+<span class="fc" id="L132">            return UNKNOWN;</span>
+        }
+
+<span class="fc" id="L135">        Map&lt;String, ExternalResource&gt; resultExtendedResource = new HashMap&lt;&gt;(extendedResources);</span>
+
+<span class="fc" id="L137">        other.extendedResources.forEach(</span>
+                (String name, ExternalResource resource) -&gt; {
+<span class="fc" id="L139">                    resultExtendedResource.compute(</span>
+                            name,
+                            (ignored, oldResource) -&gt;
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">                                    oldResource == null ? resource : oldResource.merge(resource));</span>
+<span class="fc" id="L143">                });</span>
+
+<span class="fc" id="L145">        return new ResourceSpec(</span>
+<span class="fc" id="L146">                this.cpuCores.merge(other.cpuCores),</span>
+<span class="fc" id="L147">                this.taskHeapMemory.add(other.taskHeapMemory),</span>
+<span class="fc" id="L148">                this.taskOffHeapMemory.add(other.taskOffHeapMemory),</span>
+<span class="fc" id="L149">                this.managedMemory.add(other.managedMemory),</span>
+                resultExtendedResource);
+    }
+
+    /**
+     * Subtracts another resource spec from this one.
+     *
+     * @param other The other resource spec to subtract.
+     * @return The subtracted resource spec.
+     */
+    public ResourceSpec subtract(final ResourceSpec other) {
+<span class="fc" id="L160">        checkNotNull(other, &quot;Cannot subtract null resources&quot;);</span>
+
+<span class="fc bfc" id="L162" title="All 4 branches covered.">        if (this.equals(UNKNOWN) || other.equals(UNKNOWN)) {</span>
+<span class="fc" id="L163">            return UNKNOWN;</span>
+        }
+
+<span class="fc" id="L166">        checkArgument(</span>
+<span class="fc" id="L167">                other.lessThanOrEqual(this),</span>
+                &quot;Cannot subtract a larger ResourceSpec from this one.&quot;);
+
+<span class="fc" id="L170">        Map&lt;String, ExternalResource&gt; resultExtendedResources = new HashMap&lt;&gt;(extendedResources);</span>
+<span class="fc bfc" id="L171" title="All 2 branches covered.">        for (ExternalResource resource : other.extendedResources.values()) {</span>
+<span class="fc" id="L172">            resultExtendedResources.merge(</span>
+<span class="fc" id="L173">                    resource.getName(), resource, (v1, v2) -&gt; v1.subtract(v2));</span>
+<span class="fc" id="L174">        }</span>
+
+<span class="fc" id="L176">        return new ResourceSpec(</span>
+<span class="fc" id="L177">                this.cpuCores.subtract(other.cpuCores),</span>
+<span class="fc" id="L178">                this.taskHeapMemory.subtract(other.taskHeapMemory),</span>
+<span class="fc" id="L179">                this.taskOffHeapMemory.subtract(other.taskOffHeapMemory),</span>
+<span class="fc" id="L180">                this.managedMemory.subtract(other.managedMemory),</span>
+                resultExtendedResources);
+    }
+
+    public CPUResource getCpuCores() {
+<span class="fc" id="L185">        throwUnsupportedOperationExceptionIfUnknown();</span>
+<span class="fc" id="L186">        return this.cpuCores;</span>
+    }
+
+    public MemorySize getTaskHeapMemory() {
+<span class="fc" id="L190">        throwUnsupportedOperationExceptionIfUnknown();</span>
+<span class="fc" id="L191">        return this.taskHeapMemory;</span>
+    }
+
+    public MemorySize getTaskOffHeapMemory() {
+<span class="nc" id="L195">        throwUnsupportedOperationExceptionIfUnknown();</span>
+<span class="nc" id="L196">        return taskOffHeapMemory;</span>
+    }
+
+    public MemorySize getManagedMemory() {
+<span class="nc" id="L200">        throwUnsupportedOperationExceptionIfUnknown();</span>
+<span class="nc" id="L201">        return managedMemory;</span>
+    }
+
+    public Optional&lt;ExternalResource&gt; getExtendedResource(String name) {
+<span class="fc" id="L205">        throwUnsupportedOperationExceptionIfUnknown();</span>
+<span class="fc" id="L206">        return Optional.ofNullable(extendedResources.get(name));</span>
+    }
+
+    public Map&lt;String, ExternalResource&gt; getExtendedResources() {
+<span class="fc" id="L210">        throwUnsupportedOperationExceptionIfUnknown();</span>
+<span class="fc" id="L211">        return Collections.unmodifiableMap(extendedResources);</span>
+    }
+
+    private void throwUnsupportedOperationExceptionIfUnknown() {
+<span class="pc bpc" id="L215" title="1 of 2 branches missed.">        if (this.equals(UNKNOWN)) {</span>
+<span class="nc" id="L216">            throw new UnsupportedOperationException();</span>
+        }
+<span class="fc" id="L218">    }</span>
+
+    /**
+     * Checks the current resource less than or equal with the other resource by comparing all the
+     * fields in the resource.
+     *
+     * @param other The resource to compare
+     * @return True if current resource is less than or equal with the other resource, otherwise
+     *     return false.
+     */
+    public boolean lessThanOrEqual(final ResourceSpec other) {
+<span class="fc" id="L229">        checkNotNull(other, &quot;Cannot compare with null resources&quot;);</span>
+
+<span class="fc bfc" id="L231" title="All 4 branches covered.">        if (this.equals(UNKNOWN) &amp;&amp; other.equals(UNKNOWN)) {</span>
+<span class="fc" id="L232">            return true;</span>
+<span class="fc bfc" id="L233" title="All 4 branches covered.">        } else if (this.equals(UNKNOWN) || other.equals(UNKNOWN)) {</span>
+<span class="fc" id="L234">            throw new IllegalArgumentException(</span>
+                    &quot;Cannot compare specified resources with UNKNOWN resources.&quot;);
+        }
+
+<span class="fc" id="L238">        int cmp1 = this.cpuCores.getValue().compareTo(other.getCpuCores().getValue());</span>
+<span class="fc" id="L239">        int cmp2 = this.taskHeapMemory.compareTo(other.taskHeapMemory);</span>
+<span class="fc" id="L240">        int cmp3 = this.taskOffHeapMemory.compareTo(other.taskOffHeapMemory);</span>
+<span class="fc" id="L241">        int cmp4 = this.managedMemory.compareTo(other.managedMemory);</span>
+<span class="pc bpc" id="L242" title="3 of 8 branches missed.">        if (cmp1 &lt;= 0 &amp;&amp; cmp2 &lt;= 0 &amp;&amp; cmp3 &lt;= 0 &amp;&amp; cmp4 &lt;= 0) {</span>
+<span class="fc bfc" id="L243" title="All 2 branches covered.">            for (ExternalResource resource : extendedResources.values()) {</span>
+<span class="fc bfc" id="L244" title="All 2 branches covered.">                if (!other.extendedResources.containsKey(resource.getName())</span>
+                        || other.extendedResources
+<span class="fc" id="L246">                                        .get(resource.getName())</span>
+<span class="fc" id="L247">                                        .getValue()</span>
+<span class="fc bfc" id="L248" title="All 2 branches covered.">                                        .compareTo(resource.getValue())</span>
+                                &lt; 0) {
+<span class="fc" id="L250">                    return false;</span>
+                }
+<span class="fc" id="L252">            }</span>
+<span class="fc" id="L253">            return true;</span>
+        }
+<span class="fc" id="L255">        return false;</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="fc bfc" id="L260" title="All 2 branches covered.">        if (obj == this) {</span>
+<span class="fc" id="L261">            return true;</span>
+<span class="pc bpc" id="L262" title="2 of 4 branches missed.">        } else if (obj != null &amp;&amp; obj.getClass() == ResourceSpec.class) {</span>
+<span class="fc" id="L263">            ResourceSpec that = (ResourceSpec) obj;</span>
+<span class="fc bfc" id="L264" title="All 2 branches covered.">            return Objects.equals(this.cpuCores, that.cpuCores)</span>
+<span class="pc bpc" id="L265" title="1 of 2 branches missed.">                    &amp;&amp; Objects.equals(this.taskHeapMemory, that.taskHeapMemory)</span>
+<span class="pc bpc" id="L266" title="1 of 2 branches missed.">                    &amp;&amp; Objects.equals(this.taskOffHeapMemory, that.taskOffHeapMemory)</span>
+<span class="pc bpc" id="L267" title="1 of 2 branches missed.">                    &amp;&amp; Objects.equals(this.managedMemory, that.managedMemory)</span>
+<span class="fc bfc" id="L268" title="All 2 branches covered.">                    &amp;&amp; Objects.equals(extendedResources, that.extendedResources);</span>
+        } else {
+<span class="nc" id="L270">            return false;</span>
+        }
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L276">        int result = Objects.hashCode(cpuCores);</span>
+<span class="fc" id="L277">        result = 31 * result + Objects.hashCode(taskHeapMemory);</span>
+<span class="fc" id="L278">        result = 31 * result + Objects.hashCode(taskOffHeapMemory);</span>
+<span class="fc" id="L279">        result = 31 * result + Objects.hashCode(managedMemory);</span>
+<span class="fc" id="L280">        result = 31 * result + extendedResources.hashCode();</span>
+<span class="fc" id="L281">        return result;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc bnc" id="L286" title="All 2 branches missed.">        if (this.equals(UNKNOWN)) {</span>
+<span class="nc" id="L287">            return &quot;ResourceSpec{UNKNOWN}&quot;;</span>
+        }
+
+<span class="nc" id="L290">        final StringBuilder extResources = new StringBuilder(extendedResources.size() * 10);</span>
+<span class="nc bnc" id="L291" title="All 2 branches missed.">        for (Map.Entry&lt;String, ExternalResource&gt; resource : extendedResources.entrySet()) {</span>
+<span class="nc" id="L292">            extResources</span>
+<span class="nc" id="L293">                    .append(&quot;, &quot;)</span>
+<span class="nc" id="L294">                    .append(resource.getKey())</span>
+<span class="nc" id="L295">                    .append('=')</span>
+<span class="nc" id="L296">                    .append(resource.getValue().getValue());</span>
+<span class="nc" id="L297">        }</span>
+<span class="nc" id="L298">        return &quot;ResourceSpec{&quot;</span>
+                + &quot;cpuCores=&quot;
+<span class="nc" id="L300">                + cpuCores.getValue()</span>
+                + &quot;, taskHeapMemory=&quot;
+<span class="nc" id="L302">                + taskHeapMemory.toHumanReadableString()</span>
+                + &quot;, taskOffHeapMemory=&quot;
+<span class="nc" id="L304">                + taskOffHeapMemory.toHumanReadableString()</span>
+                + &quot;, managedMemory=&quot;
+<span class="nc" id="L306">                + managedMemory.toHumanReadableString()</span>
+                + extResources
+                + '}';
+    }
+
+    // ------------------------------------------------------------------------
+    //  serialization
+    // ------------------------------------------------------------------------
+
+    private Object readResolve() {
+        // try to preserve the singleton property for UNKNOWN
+<span class="fc bfc" id="L317" title="All 2 branches covered.">        return this.equals(UNKNOWN) ? UNKNOWN : this;</span>
+    }
+
+    // ------------------------------------------------------------------------
+    //  builder
+    // ------------------------------------------------------------------------
+
+    public static Builder newBuilder(double cpuCores, int taskHeapMemoryMB) {
+<span class="fc" id="L325">        return new Builder(new CPUResource(cpuCores), MemorySize.ofMebiBytes(taskHeapMemoryMB));</span>
+    }
+
+    /** Builder for the {@link ResourceSpec}. */
+    public static class Builder {
+
+        private CPUResource cpuCores;
+        private MemorySize taskHeapMemory;
+<span class="fc" id="L333">        private MemorySize taskOffHeapMemory = MemorySize.ZERO;</span>
+<span class="fc" id="L334">        private MemorySize managedMemory = MemorySize.ZERO;</span>
+<span class="fc" id="L335">        private Map&lt;String, ExternalResource&gt; extendedResources = new HashMap&lt;&gt;();</span>
+
+<span class="fc" id="L337">        private Builder(CPUResource cpuCores, MemorySize taskHeapMemory) {</span>
+<span class="fc" id="L338">            this.cpuCores = cpuCores;</span>
+<span class="fc" id="L339">            this.taskHeapMemory = taskHeapMemory;</span>
+<span class="fc" id="L340">        }</span>
+
+        public Builder setCpuCores(double cpuCores) {
+<span class="nc" id="L343">            this.cpuCores = new CPUResource(cpuCores);</span>
+<span class="nc" id="L344">            return this;</span>
+        }
+
+        public Builder setTaskHeapMemory(MemorySize taskHeapMemory) {
+<span class="nc" id="L348">            this.taskHeapMemory = taskHeapMemory;</span>
+<span class="nc" id="L349">            return this;</span>
+        }
+
+        public Builder setTaskHeapMemoryMB(int taskHeapMemoryMB) {
+<span class="nc" id="L353">            this.taskHeapMemory = MemorySize.ofMebiBytes(taskHeapMemoryMB);</span>
+<span class="nc" id="L354">            return this;</span>
+        }
+
+        public Builder setTaskOffHeapMemory(MemorySize taskOffHeapMemory) {
+<span class="nc" id="L358">            this.taskOffHeapMemory = taskOffHeapMemory;</span>
+<span class="nc" id="L359">            return this;</span>
+        }
+
+        public Builder setOffTaskHeapMemoryMB(int taskOffHeapMemoryMB) {
+<span class="nc" id="L363">            this.taskOffHeapMemory = MemorySize.ofMebiBytes(taskOffHeapMemoryMB);</span>
+<span class="nc" id="L364">            return this;</span>
+        }
+
+        public Builder setManagedMemory(MemorySize managedMemory) {
+<span class="nc" id="L368">            this.managedMemory = managedMemory;</span>
+<span class="nc" id="L369">            return this;</span>
+        }
+
+        public Builder setManagedMemoryMB(int managedMemoryMB) {
+<span class="nc" id="L373">            this.managedMemory = MemorySize.ofMebiBytes(managedMemoryMB);</span>
+<span class="nc" id="L374">            return this;</span>
+        }
+
+        /**
+         * Add the given extended resource. The old value with the same resource name will be
+         * replaced if present.
+         */
+        public Builder setExtendedResource(ExternalResource extendedResource) {
+<span class="fc" id="L382">            this.extendedResources.put(extendedResource.getName(), extendedResource);</span>
+<span class="fc" id="L383">            return this;</span>
+        }
+
+        /**
+         * Add the given extended resources. This will discard all the previous added extended
+         * resources.
+         */
+        public Builder setExtendedResources(Collection&lt;ExternalResource&gt; extendedResources) {
+<span class="nc" id="L391">            this.extendedResources =</span>
+<span class="nc" id="L392">                    extendedResources.stream()</span>
+<span class="nc" id="L393">                            .collect(</span>
+<span class="nc" id="L394">                                    Collectors.toMap(</span>
+<span class="nc" id="L395">                                            ExternalResource::getName, Function.identity()));</span>
+<span class="nc" id="L396">            return this;</span>
+        }
+
+        public ResourceSpec build() {
+<span class="fc" id="L400">            return new ResourceSpec(</span>
+                    cpuCores, taskHeapMemory, taskOffHeapMemory, managedMemory, extendedResources);
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

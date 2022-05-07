@@ -1,0 +1,785 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MavenMetadataSource.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.project.artifact</a> &gt; <span class="el_source">MavenMetadataSource.java</span></div><h1>MavenMetadataSource.java</h1><pre class="source lang-java linenums">package org.apache.maven.project.artifact;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+
+import org.apache.maven.RepositoryUtils;
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.ArtifactUtils;
+import org.apache.maven.artifact.factory.ArtifactFactory;
+import org.apache.maven.artifact.metadata.ArtifactMetadataRetrievalException;
+import org.apache.maven.artifact.metadata.ArtifactMetadataSource;
+import org.apache.maven.artifact.metadata.ResolutionGroup;
+import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.apache.maven.artifact.repository.metadata.ArtifactRepositoryMetadata;
+import org.apache.maven.artifact.repository.metadata.Metadata;
+import org.apache.maven.artifact.repository.metadata.RepositoryMetadata;
+import org.apache.maven.artifact.repository.metadata.RepositoryMetadataManager;
+import org.apache.maven.artifact.repository.metadata.RepositoryMetadataResolutionException;
+import org.apache.maven.artifact.resolver.ArtifactResolutionException;
+import org.apache.maven.artifact.resolver.MultipleArtifactsNotFoundException;
+import org.apache.maven.artifact.resolver.filter.AndArtifactFilter;
+import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
+import org.apache.maven.artifact.resolver.filter.ExclusionArtifactFilter;
+import org.apache.maven.artifact.versioning.ArtifactVersion;
+import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
+import org.apache.maven.artifact.versioning.InvalidVersionSpecificationException;
+import org.apache.maven.artifact.versioning.VersionRange;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.model.Dependency;
+import org.apache.maven.model.DependencyManagement;
+import org.apache.maven.model.DistributionManagement;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.Relocation;
+import org.apache.maven.model.building.ModelBuildingException;
+import org.apache.maven.model.building.ModelBuildingRequest;
+import org.apache.maven.model.building.ModelProblem;
+import org.apache.maven.model.resolution.UnresolvableModelException;
+import org.apache.maven.plugin.LegacySupport;
+import org.apache.maven.project.DefaultProjectBuildingRequest;
+import org.apache.maven.project.MavenProject;
+import org.apache.maven.project.ProjectBuilder;
+import org.apache.maven.project.ProjectBuildingException;
+import org.apache.maven.project.ProjectBuildingRequest;
+import org.apache.maven.properties.internal.EnvironmentUtils;
+import org.apache.maven.properties.internal.SystemProperties;
+import org.apache.maven.repository.internal.MavenWorkspaceReader;
+import org.apache.maven.repository.legacy.metadata.DefaultMetadataResolutionRequest;
+import org.apache.maven.repository.legacy.metadata.MetadataResolutionRequest;
+import org.codehaus.plexus.PlexusContainer;
+import org.codehaus.plexus.component.annotations.Component;
+import org.codehaus.plexus.component.annotations.Requirement;
+import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
+import org.codehaus.plexus.logging.Logger;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.repository.RepositoryPolicy;
+import org.eclipse.aether.repository.WorkspaceReader;
+import org.eclipse.aether.transfer.ArtifactNotFoundException;
+
+/**
+ * @author Jason van Zyl
+ */
+@Component( role = ArtifactMetadataSource.class, hint = &quot;maven&quot; )
+<span class="nc" id="L92">public class MavenMetadataSource</span>
+    implements ArtifactMetadataSource
+{
+    @Requirement
+    private RepositoryMetadataManager repositoryMetadataManager;
+
+    @Requirement
+    private ArtifactFactory repositorySystem;
+
+    //TODO This prevents a cycle in the composition which shows us another problem we need to deal with.
+    //@Requirement
+    private ProjectBuilder projectBuilder;
+
+    @Requirement
+    private PlexusContainer container;
+
+    @Requirement
+    private Logger logger;
+
+    @Requirement
+    private MavenMetadataCache cache;
+
+    @Requirement
+    private LegacySupport legacySupport;
+
+    private void injectSession( MetadataResolutionRequest request )
+    {
+<span class="nc" id="L119">        RepositorySystemSession session = legacySupport.getRepositorySession();</span>
+
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        if ( session != null )</span>
+        {
+<span class="nc" id="L123">            request.setOffline( session.isOffline() );</span>
+<span class="nc" id="L124">            request.setForceUpdate( RepositoryPolicy.UPDATE_POLICY_ALWAYS.equals( session.getUpdatePolicy() ) );</span>
+        }
+<span class="nc" id="L126">    }</span>
+
+    public ResolutionGroup retrieve( Artifact artifact, ArtifactRepository localRepository,
+                                     List&lt;ArtifactRepository&gt; remoteRepositories )
+        throws ArtifactMetadataRetrievalException
+    {
+<span class="nc" id="L132">        return retrieve( artifact, localRepository, remoteRepositories, false );</span>
+    }
+
+    public ResolutionGroup retrieve( Artifact artifact, ArtifactRepository localRepository,
+                                     List&lt;ArtifactRepository&gt; remoteRepositories, boolean resolveManagedVersions )
+        throws ArtifactMetadataRetrievalException
+    {
+<span class="nc" id="L139">        MetadataResolutionRequest request = new DefaultMetadataResolutionRequest();</span>
+<span class="nc" id="L140">        injectSession( request );</span>
+<span class="nc" id="L141">        request.setArtifact( artifact );</span>
+<span class="nc" id="L142">        request.setLocalRepository( localRepository );</span>
+<span class="nc" id="L143">        request.setRemoteRepositories( remoteRepositories );</span>
+<span class="nc" id="L144">        request.setResolveManagedVersions( resolveManagedVersions );</span>
+<span class="nc" id="L145">        return retrieve( request );</span>
+    }
+
+    public ResolutionGroup retrieve( MetadataResolutionRequest request )
+        throws ArtifactMetadataRetrievalException
+    {
+<span class="nc" id="L151">        Artifact artifact = request.getArtifact();</span>
+
+        //
+        // If we have a system scoped artifact then we do not want any searching in local or remote repositories
+        // and we want artifact resolution to only return the system scoped artifact itself.
+        //
+<span class="nc bnc" id="L157" title="All 4 branches missed.">        if ( artifact.getScope() != null &amp;&amp; artifact.getScope().equals( Artifact.SCOPE_SYSTEM ) )</span>
+        {
+<span class="nc" id="L159">            return new ResolutionGroup( null, null, null );</span>
+        }
+
+<span class="nc" id="L162">        ResolutionGroup cached =</span>
+<span class="nc" id="L163">            cache.get( artifact, request.isResolveManagedVersions(), request.getLocalRepository(),</span>
+<span class="nc" id="L164">                       request.getRemoteRepositories() );</span>
+
+<span class="nc bnc" id="L166" title="All 2 branches missed.">        if ( cached != null</span>
+        // if the POM has no file, we cached a missing artifact, only return the cached data if no update forced
+<span class="nc bnc" id="L168" title="All 4 branches missed.">            &amp;&amp; ( !request.isForceUpdate() || hasFile( cached.getPomArtifact() ) ) )</span>
+        {
+<span class="nc" id="L170">            return cached;</span>
+        }
+
+        List&lt;Dependency&gt; dependencies;
+
+<span class="nc" id="L175">        List&lt;Dependency&gt; managedDependencies = null;</span>
+
+<span class="nc" id="L177">        List&lt;ArtifactRepository&gt; pomRepositories = null;</span>
+
+        Artifact pomArtifact;
+
+<span class="nc" id="L181">        Artifact relocatedArtifact = null;</span>
+
+<span class="nc" id="L183">        final WorkspaceReader workspace = legacySupport.getRepositorySession().getWorkspaceReader();</span>
+<span class="nc" id="L184">        Model model = null;</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">        if ( workspace instanceof MavenWorkspaceReader )</span>
+        {
+<span class="nc" id="L187">            model = ( (MavenWorkspaceReader) workspace ).findModel( RepositoryUtils.toArtifact( artifact ) );</span>
+        }
+
+<span class="nc bnc" id="L190" title="All 2 branches missed.">        if ( model != null )</span>
+        {
+<span class="nc" id="L192">            pomArtifact = artifact;</span>
+<span class="nc" id="L193">            dependencies = model.getDependencies();</span>
+<span class="nc" id="L194">            DependencyManagement dependencyManagement = model.getDependencyManagement();</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">            managedDependencies = dependencyManagement == null ? null : dependencyManagement.getDependencies();</span>
+<span class="nc" id="L196">            MavenSession session = legacySupport.getSession();</span>
+<span class="nc" id="L197">            MavenProject project = session.getProjectMap().get(</span>
+<span class="nc" id="L198">                ArtifactUtils.key( artifact.getGroupId(), artifact.getArtifactId(), artifact.getVersion() ) );</span>
+<span class="nc" id="L199">            pomRepositories = project.getRemoteArtifactRepositories();</span>
+<span class="nc" id="L200">        }</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">        else if ( artifact instanceof ArtifactWithDependencies )</span>
+        {
+<span class="nc" id="L203">            pomArtifact = artifact;</span>
+
+<span class="nc" id="L205">            dependencies = ( (ArtifactWithDependencies) artifact ).getDependencies();</span>
+
+<span class="nc" id="L207">            managedDependencies = ( (ArtifactWithDependencies) artifact ).getManagedDependencies();</span>
+        }
+        else
+        {
+<span class="nc" id="L211">            ProjectRelocation rel = retrieveRelocatedProject( artifact, request );</span>
+
+<span class="nc bnc" id="L213" title="All 2 branches missed.">            if ( rel == null )</span>
+            {
+<span class="nc" id="L215">                return null;</span>
+            }
+
+<span class="nc" id="L218">            pomArtifact = rel.pomArtifact;</span>
+
+<span class="nc" id="L220">            relocatedArtifact = rel.relocatedArtifact;</span>
+
+<span class="nc bnc" id="L222" title="All 2 branches missed.">            if ( rel.project == null )</span>
+            {
+                // When this happens we have a Maven 1.x POM, or some invalid POM.
+                // It should have never found its way into Maven 2.x repository but it did.
+<span class="nc" id="L226">                dependencies = Collections.emptyList();</span>
+            }
+            else
+            {
+<span class="nc" id="L230">                dependencies = rel.project.getDependencies();</span>
+
+<span class="nc" id="L232">                DependencyManagement depMgmt = rel.project.getDependencyManagement();</span>
+<span class="nc bnc" id="L233" title="All 2 branches missed.">                managedDependencies = ( depMgmt != null ) ? depMgmt.getDependencies() : null;</span>
+
+<span class="nc" id="L235">                pomRepositories = rel.project.getRemoteArtifactRepositories();</span>
+            }
+        }
+
+<span class="nc" id="L239">        Set&lt;Artifact&gt; artifacts = Collections.emptySet();</span>
+
+<span class="nc bnc" id="L241" title="All 2 branches missed.">        if ( !artifact.getArtifactHandler().isIncludesDependencies() )</span>
+        {
+<span class="nc" id="L243">            artifacts = new LinkedHashSet&lt;&gt;();</span>
+
+<span class="nc bnc" id="L245" title="All 2 branches missed.">            for ( Dependency dependency : dependencies )</span>
+            {
+<span class="nc" id="L247">                Artifact dependencyArtifact = createDependencyArtifact( dependency, artifact, pomArtifact );</span>
+
+<span class="nc bnc" id="L249" title="All 2 branches missed.">                if ( dependencyArtifact != null )</span>
+                {
+<span class="nc" id="L251">                    artifacts.add( dependencyArtifact );</span>
+                }
+<span class="nc" id="L253">            }</span>
+        }
+
+<span class="nc" id="L256">        Map&lt;String, Artifact&gt; managedVersions = null;</span>
+
+<span class="nc bnc" id="L258" title="All 4 branches missed.">        if ( managedDependencies != null &amp;&amp; request.isResolveManagedVersions() )</span>
+        {
+<span class="nc" id="L260">            managedVersions = new HashMap&lt;&gt;();</span>
+
+<span class="nc bnc" id="L262" title="All 2 branches missed.">            for ( Dependency managedDependency : managedDependencies )</span>
+            {
+<span class="nc" id="L264">                Artifact managedArtifact = createDependencyArtifact( managedDependency, null, pomArtifact );</span>
+
+<span class="nc" id="L266">                managedVersions.put( managedDependency.getManagementKey(), managedArtifact );</span>
+<span class="nc" id="L267">            }</span>
+        }
+
+<span class="nc" id="L270">        List&lt;ArtifactRepository&gt; aggregatedRepositories =</span>
+<span class="nc" id="L271">            aggregateRepositories( request.getRemoteRepositories(), pomRepositories );</span>
+
+<span class="nc" id="L273">        ResolutionGroup result =</span>
+            new ResolutionGroup( pomArtifact, relocatedArtifact, artifacts, managedVersions, aggregatedRepositories );
+
+<span class="nc" id="L276">        cache.put( artifact, request.isResolveManagedVersions(), request.getLocalRepository(),</span>
+<span class="nc" id="L277">                   request.getRemoteRepositories(), result );</span>
+
+<span class="nc" id="L279">        return result;</span>
+    }
+
+    private boolean hasFile( Artifact artifact )
+    {
+<span class="nc bnc" id="L284" title="All 6 branches missed.">        return artifact != null &amp;&amp; artifact.getFile() != null &amp;&amp; artifact.getFile().exists();</span>
+    }
+
+    private List&lt;ArtifactRepository&gt; aggregateRepositories( List&lt;ArtifactRepository&gt; requestRepositories,
+                                                            List&lt;ArtifactRepository&gt; pomRepositories )
+    {
+<span class="nc" id="L290">        List&lt;ArtifactRepository&gt; repositories = requestRepositories;</span>
+
+<span class="nc bnc" id="L292" title="All 4 branches missed.">        if ( pomRepositories != null &amp;&amp; !pomRepositories.isEmpty() )</span>
+        {
+<span class="nc" id="L294">            Map&lt;String, ArtifactRepository&gt; repos = new LinkedHashMap&lt;&gt;();</span>
+
+<span class="nc bnc" id="L296" title="All 2 branches missed.">            for ( ArtifactRepository repo : requestRepositories )</span>
+            {
+<span class="nc bnc" id="L298" title="All 2 branches missed.">                if ( !repos.containsKey( repo.getId() ) )</span>
+                {
+<span class="nc" id="L300">                    repos.put( repo.getId(), repo );</span>
+                }
+<span class="nc" id="L302">            }</span>
+
+<span class="nc bnc" id="L304" title="All 2 branches missed.">            for ( ArtifactRepository repo : pomRepositories )</span>
+            {
+<span class="nc bnc" id="L306" title="All 2 branches missed.">                if ( !repos.containsKey( repo.getId() ) )</span>
+                {
+<span class="nc" id="L308">                    repos.put( repo.getId(), repo );</span>
+                }
+<span class="nc" id="L310">            }</span>
+
+<span class="nc" id="L312">            repositories = new ArrayList&lt;&gt;( repos.values() );</span>
+        }
+
+<span class="nc" id="L315">        return repositories;</span>
+    }
+
+    private Artifact createDependencyArtifact( Dependency dependency, Artifact owner, Artifact pom )
+        throws ArtifactMetadataRetrievalException
+    {
+        try
+        {
+<span class="nc bnc" id="L323" title="All 2 branches missed.">            String inheritedScope = ( owner != null ) ? owner.getScope() : null;</span>
+
+<span class="nc bnc" id="L325" title="All 2 branches missed.">            ArtifactFilter inheritedFilter = ( owner != null ) ? owner.getDependencyFilter() : null;</span>
+
+<span class="nc" id="L327">            return createDependencyArtifact( repositorySystem, dependency, inheritedScope, inheritedFilter );</span>
+        }
+<span class="nc" id="L329">        catch ( InvalidVersionSpecificationException e )</span>
+        {
+<span class="nc" id="L331">            throw new ArtifactMetadataRetrievalException( &quot;Invalid version for dependency &quot;</span>
+<span class="nc" id="L332">                + dependency.getManagementKey() + &quot;: &quot; + e.getMessage(), e, pom );</span>
+        }
+    }
+
+    private static Artifact createDependencyArtifact( ArtifactFactory factory, Dependency dependency,
+                                                      String inheritedScope, ArtifactFilter inheritedFilter )
+        throws InvalidVersionSpecificationException
+    {
+<span class="nc" id="L340">        String effectiveScope = getEffectiveScope( dependency.getScope(), inheritedScope );</span>
+
+<span class="nc bnc" id="L342" title="All 2 branches missed.">        if ( effectiveScope == null )</span>
+        {
+<span class="nc" id="L344">            return null;</span>
+        }
+
+<span class="nc" id="L347">        VersionRange versionRange = VersionRange.createFromVersionSpec( dependency.getVersion() );</span>
+
+<span class="nc" id="L349">        Artifact dependencyArtifact =</span>
+<span class="nc" id="L350">            factory.createDependencyArtifact( dependency.getGroupId(), dependency.getArtifactId(), versionRange,</span>
+<span class="nc" id="L351">                                              dependency.getType(), dependency.getClassifier(), effectiveScope,</span>
+<span class="nc" id="L352">                                              dependency.isOptional() );</span>
+
+<span class="nc" id="L354">        ArtifactFilter dependencyFilter = inheritedFilter;</span>
+
+<span class="nc bnc" id="L356" title="All 4 branches missed.">        if ( dependencyFilter != null &amp;&amp; !dependencyFilter.include( dependencyArtifact ) )</span>
+        {
+<span class="nc" id="L358">            return null;</span>
+        }
+
+<span class="nc bnc" id="L361" title="All 2 branches missed.">        if ( Artifact.SCOPE_SYSTEM.equals( effectiveScope ) )</span>
+        {
+<span class="nc" id="L363">            dependencyArtifact.setFile( new File( dependency.getSystemPath() ) );</span>
+        }
+
+<span class="nc" id="L366">        dependencyArtifact.setDependencyFilter( createDependencyFilter( dependency, dependencyFilter ) );</span>
+
+<span class="nc" id="L368">        return dependencyArtifact;</span>
+    }
+
+    private static String getEffectiveScope( String originalScope, String inheritedScope )
+    {
+<span class="nc" id="L373">        String effectiveScope = Artifact.SCOPE_RUNTIME;</span>
+
+<span class="nc bnc" id="L375" title="All 2 branches missed.">        if ( originalScope == null )</span>
+        {
+<span class="nc" id="L377">            originalScope = Artifact.SCOPE_COMPILE;</span>
+        }
+
+<span class="nc bnc" id="L380" title="All 2 branches missed.">        if ( inheritedScope == null )</span>
+        {
+            // direct dependency retains its scope
+<span class="nc" id="L383">            effectiveScope = originalScope;</span>
+        }
+<span class="nc bnc" id="L385" title="All 4 branches missed.">        else if ( Artifact.SCOPE_TEST.equals( originalScope ) || Artifact.SCOPE_PROVIDED.equals( originalScope ) )</span>
+        {
+            // test and provided are not transitive, so exclude them
+<span class="nc" id="L388">            effectiveScope = null;</span>
+        }
+<span class="nc bnc" id="L390" title="All 2 branches missed.">        else if ( Artifact.SCOPE_SYSTEM.equals( originalScope ) )</span>
+        {
+            // system scope come through unchanged...
+<span class="nc" id="L393">            effectiveScope = Artifact.SCOPE_SYSTEM;</span>
+        }
+<span class="nc bnc" id="L395" title="All 4 branches missed.">        else if ( Artifact.SCOPE_COMPILE.equals( originalScope ) &amp;&amp; Artifact.SCOPE_COMPILE.equals( inheritedScope ) )</span>
+        {
+            // added to retain compile scope. Remove if you want compile inherited as runtime
+<span class="nc" id="L398">            effectiveScope = Artifact.SCOPE_COMPILE;</span>
+        }
+<span class="nc bnc" id="L400" title="All 2 branches missed.">        else if ( Artifact.SCOPE_TEST.equals( inheritedScope ) )</span>
+        {
+<span class="nc" id="L402">            effectiveScope = Artifact.SCOPE_TEST;</span>
+        }
+<span class="nc bnc" id="L404" title="All 2 branches missed.">        else if ( Artifact.SCOPE_PROVIDED.equals( inheritedScope ) )</span>
+        {
+<span class="nc" id="L406">            effectiveScope = Artifact.SCOPE_PROVIDED;</span>
+        }
+
+<span class="nc" id="L409">        return effectiveScope;</span>
+    }
+
+    private static ArtifactFilter createDependencyFilter( Dependency dependency, ArtifactFilter inheritedFilter )
+    {
+<span class="nc" id="L414">        ArtifactFilter effectiveFilter = inheritedFilter;</span>
+
+<span class="nc bnc" id="L416" title="All 2 branches missed.">        if ( !dependency.getExclusions().isEmpty() )</span>
+        {
+<span class="nc" id="L418">            effectiveFilter = new ExclusionArtifactFilter( dependency.getExclusions() );</span>
+
+<span class="nc bnc" id="L420" title="All 2 branches missed.">            if ( inheritedFilter != null )</span>
+            {
+<span class="nc" id="L422">                effectiveFilter = new AndArtifactFilter( Arrays.asList( inheritedFilter, effectiveFilter ) );</span>
+            }
+        }
+
+<span class="nc" id="L426">        return effectiveFilter;</span>
+    }
+
+    public List&lt;ArtifactVersion&gt; retrieveAvailableVersions( Artifact artifact, ArtifactRepository localRepository,
+                                                            List&lt;ArtifactRepository&gt; remoteRepositories )
+        throws ArtifactMetadataRetrievalException
+    {
+<span class="nc" id="L433">        MetadataResolutionRequest request = new DefaultMetadataResolutionRequest();</span>
+<span class="nc" id="L434">        injectSession( request );</span>
+<span class="nc" id="L435">        request.setArtifact( artifact );</span>
+<span class="nc" id="L436">        request.setLocalRepository( localRepository );</span>
+<span class="nc" id="L437">        request.setRemoteRepositories( remoteRepositories );</span>
+<span class="nc" id="L438">        return retrieveAvailableVersions( request );</span>
+    }
+
+    public List&lt;ArtifactVersion&gt; retrieveAvailableVersions( MetadataResolutionRequest request )
+        throws ArtifactMetadataRetrievalException
+    {
+<span class="nc" id="L444">        RepositoryMetadata metadata = new ArtifactRepositoryMetadata( request.getArtifact() );</span>
+
+        try
+        {
+<span class="nc" id="L448">            repositoryMetadataManager.resolve( metadata, request );</span>
+        }
+<span class="nc" id="L450">        catch ( RepositoryMetadataResolutionException e )</span>
+        {
+<span class="nc" id="L452">            throw new ArtifactMetadataRetrievalException( e.getMessage(), e, request.getArtifact() );</span>
+<span class="nc" id="L453">        }</span>
+
+<span class="nc" id="L455">        List&lt;String&gt; availableVersions = request.getLocalRepository().findVersions( request.getArtifact() );</span>
+
+<span class="nc" id="L457">        return retrieveAvailableVersionsFromMetadata( metadata.getMetadata(), availableVersions );</span>
+    }
+
+    public List&lt;ArtifactVersion&gt; retrieveAvailableVersionsFromDeploymentRepository( Artifact artifact,
+                                                                                    ArtifactRepository localRepository,
+                                                                              ArtifactRepository deploymentRepository )
+        throws ArtifactMetadataRetrievalException
+    {
+<span class="nc" id="L465">        RepositoryMetadata metadata = new ArtifactRepositoryMetadata( artifact );</span>
+
+        try
+        {
+<span class="nc" id="L469">            repositoryMetadataManager.resolveAlways( metadata, localRepository, deploymentRepository );</span>
+        }
+<span class="nc" id="L471">        catch ( RepositoryMetadataResolutionException e )</span>
+        {
+<span class="nc" id="L473">            throw new ArtifactMetadataRetrievalException( e.getMessage(), e, artifact );</span>
+<span class="nc" id="L474">        }</span>
+
+<span class="nc" id="L476">        List&lt;String&gt; availableVersions = localRepository.findVersions( artifact );</span>
+
+<span class="nc" id="L478">        return retrieveAvailableVersionsFromMetadata( metadata.getMetadata(), availableVersions );</span>
+    }
+
+    private List&lt;ArtifactVersion&gt; retrieveAvailableVersionsFromMetadata( Metadata repoMetadata,
+                                                                         List&lt;String&gt; availableVersions )
+    {
+<span class="nc" id="L484">        Collection&lt;String&gt; versions = new LinkedHashSet&lt;&gt;();</span>
+
+<span class="nc bnc" id="L486" title="All 4 branches missed.">        if ( ( repoMetadata != null ) &amp;&amp; ( repoMetadata.getVersioning() != null ) )</span>
+        {
+<span class="nc" id="L488">            versions.addAll( repoMetadata.getVersioning().getVersions() );</span>
+        }
+
+<span class="nc" id="L491">        versions.addAll( availableVersions );</span>
+
+<span class="nc" id="L493">        List&lt;ArtifactVersion&gt; artifactVersions = new ArrayList&lt;&gt;( versions.size() );</span>
+
+<span class="nc bnc" id="L495" title="All 2 branches missed.">        for ( String version : versions )</span>
+        {
+<span class="nc" id="L497">            artifactVersions.add( new DefaultArtifactVersion( version ) );</span>
+<span class="nc" id="L498">        }</span>
+
+<span class="nc" id="L500">        return artifactVersions;</span>
+    }
+
+    // USED BY MAVEN ASSEMBLY PLUGIN
+    @Deprecated
+    public static Set&lt;Artifact&gt; createArtifacts( ArtifactFactory artifactFactory, List&lt;Dependency&gt; dependencies,
+                                                 String inheritedScope, ArtifactFilter dependencyFilter,
+                                                 MavenProject project )
+        throws InvalidDependencyVersionException
+    {
+<span class="nc" id="L510">        Set&lt;Artifact&gt; artifacts = new LinkedHashSet&lt;&gt;();</span>
+
+<span class="nc bnc" id="L512" title="All 2 branches missed.">        for ( Dependency d : dependencies )</span>
+        {
+            Artifact dependencyArtifact;
+            try
+            {
+<span class="nc" id="L517">                dependencyArtifact = createDependencyArtifact( artifactFactory, d, inheritedScope, dependencyFilter );</span>
+            }
+<span class="nc" id="L519">            catch ( InvalidVersionSpecificationException e )</span>
+            {
+<span class="nc" id="L521">                throw new InvalidDependencyVersionException( project.getId(), d, project.getFile(), e );</span>
+<span class="nc" id="L522">            }</span>
+
+<span class="nc bnc" id="L524" title="All 2 branches missed.">            if ( dependencyArtifact != null )</span>
+            {
+<span class="nc" id="L526">                artifacts.add( dependencyArtifact );</span>
+            }
+<span class="nc" id="L528">        }</span>
+
+<span class="nc" id="L530">        return artifacts;</span>
+    }
+
+    private ProjectBuilder getProjectBuilder()
+    {
+<span class="nc bnc" id="L535" title="All 2 branches missed.">        if ( projectBuilder != null )</span>
+        {
+<span class="nc" id="L537">            return projectBuilder;</span>
+        }
+
+        try
+        {
+<span class="nc" id="L542">            projectBuilder = container.lookup( ProjectBuilder.class );</span>
+        }
+<span class="nc" id="L544">        catch ( ComponentLookupException e )</span>
+        {
+            // Won't happen
+<span class="nc" id="L547">        }</span>
+
+<span class="nc" id="L549">        return projectBuilder;</span>
+    }
+    @SuppressWarnings( &quot;checkstyle:methodlength&quot; )
+    private ProjectRelocation retrieveRelocatedProject( Artifact artifact, MetadataResolutionRequest repositoryRequest )
+        throws ArtifactMetadataRetrievalException
+    {
+        MavenProject project;
+
+        Artifact pomArtifact;
+<span class="nc" id="L558">        Artifact relocatedArtifact = null;</span>
+<span class="nc" id="L559">        boolean done = false;</span>
+        do
+        {
+<span class="nc" id="L562">            project = null;</span>
+
+<span class="nc" id="L564">            pomArtifact =</span>
+<span class="nc" id="L565">                repositorySystem.createProjectArtifact( artifact.getGroupId(),</span>
+<span class="nc" id="L566">                                                        artifact.getArtifactId(),</span>
+<span class="nc" id="L567">                                                        artifact.getVersion(), artifact.getScope() );</span>
+
+<span class="nc bnc" id="L569" title="All 2 branches missed.">            if ( &quot;pom&quot;.equals( artifact.getType() ) )</span>
+            {
+<span class="nc" id="L571">                pomArtifact.setFile( artifact.getFile() );</span>
+            }
+
+<span class="nc bnc" id="L574" title="All 2 branches missed.">            if ( Artifact.SCOPE_SYSTEM.equals( artifact.getScope() ) )</span>
+            {
+<span class="nc" id="L576">                done = true;</span>
+            }
+            else
+            {
+                try
+                {
+<span class="nc" id="L582">                    ProjectBuildingRequest configuration = new DefaultProjectBuildingRequest();</span>
+<span class="nc" id="L583">                    configuration.setLocalRepository( repositoryRequest.getLocalRepository() );</span>
+<span class="nc" id="L584">                    configuration.setRemoteRepositories( repositoryRequest.getRemoteRepositories() );</span>
+<span class="nc" id="L585">                    configuration.setValidationLevel( ModelBuildingRequest.VALIDATION_LEVEL_MINIMAL );</span>
+<span class="nc" id="L586">                    configuration.setProcessPlugins( false );</span>
+<span class="nc" id="L587">                    configuration.setRepositoryMerging( ProjectBuildingRequest.RepositoryMerging.REQUEST_DOMINANT );</span>
+<span class="nc" id="L588">                    configuration.setSystemProperties( getSystemProperties() );</span>
+<span class="nc" id="L589">                    configuration.setRepositorySession( legacySupport.getRepositorySession() );</span>
+
+<span class="nc" id="L591">                    project = getProjectBuilder().build( pomArtifact, configuration ).getProject();</span>
+                }
+<span class="nc" id="L593">                catch ( ProjectBuildingException e )</span>
+                {
+<span class="nc" id="L595">                    ModelProblem missingParentPom = hasMissingParentPom( e );</span>
+<span class="nc bnc" id="L596" title="All 2 branches missed.">                    if ( missingParentPom != null )</span>
+                    {
+<span class="nc" id="L598">                        throw new ArtifactMetadataRetrievalException( &quot;Failed to process POM for &quot;</span>
+<span class="nc" id="L599">                            + artifact.getId() + &quot;: &quot; + missingParentPom.getMessage(),</span>
+<span class="nc" id="L600">                                                                      missingParentPom.getException(),</span>
+                                                                      artifact );
+                    }
+
+                    String message;
+
+<span class="nc bnc" id="L606" title="All 2 branches missed.">                    if ( isMissingPom( e ) )</span>
+                    {
+<span class="nc" id="L608">                        message = &quot;Missing POM for &quot; + artifact.getId();</span>
+                    }
+<span class="nc bnc" id="L610" title="All 2 branches missed.">                    else if ( isNonTransferrablePom( e ) )</span>
+                    {
+<span class="nc" id="L612">                        throw new ArtifactMetadataRetrievalException( &quot;Failed to retrieve POM for &quot;</span>
+<span class="nc" id="L613">                            + artifact.getId() + &quot;: &quot; + e.getCause().getMessage(), e.getCause(),</span>
+                                                                      artifact );
+                    }
+                    else
+                    {
+<span class="nc" id="L618">                        message =</span>
+<span class="nc" id="L619">                            &quot;Invalid POM for &quot; + artifact.getId()</span>
+                                + &quot;, transitive dependencies (if any) will not be available&quot;
+                                + &quot;, enable debug logging for more details&quot;;
+                    }
+
+<span class="nc bnc" id="L624" title="All 2 branches missed.">                    if ( logger.isDebugEnabled() )</span>
+                    {
+<span class="nc" id="L626">                        message += &quot;: &quot; + e.getMessage();</span>
+                    }
+
+<span class="nc" id="L629">                    logger.warn( message );</span>
+<span class="nc" id="L630">                }</span>
+
+<span class="nc bnc" id="L632" title="All 2 branches missed.">                if ( project != null )</span>
+                {
+<span class="nc" id="L634">                    Relocation relocation = null;</span>
+
+<span class="nc" id="L636">                    DistributionManagement distMgmt = project.getDistributionManagement();</span>
+<span class="nc bnc" id="L637" title="All 2 branches missed.">                    if ( distMgmt != null )</span>
+                    {
+<span class="nc" id="L639">                        relocation = distMgmt.getRelocation();</span>
+
+<span class="nc" id="L641">                        artifact.setDownloadUrl( distMgmt.getDownloadUrl() );</span>
+<span class="nc" id="L642">                        pomArtifact.setDownloadUrl( distMgmt.getDownloadUrl() );</span>
+                    }
+
+<span class="nc bnc" id="L645" title="All 2 branches missed.">                    if ( relocation != null )</span>
+                    {
+<span class="nc bnc" id="L647" title="All 2 branches missed.">                        if ( relocation.getGroupId() != null )</span>
+                        {
+<span class="nc" id="L649">                            artifact.setGroupId( relocation.getGroupId() );</span>
+<span class="nc" id="L650">                            relocatedArtifact = artifact;</span>
+<span class="nc" id="L651">                            project.setGroupId( relocation.getGroupId() );</span>
+                        }
+<span class="nc bnc" id="L653" title="All 2 branches missed.">                        if ( relocation.getArtifactId() != null )</span>
+                        {
+<span class="nc" id="L655">                            artifact.setArtifactId( relocation.getArtifactId() );</span>
+<span class="nc" id="L656">                            relocatedArtifact = artifact;</span>
+<span class="nc" id="L657">                            project.setArtifactId( relocation.getArtifactId() );</span>
+                        }
+<span class="nc bnc" id="L659" title="All 2 branches missed.">                        if ( relocation.getVersion() != null )</span>
+                        {
+                            // note: see MNG-3454. This causes a problem, but fixing it may break more.
+<span class="nc" id="L662">                            artifact.setVersionRange( VersionRange.createFromVersion( relocation.getVersion() ) );</span>
+<span class="nc" id="L663">                            relocatedArtifact = artifact;</span>
+<span class="nc" id="L664">                            project.setVersion( relocation.getVersion() );</span>
+                        }
+
+<span class="nc bnc" id="L667" title="All 2 branches missed.">                        if ( artifact.getDependencyFilter() != null</span>
+<span class="nc bnc" id="L668" title="All 2 branches missed.">                            &amp;&amp; !artifact.getDependencyFilter().include( artifact ) )</span>
+                        {
+<span class="nc" id="L670">                            return null;</span>
+                        }
+
+                        // MNG-2861: the artifact data has changed. If the available versions where previously
+                        // retrieved, we need to update it.
+                        // TODO shouldn't the versions be merged across relocations?
+<span class="nc" id="L676">                        List&lt;ArtifactVersion&gt; available = artifact.getAvailableVersions();</span>
+<span class="nc bnc" id="L677" title="All 4 branches missed.">                        if ( available != null &amp;&amp; !available.isEmpty() )</span>
+                        {
+<span class="nc" id="L679">                            MetadataResolutionRequest metadataRequest =</span>
+                                new DefaultMetadataResolutionRequest( repositoryRequest );
+<span class="nc" id="L681">                            metadataRequest.setArtifact( artifact );</span>
+<span class="nc" id="L682">                            available = retrieveAvailableVersions( metadataRequest );</span>
+<span class="nc" id="L683">                            artifact.setAvailableVersions( available );</span>
+                        }
+
+<span class="nc" id="L686">                        String message =</span>
+<span class="nc" id="L687">                            &quot;\n  This artifact has been relocated to &quot; + artifact.getGroupId() + &quot;:&quot;</span>
+<span class="nc" id="L688">                                + artifact.getArtifactId() + &quot;:&quot; + artifact.getVersion() + &quot;.\n&quot;;</span>
+
+<span class="nc bnc" id="L690" title="All 2 branches missed.">                        if ( relocation.getMessage() != null )</span>
+                        {
+<span class="nc" id="L692">                            message += &quot;  &quot; + relocation.getMessage() + &quot;\n&quot;;</span>
+                        }
+
+<span class="nc bnc" id="L695" title="All 4 branches missed.">                        if ( artifact.getDependencyTrail() != null &amp;&amp; artifact.getDependencyTrail().size() == 1 )</span>
+                        {
+<span class="nc" id="L697">                            logger.warn( &quot;While downloading &quot; + pomArtifact.getGroupId() + &quot;:&quot;</span>
+<span class="nc" id="L698">                                + pomArtifact.getArtifactId() + &quot;:&quot; + pomArtifact.getVersion() + message + &quot;\n&quot; );</span>
+                        }
+                        else
+                        {
+<span class="nc" id="L702">                            logger.debug( &quot;While downloading &quot; + pomArtifact.getGroupId() + &quot;:&quot;</span>
+<span class="nc" id="L703">                                + pomArtifact.getArtifactId() + &quot;:&quot; + pomArtifact.getVersion() + message + &quot;\n&quot; );</span>
+                        }
+<span class="nc" id="L705">                    }</span>
+                    else
+                    {
+<span class="nc" id="L708">                        done = true;</span>
+                    }
+<span class="nc" id="L710">                }</span>
+                else
+                {
+<span class="nc" id="L713">                    done = true;</span>
+                }
+            }
+        }
+<span class="nc bnc" id="L717" title="All 2 branches missed.">        while ( !done );</span>
+
+<span class="nc" id="L719">        ProjectRelocation rel = new ProjectRelocation();</span>
+<span class="nc" id="L720">        rel.project = project;</span>
+<span class="nc" id="L721">        rel.pomArtifact = pomArtifact;</span>
+<span class="nc" id="L722">        rel.relocatedArtifact = relocatedArtifact;</span>
+
+<span class="nc" id="L724">        return rel;</span>
+    }
+
+    private ModelProblem hasMissingParentPom( ProjectBuildingException e )
+    {
+<span class="nc bnc" id="L729" title="All 2 branches missed.">        if ( e.getCause() instanceof ModelBuildingException )</span>
+        {
+<span class="nc" id="L731">            ModelBuildingException mbe = (ModelBuildingException) e.getCause();</span>
+<span class="nc bnc" id="L732" title="All 2 branches missed.">            for ( ModelProblem problem : mbe.getProblems() )</span>
+            {
+<span class="nc bnc" id="L734" title="All 2 branches missed.">                if ( problem.getException() instanceof UnresolvableModelException )</span>
+                {
+<span class="nc" id="L736">                    return problem;</span>
+                }
+<span class="nc" id="L738">            }</span>
+
+        }
+<span class="nc" id="L741">        return null;</span>
+    }
+
+    private boolean isMissingPom( Exception e )
+    {
+<span class="nc bnc" id="L746" title="All 2 branches missed.">        if ( e.getCause() instanceof MultipleArtifactsNotFoundException )</span>
+        {
+<span class="nc" id="L748">            return true;</span>
+        }
+<span class="nc bnc" id="L750" title="All 2 branches missed.">        return e.getCause() instanceof org.eclipse.aether.resolution.ArtifactResolutionException</span>
+<span class="nc bnc" id="L751" title="All 2 branches missed.">            &amp;&amp; e.getCause().getCause() instanceof ArtifactNotFoundException;</span>
+    }
+
+    private boolean isNonTransferrablePom( Exception e )
+    {
+<span class="nc bnc" id="L756" title="All 2 branches missed.">        if ( e.getCause() instanceof ArtifactResolutionException )</span>
+        {
+<span class="nc" id="L758">            return true;</span>
+        }
+<span class="nc bnc" id="L760" title="All 2 branches missed.">        return e.getCause() instanceof org.eclipse.aether.resolution.ArtifactResolutionException</span>
+<span class="nc bnc" id="L761" title="All 2 branches missed.">            &amp;&amp; !( e.getCause().getCause() instanceof ArtifactNotFoundException );</span>
+    }
+
+    private Properties getSystemProperties()
+    {
+<span class="nc" id="L766">        Properties props = new Properties();</span>
+
+<span class="nc" id="L768">        EnvironmentUtils.addEnvVars( props );</span>
+
+<span class="nc" id="L770">        SystemProperties.addSystemProperties( props );</span>
+
+<span class="nc" id="L772">        return props;</span>
+    }
+
+    private static final class ProjectRelocation
+    {
+        private MavenProject project;
+
+        private Artifact pomArtifact;
+
+        private Artifact relocatedArtifact;
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

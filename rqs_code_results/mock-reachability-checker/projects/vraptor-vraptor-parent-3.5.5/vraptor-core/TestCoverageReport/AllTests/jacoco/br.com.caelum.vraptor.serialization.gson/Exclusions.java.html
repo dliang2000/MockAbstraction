@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Exclusions.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.serialization.gson</a> &gt; <span class="el_source">Exclusions.java</span></div><h1>Exclusions.java</h1><pre class="source lang-java linenums">package br.com.caelum.vraptor.serialization.gson;
+
+import static br.com.caelum.vraptor.serialization.gson.GsonSerializer.isPrimitive;
+
+import java.util.Map.Entry;
+
+import net.vidageek.mirror.dsl.Mirror;
+import br.com.caelum.vraptor.serialization.xstream.Serializee;
+
+import com.google.gson.ExclusionStrategy;
+import com.google.gson.FieldAttributes;
+
+/**
+ * 
+ * @author Renan Reis
+ * @author Guilherme Mangabeira
+ */
+
+public class Exclusions implements ExclusionStrategy {
+
+	private Serializee serializee;
+
+<span class="fc" id="L23">	public Exclusions(Serializee serializee) {</span>
+<span class="fc" id="L24">		this.serializee = serializee;</span>
+<span class="fc" id="L25">	}</span>
+
+	public boolean shouldSkipField(FieldAttributes f) {
+<span class="fc" id="L28">		String fieldName = f.getName();</span>
+<span class="fc" id="L29">		Class&lt;?&gt; definedIn = f.getDeclaringClass();</span>
+
+<span class="fc bfc" id="L31" title="All 2 branches covered.">		for (Entry&lt;String, Class&lt;?&gt;&gt; include : serializee.getIncludes().entries()) {</span>
+<span class="fc bfc" id="L32" title="All 2 branches covered.">			if (isCompatiblePath(include, definedIn, fieldName)) {</span>
+<span class="fc" id="L33">				return false;</span>
+			}
+<span class="fc" id="L35">		}</span>
+<span class="fc bfc" id="L36" title="All 2 branches covered.">		for (Entry&lt;String, Class&lt;?&gt;&gt; exclude : serializee.getExcludes().entries()) {</span>
+<span class="fc bfc" id="L37" title="All 2 branches covered.">			if (isCompatiblePath(exclude, definedIn, fieldName)) {</span>
+<span class="fc" id="L38">				return true;</span>
+			}
+<span class="fc" id="L40">		}</span>
+
+<span class="fc" id="L42">		boolean skip = false;</span>
+
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">		if (!serializee.isRecursive())</span>
+<span class="fc bfc" id="L45" title="All 2 branches covered.">			skip = !isPrimitive(new Mirror().on(definedIn).reflect().field(fieldName).getType());</span>
+
+<span class="fc" id="L47">		return skip;</span>
+	}
+
+	private boolean isCompatiblePath(Entry&lt;String, Class&lt;?&gt;&gt; path, Class&lt;?&gt; definedIn, String fieldName) {
+<span class="fc bfc" id="L51" title="All 6 branches covered.">		return (path.getValue().equals(definedIn) &amp;&amp; (path.getKey().equals(fieldName) || path.getKey().endsWith(</span>
+				&quot;.&quot; + fieldName)));
+	}
+
+	public boolean shouldSkipClass(Class&lt;?&gt; clazz) {
+<span class="fc" id="L56">		return false;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MemoryUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.core.memory</a> &gt; <span class="el_source">MemoryUtils.java</span></div><h1>MemoryUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.core.memory;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.util.Preconditions;
+
+import java.lang.reflect.Field;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+
+/** Utility class for memory operations. */
+@Internal
+public class MemoryUtils {
+
+    /** The &quot;unsafe&quot;, which can be used to perform native memory accesses. */
+    @SuppressWarnings({&quot;restriction&quot;, &quot;UseOfSunClasses&quot;})
+<span class="fc" id="L35">    public static final sun.misc.Unsafe UNSAFE = getUnsafe();</span>
+
+    /** The native byte order of the platform on which the system currently runs. */
+<span class="fc" id="L38">    public static final ByteOrder NATIVE_BYTE_ORDER = ByteOrder.nativeOrder();</span>
+
+<span class="fc" id="L40">    private static final long BUFFER_ADDRESS_FIELD_OFFSET =</span>
+<span class="fc" id="L41">            getClassFieldOffset(Buffer.class, &quot;address&quot;);</span>
+<span class="fc" id="L42">    private static final long BUFFER_CAPACITY_FIELD_OFFSET =</span>
+<span class="fc" id="L43">            getClassFieldOffset(Buffer.class, &quot;capacity&quot;);</span>
+<span class="fc" id="L44">    private static final Class&lt;?&gt; DIRECT_BYTE_BUFFER_CLASS =</span>
+<span class="fc" id="L45">            getClassByName(&quot;java.nio.DirectByteBuffer&quot;);</span>
+
+    @SuppressWarnings(&quot;restriction&quot;)
+    private static sun.misc.Unsafe getUnsafe() {
+        try {
+<span class="fc" id="L50">            Field unsafeField = sun.misc.Unsafe.class.getDeclaredField(&quot;theUnsafe&quot;);</span>
+<span class="fc" id="L51">            unsafeField.setAccessible(true);</span>
+<span class="fc" id="L52">            return (sun.misc.Unsafe) unsafeField.get(null);</span>
+<span class="nc" id="L53">        } catch (SecurityException e) {</span>
+<span class="nc" id="L54">            throw new Error(</span>
+                    &quot;Could not access the sun.misc.Unsafe handle, permission denied by security manager.&quot;,
+                    e);
+<span class="nc" id="L57">        } catch (NoSuchFieldException e) {</span>
+<span class="nc" id="L58">            throw new Error(&quot;The static handle field in sun.misc.Unsafe was not found.&quot;, e);</span>
+<span class="nc" id="L59">        } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L60">            throw new Error(&quot;Bug: Illegal argument reflection access for static field.&quot;, e);</span>
+<span class="nc" id="L61">        } catch (IllegalAccessException e) {</span>
+<span class="nc" id="L62">            throw new Error(&quot;Access to sun.misc.Unsafe is forbidden by the runtime.&quot;, e);</span>
+<span class="nc" id="L63">        } catch (Throwable t) {</span>
+<span class="nc" id="L64">            throw new Error(</span>
+                    &quot;Unclassified error while trying to access the sun.misc.Unsafe handle.&quot;, t);
+        }
+    }
+
+    private static long getClassFieldOffset(
+            @SuppressWarnings(&quot;SameParameterValue&quot;) Class&lt;?&gt; cl, String fieldName) {
+        try {
+<span class="fc" id="L72">            return UNSAFE.objectFieldOffset(cl.getDeclaredField(fieldName));</span>
+<span class="nc" id="L73">        } catch (SecurityException e) {</span>
+<span class="nc" id="L74">            throw new Error(</span>
+<span class="nc" id="L75">                    getClassFieldOffsetErrorMessage(cl, fieldName)</span>
+                            + &quot;, permission denied by security manager.&quot;,
+                    e);
+<span class="nc" id="L78">        } catch (NoSuchFieldException e) {</span>
+<span class="nc" id="L79">            throw new Error(getClassFieldOffsetErrorMessage(cl, fieldName), e);</span>
+<span class="nc" id="L80">        } catch (Throwable t) {</span>
+<span class="nc" id="L81">            throw new Error(</span>
+<span class="nc" id="L82">                    getClassFieldOffsetErrorMessage(cl, fieldName) + &quot;, unclassified error&quot;, t);</span>
+        }
+    }
+
+    private static String getClassFieldOffsetErrorMessage(Class&lt;?&gt; cl, String fieldName) {
+<span class="nc" id="L87">        return &quot;Could not get field '&quot;</span>
+                + fieldName
+                + &quot;' offset in class '&quot;
+                + cl
+                + &quot;' for unsafe operations&quot;;
+    }
+
+    private static Class&lt;?&gt; getClassByName(
+            @SuppressWarnings(&quot;SameParameterValue&quot;) String className) {
+        try {
+<span class="fc" id="L97">            return Class.forName(className);</span>
+<span class="nc" id="L98">        } catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L99">            throw new Error(&quot;Could not find class '&quot; + className + &quot;' for unsafe operations.&quot;, e);</span>
+        }
+    }
+
+    /**
+     * Allocates unsafe native memory.
+     *
+     * @param size size of the unsafe memory to allocate.
+     * @return address of the allocated unsafe memory
+     */
+    static long allocateUnsafe(long size) {
+<span class="fc" id="L110">        return UNSAFE.allocateMemory(Math.max(1L, size));</span>
+    }
+
+    /**
+     * Creates a cleaner to release the unsafe memory.
+     *
+     * @param address address of the unsafe memory to release
+     * @param customCleanup A custom action to clean up GC
+     * @return action to run to release the unsafe memory manually
+     */
+    static Runnable createMemoryCleaner(long address, Runnable customCleanup) {
+<span class="fc" id="L121">        return () -&gt; {</span>
+<span class="fc" id="L122">            releaseUnsafe(address);</span>
+<span class="fc" id="L123">            customCleanup.run();</span>
+<span class="fc" id="L124">        };</span>
+    }
+
+    private static void releaseUnsafe(long address) {
+<span class="fc" id="L128">        UNSAFE.freeMemory(address);</span>
+<span class="fc" id="L129">    }</span>
+
+    /**
+     * Wraps the unsafe native memory with a {@link ByteBuffer}.
+     *
+     * @param address address of the unsafe memory to wrap
+     * @param size size of the unsafe memory to wrap
+     * @return a {@link ByteBuffer} which is a view of the given unsafe memory
+     */
+    static ByteBuffer wrapUnsafeMemoryWithByteBuffer(long address, int size) {
+        //noinspection OverlyBroadCatchBlock
+        try {
+<span class="fc" id="L141">            ByteBuffer buffer = (ByteBuffer) UNSAFE.allocateInstance(DIRECT_BYTE_BUFFER_CLASS);</span>
+<span class="fc" id="L142">            UNSAFE.putLong(buffer, BUFFER_ADDRESS_FIELD_OFFSET, address);</span>
+<span class="fc" id="L143">            UNSAFE.putInt(buffer, BUFFER_CAPACITY_FIELD_OFFSET, size);</span>
+<span class="fc" id="L144">            buffer.clear();</span>
+<span class="fc" id="L145">            return buffer;</span>
+<span class="nc" id="L146">        } catch (Throwable t) {</span>
+<span class="nc" id="L147">            throw new Error(&quot;Failed to wrap unsafe off-heap memory with ByteBuffer&quot;, t);</span>
+        }
+    }
+
+    /**
+     * Get native memory address wrapped by the given {@link ByteBuffer}.
+     *
+     * @param buffer {@link ByteBuffer} which wraps the native memory address to get
+     * @return native memory address wrapped by the given {@link ByteBuffer}
+     */
+    static long getByteBufferAddress(ByteBuffer buffer) {
+<span class="fc" id="L158">        Preconditions.checkNotNull(buffer, &quot;buffer is null&quot;);</span>
+<span class="fc" id="L159">        Preconditions.checkArgument(</span>
+<span class="fc" id="L160">                buffer.isDirect(), &quot;Can't get address of a non-direct ByteBuffer.&quot;);</span>
+
+        long offHeapAddress;
+        try {
+<span class="fc" id="L164">            offHeapAddress = UNSAFE.getLong(buffer, BUFFER_ADDRESS_FIELD_OFFSET);</span>
+<span class="nc" id="L165">        } catch (Throwable t) {</span>
+<span class="nc" id="L166">            throw new Error(&quot;Could not access direct byte buffer address field.&quot;, t);</span>
+<span class="fc" id="L167">        }</span>
+
+<span class="pc bpc" id="L169" title="1 of 2 branches missed.">        Preconditions.checkState(offHeapAddress &gt; 0, &quot;negative pointer or size&quot;);</span>
+<span class="pc bpc" id="L170" title="1 of 2 branches missed.">        Preconditions.checkState(</span>
+                offHeapAddress &lt; Long.MAX_VALUE - Integer.MAX_VALUE,
+                &quot;Segment initialized with too large address: &quot;
+                        + offHeapAddress
+                        + &quot; ; Max allowed address is &quot;
+                        + (Long.MAX_VALUE - Integer.MAX_VALUE - 1));
+
+<span class="fc" id="L177">        return offHeapAddress;</span>
+    }
+
+    /** Should not be instantiated. */
+    private MemoryUtils() {}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

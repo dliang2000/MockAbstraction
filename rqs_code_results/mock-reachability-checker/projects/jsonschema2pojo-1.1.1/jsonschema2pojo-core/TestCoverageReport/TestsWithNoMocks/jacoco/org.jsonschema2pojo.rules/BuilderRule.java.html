@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BuilderRule.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jsonschema2pojo-core</a> &gt; <a href="index.source.html" class="el_package">org.jsonschema2pojo.rules</a> &gt; <span class="el_source">BuilderRule.java</span></div><h1>BuilderRule.java</h1><pre class="source lang-java linenums">/**
+ * Copyright © 2010-2020 Nokia
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.jsonschema2pojo.rules;
+
+import java.util.Objects;
+
+import org.jsonschema2pojo.Schema;
+import org.jsonschema2pojo.util.ReflectionHelper;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.sun.codemodel.JAnnotationUse;
+import com.sun.codemodel.JBlock;
+import com.sun.codemodel.JClass;
+import com.sun.codemodel.JClassAlreadyExistsException;
+import com.sun.codemodel.JConditional;
+import com.sun.codemodel.JDefinedClass;
+import com.sun.codemodel.JExpr;
+import com.sun.codemodel.JFieldVar;
+import com.sun.codemodel.JInvocation;
+import com.sun.codemodel.JMethod;
+import com.sun.codemodel.JMod;
+import com.sun.codemodel.JTypeVar;
+import com.sun.codemodel.JVar;
+
+public class BuilderRule implements Rule&lt;JDefinedClass, JDefinedClass&gt; {
+
+  private RuleFactory ruleFactory;
+  private ReflectionHelper reflectionHelper;
+
+<span class="nc" id="L44">  BuilderRule(RuleFactory ruleFactory, ReflectionHelper reflectionHelper) {</span>
+<span class="nc" id="L45">    this.ruleFactory = ruleFactory;</span>
+<span class="nc" id="L46">    this.reflectionHelper = reflectionHelper;</span>
+<span class="nc" id="L47">  }</span>
+
+  @Override
+  public JDefinedClass apply(String nodeName, JsonNode node, JsonNode parent, JDefinedClass instanceClass, Schema currentSchema) {
+
+    // Create the inner class for the builder
+    JDefinedClass concreteBuilderClass;
+    JDefinedClass builderClass;
+
+    try {
+
+<span class="nc" id="L58">      String concreteBuilderClassName = ruleFactory.getNameHelper().getBuilderClassName(instanceClass);</span>
+<span class="nc" id="L59">      String builderClassName = ruleFactory.getNameHelper().getBaseBuilderClassName(instanceClass);</span>
+
+<span class="nc" id="L61">      builderClass = instanceClass._class(JMod.ABSTRACT + JMod.PUBLIC + JMod.STATIC, builderClassName);</span>
+
+<span class="nc" id="L63">      concreteBuilderClass = instanceClass._class(JMod.PUBLIC + JMod.STATIC, concreteBuilderClassName);</span>
+<span class="nc" id="L64">      concreteBuilderClass._extends(builderClass.narrow(instanceClass));</span>
+
+<span class="nc" id="L66">    } catch (JClassAlreadyExistsException e) {</span>
+<span class="nc" id="L67">      return e.getExistingClass();</span>
+<span class="nc" id="L68">    }</span>
+
+    // Determine which base builder (if any) this builder should inherit from
+<span class="nc" id="L71">    JClass parentBuilderClass = null;</span>
+<span class="nc" id="L72">    JClass parentClass = instanceClass._extends();</span>
+<span class="nc bnc" id="L73" title="All 6 branches missed.">    if (!(parentClass.isPrimitive() || reflectionHelper.isFinal(parentClass) || Objects.equals(parentClass.fullName(), &quot;java.lang.Object&quot;))) {</span>
+<span class="nc" id="L74">      parentBuilderClass = reflectionHelper.getBaseBuilderClass(parentClass);</span>
+    }
+
+    // Determine the generic type name and that the builder will create instances of
+<span class="nc" id="L78">    String builderTypeParameterName = ruleFactory.getNameHelper().getBuilderTypeParameterName(instanceClass);</span>
+<span class="nc" id="L79">    JTypeVar instanceType = builderClass.generify(builderTypeParameterName, instanceClass);</span>
+
+    // For new builders we need to create an instance variable and 'build' method
+    // for inheriting builders we'll receive these from the superType
+<span class="nc bnc" id="L83" title="All 2 branches missed.">    if (parentBuilderClass == null) {</span>
+
+      // Create the instance variable
+<span class="nc" id="L86">      JFieldVar instanceField = builderClass.field(JMod.PROTECTED, instanceType, &quot;instance&quot;);</span>
+
+      // Create the actual &quot;build&quot; method
+<span class="nc" id="L89">      JMethod buildMethod = builderClass.method(JMod.PUBLIC, instanceType, &quot;build&quot;);</span>
+
+<span class="nc" id="L91">      JBlock body = buildMethod.body();</span>
+<span class="nc" id="L92">      JVar result = body.decl(instanceType, &quot;result&quot;);</span>
+<span class="nc" id="L93">      body.assign(result, JExpr._this().ref(instanceField));</span>
+<span class="nc" id="L94">      body.assign(JExpr._this().ref(instanceField), JExpr._null());</span>
+<span class="nc" id="L95">      body._return(result);</span>
+
+      // Create the noargs builder constructors
+<span class="nc" id="L98">      generateNoArgsBuilderConstructors(instanceClass, builderClass, concreteBuilderClass);</span>
+<span class="nc" id="L99">    } else {</span>
+      // Declare the inheritance
+<span class="nc" id="L101">      builderClass._extends(parentBuilderClass.narrow(parentBuilderClass.owner().ref(builderTypeParameterName)));</span>
+
+<span class="nc" id="L103">      JMethod buildMethod = builderClass.method(JMod.PUBLIC, instanceType, &quot;build&quot;);</span>
+<span class="nc" id="L104">      buildMethod.annotate(Override.class);</span>
+
+<span class="nc" id="L106">      JBlock body = buildMethod.body();</span>
+<span class="nc" id="L107">      body._return(JExpr._super().invoke(&quot;build&quot;));</span>
+
+      // Create the noargs builder constructors
+<span class="nc" id="L110">      generateNoArgsBuilderConstructors(instanceClass, builderClass, concreteBuilderClass);</span>
+    }
+
+<span class="nc" id="L113">    return builderClass;</span>
+  }
+
+  private void generateNoArgsBuilderConstructors(JDefinedClass instanceClass, JDefinedClass baseBuilderClass, JDefinedClass builderClass) {
+
+<span class="nc" id="L118">    generateNoArgsBaseBuilderConstructor(instanceClass, baseBuilderClass, builderClass);</span>
+<span class="nc" id="L119">    generateNoArgsBuilderConstructor(instanceClass, baseBuilderClass, builderClass);</span>
+<span class="nc" id="L120">  }</span>
+
+  private void generateNoArgsBuilderConstructor(JDefinedClass instanceClass, JDefinedClass baseBuilderClass, JDefinedClass builderClass) {
+
+    // Add the constructor to builder.
+<span class="nc" id="L125">    JMethod noArgsConstructor = builderClass.constructor(JMod.PUBLIC);</span>
+<span class="nc" id="L126">    JBlock constructorBlock = noArgsConstructor.body();</span>
+
+    // Determine if we need to invoke the super() method for our parent builder
+<span class="nc bnc" id="L129" title="All 6 branches missed.">    if (!(baseBuilderClass.isPrimitive() || reflectionHelper.isFinal(baseBuilderClass) || Objects.equals(baseBuilderClass.fullName(), &quot;java.lang.Object&quot;))) {</span>
+<span class="nc" id="L130">      constructorBlock.invoke(&quot;super&quot;);</span>
+    }
+<span class="nc" id="L132">  }</span>
+
+  private void generateNoArgsBaseBuilderConstructor(JDefinedClass instanceClass, JDefinedClass builderClass, JDefinedClass concreteBuilderClass) {
+
+<span class="nc" id="L136">    JMethod noArgsConstructor = builderClass.constructor(JMod.PUBLIC);</span>
+<span class="nc" id="L137">    JAnnotationUse warningSuppression = noArgsConstructor.annotate(SuppressWarnings.class);</span>
+<span class="nc" id="L138">    warningSuppression.param(&quot;value&quot;, &quot;unchecked&quot;);</span>
+
+<span class="nc" id="L140">    JBlock constructorBlock = noArgsConstructor.body();</span>
+
+<span class="nc" id="L142">    JFieldVar instanceField = reflectionHelper.searchClassAndSuperClassesForField(&quot;instance&quot;, builderClass);</span>
+
+    // Determine if we need to invoke the super() method for our parent builder
+<span class="nc" id="L145">    JClass parentClass = builderClass._extends();</span>
+<span class="nc bnc" id="L146" title="All 6 branches missed.">    if (!(parentClass.isPrimitive() || reflectionHelper.isFinal(parentClass) || Objects.equals(parentClass.fullName(), &quot;java.lang.Object&quot;))) {</span>
+<span class="nc" id="L147">      constructorBlock.invoke(&quot;super&quot;);</span>
+    }
+
+    // Only initialize the instance if the object being constructed is actually this class
+    // if it's a subtype then ignore the instance initialization since the subclass will initialize it
+<span class="nc" id="L152">    constructorBlock.directStatement(&quot;// Skip initialization when called from subclass&quot;);</span>
+<span class="nc" id="L153">    JInvocation comparison = JExpr._this().invoke(&quot;getClass&quot;).invoke(&quot;equals&quot;).arg(JExpr.dotclass(concreteBuilderClass));</span>
+<span class="nc" id="L154">    JConditional ifNotSubclass = constructorBlock._if(comparison);</span>
+<span class="nc" id="L155">    ifNotSubclass._then().assign(JExpr._this().ref(instanceField), JExpr.cast(instanceField.type(), JExpr._new(instanceClass)));</span>
+<span class="nc" id="L156">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

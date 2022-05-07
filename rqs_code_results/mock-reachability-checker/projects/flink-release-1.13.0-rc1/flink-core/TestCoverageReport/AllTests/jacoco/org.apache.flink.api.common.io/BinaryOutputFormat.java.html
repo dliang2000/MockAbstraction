@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BinaryOutputFormat.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.io</a> &gt; <span class="el_source">BinaryOutputFormat.java</span></div><h1>BinaryOutputFormat.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.io;
+
+import org.apache.flink.annotation.Public;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
+
+import java.io.FilterOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+
+@Public
+<span class="fc" id="L31">public abstract class BinaryOutputFormat&lt;T&gt; extends FileOutputFormat&lt;T&gt; {</span>
+
+    private static final long serialVersionUID = 1L;
+
+    /** The config parameter which defines the fixed length of a record. */
+    public static final String BLOCK_SIZE_PARAMETER_KEY = &quot;output.block_size&quot;;
+
+    public static final long NATIVE_BLOCK_SIZE = Long.MIN_VALUE;
+
+    /** The block size to use. */
+<span class="fc" id="L41">    private long blockSize = NATIVE_BLOCK_SIZE;</span>
+
+    private transient BlockBasedOutput blockBasedOutput;
+
+    private transient DataOutputViewStreamWrapper outView;
+
+    @Override
+    public void close() throws IOException {
+        try {
+<span class="nc" id="L50">            DataOutputViewStreamWrapper o = this.outView;</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">            if (o != null) {</span>
+<span class="nc" id="L52">                o.close();</span>
+            }
+        } finally {
+<span class="nc" id="L55">            super.close();</span>
+        }
+<span class="nc" id="L57">    }</span>
+
+<span class="nc" id="L59">    protected void complementBlockInfo(BlockInfo blockInfo) {}</span>
+
+    @Override
+    public void configure(Configuration parameters) {
+<span class="nc" id="L63">        super.configure(parameters);</span>
+
+        // read own parameters
+<span class="nc" id="L66">        this.blockSize = parameters.getLong(BLOCK_SIZE_PARAMETER_KEY, NATIVE_BLOCK_SIZE);</span>
+<span class="nc bnc" id="L67" title="All 4 branches missed.">        if (this.blockSize &lt; 1 &amp;&amp; this.blockSize != NATIVE_BLOCK_SIZE) {</span>
+<span class="nc" id="L68">            throw new IllegalArgumentException(</span>
+                    &quot;The block size parameter must be set and larger than 0.&quot;);
+        }
+<span class="nc bnc" id="L71" title="All 2 branches missed.">        if (this.blockSize &gt; Integer.MAX_VALUE) {</span>
+<span class="nc" id="L72">            throw new UnsupportedOperationException(</span>
+                    &quot;Currently only block size up to Integer.MAX_VALUE are supported&quot;);
+        }
+<span class="nc" id="L75">    }</span>
+
+    protected BlockInfo createBlockInfo() {
+<span class="nc" id="L78">        return new BlockInfo();</span>
+    }
+
+    @Override
+    public void open(int taskNumber, int numTasks) throws IOException {
+<span class="nc" id="L83">        super.open(taskNumber, numTasks);</span>
+
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        final long blockSize =</span>
+                this.blockSize == NATIVE_BLOCK_SIZE
+<span class="nc" id="L87">                        ? this.outputFilePath.getFileSystem().getDefaultBlockSize()</span>
+                        : this.blockSize;
+
+<span class="nc" id="L90">        this.blockBasedOutput = new BlockBasedOutput(this.stream, (int) blockSize);</span>
+<span class="nc" id="L91">        this.outView = new DataOutputViewStreamWrapper(this.blockBasedOutput);</span>
+<span class="nc" id="L92">    }</span>
+
+    protected abstract void serialize(T record, DataOutputView dataOutput) throws IOException;
+
+    @Override
+    public void writeRecord(T record) throws IOException {
+<span class="nc" id="L98">        this.blockBasedOutput.startRecord();</span>
+<span class="nc" id="L99">        this.serialize(record, outView);</span>
+<span class="nc" id="L100">    }</span>
+
+    /**
+     * Writes a block info at the end of the blocks.&lt;br&gt;
+     * Current implementation uses only int and not long.
+     */
+    protected class BlockBasedOutput extends FilterOutputStream {
+
+        private static final int NO_RECORD = -1;
+
+        private final int maxPayloadSize;
+
+        private int blockPos;
+
+        private int blockCount, totalCount;
+
+<span class="nc" id="L116">        private long firstRecordStartPos = NO_RECORD;</span>
+
+<span class="nc" id="L118">        private BlockInfo blockInfo = BinaryOutputFormat.this.createBlockInfo();</span>
+
+        private DataOutputView headerStream;
+
+<span class="nc" id="L122">        public BlockBasedOutput(OutputStream out, int blockSize) {</span>
+<span class="nc" id="L123">            super(out);</span>
+<span class="nc" id="L124">            this.headerStream = new DataOutputViewStreamWrapper(out);</span>
+<span class="nc" id="L125">            this.maxPayloadSize = blockSize - this.blockInfo.getInfoSize();</span>
+<span class="nc" id="L126">        }</span>
+
+        @Override
+        public void close() throws IOException {
+<span class="nc bnc" id="L130" title="All 2 branches missed.">            if (this.blockPos &gt; 0) {</span>
+<span class="nc" id="L131">                this.writeInfo();</span>
+            }
+<span class="nc" id="L133">            super.flush();</span>
+<span class="nc" id="L134">            super.close();</span>
+<span class="nc" id="L135">        }</span>
+
+        public void startRecord() {
+<span class="nc bnc" id="L138" title="All 2 branches missed.">            if (this.firstRecordStartPos == NO_RECORD) {</span>
+<span class="nc" id="L139">                this.firstRecordStartPos = this.blockPos;</span>
+            }
+<span class="nc" id="L141">            this.blockCount++;</span>
+<span class="nc" id="L142">            this.totalCount++;</span>
+<span class="nc" id="L143">        }</span>
+
+        @Override
+        public void write(byte[] b) throws IOException {
+<span class="nc" id="L147">            this.write(b, 0, b.length);</span>
+<span class="nc" id="L148">        }</span>
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+
+<span class="nc bnc" id="L153" title="All 2 branches missed.">            for (int remainingLength = len, offset = off; remainingLength &gt; 0; ) {</span>
+<span class="nc" id="L154">                int blockLen = Math.min(remainingLength, this.maxPayloadSize - this.blockPos);</span>
+<span class="nc" id="L155">                this.out.write(b, offset, blockLen);</span>
+
+<span class="nc" id="L157">                this.blockPos += blockLen;</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">                if (this.blockPos &gt;= this.maxPayloadSize) {</span>
+<span class="nc" id="L159">                    this.writeInfo();</span>
+                }
+<span class="nc" id="L161">                remainingLength -= blockLen;</span>
+<span class="nc" id="L162">                offset += blockLen;</span>
+<span class="nc" id="L163">            }</span>
+<span class="nc" id="L164">        }</span>
+
+        @Override
+        public void write(int b) throws IOException {
+<span class="nc" id="L168">            super.write(b);</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">            if (++this.blockPos &gt;= this.maxPayloadSize) {</span>
+<span class="nc" id="L170">                this.writeInfo();</span>
+            }
+<span class="nc" id="L172">        }</span>
+
+        private void writeInfo() throws IOException {
+<span class="nc" id="L175">            this.blockInfo.setRecordCount(this.blockCount);</span>
+<span class="nc" id="L176">            this.blockInfo.setAccumulatedRecordCount(this.totalCount);</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">            this.blockInfo.setFirstRecordStart(</span>
+                    this.firstRecordStartPos == NO_RECORD ? 0 : this.firstRecordStartPos);
+<span class="nc" id="L179">            BinaryOutputFormat.this.complementBlockInfo(this.blockInfo);</span>
+<span class="nc" id="L180">            this.blockInfo.write(this.headerStream);</span>
+<span class="nc" id="L181">            this.blockPos = 0;</span>
+<span class="nc" id="L182">            this.blockCount = 0;</span>
+<span class="nc" id="L183">            this.firstRecordStartPos = NO_RECORD;</span>
+<span class="nc" id="L184">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

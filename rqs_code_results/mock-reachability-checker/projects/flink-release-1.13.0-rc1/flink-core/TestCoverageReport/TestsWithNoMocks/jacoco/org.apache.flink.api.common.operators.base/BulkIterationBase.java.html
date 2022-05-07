@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BulkIterationBase.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.operators.base</a> &gt; <span class="el_source">BulkIterationBase.java</span></div><h1>BulkIterationBase.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.operators.base;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.InvalidProgramException;
+import org.apache.flink.api.common.aggregators.Aggregator;
+import org.apache.flink.api.common.aggregators.AggregatorRegistry;
+import org.apache.flink.api.common.aggregators.ConvergenceCriterion;
+import org.apache.flink.api.common.functions.AbstractRichFunction;
+import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.common.functions.RuntimeContext;
+import org.apache.flink.api.common.operators.IterationOperator;
+import org.apache.flink.api.common.operators.Operator;
+import org.apache.flink.api.common.operators.OperatorInformation;
+import org.apache.flink.api.common.operators.SingleInputOperator;
+import org.apache.flink.api.common.operators.UnaryOperatorInformation;
+import org.apache.flink.api.common.operators.util.UserCodeClassWrapper;
+import org.apache.flink.api.common.operators.util.UserCodeWrapper;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.types.LongValue;
+import org.apache.flink.util.Collector;
+import org.apache.flink.util.Visitor;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+/** */
+@Internal
+public class BulkIterationBase&lt;T&gt; extends SingleInputOperator&lt;T, T, AbstractRichFunction&gt;
+        implements IterationOperator {
+
+    private static final String DEFAULT_NAME = &quot;&lt;Unnamed Bulk Iteration&gt;&quot;;
+
+    public static final String TERMINATION_CRITERION_AGGREGATOR_NAME =
+            &quot;terminationCriterion.aggregator&quot;;
+
+    private Operator&lt;T&gt; iterationResult;
+
+    private final Operator&lt;T&gt; inputPlaceHolder;
+
+<span class="nc" id="L64">    private final AggregatorRegistry aggregators = new AggregatorRegistry();</span>
+
+<span class="nc" id="L66">    private int numberOfIterations = -1;</span>
+
+    protected Operator&lt;?&gt; terminationCriterion;
+
+    // --------------------------------------------------------------------------------------------
+
+    /** */
+    public BulkIterationBase(UnaryOperatorInformation&lt;T, T&gt; operatorInfo) {
+<span class="nc" id="L74">        this(operatorInfo, DEFAULT_NAME);</span>
+<span class="nc" id="L75">    }</span>
+
+    /** @param name */
+    public BulkIterationBase(UnaryOperatorInformation&lt;T, T&gt; operatorInfo, String name) {
+<span class="nc" id="L79">        super(</span>
+                new UserCodeClassWrapper&lt;AbstractRichFunction&gt;(AbstractRichFunction.class),
+                operatorInfo,
+                name);
+<span class="nc" id="L83">        inputPlaceHolder = new PartialSolutionPlaceHolder&lt;T&gt;(this, this.getOperatorInfo());</span>
+<span class="nc" id="L84">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    /** @return The operator representing the partial solution. */
+    public Operator&lt;T&gt; getPartialSolution() {
+<span class="nc" id="L90">        return this.inputPlaceHolder;</span>
+    }
+
+    /** @param result */
+    public void setNextPartialSolution(Operator&lt;T&gt; result) {
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        if (result == null) {</span>
+<span class="nc" id="L96">            throw new NullPointerException(</span>
+                    &quot;Operator producing the next partial solution must not be null.&quot;);
+        }
+<span class="nc" id="L99">        this.iterationResult = result;</span>
+<span class="nc" id="L100">    }</span>
+
+    /** @return The operator representing the next partial solution. */
+    public Operator&lt;T&gt; getNextPartialSolution() {
+<span class="nc" id="L104">        return this.iterationResult;</span>
+    }
+
+    /** @return The operator representing the termination criterion. */
+    public Operator&lt;?&gt; getTerminationCriterion() {
+<span class="nc" id="L109">        return this.terminationCriterion;</span>
+    }
+
+    /** @param criterion */
+    public &lt;X&gt; void setTerminationCriterion(Operator&lt;X&gt; criterion) {
+
+<span class="nc" id="L115">        TypeInformation&lt;X&gt; type = criterion.getOperatorInfo().getOutputType();</span>
+
+<span class="nc" id="L117">        FlatMapOperatorBase&lt;X, X, TerminationCriterionMapper&lt;X&gt;&gt; mapper =</span>
+                new FlatMapOperatorBase&lt;X, X, TerminationCriterionMapper&lt;X&gt;&gt;(
+                        new TerminationCriterionMapper&lt;X&gt;(),
+                        new UnaryOperatorInformation&lt;X, X&gt;(type, type),
+                        &quot;Termination Criterion Aggregation Wrapper&quot;);
+<span class="nc" id="L122">        mapper.setInput(criterion);</span>
+
+<span class="nc" id="L124">        this.terminationCriterion = mapper;</span>
+<span class="nc" id="L125">        this.getAggregators()</span>
+<span class="nc" id="L126">                .registerAggregationConvergenceCriterion(</span>
+                        TERMINATION_CRITERION_AGGREGATOR_NAME,
+                        new TerminationCriterionAggregator(),
+                        new TerminationCriterionAggregationConvergence());
+<span class="nc" id="L130">    }</span>
+
+    /** @param num */
+    public void setMaximumNumberOfIterations(int num) {
+<span class="nc bnc" id="L134" title="All 2 branches missed.">        if (num &lt; 1) {</span>
+<span class="nc" id="L135">            throw new IllegalArgumentException(&quot;The number of iterations must be at least one.&quot;);</span>
+        }
+<span class="nc" id="L137">        this.numberOfIterations = num;</span>
+<span class="nc" id="L138">    }</span>
+
+    public int getMaximumNumberOfIterations() {
+<span class="nc" id="L141">        return this.numberOfIterations;</span>
+    }
+
+    @Override
+    public AggregatorRegistry getAggregators() {
+<span class="nc" id="L146">        return this.aggregators;</span>
+    }
+
+    /** @throws InvalidProgramException */
+    public void validate() throws InvalidProgramException {
+<span class="nc bnc" id="L151" title="All 2 branches missed.">        if (this.input == null) {</span>
+<span class="nc" id="L152">            throw new RuntimeException(&quot;Operator for initial partial solution is not set.&quot;);</span>
+        }
+<span class="nc bnc" id="L154" title="All 2 branches missed.">        if (this.iterationResult == null) {</span>
+<span class="nc" id="L155">            throw new InvalidProgramException(</span>
+                    &quot;Operator producing the next version of the partial &quot;
+                            + &quot;solution (iteration result) is not set.&quot;);
+        }
+<span class="nc bnc" id="L159" title="All 4 branches missed.">        if (this.terminationCriterion == null &amp;&amp; this.numberOfIterations &lt;= 0) {</span>
+<span class="nc" id="L160">            throw new InvalidProgramException(</span>
+                    &quot;No termination condition is set &quot;
+                            + &quot;(neither fix number of iteration nor termination criterion).&quot;);
+        }
+<span class="nc" id="L164">    }</span>
+
+    /**
+     * The BulkIteration meta operator cannot have broadcast inputs.
+     *
+     * @return An empty map.
+     */
+    public Map&lt;String, Operator&lt;?&gt;&gt; getBroadcastInputs() {
+<span class="nc" id="L172">        return Collections.emptyMap();</span>
+    }
+
+    /**
+     * The BulkIteration meta operator cannot have broadcast inputs. This method always throws an
+     * exception.
+     *
+     * @param name Ignored.
+     * @param root Ignored.
+     */
+    public void setBroadcastVariable(String name, Operator&lt;?&gt; root) {
+<span class="nc" id="L183">        throw new UnsupportedOperationException(</span>
+                &quot;The BulkIteration meta operator cannot have broadcast inputs.&quot;);
+    }
+
+    /**
+     * The BulkIteration meta operator cannot have broadcast inputs. This method always throws an
+     * exception.
+     *
+     * @param inputs Ignored
+     */
+    public &lt;X&gt; void setBroadcastVariables(Map&lt;String, Operator&lt;X&gt;&gt; inputs) {
+<span class="nc" id="L194">        throw new UnsupportedOperationException(</span>
+                &quot;The BulkIteration meta operator cannot have broadcast inputs.&quot;);
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Specialized operator to use as a recognizable place-holder for the input to the step function
+     * when composing the nested data flow.
+     */
+    public static class PartialSolutionPlaceHolder&lt;OT&gt; extends Operator&lt;OT&gt; {
+
+        private final BulkIterationBase&lt;OT&gt; containingIteration;
+
+        public PartialSolutionPlaceHolder(
+                BulkIterationBase&lt;OT&gt; container, OperatorInformation&lt;OT&gt; operatorInfo) {
+<span class="nc" id="L210">            super(operatorInfo, &quot;Partial Solution&quot;);</span>
+<span class="nc" id="L211">            this.containingIteration = container;</span>
+<span class="nc" id="L212">        }</span>
+
+        public BulkIterationBase&lt;OT&gt; getContainingBulkIteration() {
+<span class="nc" id="L215">            return this.containingIteration;</span>
+        }
+
+        @Override
+        public void accept(Visitor&lt;Operator&lt;?&gt;&gt; visitor) {
+<span class="nc" id="L220">            visitor.preVisit(this);</span>
+<span class="nc" id="L221">            visitor.postVisit(this);</span>
+<span class="nc" id="L222">        }</span>
+
+        @Override
+        public UserCodeWrapper&lt;?&gt; getUserCodeWrapper() {
+<span class="nc" id="L226">            return null;</span>
+        }
+    }
+
+    /**
+     * Special Mapper that is added before a termination criterion and is only a container for an
+     * special aggregator
+     */
+<span class="nc" id="L234">    public static class TerminationCriterionMapper&lt;X&gt; extends AbstractRichFunction</span>
+            implements FlatMapFunction&lt;X, X&gt; {
+        private static final long serialVersionUID = 1L;
+
+        private TerminationCriterionAggregator aggregator;
+
+        @Override
+        public void open(Configuration parameters) {
+<span class="nc" id="L242">            aggregator =</span>
+<span class="nc" id="L243">                    getIterationRuntimeContext()</span>
+<span class="nc" id="L244">                            .getIterationAggregator(TERMINATION_CRITERION_AGGREGATOR_NAME);</span>
+<span class="nc" id="L245">        }</span>
+
+        @Override
+        public void flatMap(X in, Collector&lt;X&gt; out) {
+<span class="nc" id="L249">            aggregator.aggregate(1L);</span>
+<span class="nc" id="L250">        }</span>
+    }
+
+    /**
+     * Aggregator that basically only adds 1 for every output tuple of the termination criterion
+     * branch
+     */
+    @SuppressWarnings(&quot;serial&quot;)
+<span class="nc" id="L258">    public static class TerminationCriterionAggregator implements Aggregator&lt;LongValue&gt; {</span>
+
+        private long count;
+
+        @Override
+        public LongValue getAggregate() {
+<span class="nc" id="L264">            return new LongValue(count);</span>
+        }
+
+        public void aggregate(long count) {
+<span class="nc" id="L268">            this.count += count;</span>
+<span class="nc" id="L269">        }</span>
+
+        @Override
+        public void aggregate(LongValue count) {
+<span class="nc" id="L273">            this.count += count.getValue();</span>
+<span class="nc" id="L274">        }</span>
+
+        @Override
+        public void reset() {
+<span class="nc" id="L278">            count = 0;</span>
+<span class="nc" id="L279">        }</span>
+    }
+
+    /**
+     * Convergence for the termination criterion is reached if no tuple is output at current
+     * iteration for the termination criterion branch
+     */
+<span class="nc" id="L286">    public static class TerminationCriterionAggregationConvergence</span>
+            implements ConvergenceCriterion&lt;LongValue&gt; {
+
+        private static final long serialVersionUID = 1L;
+
+<span class="nc" id="L291">        private static final Logger log =</span>
+<span class="nc" id="L292">                LoggerFactory.getLogger(TerminationCriterionAggregationConvergence.class);</span>
+
+        @Override
+        public boolean isConverged(int iteration, LongValue countAggregate) {
+<span class="nc" id="L296">            long count = countAggregate.getValue();</span>
+
+<span class="nc bnc" id="L298" title="All 2 branches missed.">            if (log.isInfoEnabled()) {</span>
+<span class="nc" id="L299">                log.info(&quot;Termination criterion stats in iteration [&quot; + iteration + &quot;]: &quot; + count);</span>
+            }
+
+<span class="nc bnc" id="L302" title="All 2 branches missed.">            return count == 0;</span>
+        }
+    }
+
+    @Override
+    protected List&lt;T&gt; executeOnCollections(
+            List&lt;T&gt; inputData, RuntimeContext runtimeContext, ExecutionConfig executionConfig) {
+<span class="nc" id="L309">        throw new UnsupportedOperationException();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

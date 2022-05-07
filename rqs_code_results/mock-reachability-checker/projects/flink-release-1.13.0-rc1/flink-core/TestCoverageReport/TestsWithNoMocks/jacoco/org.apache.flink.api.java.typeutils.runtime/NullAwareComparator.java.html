@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NullAwareComparator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.java.typeutils.runtime</a> &gt; <span class="el_source">NullAwareComparator.java</span></div><h1>NullAwareComparator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.flink.api.java.typeutils.runtime;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.CompositeTypeComparator;
+import org.apache.flink.api.common.typeutils.TypeComparator;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.core.memory.MemorySegment;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Null-aware comparator that wraps a comparator which does not support null references.
+ *
+ * &lt;p&gt;NOTE: This class assumes to be used within a composite type comparator (such as {@link
+ * RowComparator}) that handles serialized comparison.
+ */
+@Internal
+public class NullAwareComparator&lt;T&gt; extends TypeComparator&lt;T&gt; {
+    private static final long serialVersionUID = 1L;
+
+    private final TypeComparator&lt;T&gt; wrappedComparator;
+    private final boolean order;
+
+    // number of flat fields
+    private final int flatFields;
+
+    // stores the null for reference comparison
+<span class="nc" id="L48">    private boolean nullReference = false;</span>
+
+<span class="nc" id="L50">    public NullAwareComparator(TypeComparator&lt;T&gt; wrappedComparator, boolean order) {</span>
+<span class="nc" id="L51">        this.wrappedComparator = wrappedComparator;</span>
+<span class="nc" id="L52">        this.order = order;</span>
+<span class="nc" id="L53">        this.flatFields = wrappedComparator.getFlatComparators().length;</span>
+<span class="nc" id="L54">    }</span>
+
+    @Override
+    public int hash(T record) {
+<span class="nc bnc" id="L58" title="All 2 branches missed.">        if (record != null) {</span>
+<span class="nc" id="L59">            return wrappedComparator.hash(record);</span>
+        } else {
+<span class="nc" id="L61">            return 0;</span>
+        }
+    }
+
+    @Override
+    public void setReference(T toCompare) {
+<span class="nc bnc" id="L67" title="All 2 branches missed.">        if (toCompare == null) {</span>
+<span class="nc" id="L68">            nullReference = true;</span>
+        } else {
+<span class="nc" id="L70">            nullReference = false;</span>
+<span class="nc" id="L71">            wrappedComparator.setReference(toCompare);</span>
+        }
+<span class="nc" id="L73">    }</span>
+
+    @Override
+    public boolean equalToReference(T candidate) {
+        // both values are null
+<span class="nc bnc" id="L78" title="All 4 branches missed.">        if (candidate == null &amp;&amp; nullReference) {</span>
+<span class="nc" id="L79">            return true;</span>
+        }
+        // one value is null
+<span class="nc bnc" id="L82" title="All 4 branches missed.">        else if (candidate == null || nullReference) {</span>
+<span class="nc" id="L83">            return false;</span>
+        }
+        // no null value
+        else {
+<span class="nc" id="L87">            return wrappedComparator.equalToReference(candidate);</span>
+        }
+    }
+
+    @Override
+    public int compareToReference(TypeComparator&lt;T&gt; referencedComparator) {
+<span class="nc" id="L93">        NullAwareComparator otherComparator = (NullAwareComparator) referencedComparator;</span>
+<span class="nc" id="L94">        boolean otherNullReference = otherComparator.nullReference;</span>
+        // both values are null -&gt; equality
+<span class="nc bnc" id="L96" title="All 4 branches missed.">        if (nullReference &amp;&amp; otherNullReference) {</span>
+<span class="nc" id="L97">            return 0;</span>
+        }
+        // first value is null -&gt; inequality
+        // but order is considered
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        else if (nullReference) {</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">            return order ? 1 : -1;</span>
+        }
+        // second value is null -&gt; inequality
+        // but order is considered
+<span class="nc bnc" id="L106" title="All 2 branches missed.">        else if (otherNullReference) {</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">            return order ? -1 : 1;</span>
+        }
+        // no null values
+        else {
+<span class="nc" id="L111">            return wrappedComparator.compareToReference(otherComparator.wrappedComparator);</span>
+        }
+    }
+
+    @Override
+    public int compare(T first, T second) {
+        // both values are null -&gt; equality
+<span class="nc bnc" id="L118" title="All 4 branches missed.">        if (first == null &amp;&amp; second == null) {</span>
+<span class="nc" id="L119">            return 0;</span>
+        }
+        // first value is null -&gt; inequality
+        // but order is considered
+<span class="nc bnc" id="L123" title="All 2 branches missed.">        else if (first == null) {</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">            return order ? -1 : 1;</span>
+        }
+        // second value is null -&gt; inequality
+        // but order is considered
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        else if (second == null) {</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">            return order ? 1 : -1;</span>
+        }
+        // no null values
+        else {
+<span class="nc" id="L133">            return wrappedComparator.compare(first, second);</span>
+        }
+    }
+
+    @Override
+    public int compareSerialized(DataInputView firstSource, DataInputView secondSource)
+            throws IOException {
+
+<span class="nc" id="L141">        throw new UnsupportedOperationException(</span>
+                &quot;Comparator does not support null-aware serialized comparision.&quot;);
+    }
+
+    @Override
+    public boolean supportsNormalizedKey() {
+<span class="nc" id="L147">        return wrappedComparator.supportsNormalizedKey();</span>
+    }
+
+    @Override
+    public boolean supportsSerializationWithKeyNormalization() {
+<span class="nc" id="L152">        return false;</span>
+    }
+
+    @Override
+    public int getNormalizeKeyLen() {
+<span class="nc" id="L157">        int len = wrappedComparator.getNormalizeKeyLen();</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">        if (len == Integer.MAX_VALUE) {</span>
+<span class="nc" id="L159">            return Integer.MAX_VALUE;</span>
+        } else {
+            // add one for a null byte
+<span class="nc" id="L162">            return len + 1;</span>
+        }
+    }
+
+    @Override
+    public boolean isNormalizedKeyPrefixOnly(int keyBytes) {
+<span class="nc" id="L168">        return wrappedComparator.isNormalizedKeyPrefixOnly(keyBytes - 1);</span>
+    }
+
+    @Override
+    public void putNormalizedKey(T record, MemorySegment target, int offset, int numBytes) {
+<span class="nc bnc" id="L173" title="All 2 branches missed.">        if (numBytes &gt; 0) {</span>
+            // write a null byte with padding
+<span class="nc bnc" id="L175" title="All 2 branches missed.">            if (record == null) {</span>
+<span class="nc" id="L176">                target.putBoolean(offset, false);</span>
+                // write padding
+<span class="nc bnc" id="L178" title="All 2 branches missed.">                for (int j = 0; j &lt; numBytes - 1; j++) {</span>
+<span class="nc" id="L179">                    target.put(offset + 1 + j, (byte) 0);</span>
+                }
+            }
+            // write a non-null byte with key
+            else {
+<span class="nc" id="L184">                target.putBoolean(offset, true);</span>
+                // write key
+<span class="nc" id="L186">                wrappedComparator.putNormalizedKey(record, target, offset + 1, numBytes - 1);</span>
+            }
+        }
+<span class="nc" id="L189">    }</span>
+
+    @Override
+    public void writeWithKeyNormalization(T record, DataOutputView target) throws IOException {
+<span class="nc" id="L193">        throw new UnsupportedOperationException(</span>
+                &quot;Record serialization with leading normalized keys not supported.&quot;);
+    }
+
+    @Override
+    public T readWithKeyDenormalization(T reuse, DataInputView source) throws IOException {
+<span class="nc" id="L199">        throw new UnsupportedOperationException(</span>
+                &quot;Record deserialization with leading normalized keys not supported.&quot;);
+    }
+
+    @Override
+    public boolean invertNormalizedKey() {
+<span class="nc" id="L205">        return wrappedComparator.invertNormalizedKey();</span>
+    }
+
+    @Override
+    public TypeComparator&lt;T&gt; duplicate() {
+<span class="nc" id="L210">        return new NullAwareComparator&lt;T&gt;(wrappedComparator.duplicate(), order);</span>
+    }
+
+    @Override
+    public int extractKeys(Object record, Object[] target, int index) {
+<span class="nc bnc" id="L215" title="All 2 branches missed.">        if (record == null) {</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">            for (int i = 0; i &lt; flatFields; i++) {</span>
+<span class="nc" id="L217">                target[index + i] = null;</span>
+            }
+<span class="nc" id="L219">            return flatFields;</span>
+        } else {
+<span class="nc" id="L221">            return wrappedComparator.extractKeys(record, target, index);</span>
+        }
+    }
+
+    @Override
+    public TypeComparator[] getFlatComparators() {
+        // determine the flat comparators and wrap them again in null-aware comparators
+<span class="nc" id="L228">        List&lt;TypeComparator&lt;?&gt;&gt; flatComparators = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L229" title="All 2 branches missed.">        if (wrappedComparator instanceof CompositeTypeComparator) {</span>
+<span class="nc" id="L230">            ((CompositeTypeComparator) wrappedComparator).getFlatComparator(flatComparators);</span>
+        } else {
+<span class="nc" id="L232">            flatComparators.add(wrappedComparator);</span>
+        }
+
+<span class="nc" id="L235">        TypeComparator&lt;?&gt;[] result = new TypeComparator[flatComparators.size()];</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">        for (int i = 0; i &lt; result.length; i++) {</span>
+<span class="nc" id="L237">            result[i] = new NullAwareComparator&lt;&gt;(flatComparators.get(i), order);</span>
+        }
+<span class="nc" id="L239">        return result;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MojoExecutionScope.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.execution.scope.internal</a> &gt; <span class="el_source">MojoExecutionScope.java</span></div><h1>MojoExecutionScope.java</h1><pre class="source lang-java linenums">package org.apache.maven.execution.scope.internal;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.LinkedList;
+import java.util.Map;
+
+import org.apache.maven.execution.MojoExecutionEvent;
+import org.apache.maven.execution.MojoExecutionListener;
+import org.apache.maven.execution.scope.WeakMojoExecutionListener;
+import org.apache.maven.plugin.MojoExecutionException;
+
+import com.google.inject.Key;
+import com.google.inject.OutOfScopeException;
+import com.google.inject.Provider;
+import com.google.inject.Scope;
+import com.google.inject.util.Providers;
+
+/**
+ * MojoExecutionScope
+ */
+public class MojoExecutionScope
+    implements Scope, MojoExecutionListener
+{
+<span class="nc" id="L45">    private static final Provider&lt;Object&gt; SEEDED_KEY_PROVIDER = new Provider&lt;Object&gt;()</span>
+<span class="nc" id="L46">    {</span>
+        public Object get()
+        {
+<span class="nc" id="L49">            throw new IllegalStateException();</span>
+        }
+    };
+
+<span class="nc" id="L53">    private static final class ScopeState</span>
+    {
+<span class="nc" id="L55">        private final Map&lt;Key&lt;?&gt;, Provider&lt;?&gt;&gt; seeded = new HashMap&lt;&gt;();</span>
+
+<span class="nc" id="L57">        private final Map&lt;Key&lt;?&gt;, Object&gt; provided = new HashMap&lt;&gt;();</span>
+    }
+
+<span class="nc" id="L60">    private final ThreadLocal&lt;LinkedList&lt;ScopeState&gt;&gt; values = new ThreadLocal&lt;&gt;();</span>
+
+    public MojoExecutionScope()
+<span class="nc" id="L63">    {</span>
+<span class="nc" id="L64">    }</span>
+
+    public void enter()
+    {
+<span class="nc" id="L68">        LinkedList&lt;ScopeState&gt; stack = values.get();</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">        if ( stack == null )</span>
+        {
+<span class="nc" id="L71">            stack = new LinkedList&lt;&gt;();</span>
+<span class="nc" id="L72">            values.set( stack );</span>
+        }
+<span class="nc" id="L74">        stack.addFirst( new ScopeState() );</span>
+<span class="nc" id="L75">    }</span>
+
+    private ScopeState getScopeState()
+    {
+<span class="nc" id="L79">        LinkedList&lt;ScopeState&gt; stack = values.get();</span>
+<span class="nc bnc" id="L80" title="All 4 branches missed.">        if ( stack == null || stack.isEmpty() )</span>
+        {
+<span class="nc" id="L82">            throw new IllegalStateException();</span>
+        }
+<span class="nc" id="L84">        return stack.getFirst();</span>
+    }
+
+    public void exit()
+        throws MojoExecutionException
+    {
+<span class="nc" id="L90">        final LinkedList&lt;ScopeState&gt; stack = values.get();</span>
+<span class="nc bnc" id="L91" title="All 4 branches missed.">        if ( stack == null || stack.isEmpty() )</span>
+        {
+<span class="nc" id="L93">            throw new IllegalStateException();</span>
+        }
+<span class="nc" id="L95">        stack.removeFirst();</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        if ( stack.isEmpty() )</span>
+        {
+<span class="nc" id="L98">            values.remove();</span>
+        }
+<span class="nc" id="L100">    }</span>
+
+    public &lt;T&gt; void seed( Class&lt;T&gt; clazz, Provider&lt;T&gt; value )
+    {
+<span class="nc" id="L104">        getScopeState().seeded.put( Key.get( clazz ), value );</span>
+<span class="nc" id="L105">    }</span>
+
+    public &lt;T&gt; void seed( Class&lt;T&gt; clazz, final T value )
+    {
+<span class="nc" id="L109">        getScopeState().seeded.put( Key.get( clazz ), Providers.of( value ) );</span>
+<span class="nc" id="L110">    }</span>
+
+    public &lt;T&gt; Provider&lt;T&gt; scope( final Key&lt;T&gt; key, final Provider&lt;T&gt; unscoped )
+    {
+<span class="nc" id="L114">        return new Provider&lt;T&gt;()</span>
+<span class="nc" id="L115">        {</span>
+            @SuppressWarnings( &quot;unchecked&quot; )
+            public T get()
+            {
+<span class="nc" id="L119">                LinkedList&lt;ScopeState&gt; stack = values.get();</span>
+<span class="nc bnc" id="L120" title="All 4 branches missed.">                if ( stack == null || stack.isEmpty() )</span>
+                {
+<span class="nc" id="L122">                    throw new OutOfScopeException( &quot;Cannot access &quot; + key + &quot; outside of a scoping block&quot; );</span>
+                }
+
+<span class="nc" id="L125">                ScopeState state = stack.getFirst();</span>
+
+<span class="nc" id="L127">                Provider&lt;?&gt; seeded = state.seeded.get( key );</span>
+
+<span class="nc bnc" id="L129" title="All 2 branches missed.">                if ( seeded != null )</span>
+                {
+<span class="nc" id="L131">                    return (T) seeded.get();</span>
+                }
+
+<span class="nc" id="L134">                T provided = (T) state.provided.get( key );</span>
+<span class="nc bnc" id="L135" title="All 4 branches missed.">                if ( provided == null &amp;&amp; unscoped != null )</span>
+                {
+<span class="nc" id="L137">                    provided = unscoped.get();</span>
+<span class="nc" id="L138">                    state.provided.put( key, provided );</span>
+                }
+
+<span class="nc" id="L141">                return provided;</span>
+            }
+        };
+    }
+
+    @SuppressWarnings( { &quot;unchecked&quot; } )
+    public static &lt;T&gt; Provider&lt;T&gt; seededKeyProvider()
+    {
+<span class="nc" id="L149">        return (Provider&lt;T&gt;) SEEDED_KEY_PROVIDER;</span>
+    }
+
+    public void beforeMojoExecution( MojoExecutionEvent event )
+        throws MojoExecutionException
+    {
+<span class="nc bnc" id="L155" title="All 2 branches missed.">        for ( WeakMojoExecutionListener provided : getProvidedListeners() )</span>
+        {
+<span class="nc" id="L157">            provided.beforeMojoExecution( event );</span>
+<span class="nc" id="L158">        }</span>
+<span class="nc" id="L159">    }</span>
+
+    public void afterMojoExecutionSuccess( MojoExecutionEvent event )
+        throws MojoExecutionException
+    {
+<span class="nc bnc" id="L164" title="All 2 branches missed.">        for ( WeakMojoExecutionListener provided : getProvidedListeners() )</span>
+        {
+<span class="nc" id="L166">            provided.afterMojoExecutionSuccess( event );</span>
+<span class="nc" id="L167">        }</span>
+<span class="nc" id="L168">    }</span>
+
+    public void afterExecutionFailure( MojoExecutionEvent event )
+    {
+<span class="nc bnc" id="L172" title="All 2 branches missed.">        for ( WeakMojoExecutionListener provided : getProvidedListeners() )</span>
+        {
+<span class="nc" id="L174">            provided.afterExecutionFailure( event );</span>
+<span class="nc" id="L175">        }</span>
+<span class="nc" id="L176">    }</span>
+
+    private Collection&lt;WeakMojoExecutionListener&gt; getProvidedListeners()
+    {
+        // the same instance can be provided multiple times under different Key's
+        // deduplicate instances to avoid redundant beforeXXX/afterXXX callbacks
+<span class="nc" id="L182">        IdentityHashMap&lt;WeakMojoExecutionListener, Object&gt; listeners =</span>
+            new IdentityHashMap&lt;&gt;();
+<span class="nc bnc" id="L184" title="All 2 branches missed.">        for ( Object provided : getScopeState().provided.values() )</span>
+        {
+<span class="nc bnc" id="L186" title="All 2 branches missed.">            if ( provided instanceof WeakMojoExecutionListener )</span>
+            {
+<span class="nc" id="L188">                listeners.put( (WeakMojoExecutionListener) provided, null );</span>
+            }
+<span class="nc" id="L190">        }</span>
+<span class="nc" id="L191">        return listeners.keySet();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

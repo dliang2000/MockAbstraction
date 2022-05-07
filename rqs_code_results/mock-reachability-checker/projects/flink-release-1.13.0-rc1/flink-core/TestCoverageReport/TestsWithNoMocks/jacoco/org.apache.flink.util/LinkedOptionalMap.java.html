@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LinkedOptionalMap.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.util</a> &gt; <span class="el_source">LinkedOptionalMap.java</span></div><h1>LinkedOptionalMap.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.util;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.VisibleForTesting;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * A LinkedOptionalMap is an order preserving map (like {@link LinkedHashMap}) where keys have a
+ * unique string name, but are optionally present, and the values are optional.
+ */
+@Internal
+public final class LinkedOptionalMap&lt;K, V&gt; {
+
+    // --------------------------------------------------------------------------------------------------------
+    // Factory
+    // --------------------------------------------------------------------------------------------------------
+
+    /**
+     * Creates an {@code LinkedOptionalMap} from the provided map.
+     *
+     * &lt;p&gt;This method is the equivalent of {@link Optional#of(Object)} but for maps. To support more
+     * than one {@code NULL} key, an optional map requires a unique string name to be associated
+     * with each key (provided by keyNameGetter)
+     *
+     * @param sourceMap a source map to wrap as an optional map.
+     * @param keyNameGetter function that assigns a unique name to the keys of the source map.
+     * @param &lt;K&gt; key type
+     * @param &lt;V&gt; value type
+     * @return an {@code LinkedOptionalMap} with optional named keys, and optional values.
+     */
+    public static &lt;K, V&gt; LinkedOptionalMap&lt;K, V&gt; optionalMapOf(
+            Map&lt;K, V&gt; sourceMap, Function&lt;K, String&gt; keyNameGetter) {
+
+<span class="fc" id="L66">        LinkedHashMap&lt;String, KeyValue&lt;K, V&gt;&gt; underlyingMap = new LinkedHashMap&lt;&gt;(sourceMap.size());</span>
+
+<span class="fc" id="L68">        sourceMap.forEach(</span>
+                (k, v) -&gt; {
+<span class="fc" id="L70">                    String keyName = keyNameGetter.apply(k);</span>
+<span class="fc" id="L71">                    underlyingMap.put(keyName, new KeyValue&lt;&gt;(k, v));</span>
+<span class="fc" id="L72">                });</span>
+
+<span class="fc" id="L74">        return new LinkedOptionalMap&lt;&gt;(underlyingMap);</span>
+    }
+
+    /** Tries to merges the keys and the values of @right into @left. */
+    public static &lt;K, V&gt; MergeResult&lt;K, V&gt; mergeRightIntoLeft(
+            LinkedOptionalMap&lt;K, V&gt; left, LinkedOptionalMap&lt;K, V&gt; right) {
+<span class="fc" id="L80">        LinkedOptionalMap&lt;K, V&gt; merged = new LinkedOptionalMap&lt;&gt;(left);</span>
+<span class="fc" id="L81">        merged.putAll(right);</span>
+
+<span class="fc" id="L83">        return new MergeResult&lt;&gt;(merged, isLeftPrefixOfRight(left, right));</span>
+    }
+
+    // --------------------------------------------------------------------------------------------------------
+    // Constructor
+    // --------------------------------------------------------------------------------------------------------
+
+    private final LinkedHashMap&lt;String, KeyValue&lt;K, V&gt;&gt; underlyingMap;
+
+    public LinkedOptionalMap() {
+<span class="fc" id="L93">        this(new LinkedHashMap&lt;&gt;());</span>
+<span class="fc" id="L94">    }</span>
+
+    public LinkedOptionalMap(int initialSize) {
+<span class="fc" id="L97">        this(new LinkedHashMap&lt;&gt;(initialSize));</span>
+<span class="fc" id="L98">    }</span>
+
+    @SuppressWarnings(&quot;CopyConstructorMissesField&quot;)
+    LinkedOptionalMap(LinkedOptionalMap&lt;K, V&gt; linkedOptionalMap) {
+<span class="fc" id="L102">        this(new LinkedHashMap&lt;&gt;(linkedOptionalMap.underlyingMap));</span>
+<span class="fc" id="L103">    }</span>
+
+<span class="fc" id="L105">    private LinkedOptionalMap(LinkedHashMap&lt;String, KeyValue&lt;K, V&gt;&gt; underlyingMap) {</span>
+<span class="fc" id="L106">        this.underlyingMap = checkNotNull(underlyingMap);</span>
+<span class="fc" id="L107">    }</span>
+
+    // --------------------------------------------------------------------------------------------------------
+    // API
+    // --------------------------------------------------------------------------------------------------------
+
+    public int size() {
+<span class="fc" id="L114">        return underlyingMap.size();</span>
+    }
+
+    public void put(String keyName, @Nullable K key, @Nullable V value) {
+<span class="fc" id="L118">        checkNotNull(keyName);</span>
+
+<span class="fc" id="L120">        underlyingMap.compute(</span>
+                keyName,
+<span class="fc bfc" id="L122" title="All 2 branches covered.">                (unused, kv) -&gt; (kv == null) ? new KeyValue&lt;&gt;(key, value) : kv.merge(key, value));</span>
+<span class="fc" id="L123">    }</span>
+
+    void putAll(LinkedOptionalMap&lt;K, V&gt; right) {
+<span class="fc bfc" id="L126" title="All 2 branches covered.">        for (Entry&lt;String, KeyValue&lt;K, V&gt;&gt; entry : right.underlyingMap.entrySet()) {</span>
+<span class="fc" id="L127">            KeyValue&lt;K, V&gt; kv = entry.getValue();</span>
+<span class="fc" id="L128">            this.put(entry.getKey(), kv.key, kv.value);</span>
+<span class="fc" id="L129">        }</span>
+<span class="fc" id="L130">    }</span>
+
+    /** Returns the key names of any keys or values that are absent. */
+    public Set&lt;String&gt; absentKeysOrValues() {
+<span class="fc" id="L134">        return underlyingMap.entrySet().stream()</span>
+<span class="fc" id="L135">                .filter(LinkedOptionalMap::keyOrValueIsAbsent)</span>
+<span class="fc" id="L136">                .map(Entry::getKey)</span>
+<span class="fc" id="L137">                .collect(Collectors.toCollection(LinkedHashSet::new));</span>
+    }
+
+    /** Checks whether there are entries with absent keys or values. */
+    public boolean hasAbsentKeysOrValues() {
+<span class="fc bfc" id="L142" title="All 2 branches covered.">        for (Entry&lt;String, KeyValue&lt;K, V&gt;&gt; entry : underlyingMap.entrySet()) {</span>
+<span class="pc bpc" id="L143" title="1 of 2 branches missed.">            if (keyOrValueIsAbsent(entry)) {</span>
+<span class="nc" id="L144">                return true;</span>
+            }
+<span class="fc" id="L146">        }</span>
+<span class="fc" id="L147">        return false;</span>
+    }
+
+    /** A {@link java.util.function.Consumer} that throws exceptions. */
+    @FunctionalInterface
+    public interface ConsumerWithException&lt;K, V, E extends Throwable&gt; {
+        void accept(@Nonnull String keyName, @Nullable K key, @Nullable V value) throws E;
+    }
+
+    public &lt;E extends Throwable&gt; void forEach(ConsumerWithException&lt;K, V, E&gt; consumer) throws E {
+<span class="fc bfc" id="L157" title="All 2 branches covered.">        for (Entry&lt;String, KeyValue&lt;K, V&gt;&gt; entry : underlyingMap.entrySet()) {</span>
+<span class="fc" id="L158">            KeyValue&lt;K, V&gt; kv = entry.getValue();</span>
+<span class="fc" id="L159">            consumer.accept(entry.getKey(), kv.key, kv.value);</span>
+<span class="fc" id="L160">        }</span>
+<span class="fc" id="L161">    }</span>
+
+    public Set&lt;KeyValue&lt;K, V&gt;&gt; getPresentEntries() {
+<span class="fc" id="L164">        return underlyingMap.entrySet().stream()</span>
+<span class="fc bfc" id="L165" title="All 2 branches covered.">                .filter(entry -&gt; !LinkedOptionalMap.keyOrValueIsAbsent(entry))</span>
+<span class="fc" id="L166">                .map(Entry::getValue)</span>
+<span class="fc" id="L167">                .collect(Collectors.toCollection(LinkedHashSet::new));</span>
+    }
+
+    /**
+     * Assuming all the entries of this map are present (keys and values) this method would return a
+     * map with these key and values, stripped from their Optional wrappers. NOTE: please note that
+     * if any of the key or values are absent this method would throw an {@link
+     * IllegalStateException}.
+     */
+    public LinkedHashMap&lt;K, V&gt; unwrapOptionals() {
+<span class="fc" id="L177">        final LinkedHashMap&lt;K, V&gt; unwrapped = new LinkedHashMap&lt;&gt;(underlyingMap.size());</span>
+
+<span class="fc bfc" id="L179" title="All 2 branches covered.">        for (Entry&lt;String, KeyValue&lt;K, V&gt;&gt; entry : underlyingMap.entrySet()) {</span>
+<span class="fc" id="L180">            String namedKey = entry.getKey();</span>
+<span class="fc" id="L181">            KeyValue&lt;K, V&gt; kv = entry.getValue();</span>
+<span class="fc bfc" id="L182" title="All 2 branches covered.">            if (kv.key == null) {</span>
+<span class="fc" id="L183">                throw new IllegalStateException(&quot;Missing key '&quot; + namedKey + &quot;'&quot;);</span>
+            }
+<span class="fc bfc" id="L185" title="All 2 branches covered.">            if (kv.value == null) {</span>
+<span class="fc" id="L186">                throw new IllegalStateException(&quot;Missing value for the key '&quot; + namedKey + &quot;'&quot;);</span>
+            }
+<span class="fc" id="L188">            unwrapped.put(kv.key, kv.value);</span>
+<span class="fc" id="L189">        }</span>
+<span class="fc" id="L190">        return unwrapped;</span>
+    }
+
+    /** Returns the key names added to this map. */
+    public Set&lt;String&gt; keyNames() {
+<span class="fc" id="L195">        return underlyingMap.keySet();</span>
+    }
+
+    // --------------------------------------------------------------------------------------------------------
+    // Static Utility Methods
+    // --------------------------------------------------------------------------------------------------------
+
+    private static &lt;K, V&gt; boolean keyOrValueIsAbsent(Entry&lt;String, KeyValue&lt;K, V&gt;&gt; entry) {
+<span class="fc" id="L203">        KeyValue&lt;K, V&gt; kv = entry.getValue();</span>
+<span class="fc bfc" id="L204" title="All 4 branches covered.">        return kv.key == null || kv.value == null;</span>
+    }
+
+    @VisibleForTesting
+    static &lt;K, V&gt; boolean isLeftPrefixOfRight(
+            LinkedOptionalMap&lt;K, V&gt; left, LinkedOptionalMap&lt;K, V&gt; right) {
+<span class="fc" id="L210">        Iterator&lt;String&gt; rightKeys = right.keyNames().iterator();</span>
+
+<span class="fc bfc" id="L212" title="All 2 branches covered.">        for (String leftKey : left.keyNames()) {</span>
+<span class="pc bpc" id="L213" title="1 of 2 branches missed.">            if (!rightKeys.hasNext()) {</span>
+<span class="nc" id="L214">                return false;</span>
+            }
+<span class="fc" id="L216">            String rightKey = rightKeys.next();</span>
+<span class="fc bfc" id="L217" title="All 2 branches covered.">            if (!leftKey.equals(rightKey)) {</span>
+<span class="fc" id="L218">                return false;</span>
+            }
+<span class="fc" id="L220">        }</span>
+<span class="fc" id="L221">        return true;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------------------
+    // Inner Classes
+    // --------------------------------------------------------------------------------------------------------
+
+    /**
+     * Key-value pairs stored by the underlying map.
+     *
+     * @param &lt;K&gt; key type.
+     * @param &lt;V&gt; value type.
+     */
+    public static final class KeyValue&lt;K, V&gt; {
+        K key;
+        V value;
+
+<span class="fc" id="L238">        KeyValue(K key, V value) {</span>
+<span class="fc" id="L239">            this.key = key;</span>
+<span class="fc" id="L240">            this.value = value;</span>
+<span class="fc" id="L241">        }</span>
+
+        public K getKey() {
+<span class="fc" id="L244">            return key;</span>
+        }
+
+        public V getValue() {
+<span class="fc" id="L248">            return value;</span>
+        }
+
+        KeyValue&lt;K, V&gt; merge(K key, V value) {
+<span class="fc" id="L252">            this.key = firstNonNull(key, this.key);</span>
+<span class="fc" id="L253">            this.value = firstNonNull(value, this.value);</span>
+<span class="fc" id="L254">            return this;</span>
+        }
+
+        private static &lt;T&gt; T firstNonNull(T first, T second) {
+<span class="fc bfc" id="L258" title="All 2 branches covered.">            if (first != null) {</span>
+<span class="fc" id="L259">                return first;</span>
+            }
+<span class="fc" id="L261">            return second;</span>
+        }
+    }
+
+    // --------------------------------------------------------------------------------------------------------
+    // Merge
+    // --------------------------------------------------------------------------------------------------------
+
+    /**
+     * The result of merging two {@link LinkedOptionalMap}s using {@link
+     * #mergeRightIntoLeft(LinkedOptionalMap, LinkedOptionalMap)}.
+     */
+    public static final class MergeResult&lt;K, V&gt; {
+        private final LinkedOptionalMap&lt;K, V&gt; merged;
+        private final Set&lt;String&gt; missingKeys;
+        private final boolean isOrderedSubset;
+
+<span class="fc" id="L278">        MergeResult(LinkedOptionalMap&lt;K, V&gt; merged, boolean isOrderedSubset) {</span>
+<span class="fc" id="L279">            this.merged = merged;</span>
+<span class="fc" id="L280">            this.missingKeys = merged.absentKeysOrValues();</span>
+<span class="fc" id="L281">            this.isOrderedSubset = isOrderedSubset;</span>
+<span class="fc" id="L282">        }</span>
+
+        public boolean hasMissingKeys() {
+<span class="fc bfc" id="L285" title="All 2 branches covered.">            return !missingKeys.isEmpty();</span>
+        }
+
+        public Set&lt;String&gt; missingKeys() {
+<span class="fc" id="L289">            return missingKeys;</span>
+        }
+
+        public LinkedHashMap&lt;K, V&gt; getMerged() {
+<span class="fc" id="L293">            return merged.unwrapOptionals();</span>
+        }
+
+        /**
+         * Returns {@code true} if keyNames present at @left, appearing in prefix order at @right.
+         */
+        public boolean isOrderedSubset() {
+<span class="fc" id="L300">            return isOrderedSubset;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

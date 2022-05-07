@@ -1,0 +1,478 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ThreadOutputMuxer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.lifecycle.internal.builder.multithreaded</a> &gt; <span class="el_source">ThreadOutputMuxer.java</span></div><h1>ThreadOutputMuxer.java</h1><pre class="source lang-java linenums">package org.apache.maven.lifecycle.internal.builder.multithreaded;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.maven.lifecycle.internal.ProjectBuildList;
+import org.apache.maven.lifecycle.internal.ProjectSegment;
+
+/**
+ * &lt;strong&gt;NOTE:&lt;/strong&gt; This class is not part of any public api and can be changed or deleted without prior notice.
+ * This class in particular may spontaneously self-combust and be replaced by a plexus-compliant thread aware
+ * logger implementation at any time.
+ * 
+ * @since 3.0
+ * @author Kristian Rosenvold
+ */
+@SuppressWarnings( { &quot;SynchronizationOnLocalVariableOrMethodParameter&quot; } )
+public class ThreadOutputMuxer
+{
+    private final Iterator&lt;ProjectSegment&gt; projects;
+
+<span class="fc" id="L48">    private final ThreadLocal&lt;ProjectSegment&gt; projectBuildThreadLocal = new ThreadLocal&lt;&gt;();</span>
+
+<span class="fc" id="L50">    private final Map&lt;ProjectSegment, ByteArrayOutputStream&gt; streams =</span>
+        new HashMap&lt;&gt;();
+
+<span class="fc" id="L53">    private final Map&lt;ProjectSegment, PrintStream&gt; printStreams = new HashMap&lt;&gt;();</span>
+
+<span class="fc" id="L55">    private final ByteArrayOutputStream defaultOutputStreamForUnknownData = new ByteArrayOutputStream();</span>
+
+<span class="fc" id="L57">    private final PrintStream defaultPrintStream = new PrintStream( defaultOutputStreamForUnknownData );</span>
+
+<span class="fc" id="L59">    private final Set&lt;ProjectSegment&gt; completedBuilds = Collections.synchronizedSet( new HashSet&lt;ProjectSegment&gt;() );</span>
+
+    private volatile ProjectSegment currentBuild;
+
+    private final PrintStream originalSystemOUtStream;
+
+    private final ConsolePrinter printer;
+
+    /**
+     * A simple but safe solution for printing to the console.
+     */
+
+    class ConsolePrinter
+        implements Runnable
+    {
+        private volatile boolean running;
+
+        private final ProjectBuildList projectBuildList;
+
+        ConsolePrinter( ProjectBuildList projectBuildList )
+<span class="fc" id="L79">        {</span>
+<span class="fc" id="L80">            this.projectBuildList = projectBuildList;</span>
+<span class="fc" id="L81">        }</span>
+
+        public void run()
+        {
+<span class="fc" id="L85">            running = true;</span>
+<span class="fc bfc" id="L86" title="All 2 branches covered.">            for ( ProjectSegment projectBuild : projectBuildList )</span>
+            {
+<span class="fc" id="L88">                final PrintStream projectStream = printStreams.get( projectBuild );</span>
+<span class="fc" id="L89">                ByteArrayOutputStream projectOs = streams.get( projectBuild );</span>
+
+                do
+                {
+<span class="fc" id="L93">                    synchronized ( projectStream )</span>
+                    {
+                        try
+                        {
+<span class="fc" id="L97">                            projectStream.wait( 100 );</span>
+                        }
+<span class="nc" id="L99">                        catch ( InterruptedException e )</span>
+                        {
+<span class="nc" id="L101">                            throw new RuntimeException( e );</span>
+<span class="fc" id="L102">                        }</span>
+                        try
+                        {
+<span class="fc" id="L105">                            projectOs.writeTo( originalSystemOUtStream );</span>
+                        }
+<span class="nc" id="L107">                        catch ( IOException e )</span>
+                        {
+<span class="nc" id="L109">                            throw new RuntimeException( e );</span>
+<span class="fc" id="L110">                        }</span>
+
+<span class="fc" id="L112">                        projectOs.reset();</span>
+<span class="fc" id="L113">                    }</span>
+                }
+<span class="pc bpc" id="L115" title="1 of 2 branches missed.">                while ( !completedBuilds.contains( projectBuild ) );</span>
+<span class="fc" id="L116">            }</span>
+<span class="fc" id="L117">            running = false;</span>
+<span class="fc" id="L118">        }</span>
+
+        /*
+        Wait until we are sure the print-stream thread is running.
+         */
+
+        public void waitUntilRunning( boolean expect )
+        {
+<span class="fc bfc" id="L126" title="All 4 branches covered.">            while ( !running == expect )</span>
+            {
+                try
+                {
+<span class="fc" id="L130">                    Thread.sleep( 10 );</span>
+                }
+<span class="nc" id="L132">                catch ( InterruptedException e )</span>
+                {
+<span class="nc" id="L134">                    throw new RuntimeException( e );</span>
+<span class="fc" id="L135">                }</span>
+            }
+<span class="fc" id="L137">        }</span>
+    }
+
+    public ThreadOutputMuxer( ProjectBuildList segmentChunks, PrintStream originalSystemOut )
+<span class="fc" id="L141">    {</span>
+<span class="fc" id="L142">        projects = segmentChunks.iterator();</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">        for ( ProjectSegment segmentChunk : segmentChunks )</span>
+        {
+<span class="fc" id="L145">            final ByteArrayOutputStream value = new ByteArrayOutputStream();</span>
+<span class="fc" id="L146">            streams.put( segmentChunk, value );</span>
+<span class="fc" id="L147">            printStreams.put( segmentChunk, new PrintStream( value ) );</span>
+<span class="fc" id="L148">        }</span>
+<span class="fc" id="L149">        setNext();</span>
+<span class="fc" id="L150">        this.originalSystemOUtStream = originalSystemOut;</span>
+<span class="fc" id="L151">        System.setOut( new ThreadBoundPrintStream( this.originalSystemOUtStream ) );</span>
+<span class="fc" id="L152">        printer = new ConsolePrinter( segmentChunks );</span>
+<span class="fc" id="L153">        new Thread( printer ).start();</span>
+<span class="fc" id="L154">        printer.waitUntilRunning( true );</span>
+<span class="fc" id="L155">    }</span>
+
+    public void close()
+    {
+<span class="fc" id="L159">        printer.waitUntilRunning( false );</span>
+<span class="fc" id="L160">        System.setOut( this.originalSystemOUtStream );</span>
+<span class="fc" id="L161">    }</span>
+
+    private void setNext()
+    {
+<span class="pc bpc" id="L165" title="1 of 2 branches missed.">        currentBuild = projects.hasNext() ? projects.next() : null;</span>
+<span class="fc" id="L166">    }</span>
+
+    private boolean ownsRealOutputStream( ProjectSegment projectBuild )
+    {
+<span class="fc" id="L170">        return projectBuild.equals( currentBuild );</span>
+    }
+
+    private PrintStream getThreadBoundPrintStream()
+    {
+<span class="fc" id="L175">        ProjectSegment threadProject = projectBuildThreadLocal.get();</span>
+<span class="pc bpc" id="L176" title="1 of 2 branches missed.">        if ( threadProject == null )</span>
+        {
+<span class="nc" id="L178">            return defaultPrintStream;</span>
+        }
+<span class="fc bfc" id="L180" title="All 2 branches covered.">        if ( ownsRealOutputStream( threadProject ) )</span>
+        {
+<span class="fc" id="L182">            return originalSystemOUtStream;</span>
+        }
+<span class="fc" id="L184">        return printStreams.get( threadProject );</span>
+    }
+
+    public void associateThreadWithProjectSegment( ProjectSegment projectBuild )
+    {
+<span class="fc" id="L189">        projectBuildThreadLocal.set( projectBuild );</span>
+<span class="fc" id="L190">    }</span>
+
+    public void setThisModuleComplete( ProjectSegment projectBuild )
+    {
+<span class="fc" id="L194">        completedBuilds.add( projectBuild );</span>
+<span class="fc" id="L195">        PrintStream stream = printStreams.get( projectBuild );</span>
+<span class="fc" id="L196">        synchronized ( stream )</span>
+        {
+<span class="fc" id="L198">            stream.notifyAll();</span>
+<span class="fc" id="L199">        }</span>
+<span class="fc" id="L200">        disconnectThreadFromProject();</span>
+<span class="fc" id="L201">    }</span>
+
+    private void disconnectThreadFromProject()
+    {
+<span class="fc" id="L205">        projectBuildThreadLocal.remove();</span>
+<span class="fc" id="L206">    }</span>
+
+    private class ThreadBoundPrintStream
+        extends PrintStream
+    {
+
+        ThreadBoundPrintStream( PrintStream systemOutStream )
+<span class="fc" id="L213">        {</span>
+<span class="fc" id="L214">            super( systemOutStream );</span>
+<span class="fc" id="L215">        }</span>
+
+        private PrintStream getOutputStreamForCurrentThread()
+        {
+<span class="fc" id="L219">            return getThreadBoundPrintStream();</span>
+        }
+
+        @Override
+        public void println()
+        {
+<span class="nc" id="L225">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L226">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L228">                currentStream.println();</span>
+<span class="nc" id="L229">                currentStream.notifyAll();</span>
+<span class="nc" id="L230">            }</span>
+<span class="nc" id="L231">        }</span>
+
+        @Override
+        public void print( char c )
+        {
+<span class="nc" id="L236">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L237">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L239">                currentStream.print( c );</span>
+<span class="nc" id="L240">                currentStream.notifyAll();</span>
+<span class="nc" id="L241">            }</span>
+<span class="nc" id="L242">        }</span>
+
+        @Override
+        public void println( char x )
+        {
+<span class="nc" id="L247">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L248">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L250">                currentStream.println( x );</span>
+<span class="nc" id="L251">                currentStream.notifyAll();</span>
+<span class="nc" id="L252">            }</span>
+<span class="nc" id="L253">        }</span>
+
+        @Override
+        public void print( double d )
+        {
+<span class="nc" id="L258">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L259">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L261">                currentStream.print( d );</span>
+<span class="nc" id="L262">                currentStream.notifyAll();</span>
+<span class="nc" id="L263">            }</span>
+<span class="nc" id="L264">        }</span>
+
+        @Override
+        public void println( double x )
+        {
+<span class="nc" id="L269">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L270">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L272">                currentStream.println( x );</span>
+<span class="nc" id="L273">                currentStream.notifyAll();</span>
+<span class="nc" id="L274">            }</span>
+<span class="nc" id="L275">        }</span>
+
+        @Override
+        public void print( float f )
+        {
+<span class="nc" id="L280">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L281">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L283">                currentStream.print( f );</span>
+<span class="nc" id="L284">                currentStream.notifyAll();</span>
+<span class="nc" id="L285">            }</span>
+<span class="nc" id="L286">        }</span>
+
+        @Override
+        public void println( float x )
+        {
+<span class="nc" id="L291">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L292">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L294">                currentStream.println( x );</span>
+<span class="nc" id="L295">                currentStream.notifyAll();</span>
+<span class="nc" id="L296">            }</span>
+<span class="nc" id="L297">        }</span>
+
+        @Override
+        public void print( int i )
+        {
+<span class="nc" id="L302">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L303">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L305">                currentStream.print( i );</span>
+<span class="nc" id="L306">                currentStream.notifyAll();</span>
+<span class="nc" id="L307">            }</span>
+<span class="nc" id="L308">        }</span>
+
+        @Override
+        public void println( int x )
+        {
+<span class="nc" id="L313">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L314">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L316">                currentStream.println( x );</span>
+<span class="nc" id="L317">                currentStream.notifyAll();</span>
+<span class="nc" id="L318">            }</span>
+<span class="nc" id="L319">        }</span>
+
+        @Override
+        public void print( long l )
+        {
+<span class="nc" id="L324">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L325">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L327">                currentStream.print( l );</span>
+<span class="nc" id="L328">                currentStream.notifyAll();</span>
+<span class="nc" id="L329">            }</span>
+<span class="nc" id="L330">        }</span>
+
+        @Override
+        public void println( long x )
+        {
+<span class="nc" id="L335">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L336">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L338">                currentStream.print( x );</span>
+<span class="nc" id="L339">                currentStream.notifyAll();</span>
+<span class="nc" id="L340">            }</span>
+<span class="nc" id="L341">        }</span>
+
+        @Override
+        public void print( boolean b )
+        {
+<span class="nc" id="L346">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L347">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L349">                currentStream.print( b );</span>
+<span class="nc" id="L350">                currentStream.notifyAll();</span>
+<span class="nc" id="L351">            }</span>
+<span class="nc" id="L352">        }</span>
+
+        @Override
+        public void println( boolean x )
+        {
+<span class="nc" id="L357">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L358">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L360">                currentStream.print( x );</span>
+<span class="nc" id="L361">                currentStream.notifyAll();</span>
+<span class="nc" id="L362">            }</span>
+<span class="nc" id="L363">        }</span>
+
+        @Override
+        public void print( char s[] )
+        {
+<span class="nc" id="L368">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L369">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L371">                currentStream.print( s );</span>
+<span class="nc" id="L372">                currentStream.notifyAll();</span>
+<span class="nc" id="L373">            }</span>
+<span class="nc" id="L374">        }</span>
+
+        @Override
+        public void println( char x[] )
+        {
+<span class="nc" id="L379">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L380">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L382">                currentStream.print( x );</span>
+<span class="nc" id="L383">                currentStream.notifyAll();</span>
+<span class="nc" id="L384">            }</span>
+<span class="nc" id="L385">        }</span>
+
+        @Override
+        public void print( Object obj )
+        {
+<span class="nc" id="L390">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L391">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L393">                currentStream.print( obj );</span>
+<span class="nc" id="L394">                currentStream.notifyAll();</span>
+<span class="nc" id="L395">            }</span>
+<span class="nc" id="L396">        }</span>
+
+        @Override
+        public void println( Object x )
+        {
+<span class="nc" id="L401">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L402">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L404">                currentStream.println( x );</span>
+<span class="nc" id="L405">                currentStream.notifyAll();</span>
+<span class="nc" id="L406">            }</span>
+<span class="nc" id="L407">        }</span>
+
+        @Override
+        public void print( String s )
+        {
+<span class="fc" id="L412">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="fc" id="L413">            synchronized ( currentStream )</span>
+            {
+<span class="fc" id="L415">                currentStream.print( s );</span>
+<span class="fc" id="L416">                currentStream.notifyAll();</span>
+<span class="fc" id="L417">            }</span>
+<span class="fc" id="L418">        }</span>
+
+        @Override
+        public void println( String x )
+        {
+<span class="nc" id="L423">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L424">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L426">                currentStream.println( x );</span>
+<span class="nc" id="L427">                currentStream.notifyAll();</span>
+<span class="nc" id="L428">            }</span>
+<span class="nc" id="L429">        }</span>
+
+        @Override
+        public void write( byte b[], int off, int len )
+        {
+<span class="nc" id="L434">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L435">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L437">                currentStream.write( b, off, len );</span>
+<span class="nc" id="L438">                currentStream.notifyAll();</span>
+<span class="nc" id="L439">            }</span>
+<span class="nc" id="L440">        }</span>
+
+        @Override
+        public void close()
+        {
+<span class="nc" id="L445">            getOutputStreamForCurrentThread().close();</span>
+<span class="nc" id="L446">        }</span>
+
+        @Override
+        public void flush()
+        {
+<span class="nc" id="L451">            getOutputStreamForCurrentThread().flush();</span>
+<span class="nc" id="L452">        }</span>
+
+        @Override
+        public void write( int b )
+        {
+<span class="nc" id="L457">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L458">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L460">                currentStream.write( b );</span>
+<span class="nc" id="L461">                currentStream.notifyAll();</span>
+<span class="nc" id="L462">            }</span>
+<span class="nc" id="L463">        }</span>
+
+        @Override
+        public void write( byte b[] )
+            throws IOException
+        {
+<span class="nc" id="L469">            final PrintStream currentStream = getOutputStreamForCurrentThread();</span>
+<span class="nc" id="L470">            synchronized ( currentStream )</span>
+            {
+<span class="nc" id="L472">                currentStream.write( b );</span>
+<span class="nc" id="L473">                currentStream.notifyAll();</span>
+<span class="nc" id="L474">            }</span>
+<span class="nc" id="L475">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

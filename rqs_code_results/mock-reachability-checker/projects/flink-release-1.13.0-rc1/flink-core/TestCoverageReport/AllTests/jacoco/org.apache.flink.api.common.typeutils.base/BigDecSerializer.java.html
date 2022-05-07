@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BigDecSerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeutils.base</a> &gt; <span class="el_source">BigDecSerializer.java</span></div><h1>BigDecSerializer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeutils.base;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.SimpleTypeSerializerSnapshot;
+import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+
+/** Serializer for serializing/deserializing BigDecimal values including null values. */
+@Internal
+<span class="fc" id="L33">public final class BigDecSerializer extends TypeSerializerSingleton&lt;BigDecimal&gt; {</span>
+
+    private static final long serialVersionUID = 1L;
+
+<span class="fc" id="L37">    public static final BigDecSerializer INSTANCE = new BigDecSerializer();</span>
+
+    @Override
+    public boolean isImmutableType() {
+<span class="nc" id="L41">        return true;</span>
+    }
+
+    @Override
+    public BigDecimal createInstance() {
+<span class="fc" id="L46">        return BigDecimal.ZERO;</span>
+    }
+
+    @Override
+    public BigDecimal copy(BigDecimal from) {
+<span class="fc" id="L51">        return from;</span>
+    }
+
+    @Override
+    public BigDecimal copy(BigDecimal from, BigDecimal reuse) {
+<span class="fc" id="L56">        return from;</span>
+    }
+
+    @Override
+    public int getLength() {
+<span class="fc" id="L61">        return -1;</span>
+    }
+
+    @Override
+    public void serialize(BigDecimal record, DataOutputView target) throws IOException {
+        // null value support
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        if (record == null) {</span>
+<span class="fc" id="L68">            BigIntSerializer.writeBigInteger(null, target);</span>
+<span class="fc" id="L69">            return;</span>
+        }
+        // fast paths for 0, 1, 10
+        // only reference equality is checked because equals would be too expensive
+<span class="fc bfc" id="L73" title="All 2 branches covered.">        else if (record == BigDecimal.ZERO) {</span>
+<span class="fc" id="L74">            BigIntSerializer.writeBigInteger(BigInteger.ZERO, target);</span>
+<span class="fc" id="L75">            target.writeInt(0);</span>
+<span class="fc" id="L76">            return;</span>
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        } else if (record == BigDecimal.ONE) {</span>
+<span class="fc" id="L78">            BigIntSerializer.writeBigInteger(BigInteger.ONE, target);</span>
+<span class="fc" id="L79">            target.writeInt(0);</span>
+<span class="fc" id="L80">            return;</span>
+<span class="fc bfc" id="L81" title="All 2 branches covered.">        } else if (record == BigDecimal.TEN) {</span>
+<span class="fc" id="L82">            BigIntSerializer.writeBigInteger(BigInteger.TEN, target);</span>
+<span class="fc" id="L83">            target.writeInt(0);</span>
+<span class="fc" id="L84">            return;</span>
+        }
+        // default
+<span class="fc" id="L87">        BigIntSerializer.writeBigInteger(record.unscaledValue(), target);</span>
+<span class="fc" id="L88">        target.writeInt(record.scale());</span>
+<span class="fc" id="L89">    }</span>
+
+    @Override
+    public BigDecimal deserialize(DataInputView source) throws IOException {
+<span class="fc" id="L93">        return readBigDecimal(source);</span>
+    }
+
+    @Override
+    public BigDecimal deserialize(BigDecimal reuse, DataInputView source) throws IOException {
+<span class="fc" id="L98">        return readBigDecimal(source);</span>
+    }
+
+    @Override
+    public void copy(DataInputView source, DataOutputView target) throws IOException {
+<span class="fc" id="L103">        final boolean isNull = BigIntSerializer.copyBigInteger(source, target);</span>
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">        if (!isNull) {</span>
+<span class="fc" id="L105">            final int scale = source.readInt();</span>
+<span class="fc" id="L106">            target.writeInt(scale);</span>
+        }
+<span class="fc" id="L108">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+    //                           Static Helpers for BigInteger Serialization
+    // --------------------------------------------------------------------------------------------
+
+    public static BigDecimal readBigDecimal(DataInputView source) throws IOException {
+<span class="fc" id="L115">        final BigInteger unscaledValue = BigIntSerializer.readBigInteger(source);</span>
+<span class="fc bfc" id="L116" title="All 2 branches covered.">        if (unscaledValue == null) {</span>
+<span class="fc" id="L117">            return null;</span>
+        }
+<span class="fc" id="L119">        final int scale = source.readInt();</span>
+        // fast-path for 0, 1, 10
+<span class="fc bfc" id="L121" title="All 2 branches covered.">        if (scale == 0) {</span>
+<span class="fc bfc" id="L122" title="All 2 branches covered.">            if (unscaledValue == BigInteger.ZERO) {</span>
+<span class="fc" id="L123">                return BigDecimal.ZERO;</span>
+<span class="fc bfc" id="L124" title="All 2 branches covered.">            } else if (unscaledValue == BigInteger.ONE) {</span>
+<span class="fc" id="L125">                return BigDecimal.ONE;</span>
+<span class="fc bfc" id="L126" title="All 2 branches covered.">            } else if (unscaledValue == BigInteger.TEN) {</span>
+<span class="fc" id="L127">                return BigDecimal.TEN;</span>
+            }
+        }
+        // default
+<span class="fc" id="L131">        return new BigDecimal(unscaledValue, scale);</span>
+    }
+
+    @Override
+    public TypeSerializerSnapshot&lt;BigDecimal&gt; snapshotConfiguration() {
+<span class="fc" id="L136">        return new BigDecSerializerSnapshot();</span>
+    }
+
+    // ------------------------------------------------------------------------
+
+    /** Serializer configuration snapshot for compatibility and format evolution. */
+    @SuppressWarnings(&quot;WeakerAccess&quot;)
+    public static final class BigDecSerializerSnapshot
+            extends SimpleTypeSerializerSnapshot&lt;BigDecimal&gt; {
+
+        public BigDecSerializerSnapshot() {
+<span class="fc" id="L147">            super(() -&gt; INSTANCE);</span>
+<span class="fc" id="L148">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

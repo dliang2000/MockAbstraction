@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AbstractDeserializationSchema.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.serialization</a> &gt; <span class="el_source">AbstractDeserializationSchema.java</span></div><h1>AbstractDeserializationSchema.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.serialization;
+
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.functions.InvalidTypesException;
+import org.apache.flink.api.common.typeinfo.TypeHint;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.typeutils.TypeExtractor;
+import org.apache.flink.util.FlinkRuntimeException;
+
+import java.io.IOException;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * The deserialization schema describes how to turn the byte messages delivered by certain data
+ * sources (for example Apache Kafka) into data types (Java/Scala objects) that are processed by
+ * Flink.
+ *
+ * &lt;p&gt;This base variant of the deserialization schema produces the type information automatically by
+ * extracting it from the generic class arguments.
+ *
+ * &lt;h3&gt;Common Use&lt;/h3&gt;
+ *
+ * &lt;p&gt;To write a deserialization schema for a specific type, simply extend this class and declare
+ * the type in the class signature. Flink will reflectively determine the type and create the proper
+ * TypeInformation:
+ *
+ * &lt;pre&gt;{@code
+ * public class MyDeserializationSchema extends AbstractDeserializationSchema&lt;MyType&gt; {
+ *
+ *     public MyType deserialize(byte[] message) throws IOException {
+ *         ...
+ *     }
+ * }
+ * }&lt;/pre&gt;
+ *
+ * &lt;h3&gt;Generic Use&lt;/h3&gt;
+ *
+ * &lt;p&gt;If you want to write a more generic DeserializationSchema that works for different types, you
+ * need to pass the TypeInformation (or an equivalent hint) to the constructor:
+ *
+ * &lt;pre&gt;{@code
+ * public class MyGenericSchema&lt;T&gt; extends AbstractDeserializationSchema&lt;T&gt; {
+ *
+ *     public MyGenericSchema(Class&lt;T&gt; type) {
+ *         super(type);
+ *     }
+ *
+ *     public T deserialize(byte[] message) throws IOException {
+ *         ...
+ *     }
+ * }
+ * }&lt;/pre&gt;
+ *
+ * @param &lt;T&gt; The type created by the deserialization schema.
+ */
+@PublicEvolving
+public abstract class AbstractDeserializationSchema&lt;T&gt; implements DeserializationSchema&lt;T&gt; {
+
+    private static final long serialVersionUID = 2L;
+
+    /** The type produced by this {@code DeserializationSchema}. */
+    private final TypeInformation&lt;T&gt; type;
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * Creates a new AbstractDeserializationSchema and tries to infer the type returned by this
+     * DeserializationSchema.
+     *
+     * &lt;p&gt;This constructor is usable whenever the DeserializationSchema concretely defines its type,
+     * without generic variables:
+     *
+     * &lt;pre&gt;{@code
+     * public class MyDeserializationSchema extends AbstractDeserializationSchema&lt;MyType&gt; {
+     *
+     *     public MyType deserialize(byte[] message) throws IOException {
+     *         ...
+     *     }
+     * }
+     * }&lt;/pre&gt;
+     */
+<span class="fc" id="L101">    protected AbstractDeserializationSchema() {</span>
+        try {
+<span class="fc" id="L103">            this.type =</span>
+<span class="fc" id="L104">                    TypeExtractor.createTypeInfo(</span>
+<span class="fc" id="L105">                            AbstractDeserializationSchema.class, getClass(), 0, null, null);</span>
+<span class="fc" id="L106">        } catch (InvalidTypesException e) {</span>
+<span class="fc" id="L107">            throw new FlinkRuntimeException(</span>
+                    &quot;The implementation of AbstractDeserializationSchema is using a generic variable. &quot;
+                            + &quot;This is not supported, because due to Java's generic type erasure, it will not be possible to &quot;
+                            + &quot;determine the full type at runtime. For generic implementations, please pass the TypeInformation &quot;
+                            + &quot;or type class explicitly to the constructor.&quot;);
+<span class="fc" id="L112">        }</span>
+<span class="fc" id="L113">    }</span>
+
+    /**
+     * Creates an AbstractDeserializationSchema that returns the TypeInformation indicated by the
+     * given class. This constructor is only necessary when creating a generic implementation, see
+     * {@link AbstractDeserializationSchema Generic Use}.
+     *
+     * &lt;p&gt;This constructor may fail if the class is generic. In that case, please use the
+     * constructor that accepts a {@link #AbstractDeserializationSchema(TypeHint) TypeHint}, or a
+     * {@link #AbstractDeserializationSchema(TypeInformation) TypeInformation}.
+     *
+     * @param type The class of the produced type.
+     */
+<span class="nc" id="L126">    protected AbstractDeserializationSchema(Class&lt;T&gt; type) {</span>
+<span class="nc" id="L127">        checkNotNull(type, &quot;type&quot;);</span>
+<span class="nc" id="L128">        this.type = TypeInformation.of(type);</span>
+<span class="nc" id="L129">    }</span>
+
+    /**
+     * Creates an AbstractDeserializationSchema that returns the TypeInformation indicated by the
+     * given type hint. This constructor is only necessary when creating a generic implementation,
+     * see {@link AbstractDeserializationSchema Generic Use}.
+     *
+     * @param typeHint The TypeHint for the produced type.
+     */
+<span class="nc" id="L138">    protected AbstractDeserializationSchema(TypeHint&lt;T&gt; typeHint) {</span>
+<span class="nc" id="L139">        checkNotNull(typeHint, &quot;typeHint&quot;);</span>
+<span class="nc" id="L140">        this.type = typeHint.getTypeInfo();</span>
+<span class="nc" id="L141">    }</span>
+
+    /**
+     * Creates an AbstractDeserializationSchema that returns the given TypeInformation for the
+     * produced type. This constructor is only necessary when creating a generic implementation, see
+     * {@link AbstractDeserializationSchema Generic Use}.
+     *
+     * @param typeInfo The TypeInformation for the produced type.
+     */
+<span class="nc" id="L150">    protected AbstractDeserializationSchema(TypeInformation&lt;T&gt; typeInfo) {</span>
+<span class="nc" id="L151">        this.type = checkNotNull(typeInfo, &quot;typeInfo&quot;);</span>
+<span class="nc" id="L152">    }</span>
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * De-serializes the byte message.
+     *
+     * @param message The message, as a byte array.
+     * @return The de-serialized message as an object.
+     */
+    @Override
+    public abstract T deserialize(byte[] message) throws IOException;
+
+    /**
+     * Method to decide whether the element signals the end of the stream. If true is returned the
+     * element won't be emitted.
+     *
+     * &lt;p&gt;This default implementation returns always false, meaning the stream is interpreted to be
+     * unbounded.
+     *
+     * @param nextElement The element to test for the end-of-stream signal.
+     * @return True, if the element signals end of stream, false otherwise.
+     */
+    @Override
+    public boolean isEndOfStream(T nextElement) {
+<span class="nc" id="L177">        return false;</span>
+    }
+
+    /**
+     * Gets the type produced by this deserializer. This is the type that was passed to the
+     * constructor, or reflectively inferred (if the default constructor was called).
+     */
+    @Override
+    public TypeInformation&lt;T&gt; getProducedType() {
+<span class="fc" id="L186">        return type;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SerializableHelper.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jsonschema2pojo-core</a> &gt; <a href="index.source.html" class="el_package">org.jsonschema2pojo.util</a> &gt; <span class="el_source">SerializableHelper.java</span></div><h1>SerializableHelper.java</h1><pre class="source lang-java linenums">/**
+ * Copyright © 2010-2020 Nokia
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.jsonschema2pojo.util;
+
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.Serializable;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.TreeMap;
+import java.util.TreeSet;
+
+import org.jsonschema2pojo.exception.GenerationException;
+
+import com.sun.codemodel.JClass;
+import com.sun.codemodel.JDefinedClass;
+import com.sun.codemodel.JExpr;
+import com.sun.codemodel.JFieldVar;
+import com.sun.codemodel.JMethod;
+import com.sun.codemodel.JMod;
+import com.sun.codemodel.JType;
+import com.sun.codemodel.JTypeVar;
+import com.sun.codemodel.JVar;
+
+<span class="nc" id="L45">public class SerializableHelper {</span>
+<span class="nc" id="L46">    private static final Comparator&lt;JClass&gt; INTERFACE_COMPARATOR =</span>
+<span class="nc" id="L47">            new Comparator&lt;JClass&gt;() {</span>
+        @Override
+        public int compare(JClass object1, JClass object2) {
+<span class="nc bnc" id="L50" title="All 4 branches missed.">            if (object1 == null &amp;&amp; object2 == null) {</span>
+<span class="nc" id="L51">                return 0;</span>
+            }
+<span class="nc bnc" id="L53" title="All 2 branches missed.">            if (object1 == null) {</span>
+<span class="nc" id="L54">                return 1;</span>
+            }
+<span class="nc bnc" id="L56" title="All 2 branches missed.">            if (object2 == null) {</span>
+<span class="nc" id="L57">                return -1;</span>
+            }
+<span class="nc" id="L59">            final String name1 = object1.fullName();</span>
+<span class="nc" id="L60">            final String name2 = object2.fullName();</span>
+<span class="nc bnc" id="L61" title="All 4 branches missed.">            if (name1 == null &amp;&amp; name2 == null) {</span>
+<span class="nc" id="L62">                return 0;</span>
+            }
+<span class="nc bnc" id="L64" title="All 2 branches missed.">            if (name1 == null) {</span>
+<span class="nc" id="L65">                return 1;</span>
+            }
+<span class="nc bnc" id="L67" title="All 2 branches missed.">            if (name2 == null) {</span>
+<span class="nc" id="L68">                return -1;</span>
+            }
+<span class="nc" id="L70">            return name1.compareTo(name2);</span>
+        }
+    };
+
+
+    private static void processMethodCollectionForSerializableSupport(Iterator&lt;JMethod&gt; methods, DataOutputStream dataOutputStream) throws IOException {
+<span class="nc" id="L76">        TreeMap&lt;String, JMethod&gt; sortedMethods = new TreeMap&lt;&gt;();</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">        while (methods.hasNext()) {</span>
+<span class="nc" id="L78">            JMethod method = methods.next();</span>
+            //Collect non-private methods
+<span class="nc bnc" id="L80" title="All 2 branches missed.">            if ((method.mods().getValue() &amp; JMod.PRIVATE) != JMod.PRIVATE) {</span>
+<span class="nc" id="L81">                sortedMethods.put(method.name(), method);</span>
+            }
+<span class="nc" id="L83">        }</span>
+<span class="nc bnc" id="L84" title="All 2 branches missed.">        for (JMethod method : sortedMethods.values()) {</span>
+<span class="nc" id="L85">            dataOutputStream.writeUTF(method.name());</span>
+<span class="nc" id="L86">            dataOutputStream.writeInt(method.mods().getValue());</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">            if (method.type() != null) {</span>
+<span class="nc" id="L88">                dataOutputStream.writeUTF(method.type().fullName());</span>
+            }
+<span class="nc bnc" id="L90" title="All 2 branches missed.">            for (JVar param : method.params()) {</span>
+<span class="nc" id="L91">                dataOutputStream.writeUTF(param.type().fullName());</span>
+<span class="nc" id="L92">            }</span>
+<span class="nc" id="L93">        }</span>
+<span class="nc" id="L94">    }</span>
+
+    private static void processDefinedClassForSerializableSupport(JDefinedClass jclass, DataOutputStream dataOutputStream) throws IOException {
+<span class="nc" id="L97">        dataOutputStream.writeUTF(jclass.fullName());</span>
+<span class="nc" id="L98">        dataOutputStream.writeInt(jclass.mods().getValue());</span>
+
+<span class="nc bnc" id="L100" title="All 2 branches missed.">        for (JTypeVar typeParam : jclass.typeParams()) {</span>
+<span class="nc" id="L101">            dataOutputStream.writeUTF(typeParam.fullName());</span>
+        }
+
+        //sorted
+<span class="nc" id="L105">        TreeMap&lt;String, JDefinedClass&gt; sortedClasses = new TreeMap&lt;&gt;();</span>
+<span class="nc" id="L106">        Iterator&lt;JDefinedClass&gt; classes = jclass.classes();</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">        while (classes.hasNext()) {</span>
+<span class="nc" id="L108">            JDefinedClass nestedClass = classes.next();</span>
+<span class="nc" id="L109">            sortedClasses.put(nestedClass.fullName(), nestedClass);</span>
+<span class="nc" id="L110">        }</span>
+
+<span class="nc bnc" id="L112" title="All 2 branches missed.">        for (JDefinedClass nestedClass : sortedClasses.values()) {</span>
+<span class="nc" id="L113">            processDefinedClassForSerializableSupport(nestedClass, dataOutputStream);</span>
+<span class="nc" id="L114">        }</span>
+
+        //sorted
+<span class="nc" id="L117">        TreeSet&lt;String&gt; fieldNames = new TreeSet&lt;&gt;(jclass.fields().keySet());</span>
+<span class="nc bnc" id="L118" title="All 2 branches missed.">        for (String fieldName : fieldNames) {</span>
+<span class="nc" id="L119">            JFieldVar fieldVar = jclass.fields().get(fieldName);</span>
+            //non private members
+<span class="nc bnc" id="L121" title="All 2 branches missed.">            if ((fieldVar.mods().getValue() &amp; JMod.PRIVATE) != JMod.PRIVATE) {</span>
+<span class="nc" id="L122">                processFieldVarForSerializableSupport(jclass.fields().get(fieldName), dataOutputStream);</span>
+            }
+<span class="nc" id="L124">        }</span>
+
+<span class="nc" id="L126">        Iterator&lt;JClass&gt; interfaces = jclass._implements();</span>
+<span class="nc" id="L127">        List&lt;JClass&gt; interfacesList = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        while (interfaces.hasNext()) {</span>
+<span class="nc" id="L129">            JClass aInterface = interfaces.next();</span>
+<span class="nc" id="L130">            interfacesList.add(aInterface);</span>
+<span class="nc" id="L131">        }</span>
+
+<span class="nc" id="L133">        Collections.sort(interfacesList, INTERFACE_COMPARATOR);</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">        for (JClass aInterface : interfacesList) {</span>
+<span class="nc" id="L135">            dataOutputStream.writeUTF(aInterface.fullName());</span>
+<span class="nc" id="L136">        }</span>
+
+        //we should probably serialize the parent class too! (but what if it has serialversionUID on it? that would be a field and would affect the serialversionUID!)
+<span class="nc bnc" id="L139" title="All 2 branches missed.">        if (jclass._extends() != null) {</span>
+<span class="nc" id="L140">            dataOutputStream.writeUTF(jclass._extends().fullName());</span>
+        }
+
+<span class="nc" id="L143">        processMethodCollectionForSerializableSupport(jclass.methods().iterator(), dataOutputStream);</span>
+<span class="nc" id="L144">        processMethodCollectionForSerializableSupport(jclass.constructors(), dataOutputStream);</span>
+<span class="nc" id="L145">    }</span>
+
+
+    private static void processFieldVarForSerializableSupport(JFieldVar fieldVar, DataOutputStream dataOutputStream) throws IOException {
+<span class="nc" id="L149">        dataOutputStream.writeUTF(fieldVar.name());</span>
+<span class="nc" id="L150">        dataOutputStream.writeInt(fieldVar.mods().getValue());</span>
+<span class="nc" id="L151">        JType type = fieldVar.type();</span>
+<span class="nc" id="L152">        dataOutputStream.writeUTF(type.fullName());</span>
+<span class="nc" id="L153">    }</span>
+
+    public static void addSerializableSupport(JDefinedClass jclass) {
+<span class="nc" id="L156">        jclass._implements(Serializable.class);</span>
+
+        try {
+
+<span class="nc" id="L160">            final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();</span>
+<span class="nc" id="L161">            final DataOutputStream dataOutputStream = new DataOutputStream(byteArrayOutputStream);</span>
+
+<span class="nc" id="L163">            processDefinedClassForSerializableSupport(jclass, dataOutputStream);</span>
+
+<span class="nc" id="L165">            dataOutputStream.flush();</span>
+
+<span class="nc" id="L167">            final MessageDigest digest = MessageDigest.getInstance(&quot;SHA&quot;);</span>
+<span class="nc" id="L168">            final byte[] digestBytes = digest.digest(byteArrayOutputStream.toByteArray());</span>
+<span class="nc" id="L169">            long serialVersionUID = 0L;</span>
+
+<span class="nc bnc" id="L171" title="All 2 branches missed.">            for (int i = Math.min(digestBytes.length, 8) - 1; i &gt;= 0; i--) {</span>
+<span class="nc" id="L172">                serialVersionUID = serialVersionUID &lt;&lt; 8 | digestBytes[i] &amp; 0xff;</span>
+            }
+
+<span class="nc" id="L175">            JFieldVar  serialUIDField = jclass.field(JMod.PRIVATE | JMod.STATIC | JMod.FINAL, long.class, &quot;serialVersionUID&quot;);</span>
+<span class="nc" id="L176">            serialUIDField.init(JExpr.lit(serialVersionUID));</span>
+
+<span class="nc" id="L178">        } catch (IOException exception) {</span>
+<span class="nc" id="L179">            throw new GenerationException(&quot;IOException while generating serialversionUID field while adding serializable support to class: &quot; + jclass.fullName(), exception);</span>
+<span class="nc" id="L180">        } catch (NoSuchAlgorithmException exception) {</span>
+<span class="nc" id="L181">            throw new GenerationException(&quot;SHA algorithm not found when trying to generate serialversionUID field while adding serializable support to class: &quot; + jclass.fullName(), exception);</span>
+<span class="nc" id="L182">        }</span>
+<span class="nc" id="L183">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

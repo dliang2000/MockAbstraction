@@ -1,0 +1,468 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CoGroupOperatorBase.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.operators.base</a> &gt; <span class="el_source">CoGroupOperatorBase.java</span></div><h1>CoGroupOperatorBase.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.operators.base;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.InvalidProgramException;
+import org.apache.flink.api.common.functions.CoGroupFunction;
+import org.apache.flink.api.common.functions.Partitioner;
+import org.apache.flink.api.common.functions.RuntimeContext;
+import org.apache.flink.api.common.functions.util.CopyingListCollector;
+import org.apache.flink.api.common.functions.util.FunctionUtils;
+import org.apache.flink.api.common.operators.BinaryOperatorInformation;
+import org.apache.flink.api.common.operators.DualInputOperator;
+import org.apache.flink.api.common.operators.Ordering;
+import org.apache.flink.api.common.operators.util.ListKeyGroupedIterator;
+import org.apache.flink.api.common.operators.util.UserCodeClassWrapper;
+import org.apache.flink.api.common.operators.util.UserCodeObjectWrapper;
+import org.apache.flink.api.common.operators.util.UserCodeWrapper;
+import org.apache.flink.api.common.typeinfo.AtomicType;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeutils.CompositeType;
+import org.apache.flink.api.common.typeutils.GenericPairComparator;
+import org.apache.flink.api.common.typeutils.TypeComparator;
+import org.apache.flink.api.common.typeutils.TypePairComparator;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.util.Collector;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+
+/** @see org.apache.flink.api.common.functions.CoGroupFunction */
+@Internal
+public class CoGroupOperatorBase&lt;IN1, IN2, OUT, FT extends CoGroupFunction&lt;IN1, IN2, OUT&gt;&gt;
+        extends DualInputOperator&lt;IN1, IN2, OUT, FT&gt; {
+
+    /** The ordering for the order inside a group from input one. */
+    private Ordering groupOrder1;
+
+    /** The ordering for the order inside a group from input two. */
+    private Ordering groupOrder2;
+
+    private Partitioner&lt;?&gt; customPartitioner;
+
+    private boolean combinableFirst;
+
+    private boolean combinableSecond;
+
+    // --------------------------------------------------------------------------------------------
+
+    public CoGroupOperatorBase(
+            UserCodeWrapper&lt;FT&gt; udf,
+            BinaryOperatorInformation&lt;IN1, IN2, OUT&gt; operatorInfo,
+            int[] keyPositions1,
+            int[] keyPositions2,
+            String name) {
+<span class="nc" id="L77">        super(udf, operatorInfo, keyPositions1, keyPositions2, name);</span>
+<span class="nc" id="L78">        this.combinableFirst = false;</span>
+<span class="nc" id="L79">        this.combinableSecond = false;</span>
+<span class="nc" id="L80">    }</span>
+
+    public CoGroupOperatorBase(
+            FT udf,
+            BinaryOperatorInformation&lt;IN1, IN2, OUT&gt; operatorInfo,
+            int[] keyPositions1,
+            int[] keyPositions2,
+            String name) {
+<span class="nc" id="L88">        this(new UserCodeObjectWrapper&lt;FT&gt;(udf), operatorInfo, keyPositions1, keyPositions2, name);</span>
+<span class="nc" id="L89">    }</span>
+
+    public CoGroupOperatorBase(
+            Class&lt;? extends FT&gt; udf,
+            BinaryOperatorInformation&lt;IN1, IN2, OUT&gt; operatorInfo,
+            int[] keyPositions1,
+            int[] keyPositions2,
+            String name) {
+<span class="nc" id="L97">        this(new UserCodeClassWrapper&lt;FT&gt;(udf), operatorInfo, keyPositions1, keyPositions2, name);</span>
+<span class="nc" id="L98">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Sets the order of the elements within a group for the given input.
+     *
+     * @param inputNum The number of the input (here either &lt;i&gt;0&lt;/i&gt; or &lt;i&gt;1&lt;/i&gt;).
+     * @param order The order for the elements in a group.
+     */
+    public void setGroupOrder(int inputNum, Ordering order) {
+<span class="nc bnc" id="L109" title="All 2 branches missed.">        if (inputNum == 0) {</span>
+<span class="nc" id="L110">            this.groupOrder1 = order;</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">        } else if (inputNum == 1) {</span>
+<span class="nc" id="L112">            this.groupOrder2 = order;</span>
+        } else {
+<span class="nc" id="L114">            throw new IndexOutOfBoundsException();</span>
+        }
+<span class="nc" id="L116">    }</span>
+
+    /**
+     * Sets the order of the elements within a group for the first input.
+     *
+     * @param order The order for the elements in a group.
+     */
+    public void setGroupOrderForInputOne(Ordering order) {
+<span class="nc" id="L124">        setGroupOrder(0, order);</span>
+<span class="nc" id="L125">    }</span>
+
+    /**
+     * Sets the order of the elements within a group for the second input.
+     *
+     * @param order The order for the elements in a group.
+     */
+    public void setGroupOrderForInputTwo(Ordering order) {
+<span class="nc" id="L133">        setGroupOrder(1, order);</span>
+<span class="nc" id="L134">    }</span>
+
+    /**
+     * Gets the value order for an input, i.e. the order of elements within a group. If no such
+     * order has been set, this method returns null.
+     *
+     * @param inputNum The number of the input (here either &lt;i&gt;0&lt;/i&gt; or &lt;i&gt;1&lt;/i&gt;).
+     * @return The group order.
+     */
+    public Ordering getGroupOrder(int inputNum) {
+<span class="nc bnc" id="L144" title="All 2 branches missed.">        if (inputNum == 0) {</span>
+<span class="nc" id="L145">            return this.groupOrder1;</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">        } else if (inputNum == 1) {</span>
+<span class="nc" id="L147">            return this.groupOrder2;</span>
+        } else {
+<span class="nc" id="L149">            throw new IndexOutOfBoundsException();</span>
+        }
+    }
+
+    /**
+     * Gets the order of elements within a group for the first input. If no such order has been set,
+     * this method returns null.
+     *
+     * @return The group order for the first input.
+     */
+    public Ordering getGroupOrderForInputOne() {
+<span class="nc" id="L160">        return getGroupOrder(0);</span>
+    }
+
+    /**
+     * Gets the order of elements within a group for the second input. If no such order has been
+     * set, this method returns null.
+     *
+     * @return The group order for the second input.
+     */
+    public Ordering getGroupOrderForInputTwo() {
+<span class="nc" id="L170">        return getGroupOrder(1);</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    public boolean isCombinableFirst() {
+<span class="nc" id="L176">        return this.combinableFirst;</span>
+    }
+
+    public void setCombinableFirst(boolean combinableFirst) {
+<span class="nc" id="L180">        this.combinableFirst = combinableFirst;</span>
+<span class="nc" id="L181">    }</span>
+
+    public boolean isCombinableSecond() {
+<span class="nc" id="L184">        return this.combinableSecond;</span>
+    }
+
+    public void setCombinableSecond(boolean combinableSecond) {
+<span class="nc" id="L188">        this.combinableSecond = combinableSecond;</span>
+<span class="nc" id="L189">    }</span>
+
+    public void setCustomPartitioner(Partitioner&lt;?&gt; customPartitioner) {
+<span class="nc" id="L192">        this.customPartitioner = customPartitioner;</span>
+<span class="nc" id="L193">    }</span>
+
+    public Partitioner&lt;?&gt; getCustomPartitioner() {
+<span class="nc" id="L196">        return customPartitioner;</span>
+    }
+
+    // ------------------------------------------------------------------------
+
+    @Override
+    protected List&lt;OUT&gt; executeOnCollections(
+            List&lt;IN1&gt; input1, List&lt;IN2&gt; input2, RuntimeContext ctx, ExecutionConfig executionConfig)
+            throws Exception {
+        // --------------------------------------------------------------------
+        // Setup
+        // --------------------------------------------------------------------
+<span class="nc" id="L208">        TypeInformation&lt;IN1&gt; inputType1 = getOperatorInfo().getFirstInputType();</span>
+<span class="nc" id="L209">        TypeInformation&lt;IN2&gt; inputType2 = getOperatorInfo().getSecondInputType();</span>
+
+        // for the grouping / merging comparator
+<span class="nc" id="L212">        int[] inputKeys1 = getKeyColumns(0);</span>
+<span class="nc" id="L213">        int[] inputKeys2 = getKeyColumns(1);</span>
+
+<span class="nc" id="L215">        boolean[] inputDirections1 = new boolean[inputKeys1.length];</span>
+<span class="nc" id="L216">        boolean[] inputDirections2 = new boolean[inputKeys2.length];</span>
+<span class="nc" id="L217">        Arrays.fill(inputDirections1, true);</span>
+<span class="nc" id="L218">        Arrays.fill(inputDirections2, true);</span>
+
+<span class="nc" id="L220">        final TypeSerializer&lt;IN1&gt; inputSerializer1 = inputType1.createSerializer(executionConfig);</span>
+<span class="nc" id="L221">        final TypeSerializer&lt;IN2&gt; inputSerializer2 = inputType2.createSerializer(executionConfig);</span>
+
+<span class="nc" id="L223">        final TypeComparator&lt;IN1&gt; inputComparator1 =</span>
+<span class="nc" id="L224">                getTypeComparator(executionConfig, inputType1, inputKeys1, inputDirections1);</span>
+<span class="nc" id="L225">        final TypeComparator&lt;IN2&gt; inputComparator2 =</span>
+<span class="nc" id="L226">                getTypeComparator(executionConfig, inputType2, inputKeys2, inputDirections2);</span>
+
+        final TypeComparator&lt;IN1&gt; inputSortComparator1;
+        final TypeComparator&lt;IN2&gt; inputSortComparator2;
+
+<span class="nc bnc" id="L231" title="All 4 branches missed.">        if (groupOrder1 == null || groupOrder1.getNumberOfFields() == 0) {</span>
+            // no group sorting
+<span class="nc" id="L233">            inputSortComparator1 = inputComparator1;</span>
+        } else {
+            // group sorting
+<span class="nc" id="L236">            int[] groupSortKeys = groupOrder1.getFieldPositions();</span>
+<span class="nc" id="L237">            int[] allSortKeys = new int[inputKeys1.length + groupOrder1.getNumberOfFields()];</span>
+<span class="nc" id="L238">            System.arraycopy(inputKeys1, 0, allSortKeys, 0, inputKeys1.length);</span>
+<span class="nc" id="L239">            System.arraycopy(</span>
+                    groupSortKeys, 0, allSortKeys, inputKeys1.length, groupSortKeys.length);
+
+<span class="nc" id="L242">            boolean[] groupSortDirections = groupOrder1.getFieldSortDirections();</span>
+<span class="nc" id="L243">            boolean[] allSortDirections = new boolean[inputKeys1.length + groupSortKeys.length];</span>
+<span class="nc" id="L244">            Arrays.fill(allSortDirections, 0, inputKeys1.length, true);</span>
+<span class="nc" id="L245">            System.arraycopy(</span>
+                    groupSortDirections,
+                    0,
+                    allSortDirections,
+                    inputKeys1.length,
+                    groupSortDirections.length);
+
+<span class="nc" id="L252">            inputSortComparator1 =</span>
+<span class="nc" id="L253">                    getTypeComparator(executionConfig, inputType1, allSortKeys, allSortDirections);</span>
+        }
+
+<span class="nc bnc" id="L256" title="All 4 branches missed.">        if (groupOrder2 == null || groupOrder2.getNumberOfFields() == 0) {</span>
+            // no group sorting
+<span class="nc" id="L258">            inputSortComparator2 = inputComparator2;</span>
+        } else {
+            // group sorting
+<span class="nc" id="L261">            int[] groupSortKeys = groupOrder2.getFieldPositions();</span>
+<span class="nc" id="L262">            int[] allSortKeys = new int[inputKeys2.length + groupOrder2.getNumberOfFields()];</span>
+<span class="nc" id="L263">            System.arraycopy(inputKeys2, 0, allSortKeys, 0, inputKeys2.length);</span>
+<span class="nc" id="L264">            System.arraycopy(</span>
+                    groupSortKeys, 0, allSortKeys, inputKeys2.length, groupSortKeys.length);
+
+<span class="nc" id="L267">            boolean[] groupSortDirections = groupOrder2.getFieldSortDirections();</span>
+<span class="nc" id="L268">            boolean[] allSortDirections = new boolean[inputKeys2.length + groupSortKeys.length];</span>
+<span class="nc" id="L269">            Arrays.fill(allSortDirections, 0, inputKeys2.length, true);</span>
+<span class="nc" id="L270">            System.arraycopy(</span>
+                    groupSortDirections,
+                    0,
+                    allSortDirections,
+                    inputKeys2.length,
+                    groupSortDirections.length);
+
+<span class="nc" id="L277">            inputSortComparator2 =</span>
+<span class="nc" id="L278">                    getTypeComparator(executionConfig, inputType2, allSortKeys, allSortDirections);</span>
+        }
+
+<span class="nc" id="L281">        CoGroupSortListIterator&lt;IN1, IN2&gt; coGroupIterator =</span>
+                new CoGroupSortListIterator&lt;IN1, IN2&gt;(
+                        input1,
+                        inputSortComparator1,
+                        inputComparator1,
+                        inputSerializer1,
+                        input2,
+                        inputSortComparator2,
+                        inputComparator2,
+                        inputSerializer2);
+
+        // --------------------------------------------------------------------
+        // Run UDF
+        // --------------------------------------------------------------------
+<span class="nc" id="L295">        CoGroupFunction&lt;IN1, IN2, OUT&gt; function = userFunction.getUserCodeObject();</span>
+
+<span class="nc" id="L297">        FunctionUtils.setFunctionRuntimeContext(function, ctx);</span>
+<span class="nc" id="L298">        FunctionUtils.openFunction(function, parameters);</span>
+
+<span class="nc" id="L300">        List&lt;OUT&gt; result = new ArrayList&lt;OUT&gt;();</span>
+<span class="nc" id="L301">        Collector&lt;OUT&gt; resultCollector =</span>
+                new CopyingListCollector&lt;OUT&gt;(
+                        result,
+<span class="nc" id="L304">                        getOperatorInfo().getOutputType().createSerializer(executionConfig));</span>
+
+<span class="nc bnc" id="L306" title="All 2 branches missed.">        while (coGroupIterator.next()) {</span>
+<span class="nc" id="L307">            function.coGroup(</span>
+<span class="nc" id="L308">                    coGroupIterator.getValues1(), coGroupIterator.getValues2(), resultCollector);</span>
+        }
+
+<span class="nc" id="L311">        FunctionUtils.closeFunction(function);</span>
+
+<span class="nc" id="L313">        return result;</span>
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private &lt;T&gt; TypeComparator&lt;T&gt; getTypeComparator(
+            ExecutionConfig executionConfig,
+            TypeInformation&lt;T&gt; inputType,
+            int[] inputKeys,
+            boolean[] inputSortDirections) {
+<span class="nc bnc" id="L322" title="All 2 branches missed.">        if (inputType instanceof CompositeType) {</span>
+<span class="nc" id="L323">            return ((CompositeType&lt;T&gt;) inputType)</span>
+<span class="nc" id="L324">                    .createComparator(inputKeys, inputSortDirections, 0, executionConfig);</span>
+<span class="nc bnc" id="L325" title="All 2 branches missed.">        } else if (inputType instanceof AtomicType) {</span>
+<span class="nc" id="L326">            return ((AtomicType&lt;T&gt;) inputType)</span>
+<span class="nc" id="L327">                    .createComparator(inputSortDirections[0], executionConfig);</span>
+        }
+
+<span class="nc" id="L330">        throw new InvalidProgramException(</span>
+                &quot;Input type of coGroup must be one of composite types or atomic types.&quot;);
+    }
+
+    private static class CoGroupSortListIterator&lt;IN1, IN2&gt; {
+
+<span class="nc" id="L336">        private static enum MatchStatus {</span>
+<span class="nc" id="L337">            NONE_REMAINED,</span>
+<span class="nc" id="L338">            FIRST_REMAINED,</span>
+<span class="nc" id="L339">            SECOND_REMAINED,</span>
+<span class="nc" id="L340">            FIRST_EMPTY,</span>
+<span class="nc" id="L341">            SECOND_EMPTY</span>
+        }
+
+        private final ListKeyGroupedIterator&lt;IN1&gt; iterator1;
+
+        private final ListKeyGroupedIterator&lt;IN2&gt; iterator2;
+
+        private final TypePairComparator&lt;IN1, IN2&gt; pairComparator;
+
+        private MatchStatus matchStatus;
+
+        private Iterable&lt;IN1&gt; firstReturn;
+
+        private Iterable&lt;IN2&gt; secondReturn;
+
+        private CoGroupSortListIterator(
+                List&lt;IN1&gt; input1,
+                final TypeComparator&lt;IN1&gt; inputSortComparator1,
+                TypeComparator&lt;IN1&gt; inputComparator1,
+                TypeSerializer&lt;IN1&gt; serializer1,
+                List&lt;IN2&gt; input2,
+                final TypeComparator&lt;IN2&gt; inputSortComparator2,
+                TypeComparator&lt;IN2&gt; inputComparator2,
+<span class="nc" id="L364">                TypeSerializer&lt;IN2&gt; serializer2) {</span>
+<span class="nc" id="L365">            this.pairComparator =</span>
+                    new GenericPairComparator&lt;IN1, IN2&gt;(inputComparator1, inputComparator2);
+
+<span class="nc" id="L368">            this.iterator1 = new ListKeyGroupedIterator&lt;IN1&gt;(input1, serializer1, inputComparator1);</span>
+<span class="nc" id="L369">            this.iterator2 = new ListKeyGroupedIterator&lt;IN2&gt;(input2, serializer2, inputComparator2);</span>
+
+            // ----------------------------------------------------------------
+            // Sort
+            // ----------------------------------------------------------------
+<span class="nc" id="L374">            Collections.sort(</span>
+                    input1,
+<span class="nc" id="L376">                    new Comparator&lt;IN1&gt;() {</span>
+                        @Override
+                        public int compare(IN1 o1, IN1 o2) {
+<span class="nc" id="L379">                            return inputSortComparator1.compare(o1, o2);</span>
+                        }
+                    });
+
+<span class="nc" id="L383">            Collections.sort(</span>
+                    input2,
+<span class="nc" id="L385">                    new Comparator&lt;IN2&gt;() {</span>
+                        @Override
+                        public int compare(IN2 o1, IN2 o2) {
+<span class="nc" id="L388">                            return inputSortComparator2.compare(o1, o2);</span>
+                        }
+                    });
+<span class="nc" id="L391">        }</span>
+
+        private boolean next() throws IOException {
+<span class="nc" id="L394">            boolean firstEmpty = true;</span>
+<span class="nc" id="L395">            boolean secondEmpty = true;</span>
+
+<span class="nc bnc" id="L397" title="All 2 branches missed.">            if (this.matchStatus != MatchStatus.FIRST_EMPTY) {</span>
+<span class="nc bnc" id="L398" title="All 2 branches missed.">                if (this.matchStatus == MatchStatus.FIRST_REMAINED) {</span>
+                    // comparator is still set correctly
+<span class="nc" id="L400">                    firstEmpty = false;</span>
+                } else {
+<span class="nc bnc" id="L402" title="All 2 branches missed.">                    if (this.iterator1.nextKey()) {</span>
+<span class="nc" id="L403">                        this.pairComparator.setReference(iterator1.getValues().getCurrent());</span>
+<span class="nc" id="L404">                        firstEmpty = false;</span>
+                    }
+                }
+            }
+
+<span class="nc bnc" id="L409" title="All 2 branches missed.">            if (this.matchStatus != MatchStatus.SECOND_EMPTY) {</span>
+<span class="nc bnc" id="L410" title="All 2 branches missed.">                if (this.matchStatus == MatchStatus.SECOND_REMAINED) {</span>
+<span class="nc" id="L411">                    secondEmpty = false;</span>
+                } else {
+<span class="nc bnc" id="L413" title="All 2 branches missed.">                    if (iterator2.nextKey()) {</span>
+<span class="nc" id="L414">                        secondEmpty = false;</span>
+                    }
+                }
+            }
+
+<span class="nc bnc" id="L419" title="All 4 branches missed.">            if (firstEmpty &amp;&amp; secondEmpty) {</span>
+                // both inputs are empty
+<span class="nc" id="L421">                return false;</span>
+<span class="nc bnc" id="L422" title="All 4 branches missed.">            } else if (firstEmpty &amp;&amp; !secondEmpty) {</span>
+                // input1 is empty, input2 not
+<span class="nc" id="L424">                this.firstReturn = Collections.emptySet();</span>
+<span class="nc" id="L425">                this.secondReturn = this.iterator2.getValues();</span>
+<span class="nc" id="L426">                this.matchStatus = MatchStatus.FIRST_EMPTY;</span>
+<span class="nc" id="L427">                return true;</span>
+<span class="nc bnc" id="L428" title="All 4 branches missed.">            } else if (!firstEmpty &amp;&amp; secondEmpty) {</span>
+                // input1 is not empty, input 2 is empty
+<span class="nc" id="L430">                this.firstReturn = this.iterator1.getValues();</span>
+<span class="nc" id="L431">                this.secondReturn = Collections.emptySet();</span>
+<span class="nc" id="L432">                this.matchStatus = MatchStatus.SECOND_EMPTY;</span>
+<span class="nc" id="L433">                return true;</span>
+            } else {
+                // both inputs are not empty
+<span class="nc" id="L436">                final int comp =</span>
+<span class="nc" id="L437">                        this.pairComparator.compareToReference(iterator2.getValues().getCurrent());</span>
+
+<span class="nc bnc" id="L439" title="All 2 branches missed.">                if (0 == comp) {</span>
+                    // keys match
+<span class="nc" id="L441">                    this.firstReturn = this.iterator1.getValues();</span>
+<span class="nc" id="L442">                    this.secondReturn = this.iterator2.getValues();</span>
+<span class="nc" id="L443">                    this.matchStatus = MatchStatus.NONE_REMAINED;</span>
+<span class="nc bnc" id="L444" title="All 2 branches missed.">                } else if (0 &lt; comp) {</span>
+                    // key1 goes first
+<span class="nc" id="L446">                    this.firstReturn = this.iterator1.getValues();</span>
+<span class="nc" id="L447">                    this.secondReturn = Collections.emptySet();</span>
+<span class="nc" id="L448">                    this.matchStatus = MatchStatus.SECOND_REMAINED;</span>
+                } else {
+                    // key 2 goes first
+<span class="nc" id="L451">                    this.firstReturn = Collections.emptySet();</span>
+<span class="nc" id="L452">                    this.secondReturn = this.iterator2.getValues();</span>
+<span class="nc" id="L453">                    this.matchStatus = MatchStatus.FIRST_REMAINED;</span>
+                }
+<span class="nc" id="L455">                return true;</span>
+            }
+        }
+
+        private Iterable&lt;IN1&gt; getValues1() {
+<span class="nc" id="L460">            return firstReturn;</span>
+        }
+
+        private Iterable&lt;IN2&gt; getValues2() {
+<span class="nc" id="L464">            return secondReturn;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExceptionHandlerInterceptor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.interceptor</a> &gt; <span class="el_source">ExceptionHandlerInterceptor.java</span></div><h1>ExceptionHandlerInterceptor.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package br.com.caelum.vraptor.interceptor;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import br.com.caelum.vraptor.InterceptionException;
+import br.com.caelum.vraptor.Intercepts;
+import br.com.caelum.vraptor.Result;
+import br.com.caelum.vraptor.core.DefaultExceptionMapper;
+import br.com.caelum.vraptor.core.ExceptionMapper;
+import br.com.caelum.vraptor.core.ExceptionRecorder;
+import br.com.caelum.vraptor.core.InterceptorStack;
+import br.com.caelum.vraptor.resource.ResourceMethod;
+
+import com.google.common.base.Throwables;
+
+/**
+ * Intercept all requests to handling uncaught exceptions.
+ * &lt;p&gt;
+ * This class is a part of Exception Handling Feature.
+ * &lt;/p&gt;
+ *
+ * @author Otávio Scherer Garcia
+ * @see ExceptionRecorder
+ * @see ExceptionRecorderParameter
+ * @see ExceptionMapper
+ * @see DefaultExceptionMapper
+ * @since 3.2
+ */
+@Intercepts
+public class ExceptionHandlerInterceptor
+	implements Interceptor {
+
+<span class="fc" id="L50">	private static final Logger logger = LoggerFactory.getLogger(ExceptionHandlerInterceptor.class);</span>
+
+	private final ExceptionMapper exceptions;
+	private final Result result;
+
+<span class="fc" id="L55">	public ExceptionHandlerInterceptor(ExceptionMapper exceptions, Result result) {</span>
+<span class="fc" id="L56">		this.exceptions = exceptions;</span>
+<span class="fc" id="L57">		this.result = result;</span>
+<span class="fc" id="L58">	}</span>
+
+	public boolean accepts(ResourceMethod method) {
+<span class="fc" id="L61">		return true;</span>
+	}
+
+	public void intercept(InterceptorStack stack, ResourceMethod method, Object resourceInstance)
+			throws InterceptionException {
+		try {
+<span class="nc" id="L67">			stack.next(method, resourceInstance);</span>
+<span class="nc" id="L68">		} catch (InterceptionException e) {</span>
+<span class="nc bnc" id="L69" title="All 4 branches missed.">			if (!(e.getCause() instanceof Exception) || !replay((Exception) e.getCause())) {</span>
+<span class="nc" id="L70">				throw e;</span>
+			}
+<span class="nc" id="L72">		}</span>
+<span class="nc" id="L73">	}</span>
+
+	protected void reportException(Exception e) {
+<span class="nc" id="L76">		result.include(&quot;exception&quot;, Throwables.getRootCause(e));</span>
+<span class="nc" id="L77">	}</span>
+
+	protected boolean replay(Exception e) {
+<span class="nc" id="L80">		ExceptionRecorder&lt;Result&gt; exresult = exceptions.findByException(e);</span>
+
+<span class="nc bnc" id="L82" title="All 2 branches missed.">		if (exresult == null) {</span>
+<span class="nc" id="L83">			return false;</span>
+		}
+
+<span class="nc" id="L86">		reportException(e);</span>
+
+<span class="nc" id="L88">		logger.debug(&quot;handling exception {}&quot;, e.getClass());</span>
+<span class="nc" id="L89">		exresult.replay(result);</span>
+
+<span class="nc" id="L91">		return true;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

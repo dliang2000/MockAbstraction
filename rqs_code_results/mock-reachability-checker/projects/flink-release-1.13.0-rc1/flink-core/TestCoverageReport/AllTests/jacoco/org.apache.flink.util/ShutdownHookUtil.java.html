@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ShutdownHookUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.util</a> &gt; <span class="el_source">ShutdownHookUtil.java</span></div><h1>ShutdownHookUtil.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.util;
+
+import org.slf4j.Logger;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/** Utils class for dealing with JVM shutdown hooks. */
+public class ShutdownHookUtil {
+
+    /** Adds a shutdown hook to the JVM and returns the Thread, which has been registered. */
+    public static Thread addShutdownHook(
+            final AutoCloseable service, final String serviceName, final Logger logger) {
+
+<span class="nc" id="L32">        checkNotNull(service);</span>
+<span class="nc" id="L33">        checkNotNull(logger);</span>
+
+<span class="nc" id="L35">        final Thread shutdownHook =</span>
+                new Thread(
+                        () -&gt; {
+                            try {
+<span class="nc" id="L39">                                service.close();</span>
+<span class="nc" id="L40">                            } catch (Throwable t) {</span>
+<span class="nc" id="L41">                                logger.error(</span>
+                                        &quot;Error during shutdown of {} via JVM shutdown hook.&quot;,
+                                        serviceName,
+                                        t);
+<span class="nc" id="L45">                            }</span>
+<span class="nc" id="L46">                        },</span>
+                        serviceName + &quot; shutdown hook&quot;);
+
+<span class="nc bnc" id="L49" title="All 2 branches missed.">        return addShutdownHookThread(shutdownHook, serviceName, logger) ? shutdownHook : null;</span>
+    }
+
+    /**
+     * Adds a shutdown hook to the JVM.
+     *
+     * @param shutdownHook Shutdown hook to be registered.
+     * @param serviceName The name of service.
+     * @param logger The logger to log.
+     * @return Whether the hook has been successfully registered.
+     */
+    public static boolean addShutdownHookThread(
+            final Thread shutdownHook, final String serviceName, final Logger logger) {
+
+<span class="nc" id="L63">        checkNotNull(shutdownHook);</span>
+<span class="nc" id="L64">        checkNotNull(logger);</span>
+
+        try {
+            // Add JVM shutdown hook to call shutdown of service
+<span class="nc" id="L68">            Runtime.getRuntime().addShutdownHook(shutdownHook);</span>
+<span class="nc" id="L69">            return true;</span>
+<span class="nc" id="L70">        } catch (IllegalStateException e) {</span>
+            // JVM is already shutting down. no need to do our work
+<span class="nc" id="L72">        } catch (Throwable t) {</span>
+<span class="nc" id="L73">            logger.error(</span>
+                    &quot;Cannot register shutdown hook that cleanly terminates {}.&quot;, serviceName, t);
+<span class="nc" id="L75">        }</span>
+<span class="nc" id="L76">        return false;</span>
+    }
+
+    /** Removes a shutdown hook from the JVM. */
+    public static void removeShutdownHook(
+            final Thread shutdownHook, final String serviceName, final Logger logger) {
+
+        // Do not run if this is invoked by the shutdown hook itself
+<span class="nc bnc" id="L84" title="All 4 branches missed.">        if (shutdownHook == null || shutdownHook == Thread.currentThread()) {</span>
+<span class="nc" id="L85">            return;</span>
+        }
+
+<span class="nc" id="L88">        checkNotNull(logger);</span>
+
+        try {
+<span class="nc" id="L91">            Runtime.getRuntime().removeShutdownHook(shutdownHook);</span>
+<span class="nc" id="L92">        } catch (IllegalStateException e) {</span>
+            // race, JVM is in shutdown already, we can safely ignore this
+<span class="nc" id="L94">            logger.debug(</span>
+                    &quot;Unable to remove shutdown hook for {}, shutdown already in progress&quot;,
+                    serviceName,
+                    e);
+<span class="nc" id="L98">        } catch (Throwable t) {</span>
+<span class="nc" id="L99">            logger.warn(&quot;Exception while un-registering {}'s shutdown hook.&quot;, serviceName, t);</span>
+<span class="nc" id="L100">        }</span>
+<span class="nc" id="L101">    }</span>
+
+<span class="nc" id="L103">    private ShutdownHookUtil() {</span>
+<span class="nc" id="L104">        throw new AssertionError();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

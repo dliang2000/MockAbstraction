@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GenericTypeInfo.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.java.typeutils</a> &gt; <span class="el_source">GenericTypeInfo.java</span></div><h1>GenericTypeInfo.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.java.typeutils;
+
+import org.apache.flink.annotation.Public;
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.typeinfo.AtomicType;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeutils.TypeComparator;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.java.typeutils.runtime.GenericTypeComparator;
+import org.apache.flink.api.java.typeutils.runtime.kryo.KryoSerializer;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+@Public
+public class GenericTypeInfo&lt;T&gt; extends TypeInformation&lt;T&gt; implements AtomicType&lt;T&gt; {
+
+    private static final long serialVersionUID = -7959114120287706504L;
+
+    private final Class&lt;T&gt; typeClass;
+
+    @PublicEvolving
+<span class="fc" id="L41">    public GenericTypeInfo(Class&lt;T&gt; typeClass) {</span>
+<span class="fc" id="L42">        this.typeClass = checkNotNull(typeClass);</span>
+<span class="fc" id="L43">    }</span>
+
+    @Override
+    @PublicEvolving
+    public boolean isBasicType() {
+<span class="nc" id="L48">        return false;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public boolean isTupleType() {
+<span class="nc" id="L54">        return false;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public int getArity() {
+<span class="nc" id="L60">        return 1;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public int getTotalFields() {
+<span class="fc" id="L66">        return 1;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public Class&lt;T&gt; getTypeClass() {
+<span class="fc" id="L72">        return typeClass;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public boolean isKeyType() {
+<span class="fc" id="L78">        return Comparable.class.isAssignableFrom(typeClass);</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public TypeSerializer&lt;T&gt; createSerializer(ExecutionConfig config) {
+<span class="fc bfc" id="L84" title="All 2 branches covered.">        if (config.hasGenericTypesDisabled()) {</span>
+<span class="fc" id="L85">            throw new UnsupportedOperationException(</span>
+                    &quot;Generic types have been disabled in the ExecutionConfig and type &quot;
+<span class="fc" id="L87">                            + this.typeClass.getName()</span>
+                            + &quot; is treated as a generic type.&quot;);
+        }
+
+<span class="fc" id="L91">        return new KryoSerializer&lt;T&gt;(this.typeClass, config);</span>
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    @Override
+    @PublicEvolving
+    public TypeComparator&lt;T&gt; createComparator(
+            boolean sortOrderAscending, ExecutionConfig executionConfig) {
+<span class="nc bnc" id="L99" title="All 2 branches missed.">        if (isKeyType()) {</span>
+            @SuppressWarnings(&quot;rawtypes&quot;)
+<span class="nc" id="L101">            GenericTypeComparator comparator =</span>
+                    new GenericTypeComparator(
+<span class="nc" id="L103">                            sortOrderAscending, createSerializer(executionConfig), this.typeClass);</span>
+<span class="nc" id="L104">            return (TypeComparator&lt;T&gt;) comparator;</span>
+        }
+
+<span class="nc" id="L107">        throw new UnsupportedOperationException(</span>
+                &quot;Types that do not implement java.lang.Comparable cannot be used as keys.&quot;);
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L115">        return typeClass.hashCode();</span>
+    }
+
+    @Override
+    public boolean canEqual(Object obj) {
+<span class="nc" id="L120">        return obj instanceof GenericTypeInfo;</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="pc bpc" id="L125" title="1 of 2 branches missed.">        if (obj instanceof GenericTypeInfo) {</span>
+            @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L127">            GenericTypeInfo&lt;T&gt; genericTypeInfo = (GenericTypeInfo&lt;T&gt;) obj;</span>
+
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">            return typeClass == genericTypeInfo.typeClass;</span>
+        } else {
+<span class="nc" id="L131">            return false;</span>
+        }
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L137">        return &quot;GenericType&lt;&quot; + typeClass.getCanonicalName() + &quot;&gt;&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BasicTypeInfo.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeinfo</a> &gt; <span class="el_source">BasicTypeInfo.java</span></div><h1>BasicTypeInfo.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeinfo;
+
+import org.apache.flink.annotation.Public;
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.functions.InvalidTypesException;
+import org.apache.flink.api.common.typeutils.TypeComparator;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.common.typeutils.base.BigDecComparator;
+import org.apache.flink.api.common.typeutils.base.BigDecSerializer;
+import org.apache.flink.api.common.typeutils.base.BigIntComparator;
+import org.apache.flink.api.common.typeutils.base.BigIntSerializer;
+import org.apache.flink.api.common.typeutils.base.BooleanComparator;
+import org.apache.flink.api.common.typeutils.base.BooleanSerializer;
+import org.apache.flink.api.common.typeutils.base.ByteComparator;
+import org.apache.flink.api.common.typeutils.base.ByteSerializer;
+import org.apache.flink.api.common.typeutils.base.CharComparator;
+import org.apache.flink.api.common.typeutils.base.CharSerializer;
+import org.apache.flink.api.common.typeutils.base.DateComparator;
+import org.apache.flink.api.common.typeutils.base.DateSerializer;
+import org.apache.flink.api.common.typeutils.base.DoubleComparator;
+import org.apache.flink.api.common.typeutils.base.DoubleSerializer;
+import org.apache.flink.api.common.typeutils.base.FloatComparator;
+import org.apache.flink.api.common.typeutils.base.FloatSerializer;
+import org.apache.flink.api.common.typeutils.base.InstantComparator;
+import org.apache.flink.api.common.typeutils.base.InstantSerializer;
+import org.apache.flink.api.common.typeutils.base.IntComparator;
+import org.apache.flink.api.common.typeutils.base.IntSerializer;
+import org.apache.flink.api.common.typeutils.base.LongComparator;
+import org.apache.flink.api.common.typeutils.base.LongSerializer;
+import org.apache.flink.api.common.typeutils.base.ShortComparator;
+import org.apache.flink.api.common.typeutils.base.ShortSerializer;
+import org.apache.flink.api.common.typeutils.base.StringComparator;
+import org.apache.flink.api.common.typeutils.base.StringSerializer;
+import org.apache.flink.api.common.typeutils.base.VoidSerializer;
+
+import java.lang.reflect.Constructor;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * Type information for primitive types (int, long, double, byte, ...), String, Date, Void,
+ * BigInteger, and BigDecimal.
+ */
+@Public
+public class BasicTypeInfo&lt;T&gt; extends TypeInformation&lt;T&gt; implements AtomicType&lt;T&gt; {
+
+    private static final long serialVersionUID = -430955220409131770L;
+
+<span class="fc" id="L76">    public static final BasicTypeInfo&lt;String&gt; STRING_TYPE_INFO =</span>
+            new BasicTypeInfo&lt;&gt;(
+                    String.class,
+                    new Class&lt;?&gt;[] {},
+                    StringSerializer.INSTANCE,
+                    StringComparator.class);
+<span class="fc" id="L82">    public static final BasicTypeInfo&lt;Boolean&gt; BOOLEAN_TYPE_INFO =</span>
+            new BasicTypeInfo&lt;&gt;(
+                    Boolean.class,
+                    new Class&lt;?&gt;[] {},
+                    BooleanSerializer.INSTANCE,
+                    BooleanComparator.class);
+<span class="fc" id="L88">    public static final BasicTypeInfo&lt;Byte&gt; BYTE_TYPE_INFO =</span>
+            new IntegerTypeInfo&lt;&gt;(
+                    Byte.class,
+                    new Class&lt;?&gt;[] {
+                        Short.class,
+                        Integer.class,
+                        Long.class,
+                        Float.class,
+                        Double.class,
+                        Character.class
+                    },
+                    ByteSerializer.INSTANCE,
+                    ByteComparator.class);
+<span class="fc" id="L101">    public static final BasicTypeInfo&lt;Short&gt; SHORT_TYPE_INFO =</span>
+            new IntegerTypeInfo&lt;&gt;(
+                    Short.class,
+                    new Class&lt;?&gt;[] {
+                        Integer.class, Long.class, Float.class, Double.class, Character.class
+                    },
+                    ShortSerializer.INSTANCE,
+                    ShortComparator.class);
+<span class="fc" id="L109">    public static final BasicTypeInfo&lt;Integer&gt; INT_TYPE_INFO =</span>
+            new IntegerTypeInfo&lt;&gt;(
+                    Integer.class,
+                    new Class&lt;?&gt;[] {Long.class, Float.class, Double.class, Character.class},
+                    IntSerializer.INSTANCE,
+                    IntComparator.class);
+<span class="fc" id="L115">    public static final BasicTypeInfo&lt;Long&gt; LONG_TYPE_INFO =</span>
+            new IntegerTypeInfo&lt;&gt;(
+                    Long.class,
+                    new Class&lt;?&gt;[] {Float.class, Double.class, Character.class},
+                    LongSerializer.INSTANCE,
+                    LongComparator.class);
+<span class="fc" id="L121">    public static final BasicTypeInfo&lt;Float&gt; FLOAT_TYPE_INFO =</span>
+            new FractionalTypeInfo&lt;&gt;(
+                    Float.class,
+                    new Class&lt;?&gt;[] {Double.class},
+                    FloatSerializer.INSTANCE,
+                    FloatComparator.class);
+<span class="fc" id="L127">    public static final BasicTypeInfo&lt;Double&gt; DOUBLE_TYPE_INFO =</span>
+            new FractionalTypeInfo&lt;&gt;(
+                    Double.class,
+                    new Class&lt;?&gt;[] {},
+                    DoubleSerializer.INSTANCE,
+                    DoubleComparator.class);
+<span class="fc" id="L133">    public static final BasicTypeInfo&lt;Character&gt; CHAR_TYPE_INFO =</span>
+            new BasicTypeInfo&lt;&gt;(
+                    Character.class,
+                    new Class&lt;?&gt;[] {},
+                    CharSerializer.INSTANCE,
+                    CharComparator.class);
+<span class="fc" id="L139">    public static final BasicTypeInfo&lt;Date&gt; DATE_TYPE_INFO =</span>
+            new BasicTypeInfo&lt;&gt;(
+                    Date.class, new Class&lt;?&gt;[] {}, DateSerializer.INSTANCE, DateComparator.class);
+<span class="fc" id="L142">    public static final BasicTypeInfo&lt;Void&gt; VOID_TYPE_INFO =</span>
+            new BasicTypeInfo&lt;&gt;(Void.class, new Class&lt;?&gt;[] {}, VoidSerializer.INSTANCE, null);
+<span class="fc" id="L144">    public static final BasicTypeInfo&lt;BigInteger&gt; BIG_INT_TYPE_INFO =</span>
+            new BasicTypeInfo&lt;&gt;(
+                    BigInteger.class,
+                    new Class&lt;?&gt;[] {},
+                    BigIntSerializer.INSTANCE,
+                    BigIntComparator.class);
+<span class="fc" id="L150">    public static final BasicTypeInfo&lt;BigDecimal&gt; BIG_DEC_TYPE_INFO =</span>
+            new BasicTypeInfo&lt;&gt;(
+                    BigDecimal.class,
+                    new Class&lt;?&gt;[] {},
+                    BigDecSerializer.INSTANCE,
+                    BigDecComparator.class);
+<span class="fc" id="L156">    public static final BasicTypeInfo&lt;Instant&gt; INSTANT_TYPE_INFO =</span>
+            new BasicTypeInfo&lt;&gt;(
+                    Instant.class,
+                    new Class&lt;?&gt;[] {},
+                    InstantSerializer.INSTANCE,
+                    InstantComparator.class);
+
+    // --------------------------------------------------------------------------------------------
+
+    private final Class&lt;T&gt; clazz;
+
+    private final TypeSerializer&lt;T&gt; serializer;
+
+    private final Class&lt;?&gt;[] possibleCastTargetTypes;
+
+    private final Class&lt;? extends TypeComparator&lt;T&gt;&gt; comparatorClass;
+
+    protected BasicTypeInfo(
+            Class&lt;T&gt; clazz,
+            Class&lt;?&gt;[] possibleCastTargetTypes,
+            TypeSerializer&lt;T&gt; serializer,
+<span class="fc" id="L177">            Class&lt;? extends TypeComparator&lt;T&gt;&gt; comparatorClass) {</span>
+<span class="fc" id="L178">        this.clazz = checkNotNull(clazz);</span>
+<span class="fc" id="L179">        this.possibleCastTargetTypes = checkNotNull(possibleCastTargetTypes);</span>
+<span class="fc" id="L180">        this.serializer = checkNotNull(serializer);</span>
+        // comparator can be null as in VOID_TYPE_INFO
+<span class="fc" id="L182">        this.comparatorClass = comparatorClass;</span>
+<span class="fc" id="L183">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Returns whether this type should be automatically casted to the target type in an arithmetic
+     * operation.
+     */
+    @PublicEvolving
+    public boolean shouldAutocastTo(BasicTypeInfo&lt;?&gt; to) {
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        for (Class&lt;?&gt; possibleTo : possibleCastTargetTypes) {</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">            if (possibleTo.equals(to.getTypeClass())) {</span>
+<span class="nc" id="L195">                return true;</span>
+            }
+        }
+<span class="nc" id="L198">        return false;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public boolean isBasicType() {
+<span class="fc" id="L204">        return true;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public boolean isTupleType() {
+<span class="nc" id="L210">        return false;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public int getArity() {
+<span class="nc" id="L216">        return 1;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public int getTotalFields() {
+<span class="fc" id="L222">        return 1;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public Class&lt;T&gt; getTypeClass() {
+<span class="fc" id="L228">        return this.clazz;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public boolean isKeyType() {
+<span class="fc" id="L234">        return true;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public TypeSerializer&lt;T&gt; createSerializer(ExecutionConfig executionConfig) {
+<span class="fc" id="L240">        return this.serializer;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public TypeComparator&lt;T&gt; createComparator(
+            boolean sortOrderAscending, ExecutionConfig executionConfig) {
+<span class="pc bpc" id="L247" title="1 of 2 branches missed.">        if (comparatorClass != null) {</span>
+<span class="fc" id="L248">            return instantiateComparator(comparatorClass, sortOrderAscending);</span>
+        } else {
+<span class="nc" id="L250">            throw new InvalidTypesException(</span>
+<span class="nc" id="L251">                    &quot;The type &quot; + clazz.getSimpleName() + &quot; cannot be used as a key.&quot;);</span>
+        }
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L259">        return (31 * Objects.hash(clazz, serializer, comparatorClass))</span>
+<span class="fc" id="L260">                + Arrays.hashCode(possibleCastTargetTypes);</span>
+    }
+
+    @Override
+    public boolean canEqual(Object obj) {
+<span class="fc" id="L265">        return obj instanceof BasicTypeInfo;</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="pc bpc" id="L270" title="1 of 2 branches missed.">        if (obj instanceof BasicTypeInfo) {</span>
+            @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L272">            BasicTypeInfo&lt;T&gt; other = (BasicTypeInfo&lt;T&gt;) obj;</span>
+
+<span class="pc bpc" id="L274" title="1 of 4 branches missed.">            return other.canEqual(this)</span>
+                    &amp;&amp; this.clazz == other.clazz
+<span class="pc bpc" id="L276" title="2 of 4 branches missed.">                    &amp;&amp; serializer.equals(other.serializer)</span>
+                    &amp;&amp; this.comparatorClass == other.comparatorClass;
+        } else {
+<span class="nc" id="L279">            return false;</span>
+        }
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L285">        return clazz.getSimpleName();</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    @PublicEvolving
+    public static &lt;X&gt; BasicTypeInfo&lt;X&gt; getInfoFor(Class&lt;X&gt; type) {
+<span class="pc bpc" id="L292" title="1 of 2 branches missed.">        if (type == null) {</span>
+<span class="nc" id="L293">            throw new NullPointerException();</span>
+        }
+
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L297">        BasicTypeInfo&lt;X&gt; info = (BasicTypeInfo&lt;X&gt;) TYPES.get(type);</span>
+<span class="fc" id="L298">        return info;</span>
+    }
+
+    private static &lt;X&gt; TypeComparator&lt;X&gt; instantiateComparator(
+            Class&lt;? extends TypeComparator&lt;X&gt;&gt; comparatorClass, boolean ascendingOrder) {
+        try {
+<span class="fc" id="L304">            Constructor&lt;? extends TypeComparator&lt;X&gt;&gt; constructor =</span>
+<span class="fc" id="L305">                    comparatorClass.getConstructor(boolean.class);</span>
+<span class="fc" id="L306">            return constructor.newInstance(ascendingOrder);</span>
+<span class="nc" id="L307">        } catch (Exception e) {</span>
+<span class="nc" id="L308">            throw new RuntimeException(</span>
+<span class="nc" id="L309">                    &quot;Could not initialize basic comparator &quot; + comparatorClass.getName(), e);</span>
+        }
+    }
+
+<span class="fc" id="L313">    private static final Map&lt;Class&lt;?&gt;, BasicTypeInfo&lt;?&gt;&gt; TYPES =</span>
+            new HashMap&lt;Class&lt;?&gt;, BasicTypeInfo&lt;?&gt;&gt;();
+
+    static {
+<span class="fc" id="L317">        TYPES.put(String.class, STRING_TYPE_INFO);</span>
+<span class="fc" id="L318">        TYPES.put(Boolean.class, BOOLEAN_TYPE_INFO);</span>
+<span class="fc" id="L319">        TYPES.put(boolean.class, BOOLEAN_TYPE_INFO);</span>
+<span class="fc" id="L320">        TYPES.put(Byte.class, BYTE_TYPE_INFO);</span>
+<span class="fc" id="L321">        TYPES.put(byte.class, BYTE_TYPE_INFO);</span>
+<span class="fc" id="L322">        TYPES.put(Short.class, SHORT_TYPE_INFO);</span>
+<span class="fc" id="L323">        TYPES.put(short.class, SHORT_TYPE_INFO);</span>
+<span class="fc" id="L324">        TYPES.put(Integer.class, INT_TYPE_INFO);</span>
+<span class="fc" id="L325">        TYPES.put(int.class, INT_TYPE_INFO);</span>
+<span class="fc" id="L326">        TYPES.put(Long.class, LONG_TYPE_INFO);</span>
+<span class="fc" id="L327">        TYPES.put(long.class, LONG_TYPE_INFO);</span>
+<span class="fc" id="L328">        TYPES.put(Float.class, FLOAT_TYPE_INFO);</span>
+<span class="fc" id="L329">        TYPES.put(float.class, FLOAT_TYPE_INFO);</span>
+<span class="fc" id="L330">        TYPES.put(Double.class, DOUBLE_TYPE_INFO);</span>
+<span class="fc" id="L331">        TYPES.put(double.class, DOUBLE_TYPE_INFO);</span>
+<span class="fc" id="L332">        TYPES.put(Character.class, CHAR_TYPE_INFO);</span>
+<span class="fc" id="L333">        TYPES.put(char.class, CHAR_TYPE_INFO);</span>
+<span class="fc" id="L334">        TYPES.put(Date.class, DATE_TYPE_INFO);</span>
+<span class="fc" id="L335">        TYPES.put(Void.class, VOID_TYPE_INFO);</span>
+<span class="fc" id="L336">        TYPES.put(void.class, VOID_TYPE_INFO);</span>
+<span class="fc" id="L337">        TYPES.put(BigInteger.class, BIG_INT_TYPE_INFO);</span>
+<span class="fc" id="L338">        TYPES.put(BigDecimal.class, BIG_DEC_TYPE_INFO);</span>
+<span class="fc" id="L339">        TYPES.put(Instant.class, INSTANT_TYPE_INFO);</span>
+<span class="fc" id="L340">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

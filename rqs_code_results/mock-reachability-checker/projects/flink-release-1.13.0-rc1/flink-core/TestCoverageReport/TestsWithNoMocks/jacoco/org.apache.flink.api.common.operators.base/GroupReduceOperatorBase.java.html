@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GroupReduceOperatorBase.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.operators.base</a> &gt; <span class="el_source">GroupReduceOperatorBase.java</span></div><h1>GroupReduceOperatorBase.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.operators.base;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.InvalidProgramException;
+import org.apache.flink.api.common.functions.GroupCombineFunction;
+import org.apache.flink.api.common.functions.GroupReduceFunction;
+import org.apache.flink.api.common.functions.Partitioner;
+import org.apache.flink.api.common.functions.RuntimeContext;
+import org.apache.flink.api.common.functions.util.CopyingListCollector;
+import org.apache.flink.api.common.functions.util.FunctionUtils;
+import org.apache.flink.api.common.operators.Ordering;
+import org.apache.flink.api.common.operators.SingleInputOperator;
+import org.apache.flink.api.common.operators.UnaryOperatorInformation;
+import org.apache.flink.api.common.operators.util.ListKeyGroupedIterator;
+import org.apache.flink.api.common.operators.util.UserCodeClassWrapper;
+import org.apache.flink.api.common.operators.util.UserCodeObjectWrapper;
+import org.apache.flink.api.common.operators.util.UserCodeWrapper;
+import org.apache.flink.api.common.typeinfo.AtomicType;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeutils.CompositeType;
+import org.apache.flink.api.common.typeutils.TypeComparator;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+
+import org.apache.commons.lang3.ArrayUtils;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+
+import static org.apache.flink.util.Preconditions.checkArgument;
+
+/** @see org.apache.flink.api.common.functions.GroupReduceFunction */
+@Internal
+public class GroupReduceOperatorBase&lt;IN, OUT, FT extends GroupReduceFunction&lt;IN, OUT&gt;&gt;
+        extends SingleInputOperator&lt;IN, OUT, FT&gt; {
+
+    /** The ordering for the order inside a reduce group. */
+    private Ordering groupOrder;
+
+    private boolean combinable;
+
+    private Partitioner&lt;?&gt; customPartitioner;
+
+    public GroupReduceOperatorBase(
+            UserCodeWrapper&lt;FT&gt; udf,
+            UnaryOperatorInformation&lt;IN, OUT&gt; operatorInfo,
+            int[] keyPositions,
+            String name) {
+<span class="nc" id="L69">        super(udf, operatorInfo, keyPositions, name);</span>
+<span class="nc" id="L70">    }</span>
+
+    public GroupReduceOperatorBase(
+            FT udf,
+            UnaryOperatorInformation&lt;IN, OUT&gt; operatorInfo,
+            int[] keyPositions,
+            String name) {
+<span class="nc" id="L77">        super(new UserCodeObjectWrapper&lt;FT&gt;(udf), operatorInfo, keyPositions, name);</span>
+<span class="nc" id="L78">    }</span>
+
+    public GroupReduceOperatorBase(
+            Class&lt;? extends FT&gt; udf,
+            UnaryOperatorInformation&lt;IN, OUT&gt; operatorInfo,
+            int[] keyPositions,
+            String name) {
+<span class="nc" id="L85">        super(new UserCodeClassWrapper&lt;FT&gt;(udf), operatorInfo, keyPositions, name);</span>
+<span class="nc" id="L86">    }</span>
+
+    public GroupReduceOperatorBase(
+            UserCodeWrapper&lt;FT&gt; udf, UnaryOperatorInformation&lt;IN, OUT&gt; operatorInfo, String name) {
+<span class="nc" id="L90">        super(udf, operatorInfo, name);</span>
+<span class="nc" id="L91">    }</span>
+
+    public GroupReduceOperatorBase(
+            FT udf, UnaryOperatorInformation&lt;IN, OUT&gt; operatorInfo, String name) {
+<span class="nc" id="L95">        super(new UserCodeObjectWrapper&lt;FT&gt;(udf), operatorInfo, name);</span>
+<span class="nc" id="L96">    }</span>
+
+    public GroupReduceOperatorBase(
+            Class&lt;? extends FT&gt; udf, UnaryOperatorInformation&lt;IN, OUT&gt; operatorInfo, String name) {
+<span class="nc" id="L100">        super(new UserCodeClassWrapper&lt;FT&gt;(udf), operatorInfo, name);</span>
+<span class="nc" id="L101">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Sets the order of the elements within a reduce group.
+     *
+     * @param order The order for the elements in a reduce group.
+     */
+    public void setGroupOrder(Ordering order) {
+<span class="nc" id="L111">        this.groupOrder = order;</span>
+<span class="nc" id="L112">    }</span>
+
+    /**
+     * Gets the order of elements within a reduce group. If no such order has been set, this method
+     * returns null.
+     *
+     * @return The secondary order.
+     */
+    public Ordering getGroupOrder() {
+<span class="nc" id="L121">        return this.groupOrder;</span>
+    }
+
+    /**
+     * Marks the group reduce operation as combinable. Combinable operations may pre-reduce the data
+     * before the actual group reduce operations. Combinable user-defined functions must implement
+     * the interface {@link GroupCombineFunction}.
+     *
+     * @param combinable Flag to mark the group reduce operation as combinable.
+     */
+    public void setCombinable(boolean combinable) {
+        // sanity check
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        if (combinable</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">                &amp;&amp; !GroupCombineFunction.class.isAssignableFrom(</span>
+<span class="nc" id="L135">                        this.userFunction.getUserCodeClass())) {</span>
+<span class="nc" id="L136">            throw new IllegalArgumentException(</span>
+                    &quot;Cannot set a UDF as combinable if it does not implement the interface &quot;
+<span class="nc" id="L138">                            + GroupCombineFunction.class.getName());</span>
+        } else {
+<span class="nc" id="L140">            this.combinable = combinable;</span>
+        }
+<span class="nc" id="L142">    }</span>
+
+    /**
+     * Checks whether the operation is combinable.
+     *
+     * @return True, if the UDF is combinable, false if not.
+     * @see #setCombinable(boolean)
+     */
+    public boolean isCombinable() {
+<span class="nc" id="L151">        return this.combinable;</span>
+    }
+
+    public void setCustomPartitioner(Partitioner&lt;?&gt; customPartitioner) {
+<span class="nc bnc" id="L155" title="All 2 branches missed.">        if (customPartitioner != null) {</span>
+<span class="nc" id="L156">            int[] keys = getKeyColumns(0);</span>
+<span class="nc bnc" id="L157" title="All 4 branches missed.">            if (keys == null || keys.length == 0) {</span>
+<span class="nc" id="L158">                throw new IllegalArgumentException(</span>
+                        &quot;Cannot use custom partitioner for a non-grouped GroupReduce (AllGroupReduce)&quot;);
+            }
+<span class="nc bnc" id="L161" title="All 2 branches missed.">            if (keys.length &gt; 1) {</span>
+<span class="nc" id="L162">                throw new IllegalArgumentException(</span>
+                        &quot;Cannot use the key partitioner for composite keys (more than one key field)&quot;);
+            }
+        }
+<span class="nc" id="L166">        this.customPartitioner = customPartitioner;</span>
+<span class="nc" id="L167">    }</span>
+
+    public Partitioner&lt;?&gt; getCustomPartitioner() {
+<span class="nc" id="L170">        return customPartitioner;</span>
+    }
+
+    private TypeComparator&lt;IN&gt; getTypeComparator(
+            TypeInformation&lt;IN&gt; typeInfo,
+            int[] sortColumns,
+            boolean[] sortOrderings,
+            ExecutionConfig executionConfig) {
+<span class="nc bnc" id="L178" title="All 2 branches missed.">        if (typeInfo instanceof CompositeType) {</span>
+<span class="nc" id="L179">            return ((CompositeType&lt;IN&gt;) typeInfo)</span>
+<span class="nc" id="L180">                    .createComparator(sortColumns, sortOrderings, 0, executionConfig);</span>
+<span class="nc bnc" id="L181" title="All 2 branches missed.">        } else if (typeInfo instanceof AtomicType) {</span>
+<span class="nc" id="L182">            return ((AtomicType&lt;IN&gt;) typeInfo).createComparator(sortOrderings[0], executionConfig);</span>
+        }
+
+<span class="nc" id="L185">        throw new InvalidProgramException(</span>
+                &quot;Input type of GroupReduce must be one of composite types or atomic types.&quot;);
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    protected List&lt;OUT&gt; executeOnCollections(
+            List&lt;IN&gt; inputData, RuntimeContext ctx, ExecutionConfig executionConfig)
+            throws Exception {
+<span class="nc" id="L195">        GroupReduceFunction&lt;IN, OUT&gt; function = this.userFunction.getUserCodeObject();</span>
+
+<span class="nc" id="L197">        UnaryOperatorInformation&lt;IN, OUT&gt; operatorInfo = getOperatorInfo();</span>
+<span class="nc" id="L198">        TypeInformation&lt;IN&gt; inputType = operatorInfo.getInputType();</span>
+
+<span class="nc" id="L200">        int[] keyColumns = getKeyColumns(0);</span>
+<span class="nc" id="L201">        int[] sortColumns = keyColumns;</span>
+<span class="nc" id="L202">        boolean[] sortOrderings = new boolean[sortColumns.length];</span>
+
+<span class="nc bnc" id="L204" title="All 2 branches missed.">        if (groupOrder != null) {</span>
+<span class="nc" id="L205">            sortColumns = ArrayUtils.addAll(sortColumns, groupOrder.getFieldPositions());</span>
+<span class="nc" id="L206">            sortOrderings = ArrayUtils.addAll(sortOrderings, groupOrder.getFieldSortDirections());</span>
+        }
+
+<span class="nc bnc" id="L209" title="All 2 branches missed.">        if (sortColumns.length == 0) { // =&gt; all reduce. No comparator</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">            checkArgument(sortOrderings.length == 0);</span>
+        } else {
+<span class="nc" id="L212">            final TypeComparator&lt;IN&gt; sortComparator =</span>
+<span class="nc" id="L213">                    getTypeComparator(inputType, sortColumns, sortOrderings, executionConfig);</span>
+<span class="nc" id="L214">            Collections.sort(</span>
+                    inputData,
+<span class="nc" id="L216">                    new Comparator&lt;IN&gt;() {</span>
+                        @Override
+                        public int compare(IN o1, IN o2) {
+<span class="nc" id="L219">                            return sortComparator.compare(o1, o2);</span>
+                        }
+                    });
+        }
+
+<span class="nc" id="L224">        FunctionUtils.setFunctionRuntimeContext(function, ctx);</span>
+<span class="nc" id="L225">        FunctionUtils.openFunction(function, this.parameters);</span>
+
+<span class="nc" id="L227">        ArrayList&lt;OUT&gt; result = new ArrayList&lt;OUT&gt;();</span>
+
+<span class="nc bnc" id="L229" title="All 2 branches missed.">        if (inputData.size() &gt; 0) {</span>
+<span class="nc" id="L230">            final TypeSerializer&lt;IN&gt; inputSerializer = inputType.createSerializer(executionConfig);</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">            if (keyColumns.length == 0) {</span>
+<span class="nc" id="L232">                TypeSerializer&lt;OUT&gt; outSerializer =</span>
+<span class="nc" id="L233">                        getOperatorInfo().getOutputType().createSerializer(executionConfig);</span>
+<span class="nc" id="L234">                List&lt;IN&gt; inputDataCopy = new ArrayList&lt;IN&gt;(inputData.size());</span>
+<span class="nc bnc" id="L235" title="All 2 branches missed.">                for (IN in : inputData) {</span>
+<span class="nc" id="L236">                    inputDataCopy.add(inputSerializer.copy(in));</span>
+<span class="nc" id="L237">                }</span>
+<span class="nc" id="L238">                CopyingListCollector&lt;OUT&gt; collector =</span>
+                        new CopyingListCollector&lt;OUT&gt;(result, outSerializer);
+
+<span class="nc" id="L241">                function.reduce(inputDataCopy, collector);</span>
+<span class="nc" id="L242">            } else {</span>
+<span class="nc" id="L243">                boolean[] keyOrderings = new boolean[keyColumns.length];</span>
+<span class="nc" id="L244">                final TypeComparator&lt;IN&gt; comparator =</span>
+<span class="nc" id="L245">                        getTypeComparator(inputType, keyColumns, keyOrderings, executionConfig);</span>
+
+<span class="nc" id="L247">                ListKeyGroupedIterator&lt;IN&gt; keyedIterator =</span>
+                        new ListKeyGroupedIterator&lt;IN&gt;(inputData, inputSerializer, comparator);
+
+<span class="nc" id="L250">                TypeSerializer&lt;OUT&gt; outSerializer =</span>
+<span class="nc" id="L251">                        getOperatorInfo().getOutputType().createSerializer(executionConfig);</span>
+<span class="nc" id="L252">                CopyingListCollector&lt;OUT&gt; collector =</span>
+                        new CopyingListCollector&lt;OUT&gt;(result, outSerializer);
+
+<span class="nc bnc" id="L255" title="All 2 branches missed.">                while (keyedIterator.nextKey()) {</span>
+<span class="nc" id="L256">                    function.reduce(keyedIterator.getValues(), collector);</span>
+                }
+            }
+        }
+
+<span class="nc" id="L261">        FunctionUtils.closeFunction(function);</span>
+<span class="nc" id="L262">        return result;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

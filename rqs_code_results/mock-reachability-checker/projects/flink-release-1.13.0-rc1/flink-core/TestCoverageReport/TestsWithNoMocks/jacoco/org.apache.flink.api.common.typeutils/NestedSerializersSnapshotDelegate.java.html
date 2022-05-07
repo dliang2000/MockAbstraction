@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NestedSerializersSnapshotDelegate.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeutils</a> &gt; <span class="el_source">NestedSerializersSnapshotDelegate.java</span></div><h1>NestedSerializersSnapshotDelegate.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeutils;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * A NestedSerializersSnapshotDelegate represents the snapshots of multiple serializers that are
+ * used by an outer serializer. Examples would be tuples, where the outer serializer is the tuple
+ * format serializer, and the NestedSerializersSnapshotDelegate holds the serializers for the
+ * different tuple fields.
+ *
+ * &lt;p&gt;The NestedSerializersSnapshotDelegate does not implement the {@link TypeSerializerSnapshot}
+ * interface. It is not meant to be inherited from, but to be composed with a serializer snapshot
+ * implementation.
+ *
+ * &lt;p&gt;The NestedSerializersSnapshotDelegate has its own versioning internally, it does not couple
+ * its versioning to the versioning of the TypeSerializerSnapshot that builds on top of this class.
+ * That way, the NestedSerializersSnapshotDelegate and enclosing TypeSerializerSnapshot the can
+ * evolve their formats independently.
+ */
+@Internal
+public class NestedSerializersSnapshotDelegate {
+
+    /** Magic number for integrity checks during deserialization. */
+    private static final int MAGIC_NUMBER = 1333245;
+
+    /** Current version of the new serialization format. */
+    private static final int VERSION = 1;
+
+    /** The snapshots from the serializer that make up this composition. */
+    private final TypeSerializerSnapshot&lt;?&gt;[] nestedSnapshots;
+
+    /** Constructor to create a snapshot for writing. */
+<span class="fc" id="L61">    public NestedSerializersSnapshotDelegate(TypeSerializer&lt;?&gt;... serializers) {</span>
+<span class="fc" id="L62">        this.nestedSnapshots = TypeSerializerUtils.snapshotBackwardsCompatible(serializers);</span>
+<span class="fc" id="L63">    }</span>
+
+    /** Constructor to create a snapshot during deserialization. */
+    @Internal
+<span class="fc" id="L67">    NestedSerializersSnapshotDelegate(TypeSerializerSnapshot&lt;?&gt;[] snapshots) {</span>
+<span class="fc" id="L68">        this.nestedSnapshots = checkNotNull(snapshots);</span>
+<span class="fc" id="L69">    }</span>
+
+    // ------------------------------------------------------------------------
+    //  Nested Serializers and Compatibility
+    // ------------------------------------------------------------------------
+
+    /**
+     * Produces a restore serializer from each contained serializer configuration snapshot. The
+     * serializers are returned in the same order as the snapshots are stored.
+     */
+    public TypeSerializer&lt;?&gt;[] getRestoredNestedSerializers() {
+<span class="fc" id="L80">        return snapshotsToRestoreSerializers(nestedSnapshots);</span>
+    }
+
+    /** Creates the restore serializer from the pos-th config snapshot. */
+    public &lt;T&gt; TypeSerializer&lt;T&gt; getRestoredNestedSerializer(int pos) {
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        checkArgument(pos &lt; nestedSnapshots.length);</span>
+
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L88">        TypeSerializerSnapshot&lt;T&gt; snapshot = (TypeSerializerSnapshot&lt;T&gt;) nestedSnapshots[pos];</span>
+
+<span class="nc" id="L90">        return snapshot.restoreSerializer();</span>
+    }
+
+    /**
+     * Returns the snapshots of the nested serializers.
+     *
+     * @return the snapshots of the nested serializers.
+     */
+    public TypeSerializerSnapshot&lt;?&gt;[] getNestedSerializerSnapshots() {
+<span class="fc" id="L99">        return nestedSnapshots;</span>
+    }
+
+    /**
+     * Resolves the compatibility of the nested serializer snapshots with the nested serializers of
+     * the new outer serializer.
+     *
+     * @deprecated this no method will be removed in the future. Resolving compatibility for nested
+     *     serializers is now handled by {@link CompositeTypeSerializerSnapshot}.
+     */
+    @Deprecated
+    public &lt;T&gt; TypeSerializerSchemaCompatibility&lt;T&gt; resolveCompatibilityWithNested(
+            TypeSerializerSchemaCompatibility&lt;?&gt; outerCompatibility,
+            TypeSerializer&lt;?&gt;... newNestedSerializers) {
+
+<span class="nc bnc" id="L114" title="All 2 branches missed.">        checkArgument(</span>
+                newNestedSerializers.length == nestedSnapshots.length,
+                &quot;Different number of new serializers and existing serializer configuration snapshots&quot;);
+
+        // compatibility of the outer serializer's format
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        if (outerCompatibility.isIncompatible()) {</span>
+<span class="nc" id="L120">            return TypeSerializerSchemaCompatibility.incompatible();</span>
+        }
+
+        // check nested serializers for compatibility
+<span class="nc" id="L124">        boolean nestedSerializerRequiresMigration = false;</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        for (int i = 0; i &lt; nestedSnapshots.length; i++) {</span>
+<span class="nc" id="L126">            TypeSerializerSchemaCompatibility&lt;?&gt; compatibility =</span>
+<span class="nc" id="L127">                    resolveCompatibility(newNestedSerializers[i], nestedSnapshots[i]);</span>
+
+<span class="nc bnc" id="L129" title="All 2 branches missed.">            if (compatibility.isIncompatible()) {</span>
+<span class="nc" id="L130">                return TypeSerializerSchemaCompatibility.incompatible();</span>
+            }
+<span class="nc bnc" id="L132" title="All 2 branches missed.">            if (compatibility.isCompatibleAfterMigration()) {</span>
+<span class="nc" id="L133">                nestedSerializerRequiresMigration = true;</span>
+            }
+        }
+
+<span class="nc bnc" id="L137" title="All 4 branches missed.">        return (nestedSerializerRequiresMigration || !outerCompatibility.isCompatibleAsIs())</span>
+<span class="nc" id="L138">                ? TypeSerializerSchemaCompatibility.compatibleAfterMigration()</span>
+<span class="nc" id="L139">                : TypeSerializerSchemaCompatibility.compatibleAsIs();</span>
+    }
+
+    // ------------------------------------------------------------------------
+    //  Serialization
+    // ------------------------------------------------------------------------
+
+    /** Writes the composite snapshot of all the contained serializers. */
+    public final void writeNestedSerializerSnapshots(DataOutputView out) throws IOException {
+<span class="fc" id="L148">        out.writeInt(MAGIC_NUMBER);</span>
+<span class="fc" id="L149">        out.writeInt(VERSION);</span>
+
+<span class="fc" id="L151">        out.writeInt(nestedSnapshots.length);</span>
+<span class="fc bfc" id="L152" title="All 2 branches covered.">        for (TypeSerializerSnapshot&lt;?&gt; snap : nestedSnapshots) {</span>
+<span class="fc" id="L153">            TypeSerializerSnapshot.writeVersionedSnapshot(out, snap);</span>
+        }
+<span class="fc" id="L155">    }</span>
+
+    /** Reads the composite snapshot of all the contained serializers. */
+    public static NestedSerializersSnapshotDelegate readNestedSerializerSnapshots(
+            DataInputView in, ClassLoader cl) throws IOException {
+<span class="fc" id="L160">        final int magicNumber = in.readInt();</span>
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">        if (magicNumber != MAGIC_NUMBER) {</span>
+<span class="nc" id="L162">            throw new IOException(</span>
+<span class="nc" id="L163">                    String.format(</span>
+                            &quot;Corrupt data, magic number mismatch. Expected %8x, found %8x&quot;,
+<span class="nc" id="L165">                            MAGIC_NUMBER, magicNumber));</span>
+        }
+
+<span class="fc" id="L168">        final int version = in.readInt();</span>
+<span class="pc bpc" id="L169" title="1 of 2 branches missed.">        if (version != VERSION) {</span>
+<span class="nc" id="L170">            throw new IOException(&quot;Unrecognized version: &quot; + version);</span>
+        }
+
+<span class="fc" id="L173">        final int numSnapshots = in.readInt();</span>
+<span class="fc" id="L174">        final TypeSerializerSnapshot&lt;?&gt;[] nestedSnapshots =</span>
+                new TypeSerializerSnapshot&lt;?&gt;[numSnapshots];
+
+<span class="fc bfc" id="L177" title="All 2 branches covered.">        for (int i = 0; i &lt; numSnapshots; i++) {</span>
+<span class="fc" id="L178">            nestedSnapshots[i] = TypeSerializerSnapshot.readVersionedSnapshot(in, cl);</span>
+        }
+
+<span class="fc" id="L181">        return new NestedSerializersSnapshotDelegate(nestedSnapshots);</span>
+    }
+
+    /**
+     * Reads the composite snapshot of all the contained serializers in a way that is compatible
+     * with Version 1 of the deprecated {@link CompositeTypeSerializerConfigSnapshot}.
+     */
+    public static NestedSerializersSnapshotDelegate legacyReadNestedSerializerSnapshots(
+            DataInputView in, ClassLoader cl) throws IOException {
+        @SuppressWarnings(&quot;deprecation&quot;)
+<span class="nc" id="L191">        final List&lt;Tuple2&lt;TypeSerializer&lt;?&gt;, TypeSerializerSnapshot&lt;?&gt;&gt;&gt; serializersAndSnapshots =</span>
+<span class="nc" id="L192">                TypeSerializerSerializationUtil.readSerializersAndConfigsWithResilience(in, cl);</span>
+
+<span class="nc" id="L194">        final TypeSerializerSnapshot&lt;?&gt;[] nestedSnapshots =</span>
+<span class="nc" id="L195">                serializersAndSnapshots.stream()</span>
+<span class="nc" id="L196">                        .map(t -&gt; t.f1)</span>
+<span class="nc" id="L197">                        .toArray(TypeSerializerSnapshot&lt;?&gt;[]::new);</span>
+
+<span class="nc" id="L199">        return new NestedSerializersSnapshotDelegate(nestedSnapshots);</span>
+    }
+
+    // ------------------------------------------------------------------------
+    //  Utilities
+    // ------------------------------------------------------------------------
+
+    /** Utility method to conjure up a new scope for the generic parameters. */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private static &lt;E&gt; TypeSerializerSchemaCompatibility&lt;E&gt; resolveCompatibility(
+            TypeSerializer&lt;?&gt; serializer, TypeSerializerSnapshot&lt;?&gt; snapshot) {
+
+<span class="nc" id="L211">        TypeSerializer&lt;E&gt; typedSerializer = (TypeSerializer&lt;E&gt;) serializer;</span>
+<span class="nc" id="L212">        TypeSerializerSnapshot&lt;E&gt; typedSnapshot = (TypeSerializerSnapshot&lt;E&gt;) snapshot;</span>
+
+<span class="nc" id="L214">        return typedSnapshot.resolveSchemaCompatibility(typedSerializer);</span>
+    }
+
+    private static TypeSerializer&lt;?&gt;[] snapshotsToRestoreSerializers(
+            TypeSerializerSnapshot&lt;?&gt;... snapshots) {
+<span class="fc" id="L219">        return Arrays.stream(snapshots)</span>
+<span class="fc" id="L220">                .map(TypeSerializerSnapshot::restoreSerializer)</span>
+<span class="fc" id="L221">                .toArray(TypeSerializer[]::new);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

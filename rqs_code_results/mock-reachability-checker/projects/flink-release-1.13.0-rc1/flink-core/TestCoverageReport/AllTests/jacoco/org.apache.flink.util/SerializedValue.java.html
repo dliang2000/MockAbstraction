@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SerializedValue.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.util</a> &gt; <span class="el_source">SerializedValue.java</span></div><h1>SerializedValue.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.util;
+
+import org.apache.flink.annotation.Internal;
+
+import java.io.IOException;
+import java.util.Arrays;
+
+/**
+ * This class is used to transfer (via serialization) objects whose classes are not available in the
+ * system class loader. When those objects are deserialized without access to their special class
+ * loader, the deserialization fails with a {@code ClassNotFoundException}.
+ *
+ * &lt;p&gt;To work around that issue, the SerializedValue serialized data immediately into a byte array.
+ * When send through RPC or another service that uses serialization, only the byte array is
+ * transferred. The object is deserialized later (upon access) and requires the accessor to provide
+ * the corresponding class loader.
+ *
+ * @param &lt;T&gt; The type of the value held.
+ */
+@Internal
+public class SerializedValue&lt;T&gt; implements java.io.Serializable {
+
+    private static final long serialVersionUID = -3564011643393683761L;
+
+    /** The serialized data. */
+    private final byte[] serializedData;
+
+<span class="fc" id="L46">    private SerializedValue(byte[] serializedData) {</span>
+<span class="fc" id="L47">        Preconditions.checkNotNull(serializedData, &quot;Serialized data must not be null&quot;);</span>
+<span class="fc bfc" id="L48" title="All 2 branches covered.">        Preconditions.checkArgument(</span>
+                serializedData.length != 0, &quot;Serialized data must not be empty&quot;);
+<span class="fc" id="L50">        this.serializedData = serializedData;</span>
+<span class="fc" id="L51">    }</span>
+
+    /**
+     * Constructs a serialized value.
+     *
+     * @param value value to serialize
+     * @throws NullPointerException if value is null
+     * @throws IOException exception during serialization
+     */
+<span class="fc" id="L60">    public SerializedValue(T value) throws IOException {</span>
+<span class="fc" id="L61">        Preconditions.checkNotNull(value, &quot;Value must not be null&quot;);</span>
+<span class="fc" id="L62">        this.serializedData = InstantiationUtil.serializeObject(value);</span>
+<span class="fc" id="L63">    }</span>
+
+    public T deserializeValue(ClassLoader loader) throws IOException, ClassNotFoundException {
+<span class="fc" id="L66">        Preconditions.checkNotNull(loader, &quot;No classloader has been passed&quot;);</span>
+<span class="fc" id="L67">        return InstantiationUtil.deserializeObject(serializedData, loader);</span>
+    }
+
+    /**
+     * Returns byte array for serialized data.
+     *
+     * @return Serialized data.
+     */
+    public byte[] getByteArray() {
+<span class="fc" id="L76">        return serializedData;</span>
+    }
+
+    /**
+     * Constructs serialized value from serialized data.
+     *
+     * @param serializedData serialized data
+     * @param &lt;T&gt; type
+     * @return serialized value
+     * @throws NullPointerException if serialized data is null
+     * @throws IllegalArgumentException if serialized data is empty
+     */
+    public static &lt;T&gt; SerializedValue&lt;T&gt; fromBytes(byte[] serializedData) {
+<span class="fc" id="L89">        return new SerializedValue&lt;&gt;(serializedData);</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L96">        return Arrays.hashCode(serializedData);</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="pc bpc" id="L101" title="1 of 2 branches missed.">        if (obj instanceof SerializedValue) {</span>
+<span class="fc" id="L102">            SerializedValue&lt;?&gt; other = (SerializedValue&lt;?&gt;) obj;</span>
+<span class="fc" id="L103">            return Arrays.equals(this.serializedData, other.serializedData);</span>
+        } else {
+<span class="nc" id="L105">            return false;</span>
+        }
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L111">        return &quot;SerializedValue&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

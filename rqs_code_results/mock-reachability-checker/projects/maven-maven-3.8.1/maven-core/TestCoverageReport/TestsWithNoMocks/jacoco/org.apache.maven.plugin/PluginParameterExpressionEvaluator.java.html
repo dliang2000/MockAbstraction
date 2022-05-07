@@ -1,0 +1,486 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PluginParameterExpressionEvaluator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.plugin</a> &gt; <span class="el_source">PluginParameterExpressionEvaluator.java</span></div><h1>PluginParameterExpressionEvaluator.java</h1><pre class="source lang-java linenums">package org.apache.maven.plugin;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.io.File;
+import java.util.Properties;
+
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.plugin.descriptor.MojoDescriptor;
+import org.apache.maven.plugin.descriptor.PluginDescriptor;
+import org.apache.maven.project.MavenProject;
+import org.apache.maven.project.path.PathTranslator;
+import org.codehaus.plexus.component.configurator.expression.ExpressionEvaluationException;
+import org.codehaus.plexus.component.configurator.expression.TypeAwareExpressionEvaluator;
+import org.codehaus.plexus.logging.Logger;
+import org.codehaus.plexus.util.introspection.ReflectionValueExtractor;
+
+/**
+ * Evaluator for plugin parameters expressions. Content surrounded by &lt;code&gt;${&lt;/code&gt; and &lt;code&gt;}&lt;/code&gt; is evaluated.
+ * Recognized values are:
+ * &lt;table border=&quot;1&quot;&gt;
+ * &lt;caption&gt;Expression matrix&lt;/caption&gt;
+ * &lt;tr&gt;&lt;th&gt;expression&lt;/th&gt;                     &lt;th&gt;&lt;/th&gt;               &lt;th&gt;evaluation result&lt;/th&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;session&lt;/code&gt;&lt;/td&gt;           &lt;td&gt;&lt;/td&gt;               &lt;td&gt;the actual {@link MavenSession}&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;session.*&lt;/code&gt;&lt;/td&gt;         &lt;td&gt;(since Maven 3)&lt;/td&gt;&lt;td&gt;&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;localRepository&lt;/code&gt;&lt;/td&gt;   &lt;td&gt;&lt;/td&gt;
+ *                                             &lt;td&gt;{@link MavenSession#getLocalRepository()}&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;reactorProjects&lt;/code&gt;&lt;/td&gt;   &lt;td&gt;&lt;/td&gt;               &lt;td&gt;{@link MavenSession#getProjects()}&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;repositorySystemSession&lt;/code&gt;&lt;/td&gt;&lt;td&gt; (since Maven 3)&lt;/td&gt;
+ *                                             &lt;td&gt;{@link MavenSession#getRepositorySession()}&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;project&lt;/code&gt;&lt;/td&gt;           &lt;td&gt;&lt;/td&gt;
+ *                                             &lt;td&gt;{@link MavenSession#getCurrentProject()}&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;project.*&lt;/code&gt;&lt;/td&gt;         &lt;td&gt;&lt;/td&gt;               &lt;td&gt;&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;pom.*&lt;/code&gt;&lt;/td&gt;             &lt;td&gt;(since Maven 3)&lt;/td&gt;&lt;td&gt;same as &lt;code&gt;project.*&lt;/code&gt;&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;executedProject&lt;/code&gt;&lt;/td&gt;   &lt;td&gt;&lt;/td&gt;
+ *                                             &lt;td&gt;{@link MavenProject#getExecutionProject()}&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;settings&lt;/code&gt;&lt;/td&gt;          &lt;td&gt;&lt;/td&gt;               &lt;td&gt;{@link MavenSession#getSettings()}&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;settings.*&lt;/code&gt;&lt;/td&gt;        &lt;td&gt;&lt;/td&gt;               &lt;td&gt;&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;basedir&lt;/code&gt;&lt;/td&gt;           &lt;td&gt;&lt;/td&gt;
+ *                                             &lt;td&gt;{@link MavenSession#getExecutionRootDirectory()} or 
+ *                                                 &lt;code&gt;System.getProperty( &quot;user.dir&quot; )&lt;/code&gt; if null&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;mojoExecution&lt;/code&gt;&lt;/td&gt;     &lt;td&gt;&lt;/td&gt;               &lt;td&gt;the actual {@link MojoExecution}&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;mojo&lt;/code&gt;&lt;/td&gt;              &lt;td&gt;(since Maven 3)&lt;/td&gt;&lt;td&gt;same as &lt;code&gt;mojoExecution&lt;/code&gt;&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;mojo.*&lt;/code&gt;&lt;/td&gt;            &lt;td&gt;(since Maven 3)&lt;/td&gt;&lt;td&gt;&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;plugin&lt;/code&gt;&lt;/td&gt;            &lt;td&gt;(since Maven 3)&lt;/td&gt;
+ *                             &lt;td&gt;{@link MojoExecution#getMojoDescriptor()}.{@link MojoDescriptor#getPluginDescriptor()
+ *                                 getPluginDescriptor()}&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;plugin.*&lt;/code&gt;&lt;/td&gt;          &lt;td&gt;&lt;/td&gt;               &lt;td&gt;&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;*&lt;/code&gt;&lt;/td&gt;                 &lt;td&gt;&lt;/td&gt;               &lt;td&gt;system properties&lt;/td&gt;&lt;/tr&gt;
+ * &lt;tr&gt;&lt;td&gt;&lt;code&gt;*&lt;/code&gt;&lt;/td&gt;                 &lt;td&gt;&lt;/td&gt;               &lt;td&gt;project properties&lt;/td&gt;&lt;/tr&gt;
+ * &lt;/table&gt;
+ * &lt;i&gt;Notice:&lt;/i&gt; &lt;code&gt;reports&lt;/code&gt; was supported in Maven 2.x but was removed in Maven 3
+ *
+ * @author Jason van Zyl
+ * @see MavenSession
+ * @see MojoExecution
+ */
+public class PluginParameterExpressionEvaluator
+    implements TypeAwareExpressionEvaluator
+{
+    private MavenSession session;
+
+    private MojoExecution mojoExecution;
+
+    private MavenProject project;
+
+    private String basedir;
+
+    private Properties properties;
+
+    @Deprecated //TODO used by the Enforcer plugin
+    public PluginParameterExpressionEvaluator( MavenSession session, MojoExecution mojoExecution,
+                                               PathTranslator pathTranslator, Logger logger, MavenProject project,
+                                               Properties properties )
+    {
+<span class="nc" id="L93">        this( session, mojoExecution );</span>
+<span class="nc" id="L94">    }</span>
+
+    public PluginParameterExpressionEvaluator( MavenSession session )
+    {
+<span class="nc" id="L98">        this( session, null );</span>
+<span class="nc" id="L99">    }</span>
+
+    public PluginParameterExpressionEvaluator( MavenSession session, MojoExecution mojoExecution )
+<span class="fc" id="L102">    {</span>
+<span class="fc" id="L103">        this.session = session;</span>
+<span class="fc" id="L104">        this.mojoExecution = mojoExecution;</span>
+<span class="fc" id="L105">        this.properties = new Properties();</span>
+<span class="fc" id="L106">        this.project = session.getCurrentProject();</span>
+
+        //
+        // Maven4: We may want to evaluate how this is used but we add these separate as the 
+        // getExecutionProperties is deprecated in MavenSession.
+        //
+<span class="fc" id="L112">        this.properties.putAll( session.getUserProperties() );</span>
+<span class="fc" id="L113">        this.properties.putAll( session.getSystemProperties() );</span>
+        
+<span class="fc" id="L115">        String basedir = null;</span>
+
+<span class="fc bfc" id="L117" title="All 2 branches covered.">        if ( project != null )</span>
+        {
+<span class="fc" id="L119">            File projectFile = project.getBasedir();</span>
+
+            // this should always be the case for non-super POM instances...
+<span class="fc bfc" id="L122" title="All 2 branches covered.">            if ( projectFile != null )</span>
+            {
+<span class="fc" id="L124">                basedir = projectFile.getAbsolutePath();</span>
+            }
+        }
+
+<span class="fc bfc" id="L128" title="All 2 branches covered.">        if ( basedir == null )</span>
+        {
+<span class="fc" id="L130">            basedir = session.getExecutionRootDirectory();</span>
+        }
+
+<span class="fc bfc" id="L133" title="All 2 branches covered.">        if ( basedir == null )</span>
+        {
+<span class="fc" id="L135">            basedir = System.getProperty( &quot;user.dir&quot; );</span>
+        }
+
+<span class="fc" id="L138">        this.basedir = basedir;</span>
+<span class="fc" id="L139">    }</span>
+
+    @Override
+    public Object evaluate( String expr )
+        throws ExpressionEvaluationException
+    {
+<span class="fc" id="L145">        return evaluate( expr, null );</span>
+    }
+
+    @Override
+    @SuppressWarnings( &quot;checkstyle:methodlength&quot; )
+    public Object evaluate( String expr, Class&lt;?&gt; type )
+        throws ExpressionEvaluationException
+    {
+<span class="fc" id="L153">        Object value = null;</span>
+
+<span class="pc bpc" id="L155" title="1 of 2 branches missed.">        if ( expr == null )</span>
+        {
+<span class="nc" id="L157">            return null;</span>
+        }
+
+<span class="fc" id="L160">        String expression = stripTokens( expr );</span>
+<span class="fc bfc" id="L161" title="All 2 branches covered.">        if ( expression.equals( expr ) )</span>
+        {
+<span class="fc" id="L163">            int index = expr.indexOf( &quot;${&quot; );</span>
+<span class="fc bfc" id="L164" title="All 2 branches covered.">            if ( index &gt;= 0 )</span>
+            {
+<span class="fc" id="L166">                int lastIndex = expr.indexOf( '}', index );</span>
+<span class="pc bpc" id="L167" title="1 of 2 branches missed.">                if ( lastIndex &gt;= 0 )</span>
+                {
+<span class="fc" id="L169">                    String retVal = expr.substring( 0, index );</span>
+
+<span class="fc bfc" id="L171" title="All 4 branches covered.">                    if ( ( index &gt; 0 ) &amp;&amp; ( expr.charAt( index - 1 ) == '$' ) )</span>
+                    {
+<span class="fc" id="L173">                        retVal += expr.substring( index + 1, lastIndex + 1 );</span>
+                    }
+                    else
+                    {
+<span class="fc" id="L177">                        Object subResult = evaluate( expr.substring( index, lastIndex + 1 ) );</span>
+
+<span class="fc bfc" id="L179" title="All 2 branches covered.">                        if ( subResult != null )</span>
+                        {
+<span class="fc" id="L181">                            retVal += subResult;</span>
+                        }
+                        else
+                        {
+<span class="fc" id="L185">                            retVal += &quot;$&quot; + expr.substring( index + 1, lastIndex + 1 );</span>
+                        }
+                    }
+
+<span class="fc" id="L189">                    retVal += evaluate( expr.substring( lastIndex + 1 ) );</span>
+<span class="fc" id="L190">                    return retVal;</span>
+                }
+            }
+
+            // Was not an expression
+<span class="pc bpc" id="L195" title="1 of 2 branches missed.">            if ( expression.contains( &quot;$$&quot; ) )</span>
+            {
+<span class="nc" id="L197">                return expression.replaceAll( &quot;\\$\\$&quot;, &quot;\\$&quot; );</span>
+            }
+            else
+            {
+<span class="fc" id="L201">                return expression;</span>
+            }
+        }
+
+<span class="fc" id="L205">        MojoDescriptor mojoDescriptor = mojoExecution.getMojoDescriptor();</span>
+
+<span class="fc bfc" id="L207" title="All 2 branches covered.">        if ( &quot;localRepository&quot;.equals( expression ) )</span>
+        {
+<span class="fc" id="L209">            value = session.getLocalRepository();</span>
+        }
+<span class="pc bpc" id="L211" title="1 of 2 branches missed.">        else if ( &quot;session&quot;.equals( expression ) )</span>
+        {
+<span class="nc" id="L213">            value = session;</span>
+        }
+<span class="pc bpc" id="L215" title="1 of 2 branches missed.">        else if ( expression.startsWith( &quot;session&quot; ) )</span>
+        {
+            try
+            {
+<span class="nc" id="L219">                int pathSeparator = expression.indexOf( '/' );</span>
+
+<span class="nc bnc" id="L221" title="All 2 branches missed.">                if ( pathSeparator &gt; 0 )</span>
+                {
+<span class="nc" id="L223">                    String pathExpression = expression.substring( 1, pathSeparator );</span>
+<span class="nc" id="L224">                    value = ReflectionValueExtractor.evaluate( pathExpression, session );</span>
+<span class="nc" id="L225">                    value = value + expression.substring( pathSeparator );</span>
+<span class="nc" id="L226">                }</span>
+                else
+                {
+<span class="nc" id="L229">                    value = ReflectionValueExtractor.evaluate( expression.substring( 1 ), session );</span>
+                }
+            }
+<span class="nc" id="L232">            catch ( Exception e )</span>
+            {
+                // TODO don't catch exception
+<span class="nc" id="L235">                throw new ExpressionEvaluationException( &quot;Error evaluating plugin parameter expression: &quot; + expression,</span>
+                                                         e );
+<span class="nc" id="L237">            }</span>
+        }
+<span class="pc bpc" id="L239" title="1 of 2 branches missed.">        else if ( &quot;reactorProjects&quot;.equals( expression ) )</span>
+        {
+<span class="nc" id="L241">            value = session.getProjects();</span>
+        }
+<span class="pc bpc" id="L243" title="1 of 2 branches missed.">        else if ( &quot;mojoExecution&quot;.equals( expression ) )</span>
+        {
+<span class="nc" id="L245">            value = mojoExecution;</span>
+        }
+<span class="pc bpc" id="L247" title="1 of 2 branches missed.">        else if ( &quot;project&quot;.equals( expression ) )</span>
+        {
+<span class="nc" id="L249">            value = project;</span>
+        }
+<span class="pc bpc" id="L251" title="1 of 2 branches missed.">        else if ( &quot;executedProject&quot;.equals( expression ) )</span>
+        {
+<span class="nc" id="L253">            value = project.getExecutionProject();</span>
+        }
+<span class="pc bpc" id="L255" title="1 of 4 branches missed.">        else if ( expression.startsWith( &quot;project&quot; ) || expression.startsWith( &quot;pom&quot; ) )</span>
+        {
+            try
+            {
+<span class="fc" id="L259">                int pathSeparator = expression.indexOf( '/' );</span>
+
+<span class="pc bpc" id="L261" title="1 of 2 branches missed.">                if ( pathSeparator &gt; 0 )</span>
+                {
+<span class="nc" id="L263">                    String pathExpression = expression.substring( 0, pathSeparator );</span>
+<span class="nc" id="L264">                    value = ReflectionValueExtractor.evaluate( pathExpression, project );</span>
+<span class="nc" id="L265">                    value = value + expression.substring( pathSeparator );</span>
+<span class="nc" id="L266">                }</span>
+                else
+                {
+<span class="fc" id="L269">                    value = ReflectionValueExtractor.evaluate( expression.substring( 1 ), project );</span>
+                }
+            }
+<span class="nc" id="L272">            catch ( Exception e )</span>
+            {
+                // TODO don't catch exception
+<span class="nc" id="L275">                throw new ExpressionEvaluationException( &quot;Error evaluating plugin parameter expression: &quot; + expression,</span>
+                                                         e );
+<span class="fc" id="L277">            }</span>
+        }
+<span class="pc bpc" id="L279" title="1 of 2 branches missed.">        else if ( expression.equals( &quot;repositorySystemSession&quot; ) )</span>
+        {
+<span class="nc" id="L281">            value = session.getRepositorySession();</span>
+        }
+<span class="pc bpc" id="L283" title="1 of 2 branches missed.">        else if ( expression.equals( &quot;mojo&quot; ) )</span>
+        {
+<span class="nc" id="L285">            value = mojoExecution;</span>
+        }
+<span class="pc bpc" id="L287" title="1 of 2 branches missed.">        else if ( expression.startsWith( &quot;mojo&quot; ) )</span>
+        {
+            try
+            {
+<span class="nc" id="L291">                int pathSeparator = expression.indexOf( '/' );</span>
+
+<span class="nc bnc" id="L293" title="All 2 branches missed.">                if ( pathSeparator &gt; 0 )</span>
+                {
+<span class="nc" id="L295">                    String pathExpression = expression.substring( 1, pathSeparator );</span>
+<span class="nc" id="L296">                    value = ReflectionValueExtractor.evaluate( pathExpression, mojoExecution );</span>
+<span class="nc" id="L297">                    value = value + expression.substring( pathSeparator );</span>
+<span class="nc" id="L298">                }</span>
+                else
+                {
+<span class="nc" id="L301">                    value = ReflectionValueExtractor.evaluate( expression.substring( 1 ), mojoExecution );</span>
+                }
+            }
+<span class="nc" id="L304">            catch ( Exception e )</span>
+            {
+                // TODO don't catch exception
+<span class="nc" id="L307">                throw new ExpressionEvaluationException( &quot;Error evaluating plugin parameter expression: &quot; + expression,</span>
+                                                         e );
+<span class="nc" id="L309">            }</span>
+        }
+<span class="fc bfc" id="L311" title="All 2 branches covered.">        else if ( expression.equals( &quot;plugin&quot; ) )</span>
+        {
+<span class="fc" id="L313">            value = mojoDescriptor.getPluginDescriptor();</span>
+        }
+<span class="fc bfc" id="L315" title="All 2 branches covered.">        else if ( expression.startsWith( &quot;plugin&quot; ) )</span>
+        {
+            try
+            {
+<span class="fc" id="L319">                int pathSeparator = expression.indexOf( '/' );</span>
+
+<span class="fc" id="L321">                PluginDescriptor pluginDescriptor = mojoDescriptor.getPluginDescriptor();</span>
+
+<span class="pc bpc" id="L323" title="1 of 2 branches missed.">                if ( pathSeparator &gt; 0 )</span>
+                {
+<span class="nc" id="L325">                    String pathExpression = expression.substring( 1, pathSeparator );</span>
+<span class="nc" id="L326">                    value = ReflectionValueExtractor.evaluate( pathExpression, pluginDescriptor );</span>
+<span class="nc" id="L327">                    value = value + expression.substring( pathSeparator );</span>
+<span class="nc" id="L328">                }</span>
+                else
+                {
+<span class="fc" id="L331">                    value = ReflectionValueExtractor.evaluate( expression.substring( 1 ), pluginDescriptor );</span>
+                }
+            }
+<span class="nc" id="L334">            catch ( Exception e )</span>
+            {
+<span class="nc" id="L336">                throw new ExpressionEvaluationException( &quot;Error evaluating plugin parameter expression: &quot; + expression,</span>
+                                                         e );
+<span class="fc" id="L338">            }</span>
+        }
+<span class="pc bpc" id="L340" title="1 of 2 branches missed.">        else if ( &quot;settings&quot;.equals( expression ) )</span>
+        {
+<span class="nc" id="L342">            value = session.getSettings();</span>
+        }
+<span class="pc bpc" id="L344" title="1 of 2 branches missed.">        else if ( expression.startsWith( &quot;settings&quot; ) )</span>
+        {
+            try
+            {
+<span class="nc" id="L348">                int pathSeparator = expression.indexOf( '/' );</span>
+
+<span class="nc bnc" id="L350" title="All 2 branches missed.">                if ( pathSeparator &gt; 0 )</span>
+                {
+<span class="nc" id="L352">                    String pathExpression = expression.substring( 1, pathSeparator );</span>
+<span class="nc" id="L353">                    value = ReflectionValueExtractor.evaluate( pathExpression, session.getSettings() );</span>
+<span class="nc" id="L354">                    value = value + expression.substring( pathSeparator );</span>
+<span class="nc" id="L355">                }</span>
+                else
+                {
+<span class="nc" id="L358">                    value = ReflectionValueExtractor.evaluate( expression.substring( 1 ), session.getSettings() );</span>
+                }
+            }
+<span class="nc" id="L361">            catch ( Exception e )</span>
+            {
+                // TODO don't catch exception
+<span class="nc" id="L364">                throw new ExpressionEvaluationException( &quot;Error evaluating plugin parameter expression: &quot; + expression,</span>
+                                                         e );
+<span class="nc" id="L366">            }</span>
+        }
+<span class="fc bfc" id="L368" title="All 2 branches covered.">        else if ( &quot;basedir&quot;.equals( expression ) )</span>
+        {
+<span class="fc" id="L370">            value = basedir;</span>
+        }
+<span class="pc bpc" id="L372" title="1 of 2 branches missed.">        else if ( expression.startsWith( &quot;basedir&quot; ) )</span>
+        {
+<span class="nc" id="L374">            int pathSeparator = expression.indexOf( '/' );</span>
+
+<span class="nc bnc" id="L376" title="All 2 branches missed.">            if ( pathSeparator &gt; 0 )</span>
+            {
+<span class="nc" id="L378">                value = basedir + expression.substring( pathSeparator );</span>
+            }
+        }
+
+        /*
+         * MNG-4312: We neither have reserved all of the above magic expressions nor is their set fixed/well-known (it
+         * gets occasionally extended by newer Maven versions). This imposes the risk for existing plugins to
+         * unintentionally use such a magic expression for an ordinary system property. So here we check whether we
+         * ended up with a magic value that is not compatible with the type of the configured mojo parameter (a string
+         * could still be converted by the configurator so we leave those alone). If so, back off to evaluating the
+         * expression from properties only.
+         */
+<span class="pc bpc" id="L390" title="5 of 8 branches missed.">        if ( value != null &amp;&amp; type != null &amp;&amp; !( value instanceof String ) &amp;&amp; !isTypeCompatible( type, value ) )</span>
+        {
+<span class="nc" id="L392">            value = null;</span>
+        }
+
+<span class="fc bfc" id="L395" title="All 2 branches covered.">        if ( value == null )</span>
+        {
+            // The CLI should win for defining properties
+
+<span class="pc bpc" id="L399" title="1 of 2 branches missed.">            if ( properties != null )</span>
+            {
+                // We will attempt to get nab a system property as a way to specify a
+                // parameter to a plugins. My particular case here is allowing the surefire
+                // plugin to run a single test so I want to specify that class on the cli
+                // as a parameter.
+
+<span class="fc" id="L406">                value = properties.getProperty( expression );</span>
+            }
+
+<span class="pc bpc" id="L409" title="2 of 6 branches missed.">            if ( ( value == null ) &amp;&amp; ( ( project != null ) &amp;&amp; ( project.getProperties() != null ) ) )</span>
+            {
+<span class="fc" id="L411">                value = project.getProperties().getProperty( expression );</span>
+            }
+
+        }
+
+<span class="fc bfc" id="L416" title="All 2 branches covered.">        if ( value instanceof String )</span>
+        {
+            // TODO without #, this could just be an evaluate call...
+
+<span class="fc" id="L420">            String val = (String) value;</span>
+
+<span class="fc" id="L422">            int exprStartDelimiter = val.indexOf( &quot;${&quot; );</span>
+
+<span class="pc bpc" id="L424" title="1 of 2 branches missed.">            if ( exprStartDelimiter &gt;= 0 )</span>
+            {
+<span class="nc bnc" id="L426" title="All 2 branches missed.">                if ( exprStartDelimiter &gt; 0 )</span>
+                {
+<span class="nc" id="L428">                    value = val.substring( 0, exprStartDelimiter ) + evaluate( val.substring( exprStartDelimiter ) );</span>
+                }
+                else
+                {
+<span class="nc" id="L432">                    value = evaluate( val.substring( exprStartDelimiter ) );</span>
+                }
+            }
+        }
+
+<span class="fc" id="L437">        return value;</span>
+    }
+
+    private static boolean isTypeCompatible( Class&lt;?&gt; type, Object value )
+    {
+<span class="nc bnc" id="L442" title="All 2 branches missed.">        if ( type.isInstance( value ) )</span>
+        {
+<span class="nc" id="L444">            return true;</span>
+        }
+        // likely Boolean -&gt; boolean, Short -&gt; int etc. conversions, it's not the problem case we try to avoid
+<span class="nc bnc" id="L447" title="All 4 branches missed.">        return ( ( type.isPrimitive() || type.getName().startsWith( &quot;java.lang.&quot; ) )</span>
+<span class="nc bnc" id="L448" title="All 2 branches missed.">                        &amp;&amp; value.getClass().getName().startsWith( &quot;java.lang.&quot; ) );</span>
+    }
+
+    private String stripTokens( String expr )
+    {
+<span class="fc bfc" id="L453" title="All 4 branches covered.">        if ( expr.startsWith( &quot;${&quot; ) &amp;&amp; ( expr.indexOf( '}' ) == expr.length() - 1 ) )</span>
+        {
+<span class="fc" id="L455">            expr = expr.substring( 2, expr.length() - 1 );</span>
+        }
+<span class="fc" id="L457">        return expr;</span>
+    }
+
+    @Override
+    public File alignToBaseDirectory( File file )
+    {
+        // TODO Copied from the DefaultInterpolator. We likely want to resurrect the PathTranslator or at least a
+        // similar component for re-usage
+<span class="nc bnc" id="L465" title="All 2 branches missed.">        if ( file != null )</span>
+        {
+<span class="nc bnc" id="L467" title="All 2 branches missed.">            if ( file.isAbsolute() )</span>
+            {
+                // path was already absolute, just normalize file separator and we're done
+            }
+<span class="nc bnc" id="L471" title="All 2 branches missed.">            else if ( file.getPath().startsWith( File.separator ) )</span>
+            {
+                // drive-relative Windows path, don't align with project directory but with drive root
+<span class="nc" id="L474">                file = file.getAbsoluteFile();</span>
+            }
+            else
+            {
+                // an ordinary relative path, align with project directory
+<span class="nc" id="L479">                file = new File( new File( basedir, file.getPath() ).toURI().normalize() ).getAbsoluteFile();</span>
+            }
+        }
+<span class="nc" id="L482">        return file;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

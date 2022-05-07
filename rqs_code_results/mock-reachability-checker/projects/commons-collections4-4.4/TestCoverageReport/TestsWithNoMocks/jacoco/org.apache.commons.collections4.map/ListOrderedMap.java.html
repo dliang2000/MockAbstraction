@@ -1,0 +1,809 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ListOrderedMap.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons Collections</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.collections4.map</a> &gt; <span class="el_source">ListOrderedMap.java</span></div><h1>ListOrderedMap.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.collections4.map;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.AbstractList;
+import java.util.AbstractSet;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
+
+import org.apache.commons.collections4.OrderedMap;
+import org.apache.commons.collections4.OrderedMapIterator;
+import org.apache.commons.collections4.ResettableIterator;
+import org.apache.commons.collections4.iterators.AbstractUntypedIteratorDecorator;
+import org.apache.commons.collections4.keyvalue.AbstractMapEntry;
+import org.apache.commons.collections4.list.UnmodifiableList;
+
+/**
+ * Decorates a &lt;code&gt;Map&lt;/code&gt; to ensure that the order of addition is retained
+ * using a &lt;code&gt;List&lt;/code&gt; to maintain order.
+ * &lt;p&gt;
+ * The order will be used via the iterators and toArray methods on the views.
+ * The order is also returned by the &lt;code&gt;MapIterator&lt;/code&gt;.
+ * The &lt;code&gt;orderedMapIterator()&lt;/code&gt; method accesses an iterator that can
+ * iterate both forwards and backwards through the map.
+ * In addition, non-interface methods are provided to access the map by index.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * If an object is added to the Map for a second time, it will remain in the
+ * original position in the iteration.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * &lt;strong&gt;Note that ListOrderedMap is not synchronized and is not thread-safe.&lt;/strong&gt;
+ * If you wish to use this map from multiple threads concurrently, you must use
+ * appropriate synchronization. The simplest approach is to wrap this map
+ * using {@link java.util.Collections#synchronizedMap(Map)}. This class may throw
+ * exceptions when accessed by concurrent threads without synchronization.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * &lt;strong&gt;Note that ListOrderedMap doesn't work with
+ * {@link java.util.IdentityHashMap IdentityHashMap}, {@link CaseInsensitiveMap},
+ * or similar maps that violate the general contract of {@link java.util.Map}.&lt;/strong&gt;
+ * The &lt;code&gt;ListOrderedMap&lt;/code&gt; (or, more precisely, the underlying &lt;code&gt;List&lt;/code&gt;)
+ * is relying on {@link Object#equals(Object) equals()}. This is fine, as long as the
+ * decorated &lt;code&gt;Map&lt;/code&gt; is also based on {@link Object#equals(Object) equals()},
+ * and {@link Object#hashCode() hashCode()}, which
+ * {@link java.util.IdentityHashMap IdentityHashMap}, and
+ * {@link CaseInsensitiveMap} don't: The former uses &lt;code&gt;==&lt;/code&gt;, and
+ * the latter uses {@link Object#equals(Object) equals()} on a lower-cased
+ * key.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * This class is {@link Serializable} starting with Commons Collections 3.1.
+ * &lt;/p&gt;
+ *
+ * @param &lt;K&gt; the type of the keys in this map
+ * @param &lt;V&gt; the type of the values in this map
+ * @since 3.0
+ */
+public class ListOrderedMap&lt;K, V&gt;
+        extends AbstractMapDecorator&lt;K, V&gt;
+        implements OrderedMap&lt;K, V&gt;, Serializable {
+
+    /** Serialization version */
+    private static final long serialVersionUID = 2728177751851003750L;
+
+    /** Internal list to hold the sequence of objects */
+<span class="fc" id="L92">    private final List&lt;K&gt; insertOrder = new ArrayList&lt;&gt;();</span>
+
+    /**
+     * Factory method to create an ordered map.
+     * &lt;p&gt;
+     * An &lt;code&gt;ArrayList&lt;/code&gt; is used to retain order.
+     *
+     * @param &lt;K&gt;  the key type
+     * @param &lt;V&gt;  the value type
+     * @param map  the map to decorate, must not be null
+     * @return a new list ordered map
+     * @throws NullPointerException if map is null
+     * @since 4.0
+     */
+    public static &lt;K, V&gt; ListOrderedMap&lt;K, V&gt; listOrderedMap(final Map&lt;K, V&gt; map) {
+<span class="fc" id="L107">        return new ListOrderedMap&lt;&gt;(map);</span>
+    }
+
+    //-----------------------------------------------------------------------
+    /**
+     * Constructs a new empty &lt;code&gt;ListOrderedMap&lt;/code&gt; that decorates
+     * a &lt;code&gt;HashMap&lt;/code&gt;.
+     *
+     * @since 3.1
+     */
+    public ListOrderedMap() {
+<span class="fc" id="L118">        this(new HashMap&lt;K, V&gt;());</span>
+<span class="fc" id="L119">    }</span>
+
+    /**
+     * Constructor that wraps (not copies).
+     *
+     * @param map  the map to decorate, must not be null
+     * @throws NullPointerException if map is null
+     */
+    protected ListOrderedMap(final Map&lt;K, V&gt; map) {
+<span class="fc" id="L128">        super(map);</span>
+<span class="fc" id="L129">        insertOrder.addAll(decorated().keySet());</span>
+<span class="fc" id="L130">    }</span>
+
+    //-----------------------------------------------------------------------
+    /**
+     * Write the map out using a custom routine.
+     *
+     * @param out  the output stream
+     * @throws IOException if an error occurs while writing to the stream
+     * @since 3.1
+     */
+    private void writeObject(final ObjectOutputStream out) throws IOException {
+<span class="nc" id="L141">        out.defaultWriteObject();</span>
+<span class="nc" id="L142">        out.writeObject(map);</span>
+<span class="nc" id="L143">    }</span>
+
+    /**
+     * Read the map in using a custom routine.
+     *
+     * @param in  the input stream
+     * @throws IOException if an error occurs while reading from the stream
+     * @throws ClassNotFoundException if an object read from the stream can not be loaded
+     * @since 3.1
+     */
+    @SuppressWarnings(&quot;unchecked&quot;) // (1) should only fail if input stream is incorrect
+    private void readObject(final ObjectInputStream in) throws IOException, ClassNotFoundException {
+<span class="nc" id="L155">        in.defaultReadObject();</span>
+<span class="nc" id="L156">        map = (Map&lt;K, V&gt;) in.readObject(); // (1)</span>
+<span class="nc" id="L157">    }</span>
+
+    // Implement OrderedMap
+    //-----------------------------------------------------------------------
+    @Override
+    public OrderedMapIterator&lt;K, V&gt; mapIterator() {
+<span class="fc" id="L163">        return new ListOrderedMapIterator&lt;&gt;(this);</span>
+    }
+
+    /**
+     * Gets the first key in this map by insert order.
+     *
+     * @return the first key currently in this map
+     * @throws NoSuchElementException if this map is empty
+     */
+    @Override
+    public K firstKey() {
+<span class="nc bnc" id="L174" title="All 2 branches missed.">        if (size() == 0) {</span>
+<span class="nc" id="L175">            throw new NoSuchElementException(&quot;Map is empty&quot;);</span>
+        }
+<span class="nc" id="L177">        return insertOrder.get(0);</span>
+    }
+
+    /**
+     * Gets the last key in this map by insert order.
+     *
+     * @return the last key currently in this map
+     * @throws NoSuchElementException if this map is empty
+     */
+    @Override
+    public K lastKey() {
+<span class="nc bnc" id="L188" title="All 2 branches missed.">        if (size() == 0) {</span>
+<span class="nc" id="L189">            throw new NoSuchElementException(&quot;Map is empty&quot;);</span>
+        }
+<span class="nc" id="L191">        return insertOrder.get(size() - 1);</span>
+    }
+
+    /**
+     * Gets the next key to the one specified using insert order.
+     * This method performs a list search to find the key and is O(n).
+     *
+     * @param key  the key to find previous for
+     * @return the next key, null if no match or at start
+     */
+    @Override
+    public K nextKey(final Object key) {
+<span class="nc" id="L203">        final int index = insertOrder.indexOf(key);</span>
+<span class="nc bnc" id="L204" title="All 4 branches missed.">        if (index &gt;= 0 &amp;&amp; index &lt; size() - 1) {</span>
+<span class="nc" id="L205">            return insertOrder.get(index + 1);</span>
+        }
+<span class="nc" id="L207">        return null;</span>
+    }
+
+    /**
+     * Gets the previous key to the one specified using insert order.
+     * This method performs a list search to find the key and is O(n).
+     *
+     * @param key  the key to find previous for
+     * @return the previous key, null if no match or at start
+     */
+    @Override
+    public K previousKey(final Object key) {
+<span class="nc" id="L219">        final int index = insertOrder.indexOf(key);</span>
+<span class="nc bnc" id="L220" title="All 2 branches missed.">        if (index &gt; 0) {</span>
+<span class="nc" id="L221">            return insertOrder.get(index - 1);</span>
+        }
+<span class="nc" id="L223">        return null;</span>
+    }
+
+    //-----------------------------------------------------------------------
+    @Override
+    public V put(final K key, final V value) {
+<span class="fc bfc" id="L229" title="All 2 branches covered.">        if (decorated().containsKey(key)) {</span>
+            // re-adding doesn't change order
+<span class="fc" id="L231">            return decorated().put(key, value);</span>
+        }
+        // first add, so add to both map and list
+<span class="fc" id="L234">        final V result = decorated().put(key, value);</span>
+<span class="fc" id="L235">        insertOrder.add(key);</span>
+<span class="fc" id="L236">        return result;</span>
+    }
+
+    @Override
+    public void putAll(final Map&lt;? extends K, ? extends V&gt; map) {
+<span class="fc bfc" id="L241" title="All 2 branches covered.">        for (final Map.Entry&lt;? extends K, ? extends V&gt; entry : map.entrySet()) {</span>
+<span class="fc" id="L242">            put(entry.getKey(), entry.getValue());</span>
+<span class="fc" id="L243">        }</span>
+<span class="fc" id="L244">    }</span>
+
+    /**
+     * Puts the values contained in a supplied Map into the Map starting at
+     * the specified index.
+     *
+     * @param index the index in the Map to start at.
+     * @param map the Map containing the entries to be added.
+     * @throws IndexOutOfBoundsException if the index is out of range [0, size]
+     */
+    public void putAll(int index, final Map&lt;? extends K, ? extends V&gt; map) {
+<span class="pc bpc" id="L255" title="2 of 4 branches missed.">        if (index &lt; 0 || index &gt; insertOrder.size()) {</span>
+<span class="nc" id="L256">            throw new IndexOutOfBoundsException(&quot;Index: &quot; + index + &quot;, Size: &quot; + insertOrder.size());</span>
+        }
+<span class="fc bfc" id="L258" title="All 2 branches covered.">        for (final Map.Entry&lt;? extends K, ? extends V&gt; entry : map.entrySet()) {</span>
+<span class="fc" id="L259">            final K key = entry.getKey();</span>
+<span class="fc" id="L260">            final boolean contains = containsKey(key);</span>
+            // The return value of put is null if the key did not exist OR the value was null
+            // so it cannot be used to determine whether the key was added
+<span class="fc" id="L263">            put(index, entry.getKey(), entry.getValue());</span>
+<span class="fc bfc" id="L264" title="All 2 branches covered.">            if (!contains) {</span>
+                // if no key was replaced, increment the index
+<span class="fc" id="L266">                index++;</span>
+            } else {
+                // otherwise put the next item after the currently inserted key
+<span class="fc" id="L269">                index = indexOf(entry.getKey()) + 1;</span>
+            }
+<span class="fc" id="L271">        }</span>
+<span class="fc" id="L272">    }</span>
+
+    @Override
+    public V remove(final Object key) {
+<span class="fc" id="L276">        V result = null;</span>
+<span class="pc bpc" id="L277" title="1 of 2 branches missed.">        if (decorated().containsKey(key)) {</span>
+<span class="fc" id="L278">            result = decorated().remove(key);</span>
+<span class="fc" id="L279">            insertOrder.remove(key);</span>
+        }
+<span class="fc" id="L281">        return result;</span>
+    }
+
+    @Override
+    public void clear() {
+<span class="fc" id="L286">        decorated().clear();</span>
+<span class="fc" id="L287">        insertOrder.clear();</span>
+<span class="fc" id="L288">    }</span>
+
+    //-----------------------------------------------------------------------
+    /**
+     * Gets a view over the keys in the map.
+     * &lt;p&gt;
+     * The Collection will be ordered by object insertion into the map.
+     *
+     * @see #keyList()
+     * @return the fully modifiable collection view over the keys
+     */
+    @Override
+    public Set&lt;K&gt; keySet() {
+<span class="fc" id="L301">        return new KeySetView&lt;&gt;(this);</span>
+    }
+
+    /**
+     * Gets a view over the keys in the map as a List.
+     * &lt;p&gt;
+     * The List will be ordered by object insertion into the map.
+     * The List is unmodifiable.
+     *
+     * @see #keySet()
+     * @return the unmodifiable list view over the keys
+     * @since 3.2
+     */
+    public List&lt;K&gt; keyList() {
+<span class="fc" id="L315">        return UnmodifiableList.unmodifiableList(insertOrder);</span>
+    }
+
+    /**
+     * Gets a view over the values in the map.
+     * &lt;p&gt;
+     * The Collection will be ordered by object insertion into the map.
+     * &lt;p&gt;
+     * From Commons Collections 3.2, this Collection can be cast
+     * to a list, see {@link #valueList()}
+     *
+     * @see #valueList()
+     * @return the fully modifiable collection view over the values
+     */
+    @Override
+    public Collection&lt;V&gt; values() {
+<span class="fc" id="L331">        return new ValuesView&lt;&gt;(this);</span>
+    }
+
+    /**
+     * Gets a view over the values in the map as a List.
+     * &lt;p&gt;
+     * The List will be ordered by object insertion into the map.
+     * The List supports remove and set, but does not support add.
+     *
+     * @see #values()
+     * @return the partially modifiable list view over the values
+     * @since 3.2
+     */
+    public List&lt;V&gt; valueList() {
+<span class="fc" id="L345">        return new ValuesView&lt;&gt;(this);</span>
+    }
+
+    /**
+     * Gets a view over the entries in the map.
+     * &lt;p&gt;
+     * The Set will be ordered by object insertion into the map.
+     *
+     * @return the fully modifiable set view over the entries
+     */
+    @Override
+    public Set&lt;Map.Entry&lt;K, V&gt;&gt; entrySet() {
+<span class="fc" id="L357">        return new EntrySetView&lt;&gt;(this, this.insertOrder);</span>
+    }
+
+    //-----------------------------------------------------------------------
+    /**
+     * Returns the Map as a string.
+     *
+     * @return the Map as a String
+     */
+    @Override
+    public String toString() {
+<span class="nc bnc" id="L368" title="All 2 branches missed.">        if (isEmpty()) {</span>
+<span class="nc" id="L369">            return &quot;{}&quot;;</span>
+        }
+<span class="nc" id="L371">        final StringBuilder buf = new StringBuilder();</span>
+<span class="nc" id="L372">        buf.append('{');</span>
+<span class="nc" id="L373">        boolean first = true;</span>
+<span class="nc bnc" id="L374" title="All 2 branches missed.">        for (final Map.Entry&lt;K, V&gt; entry : entrySet()) {</span>
+<span class="nc" id="L375">            final K key = entry.getKey();</span>
+<span class="nc" id="L376">            final V value = entry.getValue();</span>
+<span class="nc bnc" id="L377" title="All 2 branches missed.">            if (first) {</span>
+<span class="nc" id="L378">                first = false;</span>
+            } else {
+<span class="nc" id="L380">                buf.append(&quot;, &quot;);</span>
+            }
+<span class="nc bnc" id="L382" title="All 2 branches missed.">            buf.append(key == this ? &quot;(this Map)&quot; : key);</span>
+<span class="nc" id="L383">            buf.append('=');</span>
+<span class="nc bnc" id="L384" title="All 2 branches missed.">            buf.append(value == this ? &quot;(this Map)&quot; : value);</span>
+<span class="nc" id="L385">        }</span>
+<span class="nc" id="L386">        buf.append('}');</span>
+<span class="nc" id="L387">        return buf.toString();</span>
+    }
+
+    //-----------------------------------------------------------------------
+    /**
+     * Gets the key at the specified index.
+     *
+     * @param index  the index to retrieve
+     * @return the key at the specified index
+     * @throws IndexOutOfBoundsException if the index is invalid
+     */
+    public K get(final int index) {
+<span class="fc" id="L399">        return insertOrder.get(index);</span>
+    }
+
+    /**
+     * Gets the value at the specified index.
+     *
+     * @param index  the index to retrieve
+     * @return the key at the specified index
+     * @throws IndexOutOfBoundsException if the index is invalid
+     */
+    public V getValue(final int index) {
+<span class="fc" id="L410">        return get(insertOrder.get(index));</span>
+    }
+
+    /**
+     * Gets the index of the specified key.
+     *
+     * @param key  the key to find the index of
+     * @return the index, or -1 if not found
+     */
+    public int indexOf(final Object key) {
+<span class="fc" id="L420">        return insertOrder.indexOf(key);</span>
+    }
+
+    /**
+     * Sets the value at the specified index.
+     *
+     * @param index  the index of the value to set
+     * @param value  the new value to set
+     * @return the previous value at that index
+     * @throws IndexOutOfBoundsException if the index is invalid
+     * @since 3.2
+     */
+    public V setValue(final int index, final V value) {
+<span class="fc" id="L433">        final K key = insertOrder.get(index);</span>
+<span class="fc" id="L434">        return put(key, value);</span>
+    }
+
+    /**
+     * Puts a key-value mapping into the map at the specified index.
+     * &lt;p&gt;
+     * If the map already contains the key, then the original mapping
+     * is removed and the new mapping added at the specified index.
+     * The remove may change the effect of the index. The index is
+     * always calculated relative to the original state of the map.
+     * &lt;p&gt;
+     * Thus the steps are: (1) remove the existing key-value mapping,
+     * then (2) insert the new key-value mapping at the position it
+     * would have been inserted had the remove not occurred.
+     *
+     * @param index  the index at which the mapping should be inserted
+     * @param key  the key
+     * @param value  the value
+     * @return the value previously mapped to the key
+     * @throws IndexOutOfBoundsException if the index is out of range [0, size]
+     * @since 3.2
+     */
+    public V put(int index, final K key, final V value) {
+<span class="fc bfc" id="L457" title="All 4 branches covered.">        if (index &lt; 0 || index &gt; insertOrder.size()) {</span>
+<span class="fc" id="L458">            throw new IndexOutOfBoundsException(&quot;Index: &quot; + index + &quot;, Size: &quot; + insertOrder.size());</span>
+        }
+
+<span class="fc" id="L461">        final Map&lt;K, V&gt; m = decorated();</span>
+<span class="fc bfc" id="L462" title="All 2 branches covered.">        if (m.containsKey(key)) {</span>
+<span class="fc" id="L463">            final V result = m.remove(key);</span>
+<span class="fc" id="L464">            final int pos = insertOrder.indexOf(key);</span>
+<span class="fc" id="L465">            insertOrder.remove(pos);</span>
+<span class="fc bfc" id="L466" title="All 2 branches covered.">            if (pos &lt; index) {</span>
+<span class="fc" id="L467">                index--;</span>
+            }
+<span class="fc" id="L469">            insertOrder.add(index, key);</span>
+<span class="fc" id="L470">            m.put(key, value);</span>
+<span class="fc" id="L471">            return result;</span>
+        }
+<span class="fc" id="L473">        insertOrder.add(index, key);</span>
+<span class="fc" id="L474">        m.put(key, value);</span>
+<span class="fc" id="L475">        return null;</span>
+    }
+
+    /**
+     * Removes the element at the specified index.
+     *
+     * @param index  the index of the object to remove
+     * @return the removed value, or &lt;code&gt;null&lt;/code&gt; if none existed
+     * @throws IndexOutOfBoundsException if the index is invalid
+     */
+    public V remove(final int index) {
+<span class="fc" id="L486">        return remove(get(index));</span>
+    }
+
+    /**
+     * Gets an unmodifiable List view of the keys which changes as the map changes.
+     * &lt;p&gt;
+     * The returned list is unmodifiable because changes to the values of
+     * the list (using {@link java.util.ListIterator#set(Object)}) will
+     * effectively remove the value from the list and reinsert that value at
+     * the end of the list, which is an unexpected side effect of changing the
+     * value of a list.  This occurs because changing the key, changes when the
+     * mapping is added to the map and thus where it appears in the list.
+     * &lt;p&gt;
+     * An alternative to this method is to use the better named
+     * {@link #keyList()} or {@link #keySet()}.
+     *
+     * @see #keyList()
+     * @see #keySet()
+     * @return The ordered list of keys.
+     */
+    public List&lt;K&gt; asList() {
+<span class="fc" id="L507">        return keyList();</span>
+    }
+
+    //-----------------------------------------------------------------------
+    static class ValuesView&lt;V&gt; extends AbstractList&lt;V&gt; {
+        private final ListOrderedMap&lt;Object, V&gt; parent;
+
+        @SuppressWarnings(&quot;unchecked&quot;)
+        ValuesView(final ListOrderedMap&lt;?, V&gt; parent) {
+<span class="fc" id="L516">            super();</span>
+<span class="fc" id="L517">            this.parent = (ListOrderedMap&lt;Object, V&gt;) parent;</span>
+<span class="fc" id="L518">        }</span>
+
+        @Override
+        public int size() {
+<span class="fc" id="L522">            return this.parent.size();</span>
+        }
+
+        @Override
+        public boolean contains(final Object value) {
+<span class="fc" id="L527">            return this.parent.containsValue(value);</span>
+        }
+
+        @Override
+        public void clear() {
+<span class="fc" id="L532">            this.parent.clear();</span>
+<span class="fc" id="L533">        }</span>
+
+        @Override
+        public Iterator&lt;V&gt; iterator() {
+<span class="fc" id="L537">            return new AbstractUntypedIteratorDecorator&lt;Map.Entry&lt;Object, V&gt;, V&gt;(parent.entrySet().iterator()) {</span>
+                @Override
+                public V next() {
+<span class="fc" id="L540">                    return getIterator().next().getValue();</span>
+                }
+            };
+        }
+
+        @Override
+        public V get(final int index) {
+<span class="fc" id="L547">            return this.parent.getValue(index);</span>
+        }
+
+        @Override
+        public V set(final int index, final V value) {
+<span class="fc" id="L552">            return this.parent.setValue(index, value);</span>
+        }
+
+        @Override
+        public V remove(final int index) {
+<span class="fc" id="L557">            return this.parent.remove(index);</span>
+        }
+    }
+
+    //-----------------------------------------------------------------------
+    static class KeySetView&lt;K&gt; extends AbstractSet&lt;K&gt; {
+        private final ListOrderedMap&lt;K, Object&gt; parent;
+
+        @SuppressWarnings(&quot;unchecked&quot;)
+        KeySetView(final ListOrderedMap&lt;K, ?&gt; parent) {
+<span class="fc" id="L567">            super();</span>
+<span class="fc" id="L568">            this.parent = (ListOrderedMap&lt;K, Object&gt;) parent;</span>
+<span class="fc" id="L569">        }</span>
+
+        @Override
+        public int size() {
+<span class="fc" id="L573">            return this.parent.size();</span>
+        }
+
+        @Override
+        public boolean contains(final Object value) {
+<span class="fc" id="L578">            return this.parent.containsKey(value);</span>
+        }
+
+        @Override
+        public void clear() {
+<span class="fc" id="L583">            this.parent.clear();</span>
+<span class="fc" id="L584">        }</span>
+
+        @Override
+        public Iterator&lt;K&gt; iterator() {
+<span class="fc" id="L588">            return new AbstractUntypedIteratorDecorator&lt;Map.Entry&lt;K, Object&gt;, K&gt;(parent.entrySet().iterator()) {</span>
+                @Override
+                public K next() {
+<span class="fc" id="L591">                    return getIterator().next().getKey();</span>
+                }
+            };
+        }
+    }
+
+    //-----------------------------------------------------------------------
+    static class EntrySetView&lt;K, V&gt; extends AbstractSet&lt;Map.Entry&lt;K, V&gt;&gt; {
+        private final ListOrderedMap&lt;K, V&gt; parent;
+        private final List&lt;K&gt; insertOrder;
+        private Set&lt;Map.Entry&lt;K, V&gt;&gt; entrySet;
+
+        public EntrySetView(final ListOrderedMap&lt;K, V&gt; parent, final List&lt;K&gt; insertOrder) {
+<span class="fc" id="L604">            super();</span>
+<span class="fc" id="L605">            this.parent = parent;</span>
+<span class="fc" id="L606">            this.insertOrder = insertOrder;</span>
+<span class="fc" id="L607">        }</span>
+
+        private Set&lt;Map.Entry&lt;K, V&gt;&gt; getEntrySet() {
+<span class="fc bfc" id="L610" title="All 2 branches covered.">            if (entrySet == null) {</span>
+<span class="fc" id="L611">                entrySet = parent.decorated().entrySet();</span>
+            }
+<span class="fc" id="L613">            return entrySet;</span>
+        }
+
+        @Override
+        public int size() {
+<span class="fc" id="L618">            return this.parent.size();</span>
+        }
+        @Override
+        public boolean isEmpty() {
+<span class="fc" id="L622">            return this.parent.isEmpty();</span>
+        }
+
+        @Override
+        public boolean contains(final Object obj) {
+<span class="fc" id="L627">            return getEntrySet().contains(obj);</span>
+        }
+
+        @Override
+        public boolean containsAll(final Collection&lt;?&gt; coll) {
+<span class="fc" id="L632">            return getEntrySet().containsAll(coll);</span>
+        }
+
+        @Override
+        @SuppressWarnings(&quot;unchecked&quot;)
+        public boolean remove(final Object obj) {
+<span class="fc bfc" id="L638" title="All 2 branches covered.">            if (obj instanceof Map.Entry == false) {</span>
+<span class="fc" id="L639">                return false;</span>
+            }
+<span class="fc bfc" id="L641" title="All 2 branches covered.">            if (getEntrySet().contains(obj)) {</span>
+<span class="fc" id="L642">                final Object key = ((Map.Entry&lt;K, V&gt;) obj).getKey();</span>
+<span class="fc" id="L643">                parent.remove(key);</span>
+<span class="fc" id="L644">                return true;</span>
+            }
+<span class="fc" id="L646">            return false;</span>
+        }
+
+        @Override
+        public void clear() {
+<span class="fc" id="L651">            this.parent.clear();</span>
+<span class="fc" id="L652">        }</span>
+
+        @Override
+        public boolean equals(final Object obj) {
+<span class="fc bfc" id="L656" title="All 2 branches covered.">            if (obj == this) {</span>
+<span class="fc" id="L657">                return true;</span>
+            }
+<span class="fc" id="L659">            return getEntrySet().equals(obj);</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="fc" id="L664">            return getEntrySet().hashCode();</span>
+        }
+
+        @Override
+        public String toString() {
+<span class="fc" id="L669">            return getEntrySet().toString();</span>
+        }
+
+        @Override
+        public Iterator&lt;Map.Entry&lt;K, V&gt;&gt; iterator() {
+<span class="fc" id="L674">            return new ListOrderedIterator&lt;&gt;(parent, insertOrder);</span>
+        }
+    }
+
+    //-----------------------------------------------------------------------
+    static class ListOrderedIterator&lt;K, V&gt; extends AbstractUntypedIteratorDecorator&lt;K, Map.Entry&lt;K, V&gt;&gt; {
+        private final ListOrderedMap&lt;K, V&gt; parent;
+<span class="fc" id="L681">        private K last = null;</span>
+
+        ListOrderedIterator(final ListOrderedMap&lt;K, V&gt; parent, final List&lt;K&gt; insertOrder) {
+<span class="fc" id="L684">            super(insertOrder.iterator());</span>
+<span class="fc" id="L685">            this.parent = parent;</span>
+<span class="fc" id="L686">        }</span>
+
+        @Override
+        public Map.Entry&lt;K, V&gt; next() {
+<span class="fc" id="L690">            last = getIterator().next();</span>
+<span class="fc" id="L691">            return new ListOrderedMapEntry&lt;&gt;(parent, last);</span>
+        }
+
+        @Override
+        public void remove() {
+<span class="fc" id="L696">            super.remove();</span>
+<span class="fc" id="L697">            parent.decorated().remove(last);</span>
+<span class="fc" id="L698">        }</span>
+    }
+
+    //-----------------------------------------------------------------------
+    static class ListOrderedMapEntry&lt;K, V&gt; extends AbstractMapEntry&lt;K, V&gt; {
+        private final ListOrderedMap&lt;K, V&gt; parent;
+
+        ListOrderedMapEntry(final ListOrderedMap&lt;K, V&gt; parent, final K key) {
+<span class="fc" id="L706">            super(key, null);</span>
+<span class="fc" id="L707">            this.parent = parent;</span>
+<span class="fc" id="L708">        }</span>
+
+        @Override
+        public V getValue() {
+<span class="fc" id="L712">            return parent.get(getKey());</span>
+        }
+
+        @Override
+        public V setValue(final V value) {
+<span class="fc" id="L717">            return parent.decorated().put(getKey(), value);</span>
+        }
+    }
+
+    //-----------------------------------------------------------------------
+    static class ListOrderedMapIterator&lt;K, V&gt; implements OrderedMapIterator&lt;K, V&gt;, ResettableIterator&lt;K&gt; {
+        private final ListOrderedMap&lt;K, V&gt; parent;
+        private ListIterator&lt;K&gt; iterator;
+<span class="fc" id="L725">        private K last = null;</span>
+<span class="fc" id="L726">        private boolean readable = false;</span>
+
+        ListOrderedMapIterator(final ListOrderedMap&lt;K, V&gt; parent) {
+<span class="fc" id="L729">            super();</span>
+<span class="fc" id="L730">            this.parent = parent;</span>
+<span class="fc" id="L731">            this.iterator = parent.insertOrder.listIterator();</span>
+<span class="fc" id="L732">        }</span>
+
+        @Override
+        public boolean hasNext() {
+<span class="fc" id="L736">            return iterator.hasNext();</span>
+        }
+
+        @Override
+        public K next() {
+<span class="fc" id="L741">            last = iterator.next();</span>
+<span class="fc" id="L742">            readable = true;</span>
+<span class="fc" id="L743">            return last;</span>
+        }
+
+        @Override
+        public boolean hasPrevious() {
+<span class="fc" id="L748">            return iterator.hasPrevious();</span>
+        }
+
+        @Override
+        public K previous() {
+<span class="fc" id="L753">            last = iterator.previous();</span>
+<span class="fc" id="L754">            readable = true;</span>
+<span class="fc" id="L755">            return last;</span>
+        }
+
+        @Override
+        public void remove() {
+<span class="fc bfc" id="L760" title="All 2 branches covered.">            if (readable == false) {</span>
+<span class="fc" id="L761">                throw new IllegalStateException(AbstractHashedMap.REMOVE_INVALID);</span>
+            }
+<span class="fc" id="L763">            iterator.remove();</span>
+<span class="fc" id="L764">            parent.map.remove(last);</span>
+<span class="fc" id="L765">            readable = false;</span>
+<span class="fc" id="L766">        }</span>
+
+        @Override
+        public K getKey() {
+<span class="fc bfc" id="L770" title="All 2 branches covered.">            if (readable == false) {</span>
+<span class="fc" id="L771">                throw new IllegalStateException(AbstractHashedMap.GETKEY_INVALID);</span>
+            }
+<span class="fc" id="L773">            return last;</span>
+        }
+
+        @Override
+        public V getValue() {
+<span class="fc bfc" id="L778" title="All 2 branches covered.">            if (readable == false) {</span>
+<span class="fc" id="L779">                throw new IllegalStateException(AbstractHashedMap.GETVALUE_INVALID);</span>
+            }
+<span class="fc" id="L781">            return parent.get(last);</span>
+        }
+
+        @Override
+        public V setValue(final V value) {
+<span class="fc bfc" id="L786" title="All 2 branches covered.">            if (readable == false) {</span>
+<span class="fc" id="L787">                throw new IllegalStateException(AbstractHashedMap.SETVALUE_INVALID);</span>
+            }
+<span class="fc" id="L789">            return parent.map.put(last, value);</span>
+        }
+
+        @Override
+        public void reset() {
+<span class="nc" id="L794">            iterator = parent.insertOrder.listIterator();</span>
+<span class="nc" id="L795">            last = null;</span>
+<span class="nc" id="L796">            readable = false;</span>
+<span class="nc" id="L797">        }</span>
+
+        @Override
+        public String toString() {
+<span class="fc bfc" id="L801" title="All 2 branches covered.">            if (readable == true) {</span>
+<span class="fc" id="L802">                return &quot;Iterator[&quot; + getKey() + &quot;=&quot; + getValue() + &quot;]&quot;;</span>
+            }
+<span class="fc" id="L804">            return &quot;Iterator[]&quot;;</span>
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

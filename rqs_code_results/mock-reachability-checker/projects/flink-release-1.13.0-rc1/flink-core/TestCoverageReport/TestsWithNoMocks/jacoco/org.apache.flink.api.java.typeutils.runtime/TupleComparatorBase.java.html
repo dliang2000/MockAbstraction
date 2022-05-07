@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TupleComparatorBase.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.java.typeutils.runtime</a> &gt; <span class="el_source">TupleComparatorBase.java</span></div><h1>TupleComparatorBase.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.flink.api.java.typeutils.runtime;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.CompositeTypeComparator;
+import org.apache.flink.api.common.typeutils.TypeComparator;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.types.KeyFieldOutOfBoundsException;
+import org.apache.flink.types.NullKeyFieldException;
+
+import java.io.IOException;
+import java.util.List;
+
+@Internal
+public abstract class TupleComparatorBase&lt;T&gt; extends CompositeTypeComparator&lt;T&gt;
+        implements java.io.Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    /** key positions describe which fields are keys in what order */
+    protected int[] keyPositions;
+
+    /** comparators for the key fields, in the same order as the key fields */
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    protected TypeComparator[] comparators;
+
+    protected int[] normalizedKeyLengths;
+
+    protected int numLeadingNormalizableKeys;
+
+    protected int normalizableKeyPrefixLen;
+
+    protected boolean invertNormKey;
+
+    /** serializers to deserialize the first n fields for comparison */
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    protected TypeSerializer[] serializers;
+
+    // cache for the deserialized field objects
+    protected transient Object[] deserializedFields1;
+    protected transient Object[] deserializedFields2;
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public TupleComparatorBase(
+<span class="fc" id="L63">            int[] keyPositions, TypeComparator&lt;?&gt;[] comparators, TypeSerializer&lt;?&gt;[] serializers) {</span>
+        // set the default utils
+<span class="fc" id="L65">        this.keyPositions = keyPositions;</span>
+<span class="fc" id="L66">        this.comparators = (TypeComparator&lt;Object&gt;[]) comparators;</span>
+<span class="fc" id="L67">        this.serializers = (TypeSerializer&lt;Object&gt;[]) serializers;</span>
+
+        // set up auxiliary fields for normalized key support
+<span class="fc" id="L70">        this.normalizedKeyLengths = new int[keyPositions.length];</span>
+<span class="fc" id="L71">        int nKeys = 0;</span>
+<span class="fc" id="L72">        int nKeyLen = 0;</span>
+<span class="fc" id="L73">        boolean inverted = false;</span>
+
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        for (int i = 0; i &lt; this.keyPositions.length; i++) {</span>
+<span class="fc" id="L76">            TypeComparator&lt;?&gt; k = this.comparators[i];</span>
+
+            // as long as the leading keys support normalized keys, we can build up the composite
+            // key
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">            if (k.supportsNormalizedKey()) {</span>
+<span class="fc bfc" id="L81" title="All 2 branches covered.">                if (i == 0) {</span>
+                    // the first comparator decides whether we need to invert the key direction
+<span class="fc" id="L83">                    inverted = k.invertNormalizedKey();</span>
+<span class="pc bpc" id="L84" title="1 of 2 branches missed.">                } else if (k.invertNormalizedKey() != inverted) {</span>
+                    // if a successor does not agree on the inversion direction, it cannot be part
+                    // of the normalized key
+<span class="nc" id="L87">                    break;</span>
+                }
+
+<span class="fc" id="L90">                nKeys++;</span>
+<span class="fc" id="L91">                final int len = k.getNormalizeKeyLen();</span>
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">                if (len &lt; 0) {</span>
+<span class="nc" id="L93">                    throw new RuntimeException(</span>
+                            &quot;Comparator &quot;
+<span class="nc" id="L95">                                    + k.getClass().getName()</span>
+                                    + &quot; specifies an invalid length for the normalized key: &quot;
+                                    + len);
+                }
+<span class="fc" id="L99">                this.normalizedKeyLengths[i] = len;</span>
+<span class="fc" id="L100">                nKeyLen += len;</span>
+
+<span class="fc bfc" id="L102" title="All 2 branches covered.">                if (nKeyLen &lt; 0) {</span>
+                    // overflow, which means we are out of budget for normalized key space anyways
+<span class="fc" id="L104">                    nKeyLen = Integer.MAX_VALUE;</span>
+<span class="fc" id="L105">                    break;</span>
+                }
+            } else {
+                break;
+            }
+        }
+<span class="fc" id="L111">        this.numLeadingNormalizableKeys = nKeys;</span>
+<span class="fc" id="L112">        this.normalizableKeyPrefixLen = nKeyLen;</span>
+<span class="fc" id="L113">        this.invertNormKey = inverted;</span>
+<span class="fc" id="L114">    }</span>
+
+<span class="nc" id="L116">    protected TupleComparatorBase(TupleComparatorBase&lt;T&gt; toClone) {</span>
+<span class="nc" id="L117">        privateDuplicate(toClone);</span>
+<span class="nc" id="L118">    }</span>
+
+    // We need this because we cannot call the cloning constructor from the
+    // ScalaTupleComparator
+    protected void privateDuplicate(TupleComparatorBase&lt;T&gt; toClone) {
+        // copy fields and serializer factories
+<span class="nc" id="L124">        this.keyPositions = toClone.keyPositions;</span>
+
+<span class="nc" id="L126">        this.serializers = new TypeSerializer[toClone.serializers.length];</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">        for (int i = 0; i &lt; toClone.serializers.length; i++) {</span>
+<span class="nc" id="L128">            this.serializers[i] = toClone.serializers[i].duplicate();</span>
+        }
+
+<span class="nc" id="L131">        this.comparators = new TypeComparator[toClone.comparators.length];</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        for (int i = 0; i &lt; toClone.comparators.length; i++) {</span>
+<span class="nc" id="L133">            this.comparators[i] = toClone.comparators[i].duplicate();</span>
+        }
+
+<span class="nc" id="L136">        this.normalizedKeyLengths = toClone.normalizedKeyLengths;</span>
+<span class="nc" id="L137">        this.numLeadingNormalizableKeys = toClone.numLeadingNormalizableKeys;</span>
+<span class="nc" id="L138">        this.normalizableKeyPrefixLen = toClone.normalizableKeyPrefixLen;</span>
+<span class="nc" id="L139">        this.invertNormKey = toClone.invertNormKey;</span>
+<span class="nc" id="L140">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+    //  Comparator Methods
+    // --------------------------------------------------------------------------------------------
+
+    protected int[] getKeyPositions() {
+<span class="nc" id="L147">        return this.keyPositions;</span>
+    }
+
+    @SuppressWarnings({&quot;rawtypes&quot;, &quot;unchecked&quot;})
+    @Override
+    public void getFlatComparator(List&lt;TypeComparator&gt; flatComparators) {
+<span class="nc bnc" id="L153" title="All 2 branches missed.">        for (int i = 0; i &lt; comparators.length; i++) {</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">            if (comparators[i] instanceof CompositeTypeComparator) {</span>
+<span class="nc" id="L155">                ((CompositeTypeComparator) comparators[i]).getFlatComparator(flatComparators);</span>
+            } else {
+<span class="nc" id="L157">                flatComparators.add(comparators[i]);</span>
+            }
+        }
+<span class="nc" id="L160">    }</span>
+    // --------------------------------------------------------------------------------------------
+    //  Comparator Methods
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public int compareToReference(TypeComparator&lt;T&gt; referencedComparator) {
+<span class="nc" id="L167">        TupleComparatorBase&lt;T&gt; other = (TupleComparatorBase&lt;T&gt;) referencedComparator;</span>
+
+<span class="nc" id="L169">        int i = 0;</span>
+        try {
+<span class="nc bnc" id="L171" title="All 2 branches missed.">            for (; i &lt; this.keyPositions.length; i++) {</span>
+                @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L173">                int cmp = this.comparators[i].compareToReference(other.comparators[i]);</span>
+<span class="nc bnc" id="L174" title="All 2 branches missed.">                if (cmp != 0) {</span>
+<span class="nc" id="L175">                    return cmp;</span>
+                }
+            }
+<span class="nc" id="L178">            return 0;</span>
+<span class="nc" id="L179">        } catch (NullPointerException npex) {</span>
+<span class="nc" id="L180">            throw new NullKeyFieldException(keyPositions[i]);</span>
+<span class="nc" id="L181">        } catch (IndexOutOfBoundsException iobex) {</span>
+<span class="nc" id="L182">            throw new KeyFieldOutOfBoundsException(keyPositions[i]);</span>
+        }
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    @Override
+    public int compareSerialized(DataInputView firstSource, DataInputView secondSource)
+            throws IOException {
+<span class="nc bnc" id="L190" title="All 2 branches missed.">        if (deserializedFields1 == null) {</span>
+<span class="nc" id="L191">            instantiateDeserializationUtils();</span>
+        }
+
+<span class="nc" id="L194">        int i = 0;</span>
+        try {
+<span class="nc bnc" id="L196" title="All 2 branches missed.">            for (; i &lt; serializers.length; i++) {</span>
+<span class="nc" id="L197">                deserializedFields1[i] =</span>
+<span class="nc" id="L198">                        serializers[i].deserialize(deserializedFields1[i], firstSource);</span>
+<span class="nc" id="L199">                deserializedFields2[i] =</span>
+<span class="nc" id="L200">                        serializers[i].deserialize(deserializedFields2[i], secondSource);</span>
+            }
+
+<span class="nc bnc" id="L203" title="All 2 branches missed.">            for (i = 0; i &lt; keyPositions.length; i++) {</span>
+<span class="nc" id="L204">                int keyPos = keyPositions[i];</span>
+<span class="nc" id="L205">                int cmp =</span>
+<span class="nc" id="L206">                        comparators[i].compare(</span>
+                                deserializedFields1[keyPos], deserializedFields2[keyPos]);
+<span class="nc bnc" id="L208" title="All 2 branches missed.">                if (cmp != 0) {</span>
+<span class="nc" id="L209">                    return cmp;</span>
+                }
+            }
+
+<span class="nc" id="L213">            return 0;</span>
+<span class="nc" id="L214">        } catch (NullPointerException npex) {</span>
+<span class="nc" id="L215">            throw new NullKeyFieldException(keyPositions[i]);</span>
+<span class="nc" id="L216">        } catch (IndexOutOfBoundsException iobex) {</span>
+<span class="nc" id="L217">            throw new KeyFieldOutOfBoundsException(keyPositions[i], iobex);</span>
+        }
+    }
+
+    @Override
+    public boolean supportsNormalizedKey() {
+<span class="nc bnc" id="L223" title="All 2 branches missed.">        return this.numLeadingNormalizableKeys &gt; 0;</span>
+    }
+
+    @Override
+    public int getNormalizeKeyLen() {
+<span class="nc" id="L228">        return this.normalizableKeyPrefixLen;</span>
+    }
+
+    @Override
+    public boolean isNormalizedKeyPrefixOnly(int keyBytes) {
+<span class="nc bnc" id="L233" title="All 6 branches missed.">        return this.numLeadingNormalizableKeys &lt; this.keyPositions.length</span>
+                || this.normalizableKeyPrefixLen == Integer.MAX_VALUE
+                || this.normalizableKeyPrefixLen &gt; keyBytes;
+    }
+
+    @Override
+    public boolean invertNormalizedKey() {
+<span class="nc" id="L240">        return this.invertNormKey;</span>
+    }
+
+    @Override
+    public boolean supportsSerializationWithKeyNormalization() {
+<span class="nc" id="L245">        return false;</span>
+    }
+
+    @Override
+    public void writeWithKeyNormalization(T record, DataOutputView target) throws IOException {
+<span class="nc" id="L250">        throw new UnsupportedOperationException();</span>
+    }
+
+    @Override
+    public T readWithKeyDenormalization(T reuse, DataInputView source) throws IOException {
+<span class="nc" id="L255">        throw new UnsupportedOperationException();</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    protected final void instantiateDeserializationUtils() {
+<span class="nc" id="L261">        this.deserializedFields1 = new Object[this.serializers.length];</span>
+<span class="nc" id="L262">        this.deserializedFields2 = new Object[this.serializers.length];</span>
+
+<span class="nc bnc" id="L264" title="All 2 branches missed.">        for (int i = 0; i &lt; this.serializers.length; i++) {</span>
+<span class="nc" id="L265">            this.deserializedFields1[i] = this.serializers[i].createInstance();</span>
+<span class="nc" id="L266">            this.deserializedFields2[i] = this.serializers[i].createInstance();</span>
+        }
+<span class="nc" id="L268">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * A sequence of prime numbers to be used for salting the computed hash values. Based on some
+     * empirical evidence, we are using a 32-element subsequence of the OEIS sequence #A068652
+     * (numbers such that every cyclic permutation is a prime).
+     *
+     * @see &lt;a
+     *     href=&quot;http://en.wikipedia.org/wiki/List_of_prime_numbers&quot;&gt;http://en.wikipedia.org/wiki/List_of_prime_numbers&lt;/a&gt;
+     * @see &lt;a href=&quot;http://oeis.org/A068652&quot;&gt;http://oeis.org/A068652&lt;/a&gt;
+     */
+<span class="fc" id="L281">    public static final int[] HASH_SALT =</span>
+            new int[] {
+                73, 79, 97, 113, 131, 197, 199, 311,
+                337, 373, 719, 733, 919, 971, 991, 1193,
+                1931, 3119, 3779, 7793, 7937, 9311, 9377, 11939,
+                19391, 19937, 37199, 39119, 71993, 91193, 93719, 93911
+            };
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

@@ -1,0 +1,1592 @@
+public class javassist.compiler.MemberResolver extends java.lang.Object implements javassist.compiler.TokenId
+{
+    private javassist.ClassPool classPool;
+    private static final int YES;
+    private static final int NO;
+    private static final java.lang.String INVALID;
+    private static java.util.Map invalidNamesMap;
+    private java.util.Map invalidNames;
+
+    public void <init>(javassist.ClassPool)
+    {
+        javassist.compiler.MemberResolver r0;
+        javassist.ClassPool r1;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        r1 := @parameter0: javassist.ClassPool;
+
+        specialinvoke r0.<java.lang.Object: void <init>()>();
+
+        r0.<javassist.compiler.MemberResolver: java.util.Map invalidNames> = null;
+
+        r0.<javassist.compiler.MemberResolver: javassist.ClassPool classPool> = r1;
+
+        return;
+    }
+
+    public javassist.ClassPool getClassPool()
+    {
+        javassist.compiler.MemberResolver r0;
+        javassist.ClassPool $r1;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        $r1 = r0.<javassist.compiler.MemberResolver: javassist.ClassPool classPool>;
+
+        return $r1;
+    }
+
+    private static void fatal() throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CompileError $r0;
+
+        $r0 = new javassist.compiler.CompileError;
+
+        specialinvoke $r0.<javassist.compiler.CompileError: void <init>(java.lang.String)>("fatal");
+
+        throw $r0;
+    }
+
+    public javassist.compiler.MemberResolver$Method lookupMethod(javassist.CtClass, javassist.CtClass, javassist.bytecode.MethodInfo, java.lang.String, int[], int[], java.lang.String[]) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.MemberResolver r0;
+        javassist.CtClass r1, r2;
+        javassist.bytecode.MethodInfo r3;
+        java.lang.String r4, $r15, $r16;
+        int[] r5, r6;
+        java.lang.String[] r7;
+        boolean $z0, $z1;
+        javassist.compiler.MemberResolver$Method $r17, r18, r19;
+        int i0;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        r1 := @parameter0: javassist.CtClass;
+
+        r2 := @parameter1: javassist.CtClass;
+
+        r3 := @parameter2: javassist.bytecode.MethodInfo;
+
+        r4 := @parameter3: java.lang.String;
+
+        r5 := @parameter4: int[];
+
+        r6 := @parameter5: int[];
+
+        r7 := @parameter6: java.lang.String[];
+
+        r18 = null;
+
+        if r3 == null goto label2;
+
+        if r1 != r2 goto label2;
+
+        $r15 = virtualinvoke r3.<javassist.bytecode.MethodInfo: java.lang.String getName()>();
+
+        $z0 = virtualinvoke $r15.<java.lang.String: boolean equals(java.lang.Object)>(r4);
+
+        if $z0 == 0 goto label2;
+
+        $r16 = virtualinvoke r3.<javassist.bytecode.MethodInfo: java.lang.String getDescriptor()>();
+
+        i0 = specialinvoke r0.<javassist.compiler.MemberResolver: int compareSignature(java.lang.String,int[],int[],java.lang.String[])>($r16, r5, r6, r7);
+
+        if i0 == -1 goto label2;
+
+        $r17 = new javassist.compiler.MemberResolver$Method;
+
+        specialinvoke $r17.<javassist.compiler.MemberResolver$Method: void <init>(javassist.CtClass,javassist.bytecode.MethodInfo,int)>(r1, r3, i0);
+
+        if i0 != 0 goto label1;
+
+        return $r17;
+
+     label1:
+        r18 = $r17;
+
+     label2:
+        if r18 == null goto label3;
+
+        $z1 = 1;
+
+        goto label4;
+
+     label3:
+        $z1 = 0;
+
+     label4:
+        r19 = specialinvoke r0.<javassist.compiler.MemberResolver: javassist.compiler.MemberResolver$Method lookupMethod(javassist.CtClass,java.lang.String,int[],int[],java.lang.String[],boolean)>(r1, r4, r5, r6, r7, $z1);
+
+        if r19 == null goto label5;
+
+        return r19;
+
+     label5:
+        return r18;
+    }
+
+    private javassist.compiler.MemberResolver$Method lookupMethod(javassist.CtClass, java.lang.String, int[], int[], java.lang.String[], boolean) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.MemberResolver r0;
+        javassist.CtClass r1, r7, r20, r25;
+        java.lang.String r2, $r10, $r11;
+        int[] r3, r4;
+        java.lang.String[] r5;
+        boolean z0, $z1, $z2, z3;
+        javassist.bytecode.ClassFile r6;
+        javassist.compiler.MemberResolver$Method r8, $r12, r15, r21, r26;
+        java.lang.Object $r9;
+        int $i0, $i1, $i2, i3, i4, i5, i6;
+        javassist.NotFoundException $r13, $r14;
+        java.util.List r16;
+        java.util.Iterator r17;
+        javassist.bytecode.MethodInfo r18;
+        javassist.CtClass[] r23;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        r1 := @parameter0: javassist.CtClass;
+
+        r2 := @parameter1: java.lang.String;
+
+        r3 := @parameter2: int[];
+
+        r4 := @parameter3: int[];
+
+        r5 := @parameter4: java.lang.String[];
+
+        z0 := @parameter5: boolean;
+
+        r15 = null;
+
+        r6 = virtualinvoke r1.<javassist.CtClass: javassist.bytecode.ClassFile getClassFile2()>();
+
+        if r6 == null goto label05;
+
+        r16 = virtualinvoke r6.<javassist.bytecode.ClassFile: java.util.List getMethods()>();
+
+        r17 = interfaceinvoke r16.<java.util.List: java.util.Iterator iterator()>();
+
+     label01:
+        $z1 = interfaceinvoke r17.<java.util.Iterator: boolean hasNext()>();
+
+        if $z1 == 0 goto label05;
+
+        $r9 = interfaceinvoke r17.<java.util.Iterator: java.lang.Object next()>();
+
+        r18 = (javassist.bytecode.MethodInfo) $r9;
+
+        $r10 = virtualinvoke r18.<javassist.bytecode.MethodInfo: java.lang.String getName()>();
+
+        $z2 = virtualinvoke $r10.<java.lang.String: boolean equals(java.lang.Object)>(r2);
+
+        if $z2 == 0 goto label04;
+
+        $i0 = virtualinvoke r18.<javassist.bytecode.MethodInfo: int getAccessFlags()>();
+
+        $i1 = $i0 & 64;
+
+        if $i1 != 0 goto label04;
+
+        $r11 = virtualinvoke r18.<javassist.bytecode.MethodInfo: java.lang.String getDescriptor()>();
+
+        i3 = specialinvoke r0.<javassist.compiler.MemberResolver: int compareSignature(java.lang.String,int[],int[],java.lang.String[])>($r11, r3, r4, r5);
+
+        if i3 == -1 goto label04;
+
+        $r12 = new javassist.compiler.MemberResolver$Method;
+
+        specialinvoke $r12.<javassist.compiler.MemberResolver$Method: void <init>(javassist.CtClass,javassist.bytecode.MethodInfo,int)>(r1, r18, i3);
+
+        if i3 != 0 goto label02;
+
+        return $r12;
+
+     label02:
+        if r15 == null goto label03;
+
+        $i2 = r15.<javassist.compiler.MemberResolver$Method: int notmatch>;
+
+        if $i2 <= i3 goto label04;
+
+     label03:
+        r15 = $r12;
+
+     label04:
+        goto label01;
+
+     label05:
+        if z0 == 0 goto label06;
+
+        r15 = null;
+
+        goto label07;
+
+     label06:
+        if r15 == null goto label07;
+
+        return r15;
+
+     label07:
+        i4 = virtualinvoke r1.<javassist.CtClass: int getModifiers()>();
+
+        z3 = staticinvoke <javassist.Modifier: boolean isInterface(int)>(i4);
+
+     label08:
+        if z3 != 0 goto label10;
+
+        r20 = virtualinvoke r1.<javassist.CtClass: javassist.CtClass getSuperclass()>();
+
+        if r20 == null goto label10;
+
+        r21 = specialinvoke r0.<javassist.compiler.MemberResolver: javassist.compiler.MemberResolver$Method lookupMethod(javassist.CtClass,java.lang.String,int[],int[],java.lang.String[],boolean)>(r20, r2, r3, r4, r5, z0);
+
+        if r21 == null goto label10;
+
+     label09:
+        return r21;
+
+     label10:
+        goto label12;
+
+     label11:
+        $r13 := @caughtexception;
+
+     label12:
+        r23 = virtualinvoke r1.<javassist.CtClass: javassist.CtClass[] getInterfaces()>();
+
+        i5 = lengthof r23;
+
+        i6 = 0;
+
+     label13:
+        if i6 >= i5 goto label16;
+
+        r7 = r23[i6];
+
+        r8 = specialinvoke r0.<javassist.compiler.MemberResolver: javassist.compiler.MemberResolver$Method lookupMethod(javassist.CtClass,java.lang.String,int[],int[],java.lang.String[],boolean)>(r7, r2, r3, r4, r5, z0);
+
+        if r8 == null goto label15;
+
+     label14:
+        return r8;
+
+     label15:
+        i6 = i6 + 1;
+
+        goto label13;
+
+     label16:
+        if z3 == 0 goto label18;
+
+        r25 = virtualinvoke r1.<javassist.CtClass: javassist.CtClass getSuperclass()>();
+
+        if r25 == null goto label18;
+
+        r26 = specialinvoke r0.<javassist.compiler.MemberResolver: javassist.compiler.MemberResolver$Method lookupMethod(javassist.CtClass,java.lang.String,int[],int[],java.lang.String[],boolean)>(r25, r2, r3, r4, r5, z0);
+
+        if r26 == null goto label18;
+
+     label17:
+        return r26;
+
+     label18:
+        goto label20;
+
+     label19:
+        $r14 := @caughtexception;
+
+     label20:
+        return r15;
+
+        catch javassist.NotFoundException from label08 to label09 with label11;
+        catch javassist.NotFoundException from label12 to label14 with label19;
+        catch javassist.NotFoundException from label15 to label17 with label19;
+    }
+
+    private int compareSignature(java.lang.String, int[], int[], java.lang.String[]) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.MemberResolver r0;
+        java.lang.String r1, $r7, $r8, r11;
+        int[] r2, r3;
+        java.lang.String[] r4;
+        int i0, i1, $i2, $i3, $i4, $i5, $i6, $i7, $i8, $i9, i10, i11, i12, $i14, i15, i16, i17, i18;
+        javassist.CtClass r5, $r9;
+        boolean $z0, $z1, $z2;
+        javassist.NotFoundException $r10;
+        char c13;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        r1 := @parameter0: java.lang.String;
+
+        r2 := @parameter1: int[];
+
+        r3 := @parameter2: int[];
+
+        r4 := @parameter3: java.lang.String[];
+
+        i10 = 0;
+
+        i11 = 1;
+
+        i0 = lengthof r2;
+
+        $i2 = staticinvoke <javassist.bytecode.Descriptor: int numOfParameters(java.lang.String)>(r1);
+
+        if i0 == $i2 goto label01;
+
+        return -1;
+
+     label01:
+        i1 = virtualinvoke r1.<java.lang.String: int length()>();
+
+        i12 = 0;
+
+     label02:
+        if i11 >= i1 goto label25;
+
+        $i3 = i11;
+
+        i11 = i11 + 1;
+
+        c13 = virtualinvoke r1.<java.lang.String: char charAt(int)>($i3);
+
+        if c13 != 41 goto label05;
+
+        if i12 != i0 goto label03;
+
+        $i14 = i10;
+
+        goto label04;
+
+     label03:
+        $i14 = -1;
+
+     label04:
+        return $i14;
+
+     label05:
+        if i12 < i0 goto label06;
+
+        return -1;
+
+     label06:
+        i15 = 0;
+
+     label07:
+        if c13 != 91 goto label08;
+
+        i15 = i15 + 1;
+
+        $i9 = i11;
+
+        i11 = i11 + 1;
+
+        c13 = virtualinvoke r1.<java.lang.String: char charAt(int)>($i9);
+
+        goto label07;
+
+     label08:
+        $i4 = r2[i12];
+
+        if $i4 != 412 goto label10;
+
+        if i15 != 0 goto label09;
+
+        if c13 == 76 goto label09;
+
+        return -1;
+
+     label09:
+        if c13 != 76 goto label24;
+
+        $i8 = virtualinvoke r1.<java.lang.String: int indexOf(int,int)>(59, i11);
+
+        i11 = $i8 + 1;
+
+        goto label24;
+
+     label10:
+        $i5 = r3[i12];
+
+        if $i5 == i15 goto label13;
+
+        if i15 != 0 goto label11;
+
+        if c13 != 76 goto label11;
+
+        $z2 = virtualinvoke r1.<java.lang.String: boolean startsWith(java.lang.String,int)>("java/lang/Object;", i11);
+
+        if $z2 != 0 goto label12;
+
+     label11:
+        return -1;
+
+     label12:
+        $i7 = virtualinvoke r1.<java.lang.String: int indexOf(int,int)>(59, i11);
+
+        i11 = $i7 + 1;
+
+        i10 = i10 + 1;
+
+        if i11 > 0 goto label24;
+
+        return -1;
+
+     label13:
+        if c13 != 76 goto label21;
+
+        i16 = virtualinvoke r1.<java.lang.String: int indexOf(int,int)>(59, i11);
+
+        if i16 < 0 goto label14;
+
+        $i6 = r2[i12];
+
+        if $i6 == 307 goto label15;
+
+     label14:
+        return -1;
+
+     label15:
+        r11 = virtualinvoke r1.<java.lang.String: java.lang.String substring(int,int)>(i11, i16);
+
+        $r7 = r4[i12];
+
+        $z0 = virtualinvoke r11.<java.lang.String: boolean equals(java.lang.Object)>($r7);
+
+        if $z0 != 0 goto label20;
+
+        $r8 = r4[i12];
+
+        r5 = virtualinvoke r0.<javassist.compiler.MemberResolver: javassist.CtClass lookupClassByJvmName(java.lang.String)>($r8);
+
+     label16:
+        $r9 = virtualinvoke r0.<javassist.compiler.MemberResolver: javassist.CtClass lookupClassByJvmName(java.lang.String)>(r11);
+
+        $z1 = virtualinvoke r5.<javassist.CtClass: boolean subtypeOf(javassist.CtClass)>($r9);
+
+        if $z1 == 0 goto label17;
+
+        i10 = i10 + 1;
+
+        goto label18;
+
+     label17:
+        return -1;
+
+     label18:
+        goto label20;
+
+     label19:
+        $r10 := @caughtexception;
+
+        i10 = i10 + 1;
+
+     label20:
+        i11 = i16 + 1;
+
+        goto label24;
+
+     label21:
+        i17 = staticinvoke <javassist.compiler.MemberResolver: int descToType(char)>(c13);
+
+        i18 = r2[i12];
+
+        if i17 == i18 goto label24;
+
+        if i17 != 324 goto label23;
+
+        if i18 == 334 goto label22;
+
+        if i18 == 303 goto label22;
+
+        if i18 != 306 goto label23;
+
+     label22:
+        i10 = i10 + 1;
+
+        goto label24;
+
+     label23:
+        return -1;
+
+     label24:
+        i12 = i12 + 1;
+
+        goto label02;
+
+     label25:
+        return -1;
+
+        catch javassist.NotFoundException from label16 to label17 with label19;
+    }
+
+    public javassist.CtField lookupFieldByJvmName2(java.lang.String, javassist.compiler.ast.Symbol, javassist.compiler.ast.ASTree) throws javassist.compiler.NoFieldException
+    {
+        javassist.compiler.MemberResolver r0;
+        javassist.compiler.ast.Symbol r1;
+        javassist.compiler.ast.ASTree r2;
+        java.lang.String r3, $r4, $r12, $r14, $r20, r21, r23;
+        javassist.CtField $r5;
+        javassist.compiler.CompileError $r6;
+        javassist.compiler.NoFieldException $r7, $r15;
+        java.lang.StringBuilder $r8, $r9, $r10, $r11, $r16, $r17, $r18, $r19;
+        javassist.NotFoundException $r13;
+        javassist.CtClass r22;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        r21 := @parameter0: java.lang.String;
+
+        r1 := @parameter1: javassist.compiler.ast.Symbol;
+
+        r2 := @parameter2: javassist.compiler.ast.ASTree;
+
+        r3 = virtualinvoke r1.<javassist.compiler.ast.Symbol: java.lang.String get()>();
+
+     label1:
+        $r4 = staticinvoke <javassist.compiler.MemberResolver: java.lang.String jvmToJavaName(java.lang.String)>(r21);
+
+        r22 = virtualinvoke r0.<javassist.compiler.MemberResolver: javassist.CtClass lookupClass(java.lang.String,boolean)>($r4, 1);
+
+     label2:
+        goto label4;
+
+     label3:
+        $r6 := @caughtexception;
+
+        $r7 = new javassist.compiler.NoFieldException;
+
+        $r8 = new java.lang.StringBuilder;
+
+        specialinvoke $r8.<java.lang.StringBuilder: void <init>()>();
+
+        $r9 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r21);
+
+        $r10 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("/");
+
+        $r11 = virtualinvoke $r10.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r3);
+
+        $r12 = virtualinvoke $r11.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r7.<javassist.compiler.NoFieldException: void <init>(java.lang.String,javassist.compiler.ast.ASTree)>($r12, r2);
+
+        throw $r7;
+
+     label4:
+        $r5 = virtualinvoke r22.<javassist.CtClass: javassist.CtField getField(java.lang.String)>(r3);
+
+     label5:
+        return $r5;
+
+     label6:
+        $r13 := @caughtexception;
+
+        $r14 = virtualinvoke r22.<javassist.CtClass: java.lang.String getName()>();
+
+        r23 = staticinvoke <javassist.compiler.MemberResolver: java.lang.String javaToJvmName(java.lang.String)>($r14);
+
+        $r15 = new javassist.compiler.NoFieldException;
+
+        $r16 = new java.lang.StringBuilder;
+
+        specialinvoke $r16.<java.lang.StringBuilder: void <init>()>();
+
+        $r17 = virtualinvoke $r16.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r23);
+
+        $r18 = virtualinvoke $r17.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("$");
+
+        $r19 = virtualinvoke $r18.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r3);
+
+        $r20 = virtualinvoke $r19.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r15.<javassist.compiler.NoFieldException: void <init>(java.lang.String,javassist.compiler.ast.ASTree)>($r20, r2);
+
+        throw $r15;
+
+        catch javassist.compiler.CompileError from label1 to label2 with label3;
+        catch javassist.NotFoundException from label4 to label5 with label6;
+    }
+
+    public javassist.CtField lookupFieldByJvmName(java.lang.String, javassist.compiler.ast.Symbol) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.MemberResolver r0;
+        java.lang.String r1, $r3;
+        javassist.compiler.ast.Symbol r2;
+        javassist.CtField $r4;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        r1 := @parameter0: java.lang.String;
+
+        r2 := @parameter1: javassist.compiler.ast.Symbol;
+
+        $r3 = staticinvoke <javassist.compiler.MemberResolver: java.lang.String jvmToJavaName(java.lang.String)>(r1);
+
+        $r4 = virtualinvoke r0.<javassist.compiler.MemberResolver: javassist.CtField lookupField(java.lang.String,javassist.compiler.ast.Symbol)>($r3, r2);
+
+        return $r4;
+    }
+
+    public javassist.CtField lookupField(java.lang.String, javassist.compiler.ast.Symbol) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.MemberResolver r0;
+        java.lang.String r1, $r5, $r11, $r13;
+        javassist.compiler.ast.Symbol r2;
+        javassist.CtClass r3;
+        javassist.CtField $r6;
+        javassist.NotFoundException $r7;
+        javassist.compiler.CompileError $r8;
+        java.lang.StringBuilder $r9, $r10, $r12;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        r1 := @parameter0: java.lang.String;
+
+        r2 := @parameter1: javassist.compiler.ast.Symbol;
+
+        r3 = virtualinvoke r0.<javassist.compiler.MemberResolver: javassist.CtClass lookupClass(java.lang.String,boolean)>(r1, 0);
+
+     label1:
+        $r5 = virtualinvoke r2.<javassist.compiler.ast.Symbol: java.lang.String get()>();
+
+        $r6 = virtualinvoke r3.<javassist.CtClass: javassist.CtField getField(java.lang.String)>($r5);
+
+     label2:
+        return $r6;
+
+     label3:
+        $r7 := @caughtexception;
+
+        $r8 = new javassist.compiler.CompileError;
+
+        $r9 = new java.lang.StringBuilder;
+
+        specialinvoke $r9.<java.lang.StringBuilder: void <init>()>();
+
+        $r10 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("no such field: ");
+
+        $r11 = virtualinvoke r2.<javassist.compiler.ast.Symbol: java.lang.String get()>();
+
+        $r12 = virtualinvoke $r10.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r11);
+
+        $r13 = virtualinvoke $r12.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r8.<javassist.compiler.CompileError: void <init>(java.lang.String)>($r13);
+
+        throw $r8;
+
+        catch javassist.NotFoundException from label1 to label2 with label3;
+    }
+
+    public javassist.CtClass lookupClassByName(javassist.compiler.ast.ASTList) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.MemberResolver r0;
+        javassist.compiler.ast.ASTList r1;
+        java.lang.String $r2;
+        javassist.CtClass $r3;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        r1 := @parameter0: javassist.compiler.ast.ASTList;
+
+        $r2 = staticinvoke <javassist.compiler.ast.Declarator: java.lang.String astToClassName(javassist.compiler.ast.ASTList,char)>(r1, 46);
+
+        $r3 = virtualinvoke r0.<javassist.compiler.MemberResolver: javassist.CtClass lookupClass(java.lang.String,boolean)>($r2, 0);
+
+        return $r3;
+    }
+
+    public javassist.CtClass lookupClassByJvmName(java.lang.String) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.MemberResolver r0;
+        java.lang.String r1, $r2;
+        javassist.CtClass $r3;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r2 = staticinvoke <javassist.compiler.MemberResolver: java.lang.String jvmToJavaName(java.lang.String)>(r1);
+
+        $r3 = virtualinvoke r0.<javassist.compiler.MemberResolver: javassist.CtClass lookupClass(java.lang.String,boolean)>($r2, 0);
+
+        return $r3;
+    }
+
+    public javassist.CtClass lookupClass(javassist.compiler.ast.Declarator) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.MemberResolver r0;
+        javassist.compiler.ast.Declarator r1;
+        int $i0, $i1;
+        java.lang.String $r2;
+        javassist.CtClass $r3;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        r1 := @parameter0: javassist.compiler.ast.Declarator;
+
+        $i0 = virtualinvoke r1.<javassist.compiler.ast.Declarator: int getType()>();
+
+        $i1 = virtualinvoke r1.<javassist.compiler.ast.Declarator: int getArrayDim()>();
+
+        $r2 = virtualinvoke r1.<javassist.compiler.ast.Declarator: java.lang.String getClassName()>();
+
+        $r3 = virtualinvoke r0.<javassist.compiler.MemberResolver: javassist.CtClass lookupClass(int,int,java.lang.String)>($i0, $i1, $r2);
+
+        return $r3;
+    }
+
+    public javassist.CtClass lookupClass(int, int, java.lang.String) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.MemberResolver r0;
+        int i0, i1, $i2;
+        java.lang.String r1, r8;
+        javassist.CtClass r2, $r3;
+        java.lang.StringBuilder $r4, $r5, $r6;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        i0 := @parameter0: int;
+
+        i1 := @parameter1: int;
+
+        r1 := @parameter2: java.lang.String;
+
+        if i0 != 307 goto label2;
+
+        r2 = virtualinvoke r0.<javassist.compiler.MemberResolver: javassist.CtClass lookupClassByJvmName(java.lang.String)>(r1);
+
+        if i1 <= 0 goto label1;
+
+        r8 = virtualinvoke r2.<javassist.CtClass: java.lang.String getName()>();
+
+        goto label3;
+
+     label1:
+        return r2;
+
+     label2:
+        r8 = staticinvoke <javassist.compiler.MemberResolver: java.lang.String getTypeName(int)>(i0);
+
+     label3:
+        $i2 = i1;
+
+        i1 = i1 + -1;
+
+        if $i2 <= 0 goto label4;
+
+        $r4 = new java.lang.StringBuilder;
+
+        specialinvoke $r4.<java.lang.StringBuilder: void <init>()>();
+
+        $r5 = virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r8);
+
+        $r6 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("[]");
+
+        r8 = virtualinvoke $r6.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        goto label3;
+
+     label4:
+        $r3 = virtualinvoke r0.<javassist.compiler.MemberResolver: javassist.CtClass lookupClass(java.lang.String,boolean)>(r8, 0);
+
+        return $r3;
+    }
+
+    static java.lang.String getTypeName(int) throws javassist.compiler.CompileError
+    {
+        int i0;
+        java.lang.String r0;
+
+        i0 := @parameter0: int;
+
+        r0 = "";
+
+        lookupswitch(i0)
+        {
+            case 301: goto label01;
+            case 303: goto label03;
+            case 306: goto label02;
+            case 312: goto label08;
+            case 317: goto label07;
+            case 324: goto label05;
+            case 326: goto label06;
+            case 334: goto label04;
+            case 344: goto label09;
+            default: goto label10;
+        };
+
+     label01:
+        r0 = "boolean";
+
+        goto label11;
+
+     label02:
+        r0 = "char";
+
+        goto label11;
+
+     label03:
+        r0 = "byte";
+
+        goto label11;
+
+     label04:
+        r0 = "short";
+
+        goto label11;
+
+     label05:
+        r0 = "int";
+
+        goto label11;
+
+     label06:
+        r0 = "long";
+
+        goto label11;
+
+     label07:
+        r0 = "float";
+
+        goto label11;
+
+     label08:
+        r0 = "double";
+
+        goto label11;
+
+     label09:
+        r0 = "void";
+
+        goto label11;
+
+     label10:
+        staticinvoke <javassist.compiler.MemberResolver: void fatal()>();
+
+     label11:
+        return r0;
+    }
+
+    public javassist.CtClass lookupClass(java.lang.String, boolean) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.MemberResolver r0;
+        java.lang.String r1, r3, $r5, $r12;
+        boolean z0;
+        java.util.Map r2;
+        java.lang.Object $r4;
+        javassist.ClassPool $r6;
+        javassist.CtClass $r7, r15;
+        javassist.compiler.CompileError $r8;
+        java.lang.StringBuilder $r9, $r10, $r11;
+        javassist.NotFoundException $r13, $r14;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        r1 := @parameter0: java.lang.String;
+
+        z0 := @parameter1: boolean;
+
+        r2 = specialinvoke r0.<javassist.compiler.MemberResolver: java.util.Map getInvalidNames()>();
+
+        $r4 = interfaceinvoke r2.<java.util.Map: java.lang.Object get(java.lang.Object)>(r1);
+
+        r3 = (java.lang.String) $r4;
+
+        if r3 != "<invalid>" goto label1;
+
+        $r8 = new javassist.compiler.CompileError;
+
+        $r9 = new java.lang.StringBuilder;
+
+        specialinvoke $r9.<java.lang.StringBuilder: void <init>()>();
+
+        $r10 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("no such class: ");
+
+        $r11 = virtualinvoke $r10.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r1);
+
+        $r12 = virtualinvoke $r11.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r8.<javassist.compiler.CompileError: void <init>(java.lang.String)>($r12);
+
+        throw $r8;
+
+     label1:
+        if r3 == null goto label5;
+
+     label2:
+        $r6 = r0.<javassist.compiler.MemberResolver: javassist.ClassPool classPool>;
+
+        $r7 = virtualinvoke $r6.<javassist.ClassPool: javassist.CtClass get(java.lang.String)>(r3);
+
+     label3:
+        return $r7;
+
+     label4:
+        $r13 := @caughtexception;
+
+     label5:
+        r15 = specialinvoke r0.<javassist.compiler.MemberResolver: javassist.CtClass lookupClass0(java.lang.String,boolean)>(r1, z0);
+
+     label6:
+        goto label8;
+
+     label7:
+        $r14 := @caughtexception;
+
+        r15 = specialinvoke r0.<javassist.compiler.MemberResolver: javassist.CtClass searchImports(java.lang.String)>(r1);
+
+     label8:
+        $r5 = virtualinvoke r15.<javassist.CtClass: java.lang.String getName()>();
+
+        interfaceinvoke r2.<java.util.Map: java.lang.Object put(java.lang.Object,java.lang.Object)>(r1, $r5);
+
+        return r15;
+
+        catch javassist.NotFoundException from label2 to label3 with label4;
+        catch javassist.NotFoundException from label5 to label6 with label7;
+    }
+
+    public static int getInvalidMapSize()
+    {
+        java.util.Map $r0;
+        int $i0;
+
+        $r0 = <javassist.compiler.MemberResolver: java.util.Map invalidNamesMap>;
+
+        $i0 = interfaceinvoke $r0.<java.util.Map: int size()>();
+
+        return $i0;
+    }
+
+    private java.util.Map getInvalidNames()
+    {
+        javassist.compiler.MemberResolver r0;
+        java.lang.ref.Reference r2;
+        javassist.ClassPool $r4, $r10;
+        java.util.Map $r5, $r9, r14;
+        java.lang.Object $r6, $r12;
+        java.util.Hashtable $r7;
+        java.lang.ref.WeakReference $r8;
+        java.lang.Throwable $r13;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        r14 = r0.<javassist.compiler.MemberResolver: java.util.Map invalidNames>;
+
+        if r14 != null goto label8;
+
+        entermonitor class "Ljavassist/compiler/MemberResolver;";
+
+     label1:
+        $r5 = <javassist.compiler.MemberResolver: java.util.Map invalidNamesMap>;
+
+        $r4 = r0.<javassist.compiler.MemberResolver: javassist.ClassPool classPool>;
+
+        $r6 = interfaceinvoke $r5.<java.util.Map: java.lang.Object get(java.lang.Object)>($r4);
+
+        r2 = (java.lang.ref.Reference) $r6;
+
+        if r2 == null goto label2;
+
+        $r12 = virtualinvoke r2.<java.lang.ref.Reference: java.lang.Object get()>();
+
+        r14 = (java.util.Map) $r12;
+
+     label2:
+        if r14 != null goto label3;
+
+        $r7 = new java.util.Hashtable;
+
+        specialinvoke $r7.<java.util.Hashtable: void <init>()>();
+
+        r14 = $r7;
+
+        $r9 = <javassist.compiler.MemberResolver: java.util.Map invalidNamesMap>;
+
+        $r10 = r0.<javassist.compiler.MemberResolver: javassist.ClassPool classPool>;
+
+        $r8 = new java.lang.ref.WeakReference;
+
+        specialinvoke $r8.<java.lang.ref.WeakReference: void <init>(java.lang.Object)>($r7);
+
+        interfaceinvoke $r9.<java.util.Map: java.lang.Object put(java.lang.Object,java.lang.Object)>($r10, $r8);
+
+     label3:
+        exitmonitor class "Ljavassist/compiler/MemberResolver;";
+
+     label4:
+        goto label7;
+
+     label5:
+        $r13 := @caughtexception;
+
+        exitmonitor class "Ljavassist/compiler/MemberResolver;";
+
+     label6:
+        throw $r13;
+
+     label7:
+        r0.<javassist.compiler.MemberResolver: java.util.Map invalidNames> = r14;
+
+     label8:
+        return r14;
+
+        catch java.lang.Throwable from label1 to label4 with label5;
+        catch java.lang.Throwable from label5 to label6 with label5;
+    }
+
+    private javassist.CtClass searchImports(java.lang.String) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.MemberResolver r0;
+        java.lang.String r1, r3, r4, $r13, $r17, $r28;
+        java.util.Iterator r2;
+        int $i0;
+        java.util.Map $r7;
+        javassist.compiler.CompileError $r9;
+        java.lang.StringBuilder $r10, $r11, $r12, $r16, $r18, $r19, $r20, $r25, $r26, $r27;
+        javassist.ClassPool $r14, $r21, $r29;
+        boolean $z0, $z1;
+        java.lang.Object $r15;
+        javassist.CtClass $r22, $r30;
+        javassist.NotFoundException $r23, $r24;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        r1 := @parameter0: java.lang.String;
+
+        $i0 = virtualinvoke r1.<java.lang.String: int indexOf(int)>(46);
+
+        if $i0 >= 0 goto label10;
+
+        $r14 = r0.<javassist.compiler.MemberResolver: javassist.ClassPool classPool>;
+
+        r2 = virtualinvoke $r14.<javassist.ClassPool: java.util.Iterator getImportedPackages()>();
+
+     label01:
+        $z0 = interfaceinvoke r2.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label10;
+
+        $r15 = interfaceinvoke r2.<java.util.Iterator: java.lang.Object next()>();
+
+        r3 = (java.lang.String) $r15;
+
+        $r16 = new java.lang.StringBuilder;
+
+        specialinvoke $r16.<java.lang.StringBuilder: void <init>()>();
+
+        $r17 = virtualinvoke r3.<java.lang.String: java.lang.String replaceAll(java.lang.String,java.lang.String)>("\\.$", "");
+
+        $r18 = virtualinvoke $r16.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r17);
+
+        $r19 = virtualinvoke $r18.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(".");
+
+        $r20 = virtualinvoke $r19.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r1);
+
+        r4 = virtualinvoke $r20.<java.lang.StringBuilder: java.lang.String toString()>();
+
+     label02:
+        $r21 = r0.<javassist.compiler.MemberResolver: javassist.ClassPool classPool>;
+
+        $r22 = virtualinvoke $r21.<javassist.ClassPool: javassist.CtClass get(java.lang.String)>(r4);
+
+     label03:
+        return $r22;
+
+     label04:
+        $r24 := @caughtexception;
+
+     label05:
+        $r25 = new java.lang.StringBuilder;
+
+        specialinvoke $r25.<java.lang.StringBuilder: void <init>()>();
+
+        $r26 = virtualinvoke $r25.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(".");
+
+        $r27 = virtualinvoke $r26.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r1);
+
+        $r28 = virtualinvoke $r27.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        $z1 = virtualinvoke r3.<java.lang.String: boolean endsWith(java.lang.String)>($r28);
+
+        if $z1 == 0 goto label07;
+
+        $r29 = r0.<javassist.compiler.MemberResolver: javassist.ClassPool classPool>;
+
+        $r30 = virtualinvoke $r29.<javassist.ClassPool: javassist.CtClass get(java.lang.String)>(r3);
+
+     label06:
+        return $r30;
+
+     label07:
+        goto label09;
+
+     label08:
+        $r23 := @caughtexception;
+
+     label09:
+        goto label01;
+
+     label10:
+        $r7 = specialinvoke r0.<javassist.compiler.MemberResolver: java.util.Map getInvalidNames()>();
+
+        interfaceinvoke $r7.<java.util.Map: java.lang.Object put(java.lang.Object,java.lang.Object)>(r1, "<invalid>");
+
+        $r9 = new javassist.compiler.CompileError;
+
+        $r10 = new java.lang.StringBuilder;
+
+        specialinvoke $r10.<java.lang.StringBuilder: void <init>()>();
+
+        $r11 = virtualinvoke $r10.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("no such class: ");
+
+        $r12 = virtualinvoke $r11.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r1);
+
+        $r13 = virtualinvoke $r12.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r9.<javassist.compiler.CompileError: void <init>(java.lang.String)>($r13);
+
+        throw $r9;
+
+        catch javassist.NotFoundException from label02 to label03 with label04;
+        catch javassist.NotFoundException from label05 to label06 with label08;
+    }
+
+    private javassist.CtClass lookupClass0(java.lang.String, boolean) throws javassist.NotFoundException
+    {
+        javassist.compiler.MemberResolver r0;
+        boolean z0;
+        int i0;
+        javassist.ClassPool $r3;
+        javassist.NotFoundException $r4;
+        java.lang.StringBuffer $r5;
+        java.lang.String r6;
+        javassist.CtClass r7;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        r6 := @parameter0: java.lang.String;
+
+        z0 := @parameter1: boolean;
+
+        r7 = null;
+
+     label1:
+        $r3 = r0.<javassist.compiler.MemberResolver: javassist.ClassPool classPool>;
+
+        r7 = virtualinvoke $r3.<javassist.ClassPool: javassist.CtClass get(java.lang.String)>(r6);
+
+     label2:
+        goto label6;
+
+     label3:
+        $r4 := @caughtexception;
+
+        i0 = virtualinvoke r6.<java.lang.String: int lastIndexOf(int)>(46);
+
+        if z0 != 0 goto label4;
+
+        if i0 >= 0 goto label5;
+
+     label4:
+        throw $r4;
+
+     label5:
+        $r5 = new java.lang.StringBuffer;
+
+        specialinvoke $r5.<java.lang.StringBuffer: void <init>(java.lang.String)>(r6);
+
+        virtualinvoke $r5.<java.lang.StringBuffer: void setCharAt(int,char)>(i0, 36);
+
+        r6 = virtualinvoke $r5.<java.lang.StringBuffer: java.lang.String toString()>();
+
+     label6:
+        if r7 == null goto label1;
+
+        return r7;
+
+        catch javassist.NotFoundException from label1 to label2 with label3;
+    }
+
+    public java.lang.String resolveClassName(javassist.compiler.ast.ASTList) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.MemberResolver r0;
+        javassist.compiler.ast.ASTList r1;
+        javassist.CtClass $r2;
+        java.lang.String $r3, $r4;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        r1 := @parameter0: javassist.compiler.ast.ASTList;
+
+        if r1 != null goto label1;
+
+        return null;
+
+     label1:
+        $r2 = virtualinvoke r0.<javassist.compiler.MemberResolver: javassist.CtClass lookupClassByName(javassist.compiler.ast.ASTList)>(r1);
+
+        $r3 = virtualinvoke $r2.<javassist.CtClass: java.lang.String getName()>();
+
+        $r4 = staticinvoke <javassist.compiler.MemberResolver: java.lang.String javaToJvmName(java.lang.String)>($r3);
+
+        return $r4;
+    }
+
+    public java.lang.String resolveJvmClassName(java.lang.String) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.MemberResolver r0;
+        java.lang.String r1, $r3, $r4;
+        javassist.CtClass $r2;
+
+        r0 := @this: javassist.compiler.MemberResolver;
+
+        r1 := @parameter0: java.lang.String;
+
+        if r1 != null goto label1;
+
+        return null;
+
+     label1:
+        $r2 = virtualinvoke r0.<javassist.compiler.MemberResolver: javassist.CtClass lookupClassByJvmName(java.lang.String)>(r1);
+
+        $r3 = virtualinvoke $r2.<javassist.CtClass: java.lang.String getName()>();
+
+        $r4 = staticinvoke <javassist.compiler.MemberResolver: java.lang.String javaToJvmName(java.lang.String)>($r3);
+
+        return $r4;
+    }
+
+    public static javassist.CtClass getSuperclass(javassist.CtClass) throws javassist.compiler.CompileError
+    {
+        javassist.CtClass r0, r8;
+        javassist.compiler.CompileError $r1;
+        java.lang.StringBuilder $r2, $r3, $r5;
+        java.lang.String $r4, $r6;
+        javassist.NotFoundException $r7;
+
+        r0 := @parameter0: javassist.CtClass;
+
+     label1:
+        r8 = virtualinvoke r0.<javassist.CtClass: javassist.CtClass getSuperclass()>();
+
+        if r8 == null goto label3;
+
+     label2:
+        return r8;
+
+     label3:
+        goto label5;
+
+     label4:
+        $r7 := @caughtexception;
+
+     label5:
+        $r1 = new javassist.compiler.CompileError;
+
+        $r2 = new java.lang.StringBuilder;
+
+        specialinvoke $r2.<java.lang.StringBuilder: void <init>()>();
+
+        $r3 = virtualinvoke $r2.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("cannot find the super class of ");
+
+        $r4 = virtualinvoke r0.<javassist.CtClass: java.lang.String getName()>();
+
+        $r5 = virtualinvoke $r3.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r4);
+
+        $r6 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r1.<javassist.compiler.CompileError: void <init>(java.lang.String)>($r6);
+
+        throw $r1;
+
+        catch javassist.NotFoundException from label1 to label2 with label4;
+    }
+
+    public static javassist.CtClass getSuperInterface(javassist.CtClass, java.lang.String) throws javassist.compiler.CompileError
+    {
+        javassist.CtClass r0, $r10, $r12;
+        java.lang.String r1, $r7, $r9, $r11;
+        int $i0, i1;
+        javassist.compiler.CompileError $r2;
+        java.lang.StringBuilder $r3, $r4, $r5, $r6, $r8;
+        boolean $z0;
+        javassist.NotFoundException $r13;
+        javassist.CtClass[] r14;
+
+        r0 := @parameter0: javassist.CtClass;
+
+        r1 := @parameter1: java.lang.String;
+
+     label1:
+        r14 = virtualinvoke r0.<javassist.CtClass: javassist.CtClass[] getInterfaces()>();
+
+        i1 = 0;
+
+     label2:
+        $i0 = lengthof r14;
+
+        if i1 >= $i0 goto label5;
+
+        $r10 = r14[i1];
+
+        $r11 = virtualinvoke $r10.<javassist.CtClass: java.lang.String getName()>();
+
+        $z0 = virtualinvoke $r11.<java.lang.String: boolean equals(java.lang.Object)>(r1);
+
+        if $z0 == 0 goto label4;
+
+        $r12 = r14[i1];
+
+     label3:
+        return $r12;
+
+     label4:
+        i1 = i1 + 1;
+
+        goto label2;
+
+     label5:
+        goto label7;
+
+     label6:
+        $r13 := @caughtexception;
+
+     label7:
+        $r2 = new javassist.compiler.CompileError;
+
+        $r3 = new java.lang.StringBuilder;
+
+        specialinvoke $r3.<java.lang.StringBuilder: void <init>()>();
+
+        $r4 = virtualinvoke $r3.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("cannot find the super inetrface ");
+
+        $r5 = virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r1);
+
+        $r6 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" of ");
+
+        $r7 = virtualinvoke r0.<javassist.CtClass: java.lang.String getName()>();
+
+        $r8 = virtualinvoke $r6.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r7);
+
+        $r9 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r2.<javassist.compiler.CompileError: void <init>(java.lang.String)>($r9);
+
+        throw $r2;
+
+        catch javassist.NotFoundException from label1 to label3 with label6;
+        catch javassist.NotFoundException from label4 to label5 with label6;
+    }
+
+    public static java.lang.String javaToJvmName(java.lang.String)
+    {
+        java.lang.String r0, $r1;
+
+        r0 := @parameter0: java.lang.String;
+
+        $r1 = virtualinvoke r0.<java.lang.String: java.lang.String replace(char,char)>(46, 47);
+
+        return $r1;
+    }
+
+    public static java.lang.String jvmToJavaName(java.lang.String)
+    {
+        java.lang.String r0, $r1;
+
+        r0 := @parameter0: java.lang.String;
+
+        $r1 = virtualinvoke r0.<java.lang.String: java.lang.String replace(char,char)>(47, 46);
+
+        return $r1;
+    }
+
+    public static int descToType(char) throws javassist.compiler.CompileError
+    {
+        char c0;
+
+        c0 := @parameter0: char;
+
+        tableswitch(c0)
+        {
+            case 66: goto label03;
+            case 67: goto label02;
+            case 68: goto label08;
+            case 69: goto label11;
+            case 70: goto label07;
+            case 71: goto label11;
+            case 72: goto label11;
+            case 73: goto label05;
+            case 74: goto label06;
+            case 75: goto label11;
+            case 76: goto label10;
+            case 77: goto label11;
+            case 78: goto label11;
+            case 79: goto label11;
+            case 80: goto label11;
+            case 81: goto label11;
+            case 82: goto label11;
+            case 83: goto label04;
+            case 84: goto label11;
+            case 85: goto label11;
+            case 86: goto label09;
+            case 87: goto label11;
+            case 88: goto label11;
+            case 89: goto label11;
+            case 90: goto label01;
+            case 91: goto label10;
+            default: goto label11;
+        };
+
+     label01:
+        return 301;
+
+     label02:
+        return 306;
+
+     label03:
+        return 303;
+
+     label04:
+        return 334;
+
+     label05:
+        return 324;
+
+     label06:
+        return 326;
+
+     label07:
+        return 317;
+
+     label08:
+        return 312;
+
+     label09:
+        return 344;
+
+     label10:
+        return 307;
+
+     label11:
+        staticinvoke <javassist.compiler.MemberResolver: void fatal()>();
+
+        return 344;
+    }
+
+    public static int getModifiers(javassist.compiler.ast.ASTList)
+    {
+        javassist.compiler.ast.Keyword r0;
+        javassist.compiler.ast.ASTree $r1;
+        int $i0;
+        javassist.compiler.ast.ASTList r2;
+        short s1;
+
+        r2 := @parameter0: javassist.compiler.ast.ASTList;
+
+        s1 = 0;
+
+     label01:
+        if r2 == null goto label13;
+
+        $r1 = virtualinvoke r2.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTree head()>();
+
+        r0 = (javassist.compiler.ast.Keyword) $r1;
+
+        r2 = virtualinvoke r2.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTList tail()>();
+
+        $i0 = virtualinvoke r0.<javassist.compiler.ast.Keyword: int get()>();
+
+        lookupswitch($i0)
+        {
+            case 300: goto label05;
+            case 315: goto label03;
+            case 330: goto label08;
+            case 331: goto label07;
+            case 332: goto label06;
+            case 335: goto label02;
+            case 338: goto label04;
+            case 342: goto label10;
+            case 345: goto label09;
+            case 347: goto label11;
+            default: goto label12;
+        };
+
+     label02:
+        s1 = s1 | 8;
+
+        goto label12;
+
+     label03:
+        s1 = s1 | 16;
+
+        goto label12;
+
+     label04:
+        s1 = s1 | 32;
+
+        goto label12;
+
+     label05:
+        s1 = s1 | 1024;
+
+        goto label12;
+
+     label06:
+        s1 = s1 | 1;
+
+        goto label12;
+
+     label07:
+        s1 = s1 | 4;
+
+        goto label12;
+
+     label08:
+        s1 = s1 | 2;
+
+        goto label12;
+
+     label09:
+        s1 = s1 | 64;
+
+        goto label12;
+
+     label10:
+        s1 = s1 | 128;
+
+        goto label12;
+
+     label11:
+        s1 = s1 | 2048;
+
+     label12:
+        goto label01;
+
+     label13:
+        return s1;
+    }
+
+    static void <clinit>()
+    {
+        java.util.WeakHashMap $r0;
+
+        <javassist.compiler.MemberResolver: java.lang.String INVALID> = "<invalid>";
+
+        <javassist.compiler.MemberResolver: int NO> = -1;
+
+        <javassist.compiler.MemberResolver: int YES> = 0;
+
+        $r0 = new java.util.WeakHashMap;
+
+        specialinvoke $r0.<java.util.WeakHashMap: void <init>()>();
+
+        <javassist.compiler.MemberResolver: java.util.Map invalidNamesMap> = $r0;
+
+        return;
+    }
+}

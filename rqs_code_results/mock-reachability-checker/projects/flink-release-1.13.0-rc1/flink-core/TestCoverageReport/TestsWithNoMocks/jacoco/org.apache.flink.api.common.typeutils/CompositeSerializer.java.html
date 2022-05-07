@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CompositeSerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeutils</a> &gt; <span class="el_source">CompositeSerializer.java</span></div><h1>CompositeSerializer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeutils;
+
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.util.Preconditions;
+
+import javax.annotation.Nonnull;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.Arrays;
+
+/**
+ * Base class for composite serializers.
+ *
+ * &lt;p&gt;This class serializes a composite type using array of its field serializers. Fields are
+ * indexed the same way as their serializers.
+ *
+ * @param &lt;T&gt; type of custom serialized value
+ */
+<span class="pc bpc" id="L39" title="1 of 2 branches missed.">public abstract class CompositeSerializer&lt;T&gt; extends TypeSerializer&lt;T&gt; {</span>
+    private static final long serialVersionUID = 1L;
+
+    /** Serializers for fields which constitute T. */
+    protected final TypeSerializer&lt;Object&gt;[] fieldSerializers;
+
+    final PrecomputedParameters precomputed;
+
+    /** Can be used for user facing constructor. */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    protected CompositeSerializer(
+            boolean immutableTargetType, TypeSerializer&lt;?&gt;... fieldSerializers) {
+<span class="fc" id="L51">        this(</span>
+<span class="fc" id="L52">                PrecomputedParameters.precompute(</span>
+                        immutableTargetType, (TypeSerializer&lt;Object&gt;[]) fieldSerializers),
+                fieldSerializers);
+<span class="fc" id="L55">    }</span>
+
+    /** Can be used in createSerializerInstance for internal operations. */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    protected CompositeSerializer(
+<span class="fc" id="L60">            PrecomputedParameters precomputed, TypeSerializer&lt;?&gt;... fieldSerializers) {</span>
+<span class="fc" id="L61">        this.fieldSerializers = (TypeSerializer&lt;Object&gt;[]) fieldSerializers;</span>
+<span class="fc" id="L62">        this.precomputed = precomputed;</span>
+<span class="fc" id="L63">    }</span>
+
+    /** Create new instance from its fields. */
+    public abstract T createInstance(@Nonnull Object... values);
+
+    /** Modify field of existing instance. Supported only by mutable types. */
+    protected abstract void setField(@Nonnull T value, int index, Object fieldValue);
+
+    /** Get field of existing instance. */
+    protected abstract Object getField(@Nonnull T value, int index);
+
+    /** Factory for concrete serializer. */
+    protected abstract CompositeSerializer&lt;T&gt; createSerializerInstance(
+            PrecomputedParameters precomputed, TypeSerializer&lt;?&gt;... originalSerializers);
+
+    @Override
+    public CompositeSerializer&lt;T&gt; duplicate() {
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        return precomputed.stateful</span>
+<span class="fc" id="L81">                ? createSerializerInstance(precomputed, duplicateFieldSerializers(fieldSerializers))</span>
+                : this;
+    }
+
+    private static TypeSerializer[] duplicateFieldSerializers(
+            TypeSerializer&lt;Object&gt;[] fieldSerializers) {
+<span class="fc" id="L87">        TypeSerializer[] duplicatedSerializers = new TypeSerializer[fieldSerializers.length];</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">        for (int index = 0; index &lt; fieldSerializers.length; index++) {</span>
+<span class="fc" id="L89">            duplicatedSerializers[index] = fieldSerializers[index].duplicate();</span>
+<span class="pc bpc" id="L90" title="2 of 4 branches missed.">            assert duplicatedSerializers[index] != null;</span>
+        }
+<span class="fc" id="L92">        return duplicatedSerializers;</span>
+    }
+
+    @Override
+    public boolean isImmutableType() {
+<span class="fc" id="L97">        return precomputed.immutable;</span>
+    }
+
+    @Override
+    public T createInstance() {
+<span class="fc" id="L102">        Object[] fields = new Object[fieldSerializers.length];</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">        for (int index = 0; index &lt; fieldSerializers.length; index++) {</span>
+<span class="fc" id="L104">            fields[index] = fieldSerializers[index].createInstance();</span>
+        }
+<span class="fc" id="L106">        return createInstance(fields);</span>
+    }
+
+    @Override
+    public T copy(T from) {
+<span class="fc" id="L111">        Preconditions.checkNotNull(from);</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">        if (isImmutableType()) {</span>
+<span class="fc" id="L113">            return from;</span>
+        }
+<span class="fc" id="L115">        Object[] fields = new Object[fieldSerializers.length];</span>
+<span class="fc bfc" id="L116" title="All 2 branches covered.">        for (int index = 0; index &lt; fieldSerializers.length; index++) {</span>
+<span class="fc" id="L117">            fields[index] = fieldSerializers[index].copy(getField(from, index));</span>
+        }
+<span class="fc" id="L119">        return createInstance(fields);</span>
+    }
+
+    @Override
+    public T copy(T from, T reuse) {
+<span class="fc" id="L124">        Preconditions.checkNotNull(from);</span>
+<span class="fc" id="L125">        Preconditions.checkNotNull(reuse);</span>
+<span class="fc bfc" id="L126" title="All 2 branches covered.">        if (isImmutableType()) {</span>
+<span class="fc" id="L127">            return from;</span>
+        }
+<span class="fc" id="L129">        Object[] fields = new Object[fieldSerializers.length];</span>
+<span class="fc bfc" id="L130" title="All 2 branches covered.">        for (int index = 0; index &lt; fieldSerializers.length; index++) {</span>
+<span class="fc" id="L131">            fields[index] =</span>
+<span class="fc" id="L132">                    fieldSerializers[index].copy(getField(from, index), getField(reuse, index));</span>
+        }
+<span class="fc" id="L134">        return createInstanceWithReuse(fields, reuse);</span>
+    }
+
+    @Override
+    public int getLength() {
+<span class="fc" id="L139">        return precomputed.length;</span>
+    }
+
+    @Override
+    public void serialize(T record, DataOutputView target) throws IOException {
+<span class="fc" id="L144">        Preconditions.checkNotNull(record);</span>
+<span class="fc" id="L145">        Preconditions.checkNotNull(target);</span>
+<span class="fc bfc" id="L146" title="All 2 branches covered.">        for (int index = 0; index &lt; fieldSerializers.length; index++) {</span>
+<span class="fc" id="L147">            fieldSerializers[index].serialize(getField(record, index), target);</span>
+        }
+<span class="fc" id="L149">    }</span>
+
+    @Override
+    public T deserialize(DataInputView source) throws IOException {
+<span class="fc" id="L153">        Preconditions.checkNotNull(source);</span>
+<span class="fc" id="L154">        Object[] fields = new Object[fieldSerializers.length];</span>
+<span class="fc bfc" id="L155" title="All 2 branches covered.">        for (int i = 0; i &lt; fieldSerializers.length; i++) {</span>
+<span class="fc" id="L156">            fields[i] = fieldSerializers[i].deserialize(source);</span>
+        }
+<span class="fc" id="L158">        return createInstance(fields);</span>
+    }
+
+    @Override
+    public T deserialize(T reuse, DataInputView source) throws IOException {
+<span class="fc" id="L163">        Preconditions.checkNotNull(reuse);</span>
+<span class="fc" id="L164">        Preconditions.checkNotNull(source);</span>
+<span class="fc" id="L165">        Object[] fields = new Object[fieldSerializers.length];</span>
+<span class="fc bfc" id="L166" title="All 2 branches covered.">        for (int index = 0; index &lt; fieldSerializers.length; index++) {</span>
+<span class="fc" id="L167">            fields[index] = fieldSerializers[index].deserialize(getField(reuse, index), source);</span>
+        }
+<span class="fc bfc" id="L169" title="All 2 branches covered.">        return precomputed.immutable</span>
+<span class="fc" id="L170">                ? createInstance(fields)</span>
+<span class="fc" id="L171">                : createInstanceWithReuse(fields, reuse);</span>
+    }
+
+    private T createInstanceWithReuse(Object[] fields, T reuse) {
+<span class="fc bfc" id="L175" title="All 2 branches covered.">        for (int index = 0; index &lt; fields.length; index++) {</span>
+<span class="fc" id="L176">            setField(reuse, index, fields[index]);</span>
+        }
+<span class="fc" id="L178">        return reuse;</span>
+    }
+
+    @Override
+    public void copy(DataInputView source, DataOutputView target) throws IOException {
+<span class="fc" id="L183">        Preconditions.checkNotNull(source);</span>
+<span class="fc" id="L184">        Preconditions.checkNotNull(target);</span>
+<span class="fc bfc" id="L185" title="All 2 branches covered.">        for (TypeSerializer typeSerializer : fieldSerializers) {</span>
+<span class="fc" id="L186">            typeSerializer.copy(source, target);</span>
+        }
+<span class="fc" id="L188">    }</span>
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L192">        return 31 * Boolean.hashCode(precomputed.immutableTargetType)</span>
+<span class="nc" id="L193">                + Arrays.hashCode(fieldSerializers);</span>
+    }
+
+    @SuppressWarnings(&quot;EqualsWhichDoesntCheckParameterClass&quot;)
+    @Override
+    public boolean equals(Object obj) {
+<span class="fc" id="L199">        CompositeSerializer&lt;?&gt; other = (CompositeSerializer&lt;?&gt;) obj;</span>
+<span class="pc bpc" id="L200" title="1 of 2 branches missed.">        return precomputed.immutable == other.precomputed.immutable</span>
+<span class="pc bpc" id="L201" title="1 of 2 branches missed.">                &amp;&amp; Arrays.equals(fieldSerializers, other.fieldSerializers);</span>
+    }
+
+    /**
+     * This class holds composite serializer parameters which can be precomputed in advanced for
+     * better performance.
+     */
+    protected static class PrecomputedParameters implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        /** Whether target type is immutable. */
+        final boolean immutableTargetType;
+
+        /** Whether target type and its fields are immutable. */
+        final boolean immutable;
+
+        /** Byte length of target object in serialized form. */
+        private final int length;
+
+        /** Whether any field serializer is stateful. */
+        final boolean stateful;
+
+        private PrecomputedParameters(
+<span class="fc" id="L224">                boolean immutableTargetType, boolean immutable, int length, boolean stateful) {</span>
+<span class="fc" id="L225">            this.immutableTargetType = immutableTargetType;</span>
+<span class="fc" id="L226">            this.immutable = immutable;</span>
+<span class="fc" id="L227">            this.length = length;</span>
+<span class="fc" id="L228">            this.stateful = stateful;</span>
+<span class="fc" id="L229">        }</span>
+
+        static PrecomputedParameters precompute(
+                boolean immutableTargetType, TypeSerializer&lt;Object&gt;[] fieldSerializers) {
+<span class="fc" id="L233">            Preconditions.checkNotNull(fieldSerializers);</span>
+<span class="fc" id="L234">            int totalLength = 0;</span>
+<span class="fc" id="L235">            boolean fieldsImmutable = true;</span>
+<span class="fc" id="L236">            boolean stateful = false;</span>
+<span class="fc bfc" id="L237" title="All 2 branches covered.">            for (TypeSerializer&lt;Object&gt; fieldSerializer : fieldSerializers) {</span>
+<span class="fc" id="L238">                Preconditions.checkNotNull(fieldSerializer);</span>
+<span class="fc bfc" id="L239" title="All 2 branches covered.">                if (fieldSerializer != fieldSerializer.duplicate()) {</span>
+<span class="fc" id="L240">                    stateful = true;</span>
+                }
+<span class="fc bfc" id="L242" title="All 2 branches covered.">                if (!fieldSerializer.isImmutableType()) {</span>
+<span class="fc" id="L243">                    fieldsImmutable = false;</span>
+                }
+<span class="fc bfc" id="L245" title="All 2 branches covered.">                if (fieldSerializer.getLength() &lt; 0) {</span>
+<span class="fc" id="L246">                    totalLength = -1;</span>
+                }
+<span class="fc bfc" id="L248" title="All 2 branches covered.">                totalLength =</span>
+<span class="fc" id="L249">                        totalLength &gt;= 0 ? totalLength + fieldSerializer.getLength() : totalLength;</span>
+            }
+<span class="fc" id="L251">            return new PrecomputedParameters(</span>
+                    immutableTargetType, fieldsImmutable, totalLength, stateful);
+        }
+    }
+
+    /**
+     * Snapshot field serializers of composite type.
+     *
+     * @deprecated this snapshot class is no longer in use by any serializers, and is only kept
+     *     around for backwards compatibility. All subclass serializers should have their own
+     *     serializer snapshot classes.
+     */
+    @Deprecated
+    public static class ConfigSnapshot extends CompositeTypeSerializerConfigSnapshot {
+        private static final int VERSION = 0;
+
+        /** This empty nullary constructor is required for deserializing the configuration. */
+        @SuppressWarnings(&quot;unused&quot;)
+<span class="nc" id="L269">        public ConfigSnapshot() {}</span>
+
+        ConfigSnapshot(@Nonnull TypeSerializer&lt;?&gt;... nestedSerializers) {
+<span class="nc" id="L272">            super(nestedSerializers);</span>
+<span class="nc" id="L273">        }</span>
+
+        @Override
+        public int getVersion() {
+<span class="nc" id="L277">            return VERSION;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

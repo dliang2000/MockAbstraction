@@ -1,0 +1,6061 @@
+public abstract class javassist.compiler.CodeGen extends javassist.compiler.ast.Visitor implements javassist.bytecode.Opcode, javassist.compiler.TokenId
+{
+    static final java.lang.String javaLangObject;
+    static final java.lang.String jvmJavaLangObject;
+    static final java.lang.String javaLangString;
+    static final java.lang.String jvmJavaLangString;
+    protected javassist.bytecode.Bytecode bytecode;
+    private int tempVar;
+    javassist.compiler.TypeChecker typeChecker;
+    protected boolean hasReturned;
+    public boolean inStaticMethod;
+    protected java.util.List breakList;
+    protected java.util.List continueList;
+    protected javassist.compiler.CodeGen$ReturnHook returnHooks;
+    protected int exprType;
+    protected int arrayDim;
+    protected java.lang.String className;
+    static final int[] binOp;
+    private static final int[] ifOp;
+    private static final int[] ifOp2;
+    private static final int P_DOUBLE;
+    private static final int P_FLOAT;
+    private static final int P_LONG;
+    private static final int P_INT;
+    private static final int P_OTHER;
+    private static final int[] castOp;
+
+    public void <init>(javassist.bytecode.Bytecode)
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.bytecode.Bytecode r1;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.bytecode.Bytecode;
+
+        specialinvoke r0.<javassist.compiler.ast.Visitor: void <init>()>();
+
+        r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode> = r1;
+
+        r0.<javassist.compiler.CodeGen: int tempVar> = -1;
+
+        r0.<javassist.compiler.CodeGen: javassist.compiler.TypeChecker typeChecker> = null;
+
+        r0.<javassist.compiler.CodeGen: boolean hasReturned> = 0;
+
+        r0.<javassist.compiler.CodeGen: boolean inStaticMethod> = 0;
+
+        r0.<javassist.compiler.CodeGen: java.util.List breakList> = null;
+
+        r0.<javassist.compiler.CodeGen: java.util.List continueList> = null;
+
+        r0.<javassist.compiler.CodeGen: javassist.compiler.CodeGen$ReturnHook returnHooks> = null;
+
+        return;
+    }
+
+    public void setTypeChecker(javassist.compiler.TypeChecker)
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.TypeChecker r1;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.TypeChecker;
+
+        r0.<javassist.compiler.CodeGen: javassist.compiler.TypeChecker typeChecker> = r1;
+
+        return;
+    }
+
+    protected static void fatal() throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CompileError $r0;
+
+        $r0 = new javassist.compiler.CompileError;
+
+        specialinvoke $r0.<javassist.compiler.CompileError: void <init>(java.lang.String)>("fatal");
+
+        throw $r0;
+    }
+
+    public static boolean is2word(int, int)
+    {
+        int i0, i1;
+        boolean $z0;
+
+        i0 := @parameter0: int;
+
+        i1 := @parameter1: int;
+
+        if i1 != 0 goto label2;
+
+        if i0 == 312 goto label1;
+
+        if i0 != 326 goto label2;
+
+     label1:
+        $z0 = 1;
+
+        goto label3;
+
+     label2:
+        $z0 = 0;
+
+     label3:
+        return $z0;
+    }
+
+    public int getMaxLocals()
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.bytecode.Bytecode $r1;
+        int $i0;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        $r1 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i0 = virtualinvoke $r1.<javassist.bytecode.Bytecode: int getMaxLocals()>();
+
+        return $i0;
+    }
+
+    public void setMaxLocals(int)
+    {
+        javassist.compiler.CodeGen r0;
+        int i0;
+        javassist.bytecode.Bytecode $r1;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        i0 := @parameter0: int;
+
+        $r1 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r1.<javassist.bytecode.Bytecode: void setMaxLocals(int)>(i0);
+
+        return;
+    }
+
+    protected void incMaxLocals(int)
+    {
+        javassist.compiler.CodeGen r0;
+        int i0;
+        javassist.bytecode.Bytecode $r1;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        i0 := @parameter0: int;
+
+        $r1 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r1.<javassist.bytecode.Bytecode: void incMaxLocals(int)>(i0);
+
+        return;
+    }
+
+    protected int getTempVar()
+    {
+        javassist.compiler.CodeGen r0;
+        int $i0, $i1, $i2;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        $i0 = r0.<javassist.compiler.CodeGen: int tempVar>;
+
+        if $i0 >= 0 goto label1;
+
+        $i2 = virtualinvoke r0.<javassist.compiler.CodeGen: int getMaxLocals()>();
+
+        r0.<javassist.compiler.CodeGen: int tempVar> = $i2;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void incMaxLocals(int)>(2);
+
+     label1:
+        $i1 = r0.<javassist.compiler.CodeGen: int tempVar>;
+
+        return $i1;
+    }
+
+    protected int getLocalVar(javassist.compiler.ast.Declarator)
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Declarator r1;
+        int i0;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Declarator;
+
+        i0 = virtualinvoke r1.<javassist.compiler.ast.Declarator: int getLocalVar()>();
+
+        if i0 >= 0 goto label1;
+
+        i0 = virtualinvoke r0.<javassist.compiler.CodeGen: int getMaxLocals()>();
+
+        virtualinvoke r1.<javassist.compiler.ast.Declarator: void setLocalVar(int)>(i0);
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void incMaxLocals(int)>(1);
+
+     label1:
+        return i0;
+    }
+
+    protected abstract java.lang.String getThisName();
+
+    protected abstract java.lang.String getSuperName() throws javassist.compiler.CompileError;
+
+    protected abstract java.lang.String resolveClassName(javassist.compiler.ast.ASTList) throws javassist.compiler.CompileError;
+
+    protected abstract java.lang.String resolveClassName(java.lang.String) throws javassist.compiler.CompileError;
+
+    protected static java.lang.String toJvmArrayName(java.lang.String, int)
+    {
+        java.lang.String r0, $r6;
+        int i0, $i1, i2;
+        java.lang.StringBuffer $r2;
+
+        r0 := @parameter0: java.lang.String;
+
+        i0 := @parameter1: int;
+
+        if r0 != null goto label1;
+
+        return null;
+
+     label1:
+        if i0 != 0 goto label2;
+
+        return r0;
+
+     label2:
+        $r2 = new java.lang.StringBuffer;
+
+        specialinvoke $r2.<java.lang.StringBuffer: void <init>()>();
+
+        i2 = i0;
+
+     label3:
+        $i1 = i2;
+
+        i2 = i2 + -1;
+
+        if $i1 <= 0 goto label4;
+
+        virtualinvoke $r2.<java.lang.StringBuffer: java.lang.StringBuffer append(char)>(91);
+
+        goto label3;
+
+     label4:
+        virtualinvoke $r2.<java.lang.StringBuffer: java.lang.StringBuffer append(char)>(76);
+
+        virtualinvoke $r2.<java.lang.StringBuffer: java.lang.StringBuffer append(java.lang.String)>(r0);
+
+        virtualinvoke $r2.<java.lang.StringBuffer: java.lang.StringBuffer append(char)>(59);
+
+        $r6 = virtualinvoke $r2.<java.lang.StringBuffer: java.lang.String toString()>();
+
+        return $r6;
+    }
+
+    protected static java.lang.String toJvmTypeName(int, int)
+    {
+        int i0, i1, $i3;
+        java.lang.String $r2;
+        char c2;
+        java.lang.StringBuffer $r4;
+
+        i0 := @parameter0: int;
+
+        i1 := @parameter1: int;
+
+        c2 = 73;
+
+        lookupswitch(i0)
+        {
+            case 301: goto label01;
+            case 303: goto label02;
+            case 306: goto label03;
+            case 312: goto label08;
+            case 317: goto label07;
+            case 324: goto label05;
+            case 326: goto label06;
+            case 334: goto label04;
+            case 344: goto label09;
+            default: goto label10;
+        };
+
+     label01:
+        c2 = 90;
+
+        goto label10;
+
+     label02:
+        c2 = 66;
+
+        goto label10;
+
+     label03:
+        c2 = 67;
+
+        goto label10;
+
+     label04:
+        c2 = 83;
+
+        goto label10;
+
+     label05:
+        c2 = 73;
+
+        goto label10;
+
+     label06:
+        c2 = 74;
+
+        goto label10;
+
+     label07:
+        c2 = 70;
+
+        goto label10;
+
+     label08:
+        c2 = 68;
+
+        goto label10;
+
+     label09:
+        c2 = 86;
+
+     label10:
+        $r4 = new java.lang.StringBuffer;
+
+        specialinvoke $r4.<java.lang.StringBuffer: void <init>()>();
+
+     label11:
+        $i3 = i1;
+
+        i1 = i1 + -1;
+
+        if $i3 <= 0 goto label12;
+
+        virtualinvoke $r4.<java.lang.StringBuffer: java.lang.StringBuffer append(char)>(91);
+
+        goto label11;
+
+     label12:
+        virtualinvoke $r4.<java.lang.StringBuffer: java.lang.StringBuffer append(char)>(c2);
+
+        $r2 = virtualinvoke $r4.<java.lang.StringBuffer: java.lang.String toString()>();
+
+        return $r2;
+    }
+
+    public void compileExpr(javassist.compiler.ast.ASTree) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.ASTree r1;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.ASTree;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void doTypeCheck(javassist.compiler.ast.ASTree)>(r1);
+
+        virtualinvoke r1.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        return;
+    }
+
+    public boolean compileBooleanExpr(boolean, javassist.compiler.ast.ASTree) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        boolean z0, $z1;
+        javassist.compiler.ast.ASTree r1;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        z0 := @parameter0: boolean;
+
+        r1 := @parameter1: javassist.compiler.ast.ASTree;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void doTypeCheck(javassist.compiler.ast.ASTree)>(r1);
+
+        $z1 = specialinvoke r0.<javassist.compiler.CodeGen: boolean booleanExpr(boolean,javassist.compiler.ast.ASTree)>(z0, r1);
+
+        return $z1;
+    }
+
+    public void doTypeCheck(javassist.compiler.ast.ASTree) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.ASTree r1;
+        javassist.compiler.TypeChecker $r2, $r3;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.ASTree;
+
+        $r2 = r0.<javassist.compiler.CodeGen: javassist.compiler.TypeChecker typeChecker>;
+
+        if $r2 == null goto label1;
+
+        $r3 = r0.<javassist.compiler.CodeGen: javassist.compiler.TypeChecker typeChecker>;
+
+        virtualinvoke r1.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>($r3);
+
+     label1:
+        return;
+    }
+
+    public void atASTList(javassist.compiler.ast.ASTList) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.ASTList r1;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.ASTList;
+
+        staticinvoke <javassist.compiler.CodeGen: void fatal()>();
+
+        return;
+    }
+
+    public void atPair(javassist.compiler.ast.Pair) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Pair r1;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Pair;
+
+        staticinvoke <javassist.compiler.CodeGen: void fatal()>();
+
+        return;
+    }
+
+    public void atSymbol(javassist.compiler.ast.Symbol) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Symbol r1;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Symbol;
+
+        staticinvoke <javassist.compiler.CodeGen: void fatal()>();
+
+        return;
+    }
+
+    public void atFieldDecl(javassist.compiler.ast.FieldDecl) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.FieldDecl r1;
+        javassist.compiler.ast.ASTree $r2;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.FieldDecl;
+
+        $r2 = virtualinvoke r1.<javassist.compiler.ast.FieldDecl: javassist.compiler.ast.ASTree getInit()>();
+
+        virtualinvoke $r2.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        return;
+    }
+
+    public void atMethodDecl(javassist.compiler.ast.MethodDecl) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.MethodDecl r1;
+        javassist.compiler.ast.Stmnt r2;
+        boolean $z0, $z1;
+        javassist.compiler.ast.Declarator $r3, $r7;
+        int $i0, $i1;
+        javassist.compiler.ast.ASTree $r6, $r8;
+        javassist.compiler.ast.ASTList r9, r11;
+        javassist.compiler.ast.Keyword r10;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.MethodDecl;
+
+        r9 = virtualinvoke r1.<javassist.compiler.ast.MethodDecl: javassist.compiler.ast.ASTList getModifiers()>();
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void setMaxLocals(int)>(1);
+
+     label1:
+        if r9 == null goto label3;
+
+        $r8 = virtualinvoke r9.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTree head()>();
+
+        r10 = (javassist.compiler.ast.Keyword) $r8;
+
+        r9 = virtualinvoke r9.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTList tail()>();
+
+        $i1 = virtualinvoke r10.<javassist.compiler.ast.Keyword: int get()>();
+
+        if $i1 != 335 goto label2;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void setMaxLocals(int)>(0);
+
+        r0.<javassist.compiler.CodeGen: boolean inStaticMethod> = 1;
+
+     label2:
+        goto label1;
+
+     label3:
+        r11 = virtualinvoke r1.<javassist.compiler.ast.MethodDecl: javassist.compiler.ast.ASTList getParams()>();
+
+     label4:
+        if r11 == null goto label5;
+
+        $r6 = virtualinvoke r11.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTree head()>();
+
+        $r7 = (javassist.compiler.ast.Declarator) $r6;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atDeclarator(javassist.compiler.ast.Declarator)>($r7);
+
+        r11 = virtualinvoke r11.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTList tail()>();
+
+        goto label4;
+
+     label5:
+        r2 = virtualinvoke r1.<javassist.compiler.ast.MethodDecl: javassist.compiler.ast.Stmnt getBody()>();
+
+        $z0 = virtualinvoke r1.<javassist.compiler.ast.MethodDecl: boolean isConstructor()>();
+
+        $r3 = virtualinvoke r1.<javassist.compiler.ast.MethodDecl: javassist.compiler.ast.Declarator getReturn()>();
+
+        $i0 = virtualinvoke $r3.<javassist.compiler.ast.Declarator: int getType()>();
+
+        if $i0 != 344 goto label6;
+
+        $z1 = 1;
+
+        goto label7;
+
+     label6:
+        $z1 = 0;
+
+     label7:
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atMethodBody(javassist.compiler.ast.Stmnt,boolean,boolean)>(r2, $z0, $z1);
+
+        return;
+    }
+
+    public void atMethodBody(javassist.compiler.ast.Stmnt, boolean, boolean) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Stmnt r1;
+        boolean z0, z1, $z2, $z3;
+        javassist.compiler.CompileError $r2;
+        javassist.bytecode.Bytecode $r3;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Stmnt;
+
+        z0 := @parameter1: boolean;
+
+        z1 := @parameter2: boolean;
+
+        if r1 != null goto label1;
+
+        return;
+
+     label1:
+        if z0 == 0 goto label2;
+
+        $z2 = specialinvoke r0.<javassist.compiler.CodeGen: boolean needsSuperCall(javassist.compiler.ast.Stmnt)>(r1);
+
+        if $z2 == 0 goto label2;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void insertDefaultSuperCall()>();
+
+     label2:
+        r0.<javassist.compiler.CodeGen: boolean hasReturned> = 0;
+
+        virtualinvoke r1.<javassist.compiler.ast.Stmnt: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        $z3 = r0.<javassist.compiler.CodeGen: boolean hasReturned>;
+
+        if $z3 != 0 goto label4;
+
+        if z1 == 0 goto label3;
+
+        $r3 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r3.<javassist.bytecode.Bytecode: void addOpcode(int)>(177);
+
+        r0.<javassist.compiler.CodeGen: boolean hasReturned> = 1;
+
+        goto label4;
+
+     label3:
+        $r2 = new javassist.compiler.CompileError;
+
+        specialinvoke $r2.<javassist.compiler.CompileError: void <init>(java.lang.String)>("no return statement");
+
+        throw $r2;
+
+     label4:
+        return;
+    }
+
+    private boolean needsSuperCall(javassist.compiler.ast.Stmnt) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.ASTree r1, r2, $r6;
+        int i0, $i1, $i2, $i3;
+        boolean $z0, $z1, $z2;
+        javassist.compiler.ast.Expr $r3, $r4;
+        javassist.compiler.ast.Keyword $r5;
+        javassist.compiler.ast.Stmnt r7;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r7 := @parameter0: javassist.compiler.ast.Stmnt;
+
+        $i1 = virtualinvoke r7.<javassist.compiler.ast.Stmnt: int getOperator()>();
+
+        if $i1 != 66 goto label1;
+
+        $r6 = virtualinvoke r7.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTree head()>();
+
+        r7 = (javassist.compiler.ast.Stmnt) $r6;
+
+     label1:
+        if r7 == null goto label4;
+
+        $i2 = virtualinvoke r7.<javassist.compiler.ast.Stmnt: int getOperator()>();
+
+        if $i2 != 69 goto label4;
+
+        r1 = virtualinvoke r7.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTree head()>();
+
+        if r1 == null goto label4;
+
+        $z0 = r1 instanceof javassist.compiler.ast.Expr;
+
+        if $z0 == 0 goto label4;
+
+        $r3 = (javassist.compiler.ast.Expr) r1;
+
+        $i3 = virtualinvoke $r3.<javassist.compiler.ast.Expr: int getOperator()>();
+
+        if $i3 != 67 goto label4;
+
+        $r4 = (javassist.compiler.ast.Expr) r1;
+
+        r2 = virtualinvoke $r4.<javassist.compiler.ast.Expr: javassist.compiler.ast.ASTree head()>();
+
+        $z1 = r2 instanceof javassist.compiler.ast.Keyword;
+
+        if $z1 == 0 goto label4;
+
+        $r5 = (javassist.compiler.ast.Keyword) r2;
+
+        i0 = virtualinvoke $r5.<javassist.compiler.ast.Keyword: int get()>();
+
+        if i0 == 339 goto label2;
+
+        if i0 == 336 goto label2;
+
+        $z2 = 1;
+
+        goto label3;
+
+     label2:
+        $z2 = 0;
+
+     label3:
+        return $z2;
+
+     label4:
+        return 1;
+    }
+
+    protected abstract void insertDefaultSuperCall() throws javassist.compiler.CompileError;
+
+    public void atStmnt(javassist.compiler.ast.Stmnt) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Stmnt r1;
+        int i0, $i1, $i2, $i3, $i4;
+        javassist.compiler.CompileError $r6;
+        java.lang.StringBuilder $r7, $r8, $r9;
+        java.lang.String $r10;
+        boolean $z0, $z1, $z2, $z3, $z4;
+        javassist.bytecode.Bytecode $r11, $r12;
+        javassist.compiler.ast.ASTree $r13, r15, r18;
+        javassist.compiler.ast.AssignExpr $r14;
+        javassist.compiler.ast.Expr r16;
+        javassist.compiler.ast.ASTList r17;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Stmnt;
+
+        if r1 != null goto label01;
+
+        return;
+
+     label01:
+        i0 = virtualinvoke r1.<javassist.compiler.ast.Stmnt: int getOperator()>();
+
+        if i0 != 69 goto label06;
+
+        r15 = virtualinvoke r1.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTree getLeft()>();
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void doTypeCheck(javassist.compiler.ast.ASTree)>(r15);
+
+        $z0 = r15 instanceof javassist.compiler.ast.AssignExpr;
+
+        if $z0 == 0 goto label02;
+
+        $r14 = (javassist.compiler.ast.AssignExpr) r15;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atAssignExpr(javassist.compiler.ast.AssignExpr,boolean)>($r14, 0);
+
+        goto label05;
+
+     label02:
+        $z1 = staticinvoke <javassist.compiler.CodeGen: boolean isPlusPlusExpr(javassist.compiler.ast.ASTree)>(r15);
+
+        if $z1 == 0 goto label03;
+
+        r16 = (javassist.compiler.ast.Expr) r15;
+
+        $i4 = virtualinvoke r16.<javassist.compiler.ast.Expr: int getOperator()>();
+
+        $r13 = virtualinvoke r16.<javassist.compiler.ast.Expr: javassist.compiler.ast.ASTree oprand1()>();
+
+        specialinvoke r0.<javassist.compiler.CodeGen: void atPlusPlus(int,javassist.compiler.ast.ASTree,javassist.compiler.ast.Expr,boolean)>($i4, $r13, r16, 0);
+
+        goto label05;
+
+     label03:
+        virtualinvoke r15.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        $i2 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        $i1 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        $z2 = staticinvoke <javassist.compiler.CodeGen: boolean is2word(int,int)>($i2, $i1);
+
+        if $z2 == 0 goto label04;
+
+        $r12 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r12.<javassist.bytecode.Bytecode: void addOpcode(int)>(88);
+
+        goto label05;
+
+     label04:
+        $i3 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        if $i3 == 344 goto label05;
+
+        $r11 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r11.<javassist.bytecode.Bytecode: void addOpcode(int)>(87);
+
+     label05:
+        goto label27;
+
+     label06:
+        if i0 == 68 goto label07;
+
+        if i0 != 66 goto label11;
+
+     label07:
+        r17 = r1;
+
+     label08:
+        if r17 == null goto label10;
+
+        r18 = virtualinvoke r17.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTree head()>();
+
+        r17 = virtualinvoke r17.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTList tail()>();
+
+        if r18 == null goto label09;
+
+        virtualinvoke r18.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+     label09:
+        goto label08;
+
+     label10:
+        goto label27;
+
+     label11:
+        if i0 != 320 goto label12;
+
+        specialinvoke r0.<javassist.compiler.CodeGen: void atIfStmnt(javassist.compiler.ast.Stmnt)>(r1);
+
+        goto label27;
+
+     label12:
+        if i0 == 346 goto label13;
+
+        if i0 != 311 goto label16;
+
+     label13:
+        if i0 != 346 goto label14;
+
+        $z3 = 1;
+
+        goto label15;
+
+     label14:
+        $z3 = 0;
+
+     label15:
+        specialinvoke r0.<javassist.compiler.CodeGen: void atWhileStmnt(javassist.compiler.ast.Stmnt,boolean)>(r1, $z3);
+
+        goto label27;
+
+     label16:
+        if i0 != 318 goto label17;
+
+        specialinvoke r0.<javassist.compiler.CodeGen: void atForStmnt(javassist.compiler.ast.Stmnt)>(r1);
+
+        goto label27;
+
+     label17:
+        if i0 == 302 goto label18;
+
+        if i0 != 309 goto label21;
+
+     label18:
+        if i0 != 302 goto label19;
+
+        $z4 = 1;
+
+        goto label20;
+
+     label19:
+        $z4 = 0;
+
+     label20:
+        specialinvoke r0.<javassist.compiler.CodeGen: void atBreakStmnt(javassist.compiler.ast.Stmnt,boolean)>(r1, $z4);
+
+        goto label27;
+
+     label21:
+        if i0 != 333 goto label22;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atReturnStmnt(javassist.compiler.ast.Stmnt)>(r1);
+
+        goto label27;
+
+     label22:
+        if i0 != 340 goto label23;
+
+        specialinvoke r0.<javassist.compiler.CodeGen: void atThrowStmnt(javassist.compiler.ast.Stmnt)>(r1);
+
+        goto label27;
+
+     label23:
+        if i0 != 343 goto label24;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atTryStmnt(javassist.compiler.ast.Stmnt)>(r1);
+
+        goto label27;
+
+     label24:
+        if i0 != 337 goto label25;
+
+        specialinvoke r0.<javassist.compiler.CodeGen: void atSwitchStmnt(javassist.compiler.ast.Stmnt)>(r1);
+
+        goto label27;
+
+     label25:
+        if i0 != 338 goto label26;
+
+        specialinvoke r0.<javassist.compiler.CodeGen: void atSyncStmnt(javassist.compiler.ast.Stmnt)>(r1);
+
+        goto label27;
+
+     label26:
+        r0.<javassist.compiler.CodeGen: boolean hasReturned> = 0;
+
+        $r6 = new javassist.compiler.CompileError;
+
+        $r7 = new java.lang.StringBuilder;
+
+        specialinvoke $r7.<java.lang.StringBuilder: void <init>()>();
+
+        $r8 = virtualinvoke $r7.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("sorry, not supported statement: TokenId ");
+
+        $r9 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i0);
+
+        $r10 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r6.<javassist.compiler.CompileError: void <init>(java.lang.String)>($r10);
+
+        throw $r6;
+
+     label27:
+        return;
+    }
+
+    private void atIfStmnt(javassist.compiler.ast.Stmnt) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Stmnt r1, r3, r4;
+        javassist.compiler.ast.ASTree r2, $r6, $r9;
+        int i0, $i1, $i2, $i3, i4, $i5, $i6, $i7;
+        boolean z0, $z1, $z2, $z3;
+        javassist.compiler.ast.ASTList $r5, $r7, $r8;
+        javassist.bytecode.Bytecode $r10, $r11, $r12, $r13, $r14, $r15, $r16, $r17, $r18;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Stmnt;
+
+        r2 = virtualinvoke r1.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTree head()>();
+
+        $r5 = virtualinvoke r1.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTList tail()>();
+
+        $r6 = virtualinvoke $r5.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTree head()>();
+
+        r3 = (javassist.compiler.ast.Stmnt) $r6;
+
+        $r7 = virtualinvoke r1.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTList tail()>();
+
+        $r8 = virtualinvoke $r7.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTList tail()>();
+
+        $r9 = virtualinvoke $r8.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTree head()>();
+
+        r4 = (javassist.compiler.ast.Stmnt) $r9;
+
+        $z1 = virtualinvoke r0.<javassist.compiler.CodeGen: boolean compileBooleanExpr(boolean,javassist.compiler.ast.ASTree)>(0, r2);
+
+        if $z1 == 0 goto label2;
+
+        r0.<javassist.compiler.CodeGen: boolean hasReturned> = 0;
+
+        if r4 == null goto label1;
+
+        virtualinvoke r4.<javassist.compiler.ast.Stmnt: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+     label1:
+        return;
+
+     label2:
+        $r10 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i0 = virtualinvoke $r10.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        i4 = 0;
+
+        $r11 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r11.<javassist.bytecode.Bytecode: void addIndex(int)>(0);
+
+        r0.<javassist.compiler.CodeGen: boolean hasReturned> = 0;
+
+        if r3 == null goto label3;
+
+        virtualinvoke r3.<javassist.compiler.ast.Stmnt: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+     label3:
+        z0 = r0.<javassist.compiler.CodeGen: boolean hasReturned>;
+
+        r0.<javassist.compiler.CodeGen: boolean hasReturned> = 0;
+
+        if r4 == null goto label4;
+
+        if z0 != 0 goto label4;
+
+        $r14 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r14.<javassist.bytecode.Bytecode: void addOpcode(int)>(167);
+
+        $r15 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i4 = virtualinvoke $r15.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $r16 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r16.<javassist.bytecode.Bytecode: void addIndex(int)>(0);
+
+     label4:
+        $r17 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $r18 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i5 = virtualinvoke $r18.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $i6 = $i5 - i0;
+
+        $i7 = $i6 + 1;
+
+        virtualinvoke $r17.<javassist.bytecode.Bytecode: void write16bit(int,int)>(i0, $i7);
+
+        if r4 == null goto label8;
+
+        virtualinvoke r4.<javassist.compiler.ast.Stmnt: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        if z0 != 0 goto label5;
+
+        $r13 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $r12 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i1 = virtualinvoke $r12.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $i2 = $i1 - i4;
+
+        $i3 = $i2 + 1;
+
+        virtualinvoke $r13.<javassist.bytecode.Bytecode: void write16bit(int,int)>(i4, $i3);
+
+     label5:
+        if z0 == 0 goto label6;
+
+        $z2 = r0.<javassist.compiler.CodeGen: boolean hasReturned>;
+
+        if $z2 == 0 goto label6;
+
+        $z3 = 1;
+
+        goto label7;
+
+     label6:
+        $z3 = 0;
+
+     label7:
+        r0.<javassist.compiler.CodeGen: boolean hasReturned> = $z3;
+
+     label8:
+        return;
+    }
+
+    private void atWhileStmnt(javassist.compiler.ast.Stmnt, boolean) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Stmnt r1, r5;
+        boolean z0, z1, $z2;
+        java.util.List r2, r3, $r12, $r19, $r21;
+        javassist.compiler.ast.ASTree r4;
+        int i0, i1, $i2, $i3, $i4, i5, $i6, $i7, $i8, $i9;
+        java.util.ArrayList $r6, $r7;
+        javassist.compiler.ast.ASTList $r8;
+        javassist.bytecode.Bytecode $r9, $r10, $r11, $r13, $r14, $r15, $r16, $r17, $r18, $r20;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Stmnt;
+
+        z0 := @parameter1: boolean;
+
+        r2 = r0.<javassist.compiler.CodeGen: java.util.List breakList>;
+
+        r3 = r0.<javassist.compiler.CodeGen: java.util.List continueList>;
+
+        $r6 = new java.util.ArrayList;
+
+        specialinvoke $r6.<java.util.ArrayList: void <init>()>();
+
+        r0.<javassist.compiler.CodeGen: java.util.List breakList> = $r6;
+
+        $r7 = new java.util.ArrayList;
+
+        specialinvoke $r7.<java.util.ArrayList: void <init>()>();
+
+        r0.<javassist.compiler.CodeGen: java.util.List continueList> = $r7;
+
+        r4 = virtualinvoke r1.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTree head()>();
+
+        $r8 = virtualinvoke r1.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTList tail()>();
+
+        r5 = (javassist.compiler.ast.Stmnt) $r8;
+
+        i5 = 0;
+
+        if z0 == 0 goto label1;
+
+        $r14 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r14.<javassist.bytecode.Bytecode: void addOpcode(int)>(167);
+
+        $r15 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i5 = virtualinvoke $r15.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $r16 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r16.<javassist.bytecode.Bytecode: void addIndex(int)>(0);
+
+     label1:
+        $r9 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i0 = virtualinvoke $r9.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        if r5 == null goto label2;
+
+        virtualinvoke r5.<javassist.compiler.ast.Stmnt: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+     label2:
+        $r10 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i1 = virtualinvoke $r10.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        if z0 == 0 goto label3;
+
+        $r13 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i3 = i1 - i5;
+
+        $i4 = $i3 + 1;
+
+        virtualinvoke $r13.<javassist.bytecode.Bytecode: void write16bit(int,int)>(i5, $i4);
+
+     label3:
+        z1 = virtualinvoke r0.<javassist.compiler.CodeGen: boolean compileBooleanExpr(boolean,javassist.compiler.ast.ASTree)>(1, r4);
+
+        if z1 == 0 goto label6;
+
+        $r11 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r11.<javassist.bytecode.Bytecode: void addOpcode(int)>(167);
+
+        $r12 = r0.<javassist.compiler.CodeGen: java.util.List breakList>;
+
+        $i2 = interfaceinvoke $r12.<java.util.List: int size()>();
+
+        if $i2 != 0 goto label4;
+
+        $z2 = 1;
+
+        goto label5;
+
+     label4:
+        $z2 = 0;
+
+     label5:
+        z1 = $z2;
+
+     label6:
+        $r17 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $r18 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i6 = virtualinvoke $r18.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $i7 = i0 - $i6;
+
+        $i8 = $i7 + 1;
+
+        virtualinvoke $r17.<javassist.bytecode.Bytecode: void addIndex(int)>($i8);
+
+        $r19 = r0.<javassist.compiler.CodeGen: java.util.List breakList>;
+
+        $r20 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i9 = virtualinvoke $r20.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void patchGoto(java.util.List,int)>($r19, $i9);
+
+        $r21 = r0.<javassist.compiler.CodeGen: java.util.List continueList>;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void patchGoto(java.util.List,int)>($r21, i1);
+
+        r0.<javassist.compiler.CodeGen: java.util.List continueList> = r3;
+
+        r0.<javassist.compiler.CodeGen: java.util.List breakList> = r2;
+
+        r0.<javassist.compiler.CodeGen: boolean hasReturned> = z1;
+
+        return;
+    }
+
+    protected void patchGoto(java.util.List, int)
+    {
+        javassist.compiler.CodeGen r0;
+        java.util.List r1;
+        int i0, i1, $i2, $i3;
+        java.util.Iterator r2;
+        boolean $z0;
+        java.lang.Object $r3;
+        java.lang.Integer $r4;
+        javassist.bytecode.Bytecode $r5;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: java.util.List;
+
+        i0 := @parameter1: int;
+
+        r2 = interfaceinvoke r1.<java.util.List: java.util.Iterator iterator()>();
+
+     label1:
+        $z0 = interfaceinvoke r2.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label2;
+
+        $r3 = interfaceinvoke r2.<java.util.Iterator: java.lang.Object next()>();
+
+        $r4 = (java.lang.Integer) $r3;
+
+        i1 = virtualinvoke $r4.<java.lang.Integer: int intValue()>();
+
+        $r5 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i2 = i0 - i1;
+
+        $i3 = $i2 + 1;
+
+        virtualinvoke $r5.<javassist.bytecode.Bytecode: void write16bit(int,int)>(i1, $i3);
+
+        goto label1;
+
+     label2:
+        return;
+    }
+
+    private void atForStmnt(javassist.compiler.ast.Stmnt) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Stmnt r1, r4, r6, r7;
+        java.util.List r2, r3, $r19, $r20;
+        javassist.compiler.ast.ASTree r5, $r10, $r11;
+        int i0, i1, i2, $i3, $i4, $i5, $i6, $i7, i8;
+        java.util.ArrayList $r8, $r9;
+        javassist.compiler.ast.ASTList $r12, r24, r25;
+        javassist.bytecode.Bytecode $r13, $r14, $r15, $r16, $r17, $r18, $r21, $r22, $r23;
+        boolean $z0;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Stmnt;
+
+        r2 = r0.<javassist.compiler.CodeGen: java.util.List breakList>;
+
+        r3 = r0.<javassist.compiler.CodeGen: java.util.List continueList>;
+
+        $r8 = new java.util.ArrayList;
+
+        specialinvoke $r8.<java.util.ArrayList: void <init>()>();
+
+        r0.<javassist.compiler.CodeGen: java.util.List breakList> = $r8;
+
+        $r9 = new java.util.ArrayList;
+
+        specialinvoke $r9.<java.util.ArrayList: void <init>()>();
+
+        r0.<javassist.compiler.CodeGen: java.util.List continueList> = $r9;
+
+        $r10 = virtualinvoke r1.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTree head()>();
+
+        r4 = (javassist.compiler.ast.Stmnt) $r10;
+
+        r24 = virtualinvoke r1.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTList tail()>();
+
+        r5 = virtualinvoke r24.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTree head()>();
+
+        r25 = virtualinvoke r24.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTList tail()>();
+
+        $r11 = virtualinvoke r25.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTree head()>();
+
+        r6 = (javassist.compiler.ast.Stmnt) $r11;
+
+        $r12 = virtualinvoke r25.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTList tail()>();
+
+        r7 = (javassist.compiler.ast.Stmnt) $r12;
+
+        if r4 == null goto label1;
+
+        virtualinvoke r4.<javassist.compiler.ast.Stmnt: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+     label1:
+        $r13 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i0 = virtualinvoke $r13.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        i8 = 0;
+
+        if r5 == null goto label3;
+
+        $z0 = virtualinvoke r0.<javassist.compiler.CodeGen: boolean compileBooleanExpr(boolean,javassist.compiler.ast.ASTree)>(0, r5);
+
+        if $z0 == 0 goto label2;
+
+        r0.<javassist.compiler.CodeGen: java.util.List continueList> = r3;
+
+        r0.<javassist.compiler.CodeGen: java.util.List breakList> = r2;
+
+        r0.<javassist.compiler.CodeGen: boolean hasReturned> = 0;
+
+        return;
+
+     label2:
+        $r22 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i8 = virtualinvoke $r22.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $r23 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r23.<javassist.bytecode.Bytecode: void addIndex(int)>(0);
+
+     label3:
+        if r7 == null goto label4;
+
+        virtualinvoke r7.<javassist.compiler.ast.Stmnt: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+     label4:
+        $r14 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i1 = virtualinvoke $r14.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        if r6 == null goto label5;
+
+        virtualinvoke r6.<javassist.compiler.ast.Stmnt: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+     label5:
+        $r15 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r15.<javassist.bytecode.Bytecode: void addOpcode(int)>(167);
+
+        $r17 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $r16 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i3 = virtualinvoke $r16.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $i4 = i0 - $i3;
+
+        $i5 = $i4 + 1;
+
+        virtualinvoke $r17.<javassist.bytecode.Bytecode: void addIndex(int)>($i5);
+
+        $r18 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i2 = virtualinvoke $r18.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        if r5 == null goto label6;
+
+        $r21 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i6 = i2 - i8;
+
+        $i7 = $i6 + 1;
+
+        virtualinvoke $r21.<javassist.bytecode.Bytecode: void write16bit(int,int)>(i8, $i7);
+
+     label6:
+        $r19 = r0.<javassist.compiler.CodeGen: java.util.List breakList>;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void patchGoto(java.util.List,int)>($r19, i2);
+
+        $r20 = r0.<javassist.compiler.CodeGen: java.util.List continueList>;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void patchGoto(java.util.List,int)>($r20, i1);
+
+        r0.<javassist.compiler.CodeGen: java.util.List continueList> = r3;
+
+        r0.<javassist.compiler.CodeGen: java.util.List breakList> = r2;
+
+        r0.<javassist.compiler.CodeGen: boolean hasReturned> = 0;
+
+        return;
+    }
+
+    private void atSwitchStmnt(javassist.compiler.ast.Stmnt) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Stmnt r1, r3, $r24, r28, $r30;
+        java.util.List r2, $r15, $r16;
+        int i0, i1, $i2, $i3, $i4, $i5, $i6, $i9, $i11, $i12, $i13, $i14, $i17, $i18, $i22, i23, i24, i25, i26, i27, i28, i29, i30;
+        long[] r4;
+        javassist.compiler.ast.ASTree $r5, $r19, $r20, $r23;
+        java.util.ArrayList $r6;
+        javassist.bytecode.Bytecode $r7, $r8, $r10, $r11, $r12, $r13, $r14, $r17, $r18, $r21, $r22, $r25, $r31;
+        javassist.compiler.ast.ASTList $r9, r26, r27, $r29;
+        long $l7, $l8, $l10, $l15, $l16, $l19, $l20, $l21;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Stmnt;
+
+        $r5 = virtualinvoke r1.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTree head()>();
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void compileExpr(javassist.compiler.ast.ASTree)>($r5);
+
+        r2 = r0.<javassist.compiler.CodeGen: java.util.List breakList>;
+
+        $r6 = new java.util.ArrayList;
+
+        specialinvoke $r6.<java.util.ArrayList: void <init>()>();
+
+        r0.<javassist.compiler.CodeGen: java.util.List breakList> = $r6;
+
+        $r7 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i0 = virtualinvoke $r7.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $r8 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r8.<javassist.bytecode.Bytecode: void addOpcode(int)>(171);
+
+        $i2 = i0 & 3;
+
+        i23 = 3 - $i2;
+
+     label01:
+        $i3 = i23;
+
+        i23 = i23 + -1;
+
+        if $i3 <= 0 goto label02;
+
+        $r25 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r25.<javassist.bytecode.Bytecode: void add(int)>(0);
+
+        goto label01;
+
+     label02:
+        $r9 = virtualinvoke r1.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTList tail()>();
+
+        r3 = (javassist.compiler.ast.Stmnt) $r9;
+
+        i24 = 0;
+
+        r26 = r3;
+
+     label03:
+        if r26 == null goto label05;
+
+        $r23 = virtualinvoke r26.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTree head()>();
+
+        $r24 = (javassist.compiler.ast.Stmnt) $r23;
+
+        $i22 = virtualinvoke $r24.<javassist.compiler.ast.Stmnt: int getOperator()>();
+
+        if $i22 != 304 goto label04;
+
+        i24 = i24 + 1;
+
+     label04:
+        r26 = virtualinvoke r26.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTList tail()>();
+
+        goto label03;
+
+     label05:
+        $r10 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i25 = virtualinvoke $r10.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $r11 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r11.<javassist.bytecode.Bytecode: void addGap(int)>(4);
+
+        $r12 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r12.<javassist.bytecode.Bytecode: void add32bit(int)>(i24);
+
+        $r13 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i4 = i24 * 8;
+
+        virtualinvoke $r13.<javassist.bytecode.Bytecode: void addGap(int)>($i4);
+
+        r4 = newarray (long)[i24];
+
+        i26 = 0;
+
+        i27 = -1;
+
+        r27 = r3;
+
+     label06:
+        if r27 == null goto label10;
+
+        $r19 = virtualinvoke r27.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTree head()>();
+
+        r28 = (javassist.compiler.ast.Stmnt) $r19;
+
+        i1 = virtualinvoke r28.<javassist.compiler.ast.Stmnt: int getOperator()>();
+
+        if i1 != 310 goto label07;
+
+        $r22 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i27 = virtualinvoke $r22.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        goto label09;
+
+     label07:
+        if i1 == 304 goto label08;
+
+        staticinvoke <javassist.compiler.CodeGen: void fatal()>();
+
+        goto label09;
+
+     label08:
+        $i13 = i26;
+
+        i26 = i26 + 1;
+
+        $r20 = virtualinvoke r28.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTree head()>();
+
+        $i14 = specialinvoke r0.<javassist.compiler.CodeGen: int computeLabel(javassist.compiler.ast.ASTree)>($r20);
+
+        $l15 = (long) $i14;
+
+        $l16 = $l15 << 32;
+
+        $r21 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i17 = virtualinvoke $r21.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $i18 = $i17 - i0;
+
+        $l19 = (long) $i18;
+
+        $l20 = $l19 & -1L;
+
+        $l21 = $l16 + $l20;
+
+        r4[$i13] = $l21;
+
+     label09:
+        r0.<javassist.compiler.CodeGen: boolean hasReturned> = 0;
+
+        $r29 = virtualinvoke r28.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTList tail()>();
+
+        $r30 = (javassist.compiler.ast.Stmnt) $r29;
+
+        virtualinvoke $r30.<javassist.compiler.ast.Stmnt: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        r27 = virtualinvoke r27.<javassist.compiler.ast.ASTList: javassist.compiler.ast.ASTList tail()>();
+
+        goto label06;
+
+     label10:
+        staticinvoke <java.util.Arrays: void sort(long[])>(r4);
+
+        i28 = i25 + 8;
+
+        i29 = 0;
+
+     label11:
+        if i29 >= i24 goto label12;
+
+        $r17 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $l7 = r4[i29];
+
+        $l8 = $l7 >>> 32;
+
+        $i9 = (int) $l8;
+
+        virtualinvoke $r17.<javassist.bytecode.Bytecode: void write32bit(int,int)>(i28, $i9);
+
+        $r18 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i12 = i28 + 4;
+
+        $l10 = r4[i29];
+
+        $i11 = (int) $l10;
+
+        virtualinvoke $r18.<javassist.bytecode.Bytecode: void write32bit(int,int)>($i12, $i11);
+
+        i28 = i28 + 8;
+
+        i29 = i29 + 1;
+
+        goto label11;
+
+     label12:
+        if i27 < 0 goto label13;
+
+        $r16 = r0.<javassist.compiler.CodeGen: java.util.List breakList>;
+
+        $i6 = interfaceinvoke $r16.<java.util.List: int size()>();
+
+        if $i6 <= 0 goto label14;
+
+     label13:
+        r0.<javassist.compiler.CodeGen: boolean hasReturned> = 0;
+
+     label14:
+        $r31 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i30 = virtualinvoke $r31.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        if i27 >= 0 goto label15;
+
+        i27 = i30;
+
+     label15:
+        $r14 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i5 = i27 - i0;
+
+        virtualinvoke $r14.<javassist.bytecode.Bytecode: void write32bit(int,int)>(i25, $i5);
+
+        $r15 = r0.<javassist.compiler.CodeGen: java.util.List breakList>;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void patchGoto(java.util.List,int)>($r15, i30);
+
+        r0.<javassist.compiler.CodeGen: java.util.List breakList> = r2;
+
+        return;
+    }
+
+    private int computeLabel(javassist.compiler.ast.ASTree) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        boolean $z0;
+        javassist.compiler.CompileError $r1;
+        javassist.compiler.ast.IntConst $r2;
+        long $l0;
+        int $i1;
+        javassist.compiler.ast.ASTree r3, r4;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r3 := @parameter0: javassist.compiler.ast.ASTree;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void doTypeCheck(javassist.compiler.ast.ASTree)>(r3);
+
+        r4 = staticinvoke <javassist.compiler.TypeChecker: javassist.compiler.ast.ASTree stripPlusExpr(javassist.compiler.ast.ASTree)>(r3);
+
+        $z0 = r4 instanceof javassist.compiler.ast.IntConst;
+
+        if $z0 == 0 goto label1;
+
+        $r2 = (javassist.compiler.ast.IntConst) r4;
+
+        $l0 = virtualinvoke $r2.<javassist.compiler.ast.IntConst: long get()>();
+
+        $i1 = (int) $l0;
+
+        return $i1;
+
+     label1:
+        $r1 = new javassist.compiler.CompileError;
+
+        specialinvoke $r1.<javassist.compiler.CompileError: void <init>(java.lang.String)>("bad case label");
+
+        throw $r1;
+    }
+
+    private void atBreakStmnt(javassist.compiler.ast.Stmnt, boolean) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Stmnt r1;
+        boolean z0;
+        java.lang.Integer r2;
+        javassist.compiler.ast.ASTree $r3;
+        javassist.bytecode.Bytecode $r4, $r5, $r6;
+        int $i0;
+        java.util.List $r7, $r8;
+        javassist.compiler.CompileError $r9;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Stmnt;
+
+        z0 := @parameter1: boolean;
+
+        $r3 = virtualinvoke r1.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTree head()>();
+
+        if $r3 == null goto label1;
+
+        $r9 = new javassist.compiler.CompileError;
+
+        specialinvoke $r9.<javassist.compiler.CompileError: void <init>(java.lang.String)>("sorry, not support labeled break or continue");
+
+        throw $r9;
+
+     label1:
+        $r4 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r4.<javassist.bytecode.Bytecode: void addOpcode(int)>(167);
+
+        $r5 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i0 = virtualinvoke $r5.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        r2 = staticinvoke <java.lang.Integer: java.lang.Integer valueOf(int)>($i0);
+
+        $r6 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r6.<javassist.bytecode.Bytecode: void addIndex(int)>(0);
+
+        if z0 == 0 goto label2;
+
+        $r8 = r0.<javassist.compiler.CodeGen: java.util.List breakList>;
+
+        interfaceinvoke $r8.<java.util.List: boolean add(java.lang.Object)>(r2);
+
+        goto label3;
+
+     label2:
+        $r7 = r0.<javassist.compiler.CodeGen: java.util.List continueList>;
+
+        interfaceinvoke $r7.<java.util.List: boolean add(java.lang.Object)>(r2);
+
+     label3:
+        return;
+    }
+
+    protected void atReturnStmnt(javassist.compiler.ast.Stmnt) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Stmnt r1;
+        javassist.compiler.ast.ASTree $r2;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Stmnt;
+
+        $r2 = virtualinvoke r1.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTree getLeft()>();
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atReturnStmnt2(javassist.compiler.ast.ASTree)>($r2);
+
+        return;
+    }
+
+    protected final void atReturnStmnt2(javassist.compiler.ast.ASTree) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.ASTree r1;
+        int $i0, i2;
+        boolean $z0, $z1;
+        javassist.bytecode.Bytecode $r2, $r3;
+        short s1;
+        javassist.compiler.CodeGen$ReturnHook r4;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.ASTree;
+
+        if r1 != null goto label01;
+
+        s1 = 177;
+
+        goto label07;
+
+     label01:
+        virtualinvoke r0.<javassist.compiler.CodeGen: void compileExpr(javassist.compiler.ast.ASTree)>(r1);
+
+        $i0 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        if $i0 <= 0 goto label02;
+
+        s1 = 176;
+
+        goto label07;
+
+     label02:
+        i2 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        if i2 != 312 goto label03;
+
+        s1 = 175;
+
+        goto label07;
+
+     label03:
+        if i2 != 317 goto label04;
+
+        s1 = 174;
+
+        goto label07;
+
+     label04:
+        if i2 != 326 goto label05;
+
+        s1 = 173;
+
+        goto label07;
+
+     label05:
+        $z0 = staticinvoke <javassist.compiler.CodeGen: boolean isRefType(int)>(i2);
+
+        if $z0 == 0 goto label06;
+
+        s1 = 176;
+
+        goto label07;
+
+     label06:
+        s1 = 172;
+
+     label07:
+        r4 = r0.<javassist.compiler.CodeGen: javassist.compiler.CodeGen$ReturnHook returnHooks>;
+
+     label08:
+        if r4 == null goto label10;
+
+        $r3 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $z1 = virtualinvoke r4.<javassist.compiler.CodeGen$ReturnHook: boolean doit(javassist.bytecode.Bytecode,int)>($r3, s1);
+
+        if $z1 == 0 goto label09;
+
+        r0.<javassist.compiler.CodeGen: boolean hasReturned> = 1;
+
+        return;
+
+     label09:
+        r4 = r4.<javassist.compiler.CodeGen$ReturnHook: javassist.compiler.CodeGen$ReturnHook next>;
+
+        goto label08;
+
+     label10:
+        $r2 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r2.<javassist.bytecode.Bytecode: void addOpcode(int)>(s1);
+
+        r0.<javassist.compiler.CodeGen: boolean hasReturned> = 1;
+
+        return;
+    }
+
+    private void atThrowStmnt(javassist.compiler.ast.Stmnt) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Stmnt r1;
+        javassist.compiler.ast.ASTree r2;
+        int $i0, $i1;
+        javassist.compiler.CompileError $r3;
+        javassist.bytecode.Bytecode $r4;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Stmnt;
+
+        r2 = virtualinvoke r1.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTree getLeft()>();
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void compileExpr(javassist.compiler.ast.ASTree)>(r2);
+
+        $i0 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        if $i0 != 307 goto label1;
+
+        $i1 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        if $i1 <= 0 goto label2;
+
+     label1:
+        $r3 = new javassist.compiler.CompileError;
+
+        specialinvoke $r3.<javassist.compiler.CompileError: void <init>(java.lang.String)>("bad throw statement");
+
+        throw $r3;
+
+     label2:
+        $r4 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r4.<javassist.bytecode.Bytecode: void addOpcode(int)>(191);
+
+        r0.<javassist.compiler.CodeGen: boolean hasReturned> = 1;
+
+        return;
+    }
+
+    protected void atTryStmnt(javassist.compiler.ast.Stmnt) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Stmnt r1;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Stmnt;
+
+        r0.<javassist.compiler.CodeGen: boolean hasReturned> = 0;
+
+        return;
+    }
+
+    private void atSyncStmnt(javassist.compiler.ast.Stmnt) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Stmnt r1, r4;
+        int i0, i1, i2, i3, i4, i5, $i6, $i7, $i8, $i9, $i10, $i11, $i12, i13;
+        javassist.bytecode.Bytecode r2;
+        java.util.List $r5, $r6, $r10, $r12;
+        javassist.compiler.ast.ASTree $r7;
+        javassist.compiler.CodeGen$1 $r8;
+        javassist.compiler.ast.ASTList $r9;
+        boolean $z0, $z1;
+        javassist.compiler.CompileError $r11, $r13;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Stmnt;
+
+        $r5 = r0.<javassist.compiler.CodeGen: java.util.List breakList>;
+
+        i0 = staticinvoke <javassist.compiler.CodeGen: int getListSize(java.util.List)>($r5);
+
+        $r6 = r0.<javassist.compiler.CodeGen: java.util.List continueList>;
+
+        i1 = staticinvoke <javassist.compiler.CodeGen: int getListSize(java.util.List)>($r6);
+
+        $r7 = virtualinvoke r1.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTree head()>();
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void compileExpr(javassist.compiler.ast.ASTree)>($r7);
+
+        $i6 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        if $i6 == 307 goto label1;
+
+        $i12 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        if $i12 != 0 goto label1;
+
+        $r13 = new javassist.compiler.CompileError;
+
+        specialinvoke $r13.<javassist.compiler.CompileError: void <init>(java.lang.String)>("bad type expr for synchronized block");
+
+        throw $r13;
+
+     label1:
+        r2 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i2 = virtualinvoke r2.<javassist.bytecode.Bytecode: int getMaxLocals()>();
+
+        virtualinvoke r2.<javassist.bytecode.Bytecode: void incMaxLocals(int)>(1);
+
+        virtualinvoke r2.<javassist.bytecode.Bytecode: void addOpcode(int)>(89);
+
+        virtualinvoke r2.<javassist.bytecode.Bytecode: void addAstore(int)>(i2);
+
+        virtualinvoke r2.<javassist.bytecode.Bytecode: void addOpcode(int)>(194);
+
+        $r8 = new javassist.compiler.CodeGen$1;
+
+        specialinvoke $r8.<javassist.compiler.CodeGen$1: void <init>(javassist.compiler.CodeGen,javassist.compiler.CodeGen,int)>(r0, r0, i2);
+
+        i3 = virtualinvoke r2.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $r9 = virtualinvoke r1.<javassist.compiler.ast.Stmnt: javassist.compiler.ast.ASTList tail()>();
+
+        r4 = (javassist.compiler.ast.Stmnt) $r9;
+
+        if r4 == null goto label2;
+
+        virtualinvoke r4.<javassist.compiler.ast.Stmnt: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+     label2:
+        i4 = virtualinvoke r2.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        i13 = 0;
+
+        $z0 = r0.<javassist.compiler.CodeGen: boolean hasReturned>;
+
+        if $z0 != 0 goto label3;
+
+        virtualinvoke $r8.<javassist.compiler.CodeGen$ReturnHook: boolean doit(javassist.bytecode.Bytecode,int)>(r2, 0);
+
+        virtualinvoke r2.<javassist.bytecode.Bytecode: void addOpcode(int)>(167);
+
+        i13 = virtualinvoke r2.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        virtualinvoke r2.<javassist.bytecode.Bytecode: void addIndex(int)>(0);
+
+     label3:
+        if i3 >= i4 goto label4;
+
+        i5 = virtualinvoke r2.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        virtualinvoke $r8.<javassist.compiler.CodeGen$ReturnHook: boolean doit(javassist.bytecode.Bytecode,int)>(r2, 0);
+
+        virtualinvoke r2.<javassist.bytecode.Bytecode: void addOpcode(int)>(191);
+
+        virtualinvoke r2.<javassist.bytecode.Bytecode: void addExceptionHandler(int,int,int,int)>(i3, i4, i5, 0);
+
+     label4:
+        $z1 = r0.<javassist.compiler.CodeGen: boolean hasReturned>;
+
+        if $z1 != 0 goto label5;
+
+        $i9 = virtualinvoke r2.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $i10 = $i9 - i13;
+
+        $i11 = $i10 + 1;
+
+        virtualinvoke r2.<javassist.bytecode.Bytecode: void write16bit(int,int)>(i13, $i11);
+
+     label5:
+        virtualinvoke $r8.<javassist.compiler.CodeGen$ReturnHook: void remove(javassist.compiler.CodeGen)>(r0);
+
+        $r10 = r0.<javassist.compiler.CodeGen: java.util.List breakList>;
+
+        $i7 = staticinvoke <javassist.compiler.CodeGen: int getListSize(java.util.List)>($r10);
+
+        if $i7 != i0 goto label6;
+
+        $r12 = r0.<javassist.compiler.CodeGen: java.util.List continueList>;
+
+        $i8 = staticinvoke <javassist.compiler.CodeGen: int getListSize(java.util.List)>($r12);
+
+        if $i8 == i1 goto label7;
+
+     label6:
+        $r11 = new javassist.compiler.CompileError;
+
+        specialinvoke $r11.<javassist.compiler.CompileError: void <init>(java.lang.String)>("sorry, cannot break/continue in synchronized block");
+
+        throw $r11;
+
+     label7:
+        return;
+    }
+
+    private static int getListSize(java.util.List)
+    {
+        java.util.List r0;
+        int $i0;
+
+        r0 := @parameter0: java.util.List;
+
+        if r0 != null goto label1;
+
+        $i0 = 0;
+
+        goto label2;
+
+     label1:
+        $i0 = interfaceinvoke r0.<java.util.List: int size()>();
+
+     label2:
+        return $i0;
+    }
+
+    private static boolean isPlusPlusExpr(javassist.compiler.ast.ASTree)
+    {
+        javassist.compiler.ast.ASTree r0;
+        int i0;
+        boolean $z0, $z1;
+        javassist.compiler.ast.Expr $r1;
+
+        r0 := @parameter0: javassist.compiler.ast.ASTree;
+
+        $z0 = r0 instanceof javassist.compiler.ast.Expr;
+
+        if $z0 == 0 goto label4;
+
+        $r1 = (javassist.compiler.ast.Expr) r0;
+
+        i0 = virtualinvoke $r1.<javassist.compiler.ast.Expr: int getOperator()>();
+
+        if i0 == 362 goto label1;
+
+        if i0 != 363 goto label2;
+
+     label1:
+        $z1 = 1;
+
+        goto label3;
+
+     label2:
+        $z1 = 0;
+
+     label3:
+        return $z1;
+
+     label4:
+        return 0;
+    }
+
+    public void atDeclarator(javassist.compiler.ast.Declarator) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Declarator r1;
+        javassist.compiler.ast.ASTree r2;
+        int $i0, $i1, $i2;
+        java.lang.String $r3, $r4;
+        boolean $z0;
+        byte b3;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Declarator;
+
+        $i0 = virtualinvoke r0.<javassist.compiler.CodeGen: int getMaxLocals()>();
+
+        virtualinvoke r1.<javassist.compiler.ast.Declarator: void setLocalVar(int)>($i0);
+
+        $r3 = virtualinvoke r1.<javassist.compiler.ast.Declarator: java.lang.String getClassName()>();
+
+        $r4 = virtualinvoke r0.<javassist.compiler.CodeGen: java.lang.String resolveClassName(java.lang.String)>($r3);
+
+        virtualinvoke r1.<javassist.compiler.ast.Declarator: void setClassName(java.lang.String)>($r4);
+
+        $i1 = virtualinvoke r1.<javassist.compiler.ast.Declarator: int getType()>();
+
+        $i2 = virtualinvoke r1.<javassist.compiler.ast.Declarator: int getArrayDim()>();
+
+        $z0 = staticinvoke <javassist.compiler.CodeGen: boolean is2word(int,int)>($i1, $i2);
+
+        if $z0 == 0 goto label1;
+
+        b3 = 2;
+
+        goto label2;
+
+     label1:
+        b3 = 1;
+
+     label2:
+        virtualinvoke r0.<javassist.compiler.CodeGen: void incMaxLocals(int)>(b3);
+
+        r2 = virtualinvoke r1.<javassist.compiler.ast.Declarator: javassist.compiler.ast.ASTree getInitializer()>();
+
+        if r2 == null goto label3;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void doTypeCheck(javassist.compiler.ast.ASTree)>(r2);
+
+        specialinvoke r0.<javassist.compiler.CodeGen: void atVariableAssign(javassist.compiler.ast.Expr,int,javassist.compiler.ast.Variable,javassist.compiler.ast.Declarator,javassist.compiler.ast.ASTree,boolean)>(null, 61, null, r1, r2, 0);
+
+     label3:
+        return;
+    }
+
+    public abstract void atNewExpr(javassist.compiler.ast.NewExpr) throws javassist.compiler.CompileError;
+
+    public abstract void atArrayInit(javassist.compiler.ast.ArrayInit) throws javassist.compiler.CompileError;
+
+    public void atAssignExpr(javassist.compiler.ast.AssignExpr) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.AssignExpr r1;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.AssignExpr;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atAssignExpr(javassist.compiler.ast.AssignExpr,boolean)>(r1, 1);
+
+        return;
+    }
+
+    protected void atAssignExpr(javassist.compiler.ast.AssignExpr, boolean) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.AssignExpr r1;
+        boolean z0, $z1, $z2;
+        int i0, $i1;
+        javassist.compiler.ast.ASTree r2, r3;
+        javassist.compiler.ast.Expr r4, $r5;
+        javassist.compiler.ast.Variable $r6, $r7;
+        javassist.compiler.ast.Declarator $r8;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.AssignExpr;
+
+        z0 := @parameter1: boolean;
+
+        i0 = virtualinvoke r1.<javassist.compiler.ast.AssignExpr: int getOperator()>();
+
+        r2 = virtualinvoke r1.<javassist.compiler.ast.AssignExpr: javassist.compiler.ast.ASTree oprand1()>();
+
+        r3 = virtualinvoke r1.<javassist.compiler.ast.AssignExpr: javassist.compiler.ast.ASTree oprand2()>();
+
+        $z1 = r2 instanceof javassist.compiler.ast.Variable;
+
+        if $z1 == 0 goto label1;
+
+        $r7 = (javassist.compiler.ast.Variable) r2;
+
+        $r6 = (javassist.compiler.ast.Variable) r2;
+
+        $r8 = virtualinvoke $r6.<javassist.compiler.ast.Variable: javassist.compiler.ast.Declarator getDeclarator()>();
+
+        specialinvoke r0.<javassist.compiler.CodeGen: void atVariableAssign(javassist.compiler.ast.Expr,int,javassist.compiler.ast.Variable,javassist.compiler.ast.Declarator,javassist.compiler.ast.ASTree,boolean)>(r1, i0, $r7, $r8, r3, z0);
+
+        goto label3;
+
+     label1:
+        $z2 = r2 instanceof javassist.compiler.ast.Expr;
+
+        if $z2 == 0 goto label2;
+
+        r4 = (javassist.compiler.ast.Expr) r2;
+
+        $i1 = virtualinvoke r4.<javassist.compiler.ast.Expr: int getOperator()>();
+
+        if $i1 != 65 goto label2;
+
+        $r5 = (javassist.compiler.ast.Expr) r2;
+
+        specialinvoke r0.<javassist.compiler.CodeGen: void atArrayAssign(javassist.compiler.ast.Expr,int,javassist.compiler.ast.Expr,javassist.compiler.ast.ASTree,boolean)>(r1, i0, $r5, r3, z0);
+
+        return;
+
+     label2:
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atFieldAssign(javassist.compiler.ast.Expr,int,javassist.compiler.ast.ASTree,javassist.compiler.ast.ASTree,boolean)>(r1, i0, r2, r3, z0);
+
+     label3:
+        return;
+    }
+
+    protected static void badAssign(javassist.compiler.ast.Expr) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.ast.Expr r0;
+        java.lang.StringBuilder $r1, $r2, $r4;
+        java.lang.String $r3, r6;
+        javassist.compiler.CompileError $r5;
+
+        r0 := @parameter0: javassist.compiler.ast.Expr;
+
+        if r0 != null goto label1;
+
+        r6 = "incompatible type for assignment";
+
+        goto label2;
+
+     label1:
+        $r1 = new java.lang.StringBuilder;
+
+        specialinvoke $r1.<java.lang.StringBuilder: void <init>()>();
+
+        $r2 = virtualinvoke $r1.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("incompatible type for ");
+
+        $r3 = virtualinvoke r0.<javassist.compiler.ast.Expr: java.lang.String getName()>();
+
+        $r4 = virtualinvoke $r2.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r3);
+
+        r6 = virtualinvoke $r4.<java.lang.StringBuilder: java.lang.String toString()>();
+
+     label2:
+        $r5 = new javassist.compiler.CompileError;
+
+        specialinvoke $r5.<javassist.compiler.CompileError: void <init>(java.lang.String)>(r6);
+
+        throw $r5;
+    }
+
+    private void atVariableAssign(javassist.compiler.ast.Expr, int, javassist.compiler.ast.Variable, javassist.compiler.ast.Declarator, javassist.compiler.ast.ASTree, boolean) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Expr r1;
+        int i0, i1, i2, i3;
+        javassist.compiler.ast.Variable r2;
+        javassist.compiler.ast.Declarator r3;
+        javassist.compiler.ast.ASTree r4;
+        boolean z0, $z1, $z2, $z3;
+        java.lang.String r5;
+        javassist.bytecode.Bytecode $r6, $r7, $r8, $r9, $r10, $r11, $r12, $r13;
+        javassist.compiler.ast.ArrayInit $r14;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Expr;
+
+        i0 := @parameter1: int;
+
+        r2 := @parameter2: javassist.compiler.ast.Variable;
+
+        r3 := @parameter3: javassist.compiler.ast.Declarator;
+
+        r4 := @parameter4: javassist.compiler.ast.ASTree;
+
+        z0 := @parameter5: boolean;
+
+        i1 = virtualinvoke r3.<javassist.compiler.ast.Declarator: int getType()>();
+
+        i2 = virtualinvoke r3.<javassist.compiler.ast.Declarator: int getArrayDim()>();
+
+        r5 = virtualinvoke r3.<javassist.compiler.ast.Declarator: java.lang.String getClassName()>();
+
+        i3 = virtualinvoke r0.<javassist.compiler.CodeGen: int getLocalVar(javassist.compiler.ast.Declarator)>(r3);
+
+        if i0 == 61 goto label01;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atVariable(javassist.compiler.ast.Variable)>(r2);
+
+     label01:
+        if r1 != null goto label02;
+
+        $z3 = r4 instanceof javassist.compiler.ast.ArrayInit;
+
+        if $z3 == 0 goto label02;
+
+        $r14 = (javassist.compiler.ast.ArrayInit) r4;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atArrayVariableAssign(javassist.compiler.ast.ArrayInit,int,int,java.lang.String)>($r14, i1, i2, r5);
+
+        goto label03;
+
+     label02:
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atAssignCore(javassist.compiler.ast.Expr,int,javassist.compiler.ast.ASTree,int,int,java.lang.String)>(r1, i0, r4, i1, i2, r5);
+
+     label03:
+        if z0 == 0 goto label05;
+
+        $z2 = staticinvoke <javassist.compiler.CodeGen: boolean is2word(int,int)>(i1, i2);
+
+        if $z2 == 0 goto label04;
+
+        $r13 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r13.<javassist.bytecode.Bytecode: void addOpcode(int)>(92);
+
+        goto label05;
+
+     label04:
+        $r12 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r12.<javassist.bytecode.Bytecode: void addOpcode(int)>(89);
+
+     label05:
+        if i2 <= 0 goto label06;
+
+        $r11 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r11.<javassist.bytecode.Bytecode: void addAstore(int)>(i3);
+
+        goto label11;
+
+     label06:
+        if i1 != 312 goto label07;
+
+        $r10 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r10.<javassist.bytecode.Bytecode: void addDstore(int)>(i3);
+
+        goto label11;
+
+     label07:
+        if i1 != 317 goto label08;
+
+        $r9 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r9.<javassist.bytecode.Bytecode: void addFstore(int)>(i3);
+
+        goto label11;
+
+     label08:
+        if i1 != 326 goto label09;
+
+        $r8 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r8.<javassist.bytecode.Bytecode: void addLstore(int)>(i3);
+
+        goto label11;
+
+     label09:
+        $z1 = staticinvoke <javassist.compiler.CodeGen: boolean isRefType(int)>(i1);
+
+        if $z1 == 0 goto label10;
+
+        $r7 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r7.<javassist.bytecode.Bytecode: void addAstore(int)>(i3);
+
+        goto label11;
+
+     label10:
+        $r6 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r6.<javassist.bytecode.Bytecode: void addIstore(int)>(i3);
+
+     label11:
+        r0.<javassist.compiler.CodeGen: int exprType> = i1;
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = i2;
+
+        r0.<javassist.compiler.CodeGen: java.lang.String className> = r5;
+
+        return;
+    }
+
+    protected abstract void atArrayVariableAssign(javassist.compiler.ast.ArrayInit, int, int, java.lang.String) throws javassist.compiler.CompileError;
+
+    private void atArrayAssign(javassist.compiler.ast.Expr, int, javassist.compiler.ast.Expr, javassist.compiler.ast.ASTree, boolean) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Expr r1, r2;
+        int i0, i1, i2, $i3, $i4, $i5, $i6;
+        javassist.compiler.ast.ASTree r3, $r5, $r6;
+        boolean z0, $z1;
+        java.lang.String r4;
+        javassist.bytecode.Bytecode $r7, $r8, $r9, $r10, $r11;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Expr;
+
+        i0 := @parameter1: int;
+
+        r2 := @parameter2: javassist.compiler.ast.Expr;
+
+        r3 := @parameter3: javassist.compiler.ast.ASTree;
+
+        z0 := @parameter4: boolean;
+
+        $r5 = virtualinvoke r2.<javassist.compiler.ast.Expr: javassist.compiler.ast.ASTree oprand1()>();
+
+        $r6 = virtualinvoke r2.<javassist.compiler.ast.Expr: javassist.compiler.ast.ASTree oprand2()>();
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void arrayAccess(javassist.compiler.ast.ASTree,javassist.compiler.ast.ASTree)>($r5, $r6);
+
+        if i0 == 61 goto label1;
+
+        $r9 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r9.<javassist.bytecode.Bytecode: void addOpcode(int)>(92);
+
+        $r10 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i4 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        $i3 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        $i5 = staticinvoke <javassist.compiler.CodeGen: int getArrayReadOp(int,int)>($i4, $i3);
+
+        virtualinvoke $r10.<javassist.bytecode.Bytecode: void addOpcode(int)>($i5);
+
+     label1:
+        i1 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        i2 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        r4 = r0.<javassist.compiler.CodeGen: java.lang.String className>;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atAssignCore(javassist.compiler.ast.Expr,int,javassist.compiler.ast.ASTree,int,int,java.lang.String)>(r1, i0, r3, i1, i2, r4);
+
+        if z0 == 0 goto label3;
+
+        $z1 = staticinvoke <javassist.compiler.CodeGen: boolean is2word(int,int)>(i1, i2);
+
+        if $z1 == 0 goto label2;
+
+        $r8 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r8.<javassist.bytecode.Bytecode: void addOpcode(int)>(94);
+
+        goto label3;
+
+     label2:
+        $r7 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r7.<javassist.bytecode.Bytecode: void addOpcode(int)>(91);
+
+     label3:
+        $r11 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i6 = staticinvoke <javassist.compiler.CodeGen: int getArrayWriteOp(int,int)>(i1, i2);
+
+        virtualinvoke $r11.<javassist.bytecode.Bytecode: void addOpcode(int)>($i6);
+
+        r0.<javassist.compiler.CodeGen: int exprType> = i1;
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = i2;
+
+        r0.<javassist.compiler.CodeGen: java.lang.String className> = r4;
+
+        return;
+    }
+
+    protected abstract void atFieldAssign(javassist.compiler.ast.Expr, int, javassist.compiler.ast.ASTree, javassist.compiler.ast.ASTree, boolean) throws javassist.compiler.CompileError;
+
+    protected void atAssignCore(javassist.compiler.ast.Expr, int, javassist.compiler.ast.ASTree, int, int, java.lang.String) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Expr r1;
+        int i0, i1, i2, i3, i4, $i5, $i6, $i7, $i8;
+        javassist.compiler.ast.ASTree r2;
+        java.lang.String r3, $r5;
+        boolean $z0, $z1;
+        int[] $r4;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Expr;
+
+        i0 := @parameter1: int;
+
+        r2 := @parameter2: javassist.compiler.ast.ASTree;
+
+        i1 := @parameter3: int;
+
+        i2 := @parameter4: int;
+
+        r3 := @parameter5: java.lang.String;
+
+        if i0 != 354 goto label1;
+
+        if i2 != 0 goto label1;
+
+        if i1 != 307 goto label1;
+
+        specialinvoke r0.<javassist.compiler.CodeGen: void atStringPlusEq(javassist.compiler.ast.Expr,int,int,java.lang.String,javassist.compiler.ast.ASTree)>(r1, i1, i2, r3, r2);
+
+        goto label5;
+
+     label1:
+        virtualinvoke r2.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        $i7 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        $i8 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        $r5 = r0.<javassist.compiler.CodeGen: java.lang.String className>;
+
+        $z1 = specialinvoke r0.<javassist.compiler.CodeGen: boolean invalidDim(int,int,java.lang.String,int,int,java.lang.String,boolean)>($i7, $i8, $r5, i1, i2, r3, 0);
+
+        if $z1 != 0 goto label2;
+
+        if i0 == 61 goto label3;
+
+        if i2 <= 0 goto label3;
+
+     label2:
+        staticinvoke <javassist.compiler.CodeGen: void badAssign(javassist.compiler.ast.Expr)>(r1);
+
+     label3:
+        if i0 == 61 goto label5;
+
+        $r4 = <javassist.compiler.CodeGen: int[] assignOps>;
+
+        $i6 = i0 - 351;
+
+        i3 = $r4[$i6];
+
+        i4 = staticinvoke <javassist.compiler.CodeGen: int lookupBinOp(int)>(i3);
+
+        if i4 >= 0 goto label4;
+
+        staticinvoke <javassist.compiler.CodeGen: void fatal()>();
+
+     label4:
+        specialinvoke r0.<javassist.compiler.CodeGen: void atArithBinExpr(javassist.compiler.ast.Expr,int,int,int)>(r1, i3, i4, i1);
+
+     label5:
+        if i0 != 61 goto label6;
+
+        if i2 != 0 goto label7;
+
+        $z0 = staticinvoke <javassist.compiler.CodeGen: boolean isRefType(int)>(i1);
+
+        if $z0 != 0 goto label7;
+
+     label6:
+        $i5 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atNumCastExpr(int,int)>($i5, i1);
+
+     label7:
+        return;
+    }
+
+    private void atStringPlusEq(javassist.compiler.ast.Expr, int, int, java.lang.String, javassist.compiler.ast.ASTree) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Expr r1;
+        int i0, i1, $i2, $i3;
+        java.lang.String r2, $r4;
+        javassist.compiler.ast.ASTree r3;
+        boolean $z0;
+        javassist.bytecode.Bytecode $r5;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Expr;
+
+        i0 := @parameter1: int;
+
+        i1 := @parameter2: int;
+
+        r2 := @parameter3: java.lang.String;
+
+        r3 := @parameter4: javassist.compiler.ast.ASTree;
+
+        $r4 = "java/lang/String";
+
+        $z0 = virtualinvoke $r4.<java.lang.String: boolean equals(java.lang.Object)>(r2);
+
+        if $z0 != 0 goto label1;
+
+        staticinvoke <javassist.compiler.CodeGen: void badAssign(javassist.compiler.ast.Expr)>(r1);
+
+     label1:
+        specialinvoke r0.<javassist.compiler.CodeGen: void convToString(int,int)>(i0, i1);
+
+        virtualinvoke r3.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        $i3 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        $i2 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        specialinvoke r0.<javassist.compiler.CodeGen: void convToString(int,int)>($i3, $i2);
+
+        $r5 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r5.<javassist.bytecode.Bytecode: void addInvokevirtual(java.lang.String,java.lang.String,java.lang.String)>("java.lang.String", "concat", "(Ljava/lang/String;)Ljava/lang/String;");
+
+        r0.<javassist.compiler.CodeGen: int exprType> = 307;
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = 0;
+
+        r0.<javassist.compiler.CodeGen: java.lang.String className> = "java/lang/String";
+
+        return;
+    }
+
+    private boolean invalidDim(int, int, java.lang.String, int, int, java.lang.String, boolean)
+    {
+        javassist.compiler.CodeGen r0;
+        int i0, i1, i2, i3;
+        java.lang.String r1, r2, $r3, $r4;
+        boolean z0, $z1, $z2;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        i0 := @parameter0: int;
+
+        i1 := @parameter1: int;
+
+        r1 := @parameter2: java.lang.String;
+
+        i2 := @parameter3: int;
+
+        i3 := @parameter4: int;
+
+        r2 := @parameter5: java.lang.String;
+
+        z0 := @parameter6: boolean;
+
+        if i1 == i3 goto label4;
+
+        if i0 != 412 goto label1;
+
+        return 0;
+
+     label1:
+        if i3 != 0 goto label2;
+
+        if i2 != 307 goto label2;
+
+        $r4 = "java/lang/Object";
+
+        $z2 = virtualinvoke $r4.<java.lang.String: boolean equals(java.lang.Object)>(r2);
+
+        if $z2 == 0 goto label2;
+
+        return 0;
+
+     label2:
+        if z0 == 0 goto label3;
+
+        if i1 != 0 goto label3;
+
+        if i0 != 307 goto label3;
+
+        $r3 = "java/lang/Object";
+
+        $z1 = virtualinvoke $r3.<java.lang.String: boolean equals(java.lang.Object)>(r1);
+
+        if $z1 == 0 goto label3;
+
+        return 0;
+
+     label3:
+        return 1;
+
+     label4:
+        return 0;
+    }
+
+    public void atCondExpr(javassist.compiler.ast.CondExpr) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.CondExpr r1;
+        int i0, i1, i2, $i3, $i4, $i5, $i6, $i7, $i8, $i9;
+        javassist.compiler.ast.ASTree $r2, $r5, $r11, $r15;
+        boolean $z0;
+        javassist.bytecode.Bytecode $r3, $r4, $r6, $r7, $r8, $r9, $r10, $r12, $r13;
+        javassist.compiler.CompileError $r14;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.CondExpr;
+
+        $r2 = virtualinvoke r1.<javassist.compiler.ast.CondExpr: javassist.compiler.ast.ASTree condExpr()>();
+
+        $z0 = specialinvoke r0.<javassist.compiler.CodeGen: boolean booleanExpr(boolean,javassist.compiler.ast.ASTree)>(0, $r2);
+
+        if $z0 == 0 goto label1;
+
+        $r15 = virtualinvoke r1.<javassist.compiler.ast.CondExpr: javassist.compiler.ast.ASTree elseExpr()>();
+
+        virtualinvoke $r15.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        goto label3;
+
+     label1:
+        $r3 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i0 = virtualinvoke $r3.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $r4 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r4.<javassist.bytecode.Bytecode: void addIndex(int)>(0);
+
+        $r5 = virtualinvoke r1.<javassist.compiler.ast.CondExpr: javassist.compiler.ast.ASTree thenExpr()>();
+
+        virtualinvoke $r5.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        i1 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        $r6 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r6.<javassist.bytecode.Bytecode: void addOpcode(int)>(167);
+
+        $r7 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i2 = virtualinvoke $r7.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $r8 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r8.<javassist.bytecode.Bytecode: void addIndex(int)>(0);
+
+        $r10 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $r9 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i3 = virtualinvoke $r9.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $i4 = $i3 - i0;
+
+        $i5 = $i4 + 1;
+
+        virtualinvoke $r10.<javassist.bytecode.Bytecode: void write16bit(int,int)>(i0, $i5);
+
+        $r11 = virtualinvoke r1.<javassist.compiler.ast.CondExpr: javassist.compiler.ast.ASTree elseExpr()>();
+
+        virtualinvoke $r11.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        $i6 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        if i1 == $i6 goto label2;
+
+        $r14 = new javassist.compiler.CompileError;
+
+        specialinvoke $r14.<javassist.compiler.CompileError: void <init>(java.lang.String)>("type mismatch in ?:");
+
+        throw $r14;
+
+     label2:
+        $r13 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $r12 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i7 = virtualinvoke $r12.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $i8 = $i7 - i2;
+
+        $i9 = $i8 + 1;
+
+        virtualinvoke $r13.<javassist.bytecode.Bytecode: void write16bit(int,int)>(i2, $i9);
+
+     label3:
+        return;
+    }
+
+    static int lookupBinOp(int)
+    {
+        int i0, i1, $i2, i3;
+        int[] r0;
+
+        i0 := @parameter0: int;
+
+        r0 = <javassist.compiler.CodeGen: int[] binOp>;
+
+        i1 = lengthof r0;
+
+        i3 = 0;
+
+     label1:
+        if i3 >= i1 goto label3;
+
+        $i2 = r0[i3];
+
+        if $i2 != i0 goto label2;
+
+        return i3;
+
+     label2:
+        i3 = i3 + 5;
+
+        goto label1;
+
+     label3:
+        return -1;
+    }
+
+    public void atBinExpr(javassist.compiler.ast.BinExpr) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.BinExpr r1;
+        int i0, i1, i2, i3, $i4, $i5;
+        javassist.compiler.ast.ASTree r2, $r9;
+        java.lang.String r3;
+        boolean $z0;
+        javassist.bytecode.Bytecode $r4, $r5, $r6, $r7, $r8;
+        javassist.compiler.CompileError $r10;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.BinExpr;
+
+        i0 = virtualinvoke r1.<javassist.compiler.ast.BinExpr: int getOperator()>();
+
+        i1 = staticinvoke <javassist.compiler.CodeGen: int lookupBinOp(int)>(i0);
+
+        if i1 < 0 goto label6;
+
+        $r9 = virtualinvoke r1.<javassist.compiler.ast.BinExpr: javassist.compiler.ast.ASTree oprand1()>();
+
+        virtualinvoke $r9.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        r2 = virtualinvoke r1.<javassist.compiler.ast.BinExpr: javassist.compiler.ast.ASTree oprand2()>();
+
+        if r2 != null goto label1;
+
+        return;
+
+     label1:
+        i2 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        i3 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        r3 = r0.<javassist.compiler.CodeGen: java.lang.String className>;
+
+        virtualinvoke r2.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        $i4 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        if i3 == $i4 goto label2;
+
+        $r10 = new javassist.compiler.CompileError;
+
+        specialinvoke $r10.<javassist.compiler.CompileError: void <init>(java.lang.String)>("incompatible array types");
+
+        throw $r10;
+
+     label2:
+        if i0 != 43 goto label4;
+
+        if i3 != 0 goto label4;
+
+        if i2 == 307 goto label3;
+
+        $i5 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        if $i5 != 307 goto label4;
+
+     label3:
+        specialinvoke r0.<javassist.compiler.CodeGen: void atStringConcatExpr(javassist.compiler.ast.Expr,int,int,java.lang.String)>(r1, i2, i3, r3);
+
+        goto label5;
+
+     label4:
+        specialinvoke r0.<javassist.compiler.CodeGen: void atArithBinExpr(javassist.compiler.ast.Expr,int,int,int)>(r1, i0, i1, i2);
+
+     label5:
+        goto label8;
+
+     label6:
+        $z0 = specialinvoke r0.<javassist.compiler.CodeGen: boolean booleanExpr(boolean,javassist.compiler.ast.ASTree)>(1, r1);
+
+        if $z0 != 0 goto label7;
+
+        $r5 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r5.<javassist.bytecode.Bytecode: void addIndex(int)>(7);
+
+        $r6 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r6.<javassist.bytecode.Bytecode: void addIconst(int)>(0);
+
+        $r7 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r7.<javassist.bytecode.Bytecode: void addOpcode(int)>(167);
+
+        $r8 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r8.<javassist.bytecode.Bytecode: void addIndex(int)>(4);
+
+     label7:
+        $r4 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r4.<javassist.bytecode.Bytecode: void addIconst(int)>(1);
+
+     label8:
+        return;
+    }
+
+    private void atArithBinExpr(javassist.compiler.ast.Expr, int, int, int) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Expr r1;
+        int i0, i1, i2, i3, i4, i5, $i6, $i7, $i8, $i9, $i10;
+        int[] $r2;
+        javassist.bytecode.Bytecode $r3;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Expr;
+
+        i0 := @parameter1: int;
+
+        i1 := @parameter2: int;
+
+        i2 := @parameter3: int;
+
+        $i6 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        if $i6 == 0 goto label1;
+
+        staticinvoke <javassist.compiler.CodeGen: void badTypes(javassist.compiler.ast.Expr)>(r1);
+
+     label1:
+        i3 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        if i0 == 364 goto label2;
+
+        if i0 == 366 goto label2;
+
+        if i0 != 370 goto label5;
+
+     label2:
+        if i3 == 324 goto label3;
+
+        if i3 == 334 goto label3;
+
+        if i3 == 306 goto label3;
+
+        if i3 != 303 goto label4;
+
+     label3:
+        r0.<javassist.compiler.CodeGen: int exprType> = i2;
+
+        goto label6;
+
+     label4:
+        staticinvoke <javassist.compiler.CodeGen: void badTypes(javassist.compiler.ast.Expr)>(r1);
+
+        goto label6;
+
+     label5:
+        specialinvoke r0.<javassist.compiler.CodeGen: void convertOprandTypes(int,int,javassist.compiler.ast.Expr)>(i2, i3, r1);
+
+     label6:
+        $i10 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        i4 = staticinvoke <javassist.compiler.CodeGen: int typePrecedence(int)>($i10);
+
+        if i4 < 0 goto label8;
+
+        $r2 = <javassist.compiler.CodeGen: int[] binOp>;
+
+        $i7 = i1 + i4;
+
+        $i8 = $i7 + 1;
+
+        i5 = $r2[$i8];
+
+        if i5 == 0 goto label8;
+
+        if i4 != 3 goto label7;
+
+        $i9 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        if $i9 == 301 goto label7;
+
+        r0.<javassist.compiler.CodeGen: int exprType> = 324;
+
+     label7:
+        $r3 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r3.<javassist.bytecode.Bytecode: void addOpcode(int)>(i5);
+
+        return;
+
+     label8:
+        staticinvoke <javassist.compiler.CodeGen: void badTypes(javassist.compiler.ast.Expr)>(r1);
+
+        return;
+    }
+
+    private void atStringConcatExpr(javassist.compiler.ast.Expr, int, int, java.lang.String) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Expr r1;
+        int i0, i1, i2, i3;
+        java.lang.String r2, $r7, $r8;
+        boolean z0, z1, $z2, $z3, $z4;
+        javassist.bytecode.Bytecode $r3, $r4, $r5, $r6, $r9;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Expr;
+
+        i0 := @parameter1: int;
+
+        i1 := @parameter2: int;
+
+        r2 := @parameter3: java.lang.String;
+
+        i2 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        i3 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        z0 = staticinvoke <javassist.compiler.CodeGen: boolean is2word(int,int)>(i2, i3);
+
+        if i2 != 307 goto label1;
+
+        $r8 = "java/lang/String";
+
+        $r7 = r0.<javassist.compiler.CodeGen: java.lang.String className>;
+
+        $z3 = virtualinvoke $r8.<java.lang.String: boolean equals(java.lang.Object)>($r7);
+
+        if $z3 == 0 goto label1;
+
+        $z4 = 1;
+
+        goto label2;
+
+     label1:
+        $z4 = 0;
+
+     label2:
+        z1 = $z4;
+
+        if z0 == 0 goto label3;
+
+        specialinvoke r0.<javassist.compiler.CodeGen: void convToString(int,int)>(i2, i3);
+
+     label3:
+        $z2 = staticinvoke <javassist.compiler.CodeGen: boolean is2word(int,int)>(i0, i1);
+
+        if $z2 == 0 goto label4;
+
+        $r5 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r5.<javassist.bytecode.Bytecode: void addOpcode(int)>(91);
+
+        $r6 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r6.<javassist.bytecode.Bytecode: void addOpcode(int)>(87);
+
+        goto label5;
+
+     label4:
+        $r3 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r3.<javassist.bytecode.Bytecode: void addOpcode(int)>(95);
+
+     label5:
+        specialinvoke r0.<javassist.compiler.CodeGen: void convToString(int,int)>(i0, i1);
+
+        $r4 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r4.<javassist.bytecode.Bytecode: void addOpcode(int)>(95);
+
+        if z0 != 0 goto label6;
+
+        if z1 != 0 goto label6;
+
+        specialinvoke r0.<javassist.compiler.CodeGen: void convToString(int,int)>(i2, i3);
+
+     label6:
+        $r9 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r9.<javassist.bytecode.Bytecode: void addInvokevirtual(java.lang.String,java.lang.String,java.lang.String)>("java.lang.String", "concat", "(Ljava/lang/String;)Ljava/lang/String;");
+
+        r0.<javassist.compiler.CodeGen: int exprType> = 307;
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = 0;
+
+        r0.<javassist.compiler.CodeGen: java.lang.String className> = "java/lang/String";
+
+        return;
+    }
+
+    private void convToString(int, int) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        int i0, i1;
+        boolean $z0;
+        javassist.bytecode.Bytecode $r2, $r3, $r5, $r6, $r7, $r8, $r9;
+        javassist.compiler.CompileError $r4;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        i0 := @parameter0: int;
+
+        i1 := @parameter1: int;
+
+        $z0 = staticinvoke <javassist.compiler.CodeGen: boolean isRefType(int)>(i0);
+
+        if $z0 != 0 goto label1;
+
+        if i1 <= 0 goto label2;
+
+     label1:
+        $r2 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r2.<javassist.bytecode.Bytecode: void addInvokestatic(java.lang.String,java.lang.String,java.lang.String)>("java.lang.String", "valueOf", "(Ljava/lang/Object;)Ljava/lang/String;");
+
+        goto label9;
+
+     label2:
+        if i0 != 312 goto label3;
+
+        $r9 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r9.<javassist.bytecode.Bytecode: void addInvokestatic(java.lang.String,java.lang.String,java.lang.String)>("java.lang.String", "valueOf", "(D)Ljava/lang/String;");
+
+        goto label9;
+
+     label3:
+        if i0 != 317 goto label4;
+
+        $r8 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r8.<javassist.bytecode.Bytecode: void addInvokestatic(java.lang.String,java.lang.String,java.lang.String)>("java.lang.String", "valueOf", "(F)Ljava/lang/String;");
+
+        goto label9;
+
+     label4:
+        if i0 != 326 goto label5;
+
+        $r7 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r7.<javassist.bytecode.Bytecode: void addInvokestatic(java.lang.String,java.lang.String,java.lang.String)>("java.lang.String", "valueOf", "(J)Ljava/lang/String;");
+
+        goto label9;
+
+     label5:
+        if i0 != 301 goto label6;
+
+        $r6 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r6.<javassist.bytecode.Bytecode: void addInvokestatic(java.lang.String,java.lang.String,java.lang.String)>("java.lang.String", "valueOf", "(Z)Ljava/lang/String;");
+
+        goto label9;
+
+     label6:
+        if i0 != 306 goto label7;
+
+        $r5 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r5.<javassist.bytecode.Bytecode: void addInvokestatic(java.lang.String,java.lang.String,java.lang.String)>("java.lang.String", "valueOf", "(C)Ljava/lang/String;");
+
+        goto label9;
+
+     label7:
+        if i0 != 344 goto label8;
+
+        $r4 = new javassist.compiler.CompileError;
+
+        specialinvoke $r4.<javassist.compiler.CompileError: void <init>(java.lang.String)>("void type expression");
+
+        throw $r4;
+
+     label8:
+        $r3 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r3.<javassist.bytecode.Bytecode: void addInvokestatic(java.lang.String,java.lang.String,java.lang.String)>("java.lang.String", "valueOf", "(I)Ljava/lang/String;");
+
+     label9:
+        return;
+    }
+
+    private boolean booleanExpr(boolean, javassist.compiler.ast.ASTree) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        boolean z0, z1, $z2, $z3, $z4, $z5, $z6, $z7, $z8;
+        javassist.compiler.ast.ASTree r1, $r2, $r5, $r15;
+        int i0, $i1, $i2, $i3, $i4, $i5, $i6, i7, i8;
+        javassist.bytecode.Bytecode $r3, $r4, $r6, $r7, $r8, $r9, $r10, $r13;
+        javassist.compiler.CompileError $r12;
+        javassist.compiler.ast.Expr $r14;
+        javassist.compiler.ast.BinExpr r17, r18;
+        short $s9;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        z0 := @parameter0: boolean;
+
+        r1 := @parameter1: javassist.compiler.ast.ASTree;
+
+        i0 = staticinvoke <javassist.compiler.CodeGen: int getCompOperator(javassist.compiler.ast.ASTree)>(r1);
+
+        if i0 != 358 goto label01;
+
+        r17 = (javassist.compiler.ast.BinExpr) r1;
+
+        i7 = specialinvoke r0.<javassist.compiler.CodeGen: int compileOprands(javassist.compiler.ast.BinExpr)>(r17);
+
+        $i6 = virtualinvoke r17.<javassist.compiler.ast.BinExpr: int getOperator()>();
+
+        specialinvoke r0.<javassist.compiler.CodeGen: void compareExpr(boolean,int,int,javassist.compiler.ast.BinExpr)>(z0, $i6, i7, r17);
+
+        goto label19;
+
+     label01:
+        if i0 != 33 goto label04;
+
+        if z0 != 0 goto label02;
+
+        $z6 = 1;
+
+        goto label03;
+
+     label02:
+        $z6 = 0;
+
+     label03:
+        $r14 = (javassist.compiler.ast.Expr) r1;
+
+        $r15 = virtualinvoke $r14.<javassist.compiler.ast.Expr: javassist.compiler.ast.ASTree oprand1()>();
+
+        $z5 = specialinvoke r0.<javassist.compiler.CodeGen: boolean booleanExpr(boolean,javassist.compiler.ast.ASTree)>($z6, $r15);
+
+        return $z5;
+
+     label04:
+        if i0 != 369 goto label05;
+
+        $z7 = 1;
+
+        goto label06;
+
+     label05:
+        $z7 = 0;
+
+     label06:
+        z1 = $z7;
+
+        if $z7 != 0 goto label07;
+
+        if i0 != 368 goto label13;
+
+     label07:
+        r18 = (javassist.compiler.ast.BinExpr) r1;
+
+        if z1 != 0 goto label08;
+
+        $z8 = 1;
+
+        goto label09;
+
+     label08:
+        $z8 = 0;
+
+     label09:
+        $r2 = virtualinvoke r18.<javassist.compiler.ast.BinExpr: javassist.compiler.ast.ASTree oprand1()>();
+
+        $z2 = specialinvoke r0.<javassist.compiler.CodeGen: boolean booleanExpr(boolean,javassist.compiler.ast.ASTree)>($z8, $r2);
+
+        if $z2 == 0 goto label10;
+
+        r0.<javassist.compiler.CodeGen: int exprType> = 301;
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = 0;
+
+        return 1;
+
+     label10:
+        $r3 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i8 = virtualinvoke $r3.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $r4 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r4.<javassist.bytecode.Bytecode: void addIndex(int)>(0);
+
+        $r5 = virtualinvoke r18.<javassist.compiler.ast.BinExpr: javassist.compiler.ast.ASTree oprand2()>();
+
+        $z3 = specialinvoke r0.<javassist.compiler.CodeGen: boolean booleanExpr(boolean,javassist.compiler.ast.ASTree)>(z1, $r5);
+
+        if $z3 == 0 goto label11;
+
+        $r10 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r10.<javassist.bytecode.Bytecode: void addOpcode(int)>(167);
+
+     label11:
+        $r7 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $r6 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i1 = virtualinvoke $r6.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $i2 = $i1 - i8;
+
+        $i3 = $i2 + 3;
+
+        virtualinvoke $r7.<javassist.bytecode.Bytecode: void write16bit(int,int)>(i8, $i3);
+
+        if z0 == z1 goto label12;
+
+        $r8 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r8.<javassist.bytecode.Bytecode: void addIndex(int)>(6);
+
+        $r9 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r9.<javassist.bytecode.Bytecode: void addOpcode(int)>(167);
+
+     label12:
+        goto label19;
+
+     label13:
+        $z4 = staticinvoke <javassist.compiler.CodeGen: boolean isAlwaysBranch(javassist.compiler.ast.ASTree,boolean)>(r1, z0);
+
+        if $z4 == 0 goto label14;
+
+        r0.<javassist.compiler.CodeGen: int exprType> = 301;
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = 0;
+
+        return 1;
+
+     label14:
+        virtualinvoke r1.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        $i4 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        if $i4 != 301 goto label15;
+
+        $i5 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        if $i5 == 0 goto label16;
+
+     label15:
+        $r12 = new javassist.compiler.CompileError;
+
+        specialinvoke $r12.<javassist.compiler.CompileError: void <init>(java.lang.String)>("boolean expr is required");
+
+        throw $r12;
+
+     label16:
+        $r13 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        if z0 == 0 goto label17;
+
+        $s9 = 154;
+
+        goto label18;
+
+     label17:
+        $s9 = 153;
+
+     label18:
+        virtualinvoke $r13.<javassist.bytecode.Bytecode: void addOpcode(int)>($s9);
+
+     label19:
+        r0.<javassist.compiler.CodeGen: int exprType> = 301;
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = 0;
+
+        return 0;
+    }
+
+    private static boolean isAlwaysBranch(javassist.compiler.ast.ASTree, boolean)
+    {
+        javassist.compiler.ast.ASTree r0;
+        boolean z0, $z1, $z2;
+        int i0;
+        javassist.compiler.ast.Keyword $r1;
+
+        r0 := @parameter0: javassist.compiler.ast.ASTree;
+
+        z0 := @parameter1: boolean;
+
+        $z1 = r0 instanceof javassist.compiler.ast.Keyword;
+
+        if $z1 == 0 goto label5;
+
+        $r1 = (javassist.compiler.ast.Keyword) r0;
+
+        i0 = virtualinvoke $r1.<javassist.compiler.ast.Keyword: int get()>();
+
+        if z0 == 0 goto label2;
+
+        if i0 != 410 goto label1;
+
+        $z2 = 1;
+
+        goto label4;
+
+     label1:
+        $z2 = 0;
+
+        goto label4;
+
+     label2:
+        if i0 != 411 goto label3;
+
+        $z2 = 1;
+
+        goto label4;
+
+     label3:
+        $z2 = 0;
+
+     label4:
+        return $z2;
+
+     label5:
+        return 0;
+    }
+
+    static int getCompOperator(javassist.compiler.ast.ASTree) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.ast.ASTree r0;
+        javassist.compiler.ast.Expr r1;
+        int i0;
+        boolean $z0, $z1;
+
+        r0 := @parameter0: javassist.compiler.ast.ASTree;
+
+        $z0 = r0 instanceof javassist.compiler.ast.Expr;
+
+        if $z0 == 0 goto label3;
+
+        r1 = (javassist.compiler.ast.Expr) r0;
+
+        i0 = virtualinvoke r1.<javassist.compiler.ast.Expr: int getOperator()>();
+
+        if i0 != 33 goto label1;
+
+        return 33;
+
+     label1:
+        $z1 = r1 instanceof javassist.compiler.ast.BinExpr;
+
+        if $z1 == 0 goto label2;
+
+        if i0 == 368 goto label2;
+
+        if i0 == 369 goto label2;
+
+        if i0 == 38 goto label2;
+
+        if i0 == 124 goto label2;
+
+        return 358;
+
+     label2:
+        return i0;
+
+     label3:
+        return 32;
+    }
+
+    private int compileOprands(javassist.compiler.ast.BinExpr) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.BinExpr r1;
+        int i0, i1, $i2, $i3, $i4, $i5;
+        javassist.compiler.ast.ASTree $r2, $r3;
+        javassist.compiler.CompileError $r4;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.BinExpr;
+
+        $r2 = virtualinvoke r1.<javassist.compiler.ast.BinExpr: javassist.compiler.ast.ASTree oprand1()>();
+
+        virtualinvoke $r2.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        i0 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        i1 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        $r3 = virtualinvoke r1.<javassist.compiler.ast.BinExpr: javassist.compiler.ast.ASTree oprand2()>();
+
+        virtualinvoke $r3.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        $i2 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        if i1 == $i2 goto label2;
+
+        if i0 == 412 goto label1;
+
+        $i5 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        if $i5 == 412 goto label1;
+
+        $r4 = new javassist.compiler.CompileError;
+
+        specialinvoke $r4.<javassist.compiler.CompileError: void <init>(java.lang.String)>("incompatible array types");
+
+        throw $r4;
+
+     label1:
+        $i4 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        if $i4 != 412 goto label2;
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = i1;
+
+     label2:
+        if i0 != 412 goto label3;
+
+        $i3 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        return $i3;
+
+     label3:
+        return i0;
+    }
+
+    private void compareExpr(boolean, int, int, javassist.compiler.ast.BinExpr) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        boolean z0;
+        int i0, i1, i2, $i3, $i4, $i5, $i6, $i7, $i8, $i9, $i10, $i11, $i12, $i13, $i14, $i15, i18, i20, $i21;
+        javassist.compiler.ast.BinExpr r1;
+        javassist.bytecode.Bytecode $r2, $r3, $r4, $r6, $r7, $r8, $r9, $r10, $r11;
+        short $s16, $s17;
+        int[] r13, r14;
+        byte $b19, $b22;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        z0 := @parameter0: boolean;
+
+        i0 := @parameter1: int;
+
+        i1 := @parameter2: int;
+
+        r1 := @parameter3: javassist.compiler.ast.BinExpr;
+
+        $i3 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        if $i3 != 0 goto label01;
+
+        $i15 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        specialinvoke r0.<javassist.compiler.CodeGen: void convertOprandTypes(int,int,javassist.compiler.ast.Expr)>(i1, $i15, r1);
+
+     label01:
+        $i4 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        i2 = staticinvoke <javassist.compiler.CodeGen: int typePrecedence(int)>($i4);
+
+        if i2 == -1 goto label02;
+
+        $i5 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        if $i5 <= 0 goto label09;
+
+     label02:
+        if i0 != 358 goto label05;
+
+        $r3 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        if z0 == 0 goto label03;
+
+        $s16 = 165;
+
+        goto label04;
+
+     label03:
+        $s16 = 166;
+
+     label04:
+        virtualinvoke $r3.<javassist.bytecode.Bytecode: void addOpcode(int)>($s16);
+
+        goto label29;
+
+     label05:
+        if i0 != 350 goto label08;
+
+        $r2 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        if z0 == 0 goto label06;
+
+        $s17 = 166;
+
+        goto label07;
+
+     label06:
+        $s17 = 165;
+
+     label07:
+        virtualinvoke $r2.<javassist.bytecode.Bytecode: void addOpcode(int)>($s17);
+
+        goto label29;
+
+     label08:
+        staticinvoke <javassist.compiler.CodeGen: void badTypes(javassist.compiler.ast.Expr)>(r1);
+
+        goto label29;
+
+     label09:
+        if i2 != 3 goto label15;
+
+        r13 = <javassist.compiler.CodeGen: int[] ifOp>;
+
+        i18 = 0;
+
+     label10:
+        $i10 = lengthof r13;
+
+        if i18 >= $i10 goto label14;
+
+        $i11 = r13[i18];
+
+        if $i11 != i0 goto label13;
+
+        $r11 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i14 = i18;
+
+        if z0 == 0 goto label11;
+
+        $b19 = 1;
+
+        goto label12;
+
+     label11:
+        $b19 = 2;
+
+     label12:
+        $i12 = $i14 + $b19;
+
+        $i13 = r13[$i12];
+
+        virtualinvoke $r11.<javassist.bytecode.Bytecode: void addOpcode(int)>($i13);
+
+        return;
+
+     label13:
+        i18 = i18 + 3;
+
+        goto label10;
+
+     label14:
+        staticinvoke <javassist.compiler.CodeGen: void badTypes(javassist.compiler.ast.Expr)>(r1);
+
+        goto label29;
+
+     label15:
+        if i2 != 0 goto label18;
+
+        if i0 == 60 goto label16;
+
+        if i0 != 357 goto label17;
+
+     label16:
+        $r9 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r9.<javassist.bytecode.Bytecode: void addOpcode(int)>(152);
+
+        goto label23;
+
+     label17:
+        $r10 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r10.<javassist.bytecode.Bytecode: void addOpcode(int)>(151);
+
+        goto label23;
+
+     label18:
+        if i2 != 1 goto label21;
+
+        if i0 == 60 goto label19;
+
+        if i0 != 357 goto label20;
+
+     label19:
+        $r7 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r7.<javassist.bytecode.Bytecode: void addOpcode(int)>(150);
+
+        goto label23;
+
+     label20:
+        $r8 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r8.<javassist.bytecode.Bytecode: void addOpcode(int)>(149);
+
+        goto label23;
+
+     label21:
+        if i2 != 2 goto label22;
+
+        $r6 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r6.<javassist.bytecode.Bytecode: void addOpcode(int)>(148);
+
+        goto label23;
+
+     label22:
+        staticinvoke <javassist.compiler.CodeGen: void fatal()>();
+
+     label23:
+        r14 = <javassist.compiler.CodeGen: int[] ifOp2>;
+
+        i20 = 0;
+
+     label24:
+        $i21 = lengthof r14;
+
+        if i20 >= $i21 goto label28;
+
+        $i6 = r14[i20];
+
+        if $i6 != i0 goto label27;
+
+        $r4 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i9 = i20;
+
+        if z0 == 0 goto label25;
+
+        $b22 = 1;
+
+        goto label26;
+
+     label25:
+        $b22 = 2;
+
+     label26:
+        $i7 = $i9 + $b22;
+
+        $i8 = r14[$i7];
+
+        virtualinvoke $r4.<javassist.bytecode.Bytecode: void addOpcode(int)>($i8);
+
+        return;
+
+     label27:
+        i20 = i20 + 3;
+
+        goto label24;
+
+     label28:
+        staticinvoke <javassist.compiler.CodeGen: void badTypes(javassist.compiler.ast.Expr)>(r1);
+
+     label29:
+        return;
+    }
+
+    protected static void badTypes(javassist.compiler.ast.Expr) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.ast.Expr r0;
+        javassist.compiler.CompileError $r1;
+        java.lang.StringBuilder $r2, $r3, $r5;
+        java.lang.String $r4, $r6;
+
+        r0 := @parameter0: javassist.compiler.ast.Expr;
+
+        $r1 = new javassist.compiler.CompileError;
+
+        $r2 = new java.lang.StringBuilder;
+
+        specialinvoke $r2.<java.lang.StringBuilder: void <init>()>();
+
+        $r3 = virtualinvoke $r2.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("invalid types for ");
+
+        $r4 = virtualinvoke r0.<javassist.compiler.ast.Expr: java.lang.String getName()>();
+
+        $r5 = virtualinvoke $r3.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r4);
+
+        $r6 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r1.<javassist.compiler.CompileError: void <init>(java.lang.String)>($r6);
+
+        throw $r1;
+    }
+
+    protected static boolean isRefType(int)
+    {
+        int i0;
+        boolean $z0;
+
+        i0 := @parameter0: int;
+
+        if i0 == 307 goto label1;
+
+        if i0 != 412 goto label2;
+
+     label1:
+        $z0 = 1;
+
+        goto label3;
+
+     label2:
+        $z0 = 0;
+
+     label3:
+        return $z0;
+    }
+
+    private static int typePrecedence(int)
+    {
+        int i0;
+        boolean $z0;
+
+        i0 := @parameter0: int;
+
+        if i0 != 312 goto label1;
+
+        return 0;
+
+     label1:
+        if i0 != 317 goto label2;
+
+        return 1;
+
+     label2:
+        if i0 != 326 goto label3;
+
+        return 2;
+
+     label3:
+        $z0 = staticinvoke <javassist.compiler.CodeGen: boolean isRefType(int)>(i0);
+
+        if $z0 == 0 goto label4;
+
+        return -1;
+
+     label4:
+        if i0 != 344 goto label5;
+
+        return -1;
+
+     label5:
+        return 3;
+    }
+
+    static boolean isP_INT(int)
+    {
+        int i0, $i1;
+        boolean $z0;
+
+        i0 := @parameter0: int;
+
+        $i1 = staticinvoke <javassist.compiler.CodeGen: int typePrecedence(int)>(i0);
+
+        if $i1 != 3 goto label1;
+
+        $z0 = 1;
+
+        goto label2;
+
+     label1:
+        $z0 = 0;
+
+     label2:
+        return $z0;
+    }
+
+    static boolean rightIsStrong(int, int)
+    {
+        int i0, i1, i2, i3;
+        boolean $z0;
+
+        i0 := @parameter0: int;
+
+        i1 := @parameter1: int;
+
+        i2 = staticinvoke <javassist.compiler.CodeGen: int typePrecedence(int)>(i0);
+
+        i3 = staticinvoke <javassist.compiler.CodeGen: int typePrecedence(int)>(i1);
+
+        if i2 < 0 goto label1;
+
+        if i3 < 0 goto label1;
+
+        if i2 <= i3 goto label1;
+
+        $z0 = 1;
+
+        goto label2;
+
+     label1:
+        $z0 = 0;
+
+     label2:
+        return $z0;
+    }
+
+    private void convertOprandTypes(int, int, javassist.compiler.ast.Expr) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        int i0, i1, i2, i3, $i4, $i5, $i6, $i7, i8, i9;
+        javassist.compiler.ast.Expr r1;
+        int[] $r2, $r15;
+        javassist.bytecode.Bytecode $r3, $r4, $r5, $r6, $r7, $r8, $r9, $r10, $r11, $r12, $r13, $r14;
+        boolean z0;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        i0 := @parameter0: int;
+
+        i1 := @parameter1: int;
+
+        r1 := @parameter2: javassist.compiler.ast.Expr;
+
+        i2 = staticinvoke <javassist.compiler.CodeGen: int typePrecedence(int)>(i0);
+
+        i3 = staticinvoke <javassist.compiler.CodeGen: int typePrecedence(int)>(i1);
+
+        if i3 >= 0 goto label01;
+
+        if i2 >= 0 goto label01;
+
+        return;
+
+     label01:
+        if i3 < 0 goto label02;
+
+        if i2 >= 0 goto label03;
+
+     label02:
+        staticinvoke <javassist.compiler.CodeGen: void badTypes(javassist.compiler.ast.Expr)>(r1);
+
+     label03:
+        if i2 > i3 goto label04;
+
+        z0 = 0;
+
+        r0.<javassist.compiler.CodeGen: int exprType> = i0;
+
+        $r15 = <javassist.compiler.CodeGen: int[] castOp>;
+
+        $i6 = i3 * 4;
+
+        $i7 = $i6 + i2;
+
+        i8 = $r15[$i7];
+
+        i9 = i2;
+
+        goto label05;
+
+     label04:
+        z0 = 1;
+
+        $r2 = <javassist.compiler.CodeGen: int[] castOp>;
+
+        $i4 = i2 * 4;
+
+        $i5 = $i4 + i3;
+
+        i8 = $r2[$i5];
+
+        i9 = i3;
+
+     label05:
+        if z0 == 0 goto label14;
+
+        if i9 == 0 goto label06;
+
+        if i9 != 2 goto label10;
+
+     label06:
+        if i2 == 0 goto label07;
+
+        if i2 != 2 goto label08;
+
+     label07:
+        $r4 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r4.<javassist.bytecode.Bytecode: void addOpcode(int)>(94);
+
+        goto label09;
+
+     label08:
+        $r9 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r9.<javassist.bytecode.Bytecode: void addOpcode(int)>(93);
+
+     label09:
+        $r5 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r5.<javassist.bytecode.Bytecode: void addOpcode(int)>(88);
+
+        $r6 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r6.<javassist.bytecode.Bytecode: void addOpcode(int)>(i8);
+
+        $r7 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r7.<javassist.bytecode.Bytecode: void addOpcode(int)>(94);
+
+        $r8 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r8.<javassist.bytecode.Bytecode: void addOpcode(int)>(88);
+
+        goto label15;
+
+     label10:
+        if i9 != 1 goto label13;
+
+        if i2 != 2 goto label11;
+
+        $r13 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r13.<javassist.bytecode.Bytecode: void addOpcode(int)>(91);
+
+        $r14 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r14.<javassist.bytecode.Bytecode: void addOpcode(int)>(87);
+
+        goto label12;
+
+     label11:
+        $r10 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r10.<javassist.bytecode.Bytecode: void addOpcode(int)>(95);
+
+     label12:
+        $r11 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r11.<javassist.bytecode.Bytecode: void addOpcode(int)>(i8);
+
+        $r12 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r12.<javassist.bytecode.Bytecode: void addOpcode(int)>(95);
+
+        goto label15;
+
+     label13:
+        staticinvoke <javassist.compiler.CodeGen: void fatal()>();
+
+        goto label15;
+
+     label14:
+        if i8 == 0 goto label15;
+
+        $r3 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r3.<javassist.bytecode.Bytecode: void addOpcode(int)>(i8);
+
+     label15:
+        return;
+    }
+
+    public void atCastExpr(javassist.compiler.ast.CastExpr) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.CastExpr r1;
+        java.lang.String r2, r3;
+        int i0, $i1, $i2, $i3;
+        javassist.compiler.ast.ASTList $r4;
+        javassist.bytecode.Bytecode $r5;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.CastExpr;
+
+        $r4 = virtualinvoke r1.<javassist.compiler.ast.CastExpr: javassist.compiler.ast.ASTList getClassName()>();
+
+        r2 = virtualinvoke r0.<javassist.compiler.CodeGen: java.lang.String resolveClassName(javassist.compiler.ast.ASTList)>($r4);
+
+        r3 = specialinvoke r0.<javassist.compiler.CodeGen: java.lang.String checkCastExpr(javassist.compiler.ast.CastExpr,java.lang.String)>(r1, r2);
+
+        i0 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        $i1 = virtualinvoke r1.<javassist.compiler.ast.CastExpr: int getType()>();
+
+        r0.<javassist.compiler.CodeGen: int exprType> = $i1;
+
+        $i2 = virtualinvoke r1.<javassist.compiler.ast.CastExpr: int getArrayDim()>();
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = $i2;
+
+        r0.<javassist.compiler.CodeGen: java.lang.String className> = r2;
+
+        if r3 != null goto label1;
+
+        $i3 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atNumCastExpr(int,int)>(i0, $i3);
+
+        goto label2;
+
+     label1:
+        $r5 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r5.<javassist.bytecode.Bytecode: void addCheckcast(java.lang.String)>(r3);
+
+     label2:
+        return;
+    }
+
+    public void atInstanceOfExpr(javassist.compiler.ast.InstanceOfExpr) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.InstanceOfExpr r1;
+        java.lang.String r2, r3;
+        javassist.compiler.ast.ASTList $r4;
+        javassist.bytecode.Bytecode $r5;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.InstanceOfExpr;
+
+        $r4 = virtualinvoke r1.<javassist.compiler.ast.InstanceOfExpr: javassist.compiler.ast.ASTList getClassName()>();
+
+        r2 = virtualinvoke r0.<javassist.compiler.CodeGen: java.lang.String resolveClassName(javassist.compiler.ast.ASTList)>($r4);
+
+        r3 = specialinvoke r0.<javassist.compiler.CodeGen: java.lang.String checkCastExpr(javassist.compiler.ast.CastExpr,java.lang.String)>(r1, r2);
+
+        $r5 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r5.<javassist.bytecode.Bytecode: void addInstanceof(java.lang.String)>(r3);
+
+        r0.<javassist.compiler.CodeGen: int exprType> = 301;
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = 0;
+
+        return;
+    }
+
+    private java.lang.String checkCastExpr(javassist.compiler.ast.CastExpr, java.lang.String) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.CastExpr r1;
+        java.lang.String r2, $r5, $r6, $r7;
+        javassist.compiler.ast.ASTree r4;
+        int i0, i1, i2, i3, $i4;
+        boolean $z0, $z1;
+        javassist.compiler.CompileError $r8, $r9;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.CastExpr;
+
+        r2 := @parameter1: java.lang.String;
+
+        r4 = virtualinvoke r1.<javassist.compiler.ast.CastExpr: javassist.compiler.ast.ASTree getOprand()>();
+
+        i0 = virtualinvoke r1.<javassist.compiler.ast.CastExpr: int getArrayDim()>();
+
+        i1 = virtualinvoke r1.<javassist.compiler.ast.CastExpr: int getType()>();
+
+        virtualinvoke r4.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        i2 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        i3 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        $i4 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        $r5 = r0.<javassist.compiler.CodeGen: java.lang.String className>;
+
+        $z0 = specialinvoke r0.<javassist.compiler.CodeGen: boolean invalidDim(int,int,java.lang.String,int,int,java.lang.String,boolean)>(i2, $i4, $r5, i1, i0, r2, 1);
+
+        if $z0 != 0 goto label1;
+
+        if i2 == 344 goto label1;
+
+        if i1 != 344 goto label2;
+
+     label1:
+        $r9 = new javassist.compiler.CompileError;
+
+        specialinvoke $r9.<javassist.compiler.CompileError: void <init>(java.lang.String)>("invalid cast");
+
+        throw $r9;
+
+     label2:
+        if i1 != 307 goto label4;
+
+        $z1 = staticinvoke <javassist.compiler.CodeGen: boolean isRefType(int)>(i2);
+
+        if $z1 != 0 goto label3;
+
+        if i3 != 0 goto label3;
+
+        $r8 = new javassist.compiler.CompileError;
+
+        specialinvoke $r8.<javassist.compiler.CompileError: void <init>(java.lang.String)>("invalid cast");
+
+        throw $r8;
+
+     label3:
+        $r7 = staticinvoke <javassist.compiler.CodeGen: java.lang.String toJvmArrayName(java.lang.String,int)>(r2, i0);
+
+        return $r7;
+
+     label4:
+        if i0 <= 0 goto label5;
+
+        $r6 = staticinvoke <javassist.compiler.CodeGen: java.lang.String toJvmTypeName(int,int)>(i1, i0);
+
+        return $r6;
+
+     label5:
+        return null;
+    }
+
+    void atNumCastExpr(int, int) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        int i0, i1, i2, i3, $i4, $i5, i6;
+        javassist.bytecode.Bytecode $r1, $r2;
+        int[] $r3;
+        short s7;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        i0 := @parameter0: int;
+
+        i1 := @parameter1: int;
+
+        if i0 != i1 goto label01;
+
+        return;
+
+     label01:
+        i2 = staticinvoke <javassist.compiler.CodeGen: int typePrecedence(int)>(i0);
+
+        i3 = staticinvoke <javassist.compiler.CodeGen: int typePrecedence(int)>(i1);
+
+        if 0 > i2 goto label02;
+
+        if i2 >= 3 goto label02;
+
+        $r3 = <javassist.compiler.CodeGen: int[] castOp>;
+
+        $i4 = i2 * 4;
+
+        $i5 = $i4 + i3;
+
+        i6 = $r3[$i5];
+
+        goto label03;
+
+     label02:
+        i6 = 0;
+
+     label03:
+        if i1 != 312 goto label04;
+
+        s7 = 135;
+
+        goto label10;
+
+     label04:
+        if i1 != 317 goto label05;
+
+        s7 = 134;
+
+        goto label10;
+
+     label05:
+        if i1 != 326 goto label06;
+
+        s7 = 133;
+
+        goto label10;
+
+     label06:
+        if i1 != 334 goto label07;
+
+        s7 = 147;
+
+        goto label10;
+
+     label07:
+        if i1 != 306 goto label08;
+
+        s7 = 146;
+
+        goto label10;
+
+     label08:
+        if i1 != 303 goto label09;
+
+        s7 = 145;
+
+        goto label10;
+
+     label09:
+        s7 = 0;
+
+     label10:
+        if i6 == 0 goto label11;
+
+        $r2 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r2.<javassist.bytecode.Bytecode: void addOpcode(int)>(i6);
+
+     label11:
+        if i6 == 0 goto label12;
+
+        if i6 == 136 goto label12;
+
+        if i6 == 139 goto label12;
+
+        if i6 != 142 goto label13;
+
+     label12:
+        if s7 == 0 goto label13;
+
+        $r1 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r1.<javassist.bytecode.Bytecode: void addOpcode(int)>(s7);
+
+     label13:
+        return;
+    }
+
+    public void atExpr(javassist.compiler.ast.Expr) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Expr r1;
+        int i0, $i1, $i2, i3;
+        javassist.compiler.ast.ASTree r2, $r3, $r17, $r18;
+        javassist.bytecode.Bytecode $r4, $r5, $r6, $r7, $r8, $r9, $r10, $r11, $r12, $r13, $r14, $r15, $r16;
+        boolean $z0, $z1;
+        javassist.compiler.ast.Symbol $r19;
+        java.lang.String r20;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Expr;
+
+        i0 = virtualinvoke r1.<javassist.compiler.ast.Expr: int getOperator()>();
+
+        r2 = virtualinvoke r1.<javassist.compiler.ast.Expr: javassist.compiler.ast.ASTree oprand1()>();
+
+        if i0 != 46 goto label03;
+
+        $r18 = virtualinvoke r1.<javassist.compiler.ast.Expr: javassist.compiler.ast.ASTree oprand2()>();
+
+        $r19 = (javassist.compiler.ast.Symbol) $r18;
+
+        r20 = virtualinvoke $r19.<javassist.compiler.ast.Symbol: java.lang.String get()>();
+
+        $z1 = virtualinvoke r20.<java.lang.String: boolean equals(java.lang.Object)>("class");
+
+        if $z1 == 0 goto label01;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atClassObject(javassist.compiler.ast.Expr)>(r1);
+
+        goto label02;
+
+     label01:
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atFieldRead(javassist.compiler.ast.ASTree)>(r1);
+
+     label02:
+        goto label21;
+
+     label03:
+        if i0 != 35 goto label04;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atFieldRead(javassist.compiler.ast.ASTree)>(r1);
+
+        goto label21;
+
+     label04:
+        if i0 != 65 goto label05;
+
+        $r17 = virtualinvoke r1.<javassist.compiler.ast.Expr: javassist.compiler.ast.ASTree oprand2()>();
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atArrayRead(javassist.compiler.ast.ASTree,javassist.compiler.ast.ASTree)>(r2, $r17);
+
+        goto label21;
+
+     label05:
+        if i0 == 362 goto label06;
+
+        if i0 != 363 goto label07;
+
+     label06:
+        specialinvoke r0.<javassist.compiler.CodeGen: void atPlusPlus(int,javassist.compiler.ast.ASTree,javassist.compiler.ast.Expr,boolean)>(i0, r2, r1, 1);
+
+        goto label21;
+
+     label07:
+        if i0 != 33 goto label09;
+
+        $z0 = specialinvoke r0.<javassist.compiler.CodeGen: boolean booleanExpr(boolean,javassist.compiler.ast.ASTree)>(0, r1);
+
+        if $z0 != 0 goto label08;
+
+        $r13 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r13.<javassist.bytecode.Bytecode: void addIndex(int)>(7);
+
+        $r14 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r14.<javassist.bytecode.Bytecode: void addIconst(int)>(1);
+
+        $r15 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r15.<javassist.bytecode.Bytecode: void addOpcode(int)>(167);
+
+        $r16 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r16.<javassist.bytecode.Bytecode: void addIndex(int)>(4);
+
+     label08:
+        $r12 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r12.<javassist.bytecode.Bytecode: void addIconst(int)>(0);
+
+        goto label21;
+
+     label09:
+        if i0 != 67 goto label10;
+
+        staticinvoke <javassist.compiler.CodeGen: void fatal()>();
+
+        goto label21;
+
+     label10:
+        $r3 = virtualinvoke r1.<javassist.compiler.ast.Expr: javassist.compiler.ast.ASTree oprand1()>();
+
+        virtualinvoke $r3.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        $i1 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        i3 = staticinvoke <javassist.compiler.CodeGen: int typePrecedence(int)>($i1);
+
+        $i2 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        if $i2 <= 0 goto label11;
+
+        staticinvoke <javassist.compiler.CodeGen: void badType(javassist.compiler.ast.Expr)>(r1);
+
+     label11:
+        if i0 != 45 goto label16;
+
+        if i3 != 0 goto label12;
+
+        $r11 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r11.<javassist.bytecode.Bytecode: void addOpcode(int)>(119);
+
+        goto label21;
+
+     label12:
+        if i3 != 1 goto label13;
+
+        $r10 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r10.<javassist.bytecode.Bytecode: void addOpcode(int)>(118);
+
+        goto label21;
+
+     label13:
+        if i3 != 2 goto label14;
+
+        $r9 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r9.<javassist.bytecode.Bytecode: void addOpcode(int)>(117);
+
+        goto label21;
+
+     label14:
+        if i3 != 3 goto label15;
+
+        $r8 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r8.<javassist.bytecode.Bytecode: void addOpcode(int)>(116);
+
+        r0.<javassist.compiler.CodeGen: int exprType> = 324;
+
+        goto label21;
+
+     label15:
+        staticinvoke <javassist.compiler.CodeGen: void badType(javassist.compiler.ast.Expr)>(r1);
+
+        goto label21;
+
+     label16:
+        if i0 != 126 goto label19;
+
+        if i3 != 3 goto label17;
+
+        $r6 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r6.<javassist.bytecode.Bytecode: void addIconst(int)>(-1);
+
+        $r7 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r7.<javassist.bytecode.Bytecode: void addOpcode(int)>(130);
+
+        r0.<javassist.compiler.CodeGen: int exprType> = 324;
+
+        goto label21;
+
+     label17:
+        if i3 != 2 goto label18;
+
+        $r4 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r4.<javassist.bytecode.Bytecode: void addLconst(long)>(-1L);
+
+        $r5 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r5.<javassist.bytecode.Bytecode: void addOpcode(int)>(131);
+
+        goto label21;
+
+     label18:
+        staticinvoke <javassist.compiler.CodeGen: void badType(javassist.compiler.ast.Expr)>(r1);
+
+        goto label21;
+
+     label19:
+        if i0 != 43 goto label20;
+
+        if i3 != -1 goto label21;
+
+        staticinvoke <javassist.compiler.CodeGen: void badType(javassist.compiler.ast.Expr)>(r1);
+
+        goto label21;
+
+     label20:
+        staticinvoke <javassist.compiler.CodeGen: void fatal()>();
+
+     label21:
+        return;
+    }
+
+    protected static void badType(javassist.compiler.ast.Expr) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.ast.Expr r0;
+        javassist.compiler.CompileError $r1;
+        java.lang.StringBuilder $r2, $r3, $r5;
+        java.lang.String $r4, $r6;
+
+        r0 := @parameter0: javassist.compiler.ast.Expr;
+
+        $r1 = new javassist.compiler.CompileError;
+
+        $r2 = new java.lang.StringBuilder;
+
+        specialinvoke $r2.<java.lang.StringBuilder: void <init>()>();
+
+        $r3 = virtualinvoke $r2.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("invalid type for ");
+
+        $r4 = virtualinvoke r0.<javassist.compiler.ast.Expr: java.lang.String getName()>();
+
+        $r5 = virtualinvoke $r3.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r4);
+
+        $r6 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r1.<javassist.compiler.CompileError: void <init>(java.lang.String)>($r6);
+
+        throw $r1;
+    }
+
+    public abstract void atCallExpr(javassist.compiler.ast.CallExpr) throws javassist.compiler.CompileError;
+
+    protected abstract void atFieldRead(javassist.compiler.ast.ASTree) throws javassist.compiler.CompileError;
+
+    public void atClassObject(javassist.compiler.ast.Expr) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Expr r1;
+        javassist.compiler.ast.ASTree r2;
+        java.lang.String r3, $r6, r13, r14, r15, r16;
+        boolean $z0, $z1, $z2;
+        javassist.compiler.ast.Symbol $r5;
+        int $i0, $i1, $i2, $i3, i4;
+        java.lang.StringBuffer $r7, $r8, $r9;
+        javassist.compiler.CompileError $r12;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Expr;
+
+        r2 = virtualinvoke r1.<javassist.compiler.ast.Expr: javassist.compiler.ast.ASTree oprand1()>();
+
+        $z0 = r2 instanceof javassist.compiler.ast.Symbol;
+
+        if $z0 != 0 goto label1;
+
+        $r12 = new javassist.compiler.CompileError;
+
+        specialinvoke $r12.<javassist.compiler.CompileError: void <init>(java.lang.String)>("fatal error: badly parsed .class expr");
+
+        throw $r12;
+
+     label1:
+        $r5 = (javassist.compiler.ast.Symbol) r2;
+
+        r13 = virtualinvoke $r5.<javassist.compiler.ast.Symbol: java.lang.String get()>();
+
+        $z1 = virtualinvoke r13.<java.lang.String: boolean startsWith(java.lang.String)>("[");
+
+        if $z1 == 0 goto label5;
+
+        i4 = virtualinvoke r13.<java.lang.String: int indexOf(java.lang.String)>("[L");
+
+        if i4 < 0 goto label4;
+
+        $i0 = i4 + 2;
+
+        $i1 = virtualinvoke r13.<java.lang.String: int length()>();
+
+        $i2 = $i1 - 1;
+
+        r3 = virtualinvoke r13.<java.lang.String: java.lang.String substring(int,int)>($i0, $i2);
+
+        r14 = virtualinvoke r0.<javassist.compiler.CodeGen: java.lang.String resolveClassName(java.lang.String)>(r3);
+
+        $z2 = virtualinvoke r3.<java.lang.String: boolean equals(java.lang.Object)>(r14);
+
+        if $z2 != 0 goto label4;
+
+        r15 = staticinvoke <javassist.compiler.MemberResolver: java.lang.String jvmToJavaName(java.lang.String)>(r14);
+
+        $r7 = new java.lang.StringBuffer;
+
+        specialinvoke $r7.<java.lang.StringBuffer: void <init>()>();
+
+     label2:
+        $i3 = i4;
+
+        i4 = i4 + -1;
+
+        if $i3 < 0 goto label3;
+
+        virtualinvoke $r7.<java.lang.StringBuffer: java.lang.StringBuffer append(char)>(91);
+
+        goto label2;
+
+     label3:
+        $r8 = virtualinvoke $r7.<java.lang.StringBuffer: java.lang.StringBuffer append(char)>(76);
+
+        $r9 = virtualinvoke $r8.<java.lang.StringBuffer: java.lang.StringBuffer append(java.lang.String)>(r15);
+
+        virtualinvoke $r9.<java.lang.StringBuffer: java.lang.StringBuffer append(char)>(59);
+
+        r13 = virtualinvoke $r7.<java.lang.StringBuffer: java.lang.String toString()>();
+
+     label4:
+        goto label6;
+
+     label5:
+        $r6 = staticinvoke <javassist.compiler.MemberResolver: java.lang.String javaToJvmName(java.lang.String)>(r13);
+
+        r16 = virtualinvoke r0.<javassist.compiler.CodeGen: java.lang.String resolveClassName(java.lang.String)>($r6);
+
+        r13 = staticinvoke <javassist.compiler.MemberResolver: java.lang.String jvmToJavaName(java.lang.String)>(r16);
+
+     label6:
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atClassObject2(java.lang.String)>(r13);
+
+        r0.<javassist.compiler.CodeGen: int exprType> = 307;
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = 0;
+
+        r0.<javassist.compiler.CodeGen: java.lang.String className> = "java/lang/Class";
+
+        return;
+    }
+
+    protected void atClassObject2(java.lang.String) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        java.lang.String r1;
+        int i0, i1, i2, $i3, $i4, $i5, $i6;
+        javassist.bytecode.Bytecode $r2, $r3, $r4, $r5, $r6, $r7, $r8, $r9, $r10, $r11, $r12, $r13, $r14, $r15;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r2 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i0 = virtualinvoke $r2.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $r3 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r3.<javassist.bytecode.Bytecode: void addLdc(java.lang.String)>(r1);
+
+        $r4 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r4.<javassist.bytecode.Bytecode: void addInvokestatic(java.lang.String,java.lang.String,java.lang.String)>("java.lang.Class", "forName", "(Ljava/lang/String;)Ljava/lang/Class;");
+
+        $r5 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i1 = virtualinvoke $r5.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $r6 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r6.<javassist.bytecode.Bytecode: void addOpcode(int)>(167);
+
+        $r7 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        i2 = virtualinvoke $r7.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $r8 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r8.<javassist.bytecode.Bytecode: void addIndex(int)>(0);
+
+        $r10 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $r9 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i3 = virtualinvoke $r9.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        virtualinvoke $r10.<javassist.bytecode.Bytecode: void addExceptionHandler(int,int,int,java.lang.String)>(i0, i1, $i3, "java.lang.ClassNotFoundException");
+
+        $r11 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r11.<javassist.bytecode.Bytecode: void growStack(int)>(1);
+
+        $r12 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r12.<javassist.bytecode.Bytecode: void addInvokestatic(java.lang.String,java.lang.String,java.lang.String)>("javassist.runtime.DotClass", "fail", "(Ljava/lang/ClassNotFoundException;)Ljava/lang/NoClassDefFoundError;");
+
+        $r13 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r13.<javassist.bytecode.Bytecode: void addOpcode(int)>(191);
+
+        $r15 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $r14 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i4 = virtualinvoke $r14.<javassist.bytecode.Bytecode: int currentPc()>();
+
+        $i5 = $i4 - i2;
+
+        $i6 = $i5 + 1;
+
+        virtualinvoke $r15.<javassist.bytecode.Bytecode: void write16bit(int,int)>(i2, $i6);
+
+        return;
+    }
+
+    public void atArrayRead(javassist.compiler.ast.ASTree, javassist.compiler.ast.ASTree) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.ASTree r1, r2;
+        int $i0, $i1, $i2;
+        javassist.bytecode.Bytecode $r3;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.ASTree;
+
+        r2 := @parameter1: javassist.compiler.ast.ASTree;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void arrayAccess(javassist.compiler.ast.ASTree,javassist.compiler.ast.ASTree)>(r1, r2);
+
+        $r3 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i1 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        $i0 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        $i2 = staticinvoke <javassist.compiler.CodeGen: int getArrayReadOp(int,int)>($i1, $i0);
+
+        virtualinvoke $r3.<javassist.bytecode.Bytecode: void addOpcode(int)>($i2);
+
+        return;
+    }
+
+    protected void arrayAccess(javassist.compiler.ast.ASTree, javassist.compiler.ast.ASTree) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.ASTree r1, r2;
+        int i0, i1, $i2, $i3, $i4, $i5;
+        java.lang.String r3;
+        javassist.compiler.CompileError $r4, $r5;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.ASTree;
+
+        r2 := @parameter1: javassist.compiler.ast.ASTree;
+
+        virtualinvoke r1.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        i0 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        i1 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        if i1 != 0 goto label1;
+
+        $r5 = new javassist.compiler.CompileError;
+
+        specialinvoke $r5.<javassist.compiler.CompileError: void <init>(java.lang.String)>("bad array access");
+
+        throw $r5;
+
+     label1:
+        r3 = r0.<javassist.compiler.CodeGen: java.lang.String className>;
+
+        virtualinvoke r2.<javassist.compiler.ast.ASTree: void accept(javassist.compiler.ast.Visitor)>(r0);
+
+        $i2 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        $i3 = staticinvoke <javassist.compiler.CodeGen: int typePrecedence(int)>($i2);
+
+        if $i3 != 3 goto label2;
+
+        $i4 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        if $i4 <= 0 goto label3;
+
+     label2:
+        $r4 = new javassist.compiler.CompileError;
+
+        specialinvoke $r4.<javassist.compiler.CompileError: void <init>(java.lang.String)>("bad array index");
+
+        throw $r4;
+
+     label3:
+        r0.<javassist.compiler.CodeGen: int exprType> = i0;
+
+        $i5 = i1 - 1;
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = $i5;
+
+        r0.<javassist.compiler.CodeGen: java.lang.String className> = r3;
+
+        return;
+    }
+
+    protected static int getArrayReadOp(int, int)
+    {
+        int i0, i1;
+
+        i0 := @parameter0: int;
+
+        i1 := @parameter1: int;
+
+        if i1 <= 0 goto label1;
+
+        return 50;
+
+     label1:
+        lookupswitch(i0)
+        {
+            case 301: goto label8;
+            case 303: goto label8;
+            case 306: goto label7;
+            case 312: goto label2;
+            case 317: goto label3;
+            case 324: goto label5;
+            case 326: goto label4;
+            case 334: goto label6;
+            default: goto label9;
+        };
+
+     label2:
+        return 49;
+
+     label3:
+        return 48;
+
+     label4:
+        return 47;
+
+     label5:
+        return 46;
+
+     label6:
+        return 53;
+
+     label7:
+        return 52;
+
+     label8:
+        return 51;
+
+     label9:
+        return 50;
+    }
+
+    protected static int getArrayWriteOp(int, int)
+    {
+        int i0, i1;
+
+        i0 := @parameter0: int;
+
+        i1 := @parameter1: int;
+
+        if i1 <= 0 goto label1;
+
+        return 83;
+
+     label1:
+        lookupswitch(i0)
+        {
+            case 301: goto label8;
+            case 303: goto label8;
+            case 306: goto label7;
+            case 312: goto label2;
+            case 317: goto label3;
+            case 324: goto label5;
+            case 326: goto label4;
+            case 334: goto label6;
+            default: goto label9;
+        };
+
+     label2:
+        return 82;
+
+     label3:
+        return 81;
+
+     label4:
+        return 80;
+
+     label5:
+        return 79;
+
+     label6:
+        return 86;
+
+     label7:
+        return 85;
+
+     label8:
+        return 84;
+
+     label9:
+        return 83;
+    }
+
+    private void atPlusPlus(int, javassist.compiler.ast.ASTree, javassist.compiler.ast.Expr, boolean) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        int i0, i2, $i4, $i5, $i6, $i7;
+        javassist.compiler.ast.Expr r1, r32;
+        boolean z0, z1, $z2, $z3, $z4;
+        javassist.compiler.ast.Variable $r2;
+        javassist.bytecode.Bytecode $r3, $r4, $r5, $r6, $r7, $r8, $r9, $r10, $r11, $r12, $r13, $r14, $r15, $r16, $r17, $r18, $r19, $r20, $r21, $r22, $r23, $r26, $r27, $r28, $r29, $r30, $r31;
+        javassist.compiler.ast.ASTree r24;
+        javassist.compiler.ast.Declarator r25;
+        byte $b8, $b9, $b10, $b11;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        i0 := @parameter0: int;
+
+        r24 := @parameter1: javassist.compiler.ast.ASTree;
+
+        r1 := @parameter2: javassist.compiler.ast.Expr;
+
+        z0 := @parameter3: boolean;
+
+        if r24 != null goto label01;
+
+        $z4 = 1;
+
+        goto label02;
+
+     label01:
+        $z4 = 0;
+
+     label02:
+        z1 = $z4;
+
+        if $z4 == 0 goto label03;
+
+        r24 = virtualinvoke r1.<javassist.compiler.ast.Expr: javassist.compiler.ast.ASTree oprand2()>();
+
+     label03:
+        $z2 = r24 instanceof javassist.compiler.ast.Variable;
+
+        if $z2 == 0 goto label29;
+
+        $r2 = (javassist.compiler.ast.Variable) r24;
+
+        r25 = virtualinvoke $r2.<javassist.compiler.ast.Variable: javassist.compiler.ast.Declarator getDeclarator()>();
+
+        $i5 = virtualinvoke r25.<javassist.compiler.ast.Declarator: int getType()>();
+
+        r0.<javassist.compiler.CodeGen: int exprType> = $i5;
+
+        $i6 = virtualinvoke r25.<javassist.compiler.ast.Declarator: int getArrayDim()>();
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = $i6;
+
+        i2 = virtualinvoke r0.<javassist.compiler.CodeGen: int getLocalVar(javassist.compiler.ast.Declarator)>(r25);
+
+        $i7 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        if $i7 <= 0 goto label04;
+
+        staticinvoke <javassist.compiler.CodeGen: void badType(javassist.compiler.ast.Expr)>(r1);
+
+     label04:
+        if $i5 != 312 goto label09;
+
+        $r20 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r20.<javassist.bytecode.Bytecode: void addDload(int)>(i2);
+
+        if z0 == 0 goto label05;
+
+        if z1 == 0 goto label05;
+
+        $r23 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r23.<javassist.bytecode.Bytecode: void addOpcode(int)>(92);
+
+     label05:
+        $r26 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r26.<javassist.bytecode.Bytecode: void addDconst(double)>(1.0);
+
+        $r21 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        if i0 != 362 goto label06;
+
+        $b8 = 99;
+
+        goto label07;
+
+     label06:
+        $b8 = 103;
+
+     label07:
+        virtualinvoke $r21.<javassist.bytecode.Bytecode: void addOpcode(int)>($b8);
+
+        if z0 == 0 goto label08;
+
+        if z1 != 0 goto label08;
+
+        $r22 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r22.<javassist.bytecode.Bytecode: void addOpcode(int)>(92);
+
+     label08:
+        $r27 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r27.<javassist.bytecode.Bytecode: void addDstore(int)>(i2);
+
+        goto label28;
+
+     label09:
+        if $i5 != 326 goto label14;
+
+        $r16 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r16.<javassist.bytecode.Bytecode: void addLload(int)>(i2);
+
+        if z0 == 0 goto label10;
+
+        if z1 == 0 goto label10;
+
+        $r19 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r19.<javassist.bytecode.Bytecode: void addOpcode(int)>(92);
+
+     label10:
+        $r28 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r28.<javassist.bytecode.Bytecode: void addLconst(long)>(1L);
+
+        $r17 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        if i0 != 362 goto label11;
+
+        $b9 = 97;
+
+        goto label12;
+
+     label11:
+        $b9 = 101;
+
+     label12:
+        virtualinvoke $r17.<javassist.bytecode.Bytecode: void addOpcode(int)>($b9);
+
+        if z0 == 0 goto label13;
+
+        if z1 != 0 goto label13;
+
+        $r18 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r18.<javassist.bytecode.Bytecode: void addOpcode(int)>(92);
+
+     label13:
+        $r29 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r29.<javassist.bytecode.Bytecode: void addLstore(int)>(i2);
+
+        goto label28;
+
+     label14:
+        if $i5 != 317 goto label19;
+
+        $r12 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r12.<javassist.bytecode.Bytecode: void addFload(int)>(i2);
+
+        if z0 == 0 goto label15;
+
+        if z1 == 0 goto label15;
+
+        $r15 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r15.<javassist.bytecode.Bytecode: void addOpcode(int)>(89);
+
+     label15:
+        $r30 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r30.<javassist.bytecode.Bytecode: void addFconst(float)>(1.0F);
+
+        $r13 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        if i0 != 362 goto label16;
+
+        $b10 = 98;
+
+        goto label17;
+
+     label16:
+        $b10 = 102;
+
+     label17:
+        virtualinvoke $r13.<javassist.bytecode.Bytecode: void addOpcode(int)>($b10);
+
+        if z0 == 0 goto label18;
+
+        if z1 != 0 goto label18;
+
+        $r14 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r14.<javassist.bytecode.Bytecode: void addOpcode(int)>(89);
+
+     label18:
+        $r31 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r31.<javassist.bytecode.Bytecode: void addFstore(int)>(i2);
+
+        goto label28;
+
+     label19:
+        if $i5 == 303 goto label20;
+
+        if $i5 == 306 goto label20;
+
+        if $i5 == 334 goto label20;
+
+        if $i5 != 324 goto label27;
+
+     label20:
+        if z0 == 0 goto label21;
+
+        if z1 == 0 goto label21;
+
+        $r11 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r11.<javassist.bytecode.Bytecode: void addIload(int)>(i2);
+
+     label21:
+        if i0 != 362 goto label22;
+
+        $b11 = 1;
+
+        goto label23;
+
+     label22:
+        $b11 = -1;
+
+     label23:
+        if i2 <= 255 goto label24;
+
+        $r7 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r7.<javassist.bytecode.Bytecode: void addOpcode(int)>(196);
+
+        $r8 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r8.<javassist.bytecode.Bytecode: void addOpcode(int)>(132);
+
+        $r9 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r9.<javassist.bytecode.Bytecode: void addIndex(int)>(i2);
+
+        $r10 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r10.<javassist.bytecode.Bytecode: void addIndex(int)>($b11);
+
+        goto label25;
+
+     label24:
+        $r3 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r3.<javassist.bytecode.Bytecode: void addOpcode(int)>(132);
+
+        $r4 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r4.<javassist.bytecode.Bytecode: void add(int)>(i2);
+
+        $r5 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r5.<javassist.bytecode.Bytecode: void add(int)>($b11);
+
+     label25:
+        if z0 == 0 goto label26;
+
+        if z1 != 0 goto label26;
+
+        $r6 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r6.<javassist.bytecode.Bytecode: void addIload(int)>(i2);
+
+     label26:
+        goto label28;
+
+     label27:
+        staticinvoke <javassist.compiler.CodeGen: void badType(javassist.compiler.ast.Expr)>(r1);
+
+     label28:
+        goto label31;
+
+     label29:
+        $z3 = r24 instanceof javassist.compiler.ast.Expr;
+
+        if $z3 == 0 goto label30;
+
+        r32 = (javassist.compiler.ast.Expr) r24;
+
+        $i4 = virtualinvoke r32.<javassist.compiler.ast.Expr: int getOperator()>();
+
+        if $i4 != 65 goto label30;
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atArrayPlusPlus(int,boolean,javassist.compiler.ast.Expr,boolean)>(i0, z1, r32, z0);
+
+        return;
+
+     label30:
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atFieldPlusPlus(int,boolean,javassist.compiler.ast.ASTree,javassist.compiler.ast.Expr,boolean)>(i0, z1, r24, r1, z0);
+
+     label31:
+        return;
+    }
+
+    public void atArrayPlusPlus(int, boolean, javassist.compiler.ast.Expr, boolean) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        int i0, i1, i2, $i4, $i5, $i6;
+        boolean z0, z1, $z2;
+        javassist.compiler.ast.Expr r1;
+        javassist.compiler.ast.ASTree $r2, $r3;
+        javassist.bytecode.Bytecode $r4, $r5, $r6;
+        byte $b7;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        i0 := @parameter0: int;
+
+        z0 := @parameter1: boolean;
+
+        r1 := @parameter2: javassist.compiler.ast.Expr;
+
+        z1 := @parameter3: boolean;
+
+        $r2 = virtualinvoke r1.<javassist.compiler.ast.Expr: javassist.compiler.ast.ASTree oprand1()>();
+
+        $r3 = virtualinvoke r1.<javassist.compiler.ast.Expr: javassist.compiler.ast.ASTree oprand2()>();
+
+        virtualinvoke r0.<javassist.compiler.CodeGen: void arrayAccess(javassist.compiler.ast.ASTree,javassist.compiler.ast.ASTree)>($r2, $r3);
+
+        i1 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        i2 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        if i2 <= 0 goto label1;
+
+        staticinvoke <javassist.compiler.CodeGen: void badType(javassist.compiler.ast.Expr)>(r1);
+
+     label1:
+        $r4 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r4.<javassist.bytecode.Bytecode: void addOpcode(int)>(92);
+
+        $r5 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i4 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        $i5 = staticinvoke <javassist.compiler.CodeGen: int getArrayReadOp(int,int)>(i1, $i4);
+
+        virtualinvoke $r5.<javassist.bytecode.Bytecode: void addOpcode(int)>($i5);
+
+        $z2 = staticinvoke <javassist.compiler.CodeGen: boolean is2word(int,int)>(i1, i2);
+
+        if $z2 == 0 goto label2;
+
+        $b7 = 94;
+
+        goto label3;
+
+     label2:
+        $b7 = 91;
+
+     label3:
+        virtualinvoke r0.<javassist.compiler.CodeGen: void atPlusPlusCore(int,boolean,int,boolean,javassist.compiler.ast.Expr)>($b7, z1, i0, z0, r1);
+
+        $r6 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i6 = staticinvoke <javassist.compiler.CodeGen: int getArrayWriteOp(int,int)>(i1, i2);
+
+        virtualinvoke $r6.<javassist.bytecode.Bytecode: void addOpcode(int)>($i6);
+
+        return;
+    }
+
+    protected void atPlusPlusCore(int, boolean, int, boolean, javassist.compiler.ast.Expr) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        int i0, i1, i2;
+        boolean z0, z1;
+        javassist.compiler.ast.Expr r1;
+        javassist.bytecode.Bytecode $r2, $r3, $r4, $r5, $r6, $r7, $r8, $r9, $r10, $r11;
+        byte $b3, $b4, $b5, $b6;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        i0 := @parameter0: int;
+
+        z0 := @parameter1: boolean;
+
+        i1 := @parameter2: int;
+
+        z1 := @parameter3: boolean;
+
+        r1 := @parameter4: javassist.compiler.ast.Expr;
+
+        i2 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        if z0 == 0 goto label01;
+
+        if z1 == 0 goto label01;
+
+        $r10 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r10.<javassist.bytecode.Bytecode: void addOpcode(int)>(i0);
+
+     label01:
+        if i2 == 324 goto label02;
+
+        if i2 == 303 goto label02;
+
+        if i2 == 306 goto label02;
+
+        if i2 != 334 goto label05;
+
+     label02:
+        $r11 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r11.<javassist.bytecode.Bytecode: void addIconst(int)>(1);
+
+        $r2 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        if i1 != 362 goto label03;
+
+        $b3 = 96;
+
+        goto label04;
+
+     label03:
+        $b3 = 100;
+
+     label04:
+        virtualinvoke $r2.<javassist.bytecode.Bytecode: void addOpcode(int)>($b3);
+
+        r0.<javassist.compiler.CodeGen: int exprType> = 324;
+
+        goto label15;
+
+     label05:
+        if i2 != 326 goto label08;
+
+        $r8 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r8.<javassist.bytecode.Bytecode: void addLconst(long)>(1L);
+
+        $r9 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        if i1 != 362 goto label06;
+
+        $b4 = 97;
+
+        goto label07;
+
+     label06:
+        $b4 = 101;
+
+     label07:
+        virtualinvoke $r9.<javassist.bytecode.Bytecode: void addOpcode(int)>($b4);
+
+        goto label15;
+
+     label08:
+        if i2 != 317 goto label11;
+
+        $r6 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r6.<javassist.bytecode.Bytecode: void addFconst(float)>(1.0F);
+
+        $r7 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        if i1 != 362 goto label09;
+
+        $b5 = 98;
+
+        goto label10;
+
+     label09:
+        $b5 = 102;
+
+     label10:
+        virtualinvoke $r7.<javassist.bytecode.Bytecode: void addOpcode(int)>($b5);
+
+        goto label15;
+
+     label11:
+        if i2 != 312 goto label14;
+
+        $r4 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r4.<javassist.bytecode.Bytecode: void addDconst(double)>(1.0);
+
+        $r5 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        if i1 != 362 goto label12;
+
+        $b6 = 99;
+
+        goto label13;
+
+     label12:
+        $b6 = 103;
+
+     label13:
+        virtualinvoke $r5.<javassist.bytecode.Bytecode: void addOpcode(int)>($b6);
+
+        goto label15;
+
+     label14:
+        staticinvoke <javassist.compiler.CodeGen: void badType(javassist.compiler.ast.Expr)>(r1);
+
+     label15:
+        if z0 == 0 goto label16;
+
+        if z1 != 0 goto label16;
+
+        $r3 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r3.<javassist.bytecode.Bytecode: void addOpcode(int)>(i0);
+
+     label16:
+        return;
+    }
+
+    protected abstract void atFieldPlusPlus(int, boolean, javassist.compiler.ast.ASTree, javassist.compiler.ast.Expr, boolean) throws javassist.compiler.CompileError;
+
+    public abstract void atMember(javassist.compiler.ast.Member) throws javassist.compiler.CompileError;
+
+    public void atVariable(javassist.compiler.ast.Variable) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Variable r1;
+        javassist.compiler.ast.Declarator r2;
+        int i0, $i1, $i2, $i3, $i4;
+        java.lang.String $r3;
+        javassist.bytecode.Bytecode $r4, $r5, $r6, $r7, $r8, $r9;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Variable;
+
+        r2 = virtualinvoke r1.<javassist.compiler.ast.Variable: javassist.compiler.ast.Declarator getDeclarator()>();
+
+        $i1 = virtualinvoke r2.<javassist.compiler.ast.Declarator: int getType()>();
+
+        r0.<javassist.compiler.CodeGen: int exprType> = $i1;
+
+        $i2 = virtualinvoke r2.<javassist.compiler.ast.Declarator: int getArrayDim()>();
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = $i2;
+
+        $r3 = virtualinvoke r2.<javassist.compiler.ast.Declarator: java.lang.String getClassName()>();
+
+        r0.<javassist.compiler.CodeGen: java.lang.String className> = $r3;
+
+        i0 = virtualinvoke r0.<javassist.compiler.CodeGen: int getLocalVar(javassist.compiler.ast.Declarator)>(r2);
+
+        $i3 = r0.<javassist.compiler.CodeGen: int arrayDim>;
+
+        if $i3 <= 0 goto label1;
+
+        $r9 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r9.<javassist.bytecode.Bytecode: void addAload(int)>(i0);
+
+        goto label7;
+
+     label1:
+        $i4 = r0.<javassist.compiler.CodeGen: int exprType>;
+
+        lookupswitch($i4)
+        {
+            case 307: goto label2;
+            case 312: goto label5;
+            case 317: goto label4;
+            case 326: goto label3;
+            default: goto label6;
+        };
+
+     label2:
+        $r7 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r7.<javassist.bytecode.Bytecode: void addAload(int)>(i0);
+
+        goto label7;
+
+     label3:
+        $r4 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r4.<javassist.bytecode.Bytecode: void addLload(int)>(i0);
+
+        goto label7;
+
+     label4:
+        $r5 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r5.<javassist.bytecode.Bytecode: void addFload(int)>(i0);
+
+        goto label7;
+
+     label5:
+        $r6 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r6.<javassist.bytecode.Bytecode: void addDload(int)>(i0);
+
+        goto label7;
+
+     label6:
+        $r8 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r8.<javassist.bytecode.Bytecode: void addIload(int)>(i0);
+
+     label7:
+        return;
+    }
+
+    public void atKeyword(javassist.compiler.ast.Keyword) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.Keyword r1;
+        int i0;
+        javassist.bytecode.Bytecode $r2, $r3, $r4, $r5;
+        boolean $z0;
+        java.lang.String $r6, $r7, $r12, $r13;
+        javassist.compiler.CompileError $r8;
+        java.lang.StringBuilder $r9, $r10, $r11;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.Keyword;
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = 0;
+
+        i0 = virtualinvoke r1.<javassist.compiler.ast.Keyword: int get()>();
+
+        lookupswitch(i0)
+        {
+            case 336: goto label04;
+            case 339: goto label04;
+            case 410: goto label01;
+            case 411: goto label02;
+            case 412: goto label03;
+            default: goto label09;
+        };
+
+     label01:
+        $r4 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r4.<javassist.bytecode.Bytecode: void addIconst(int)>(1);
+
+        r0.<javassist.compiler.CodeGen: int exprType> = 301;
+
+        goto label10;
+
+     label02:
+        $r3 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r3.<javassist.bytecode.Bytecode: void addIconst(int)>(0);
+
+        r0.<javassist.compiler.CodeGen: int exprType> = 301;
+
+        goto label10;
+
+     label03:
+        $r2 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r2.<javassist.bytecode.Bytecode: void addOpcode(int)>(1);
+
+        r0.<javassist.compiler.CodeGen: int exprType> = 412;
+
+        goto label10;
+
+     label04:
+        $z0 = r0.<javassist.compiler.CodeGen: boolean inStaticMethod>;
+
+        if $z0 == 0 goto label07;
+
+        $r8 = new javassist.compiler.CompileError;
+
+        $r9 = new java.lang.StringBuilder;
+
+        specialinvoke $r9.<java.lang.StringBuilder: void <init>()>();
+
+        $r10 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("not-available: ");
+
+        if i0 != 339 goto label05;
+
+        $r13 = "this";
+
+        goto label06;
+
+     label05:
+        $r13 = "super";
+
+     label06:
+        $r11 = virtualinvoke $r10.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r13);
+
+        $r12 = virtualinvoke $r11.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r8.<javassist.compiler.CompileError: void <init>(java.lang.String)>($r12);
+
+        throw $r8;
+
+     label07:
+        $r5 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r5.<javassist.bytecode.Bytecode: void addAload(int)>(0);
+
+        r0.<javassist.compiler.CodeGen: int exprType> = 307;
+
+        if i0 != 339 goto label08;
+
+        $r7 = virtualinvoke r0.<javassist.compiler.CodeGen: java.lang.String getThisName()>();
+
+        r0.<javassist.compiler.CodeGen: java.lang.String className> = $r7;
+
+        goto label10;
+
+     label08:
+        $r6 = virtualinvoke r0.<javassist.compiler.CodeGen: java.lang.String getSuperName()>();
+
+        r0.<javassist.compiler.CodeGen: java.lang.String className> = $r6;
+
+        goto label10;
+
+     label09:
+        staticinvoke <javassist.compiler.CodeGen: void fatal()>();
+
+     label10:
+        return;
+    }
+
+    public void atStringL(javassist.compiler.ast.StringL) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.StringL r1;
+        javassist.bytecode.Bytecode $r2;
+        java.lang.String $r3;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.StringL;
+
+        r0.<javassist.compiler.CodeGen: int exprType> = 307;
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = 0;
+
+        r0.<javassist.compiler.CodeGen: java.lang.String className> = "java/lang/String";
+
+        $r2 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $r3 = virtualinvoke r1.<javassist.compiler.ast.StringL: java.lang.String get()>();
+
+        virtualinvoke $r2.<javassist.bytecode.Bytecode: void addLdc(java.lang.String)>($r3);
+
+        return;
+    }
+
+    public void atIntConst(javassist.compiler.ast.IntConst) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.IntConst r1;
+        long l0;
+        int i1, $i2;
+        javassist.bytecode.Bytecode $r2, $r4;
+        short $s3;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.IntConst;
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = 0;
+
+        l0 = virtualinvoke r1.<javassist.compiler.ast.IntConst: long get()>();
+
+        i1 = virtualinvoke r1.<javassist.compiler.ast.IntConst: int getType()>();
+
+        if i1 == 402 goto label1;
+
+        if i1 != 401 goto label4;
+
+     label1:
+        if i1 != 402 goto label2;
+
+        $s3 = 324;
+
+        goto label3;
+
+     label2:
+        $s3 = 306;
+
+     label3:
+        r0.<javassist.compiler.CodeGen: int exprType> = $s3;
+
+        $r2 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $i2 = (int) l0;
+
+        virtualinvoke $r2.<javassist.bytecode.Bytecode: void addIconst(int)>($i2);
+
+        goto label5;
+
+     label4:
+        r0.<javassist.compiler.CodeGen: int exprType> = 326;
+
+        $r4 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        virtualinvoke $r4.<javassist.bytecode.Bytecode: void addLconst(long)>(l0);
+
+     label5:
+        return;
+    }
+
+    public void atDoubleConst(javassist.compiler.ast.DoubleConst) throws javassist.compiler.CompileError
+    {
+        javassist.compiler.CodeGen r0;
+        javassist.compiler.ast.DoubleConst r1;
+        int $i0;
+        javassist.bytecode.Bytecode $r2, $r3;
+        double $d0, $d1;
+        float $f0;
+
+        r0 := @this: javassist.compiler.CodeGen;
+
+        r1 := @parameter0: javassist.compiler.ast.DoubleConst;
+
+        r0.<javassist.compiler.CodeGen: int arrayDim> = 0;
+
+        $i0 = virtualinvoke r1.<javassist.compiler.ast.DoubleConst: int getType()>();
+
+        if $i0 != 405 goto label1;
+
+        r0.<javassist.compiler.CodeGen: int exprType> = 312;
+
+        $r3 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $d1 = virtualinvoke r1.<javassist.compiler.ast.DoubleConst: double get()>();
+
+        virtualinvoke $r3.<javassist.bytecode.Bytecode: void addDconst(double)>($d1);
+
+        goto label2;
+
+     label1:
+        r0.<javassist.compiler.CodeGen: int exprType> = 317;
+
+        $r2 = r0.<javassist.compiler.CodeGen: javassist.bytecode.Bytecode bytecode>;
+
+        $d0 = virtualinvoke r1.<javassist.compiler.ast.DoubleConst: double get()>();
+
+        $f0 = (float) $d0;
+
+        virtualinvoke $r2.<javassist.bytecode.Bytecode: void addFconst(float)>($f0);
+
+     label2:
+        return;
+    }
+
+    static void <clinit>()
+    {
+        int[] $r0, $r1, $r2, $r3;
+
+        <javassist.compiler.CodeGen: int P_OTHER> = -1;
+
+        <javassist.compiler.CodeGen: int P_INT> = 3;
+
+        <javassist.compiler.CodeGen: int P_LONG> = 2;
+
+        <javassist.compiler.CodeGen: int P_FLOAT> = 1;
+
+        <javassist.compiler.CodeGen: int P_DOUBLE> = 0;
+
+        <javassist.compiler.CodeGen: java.lang.String jvmJavaLangString> = "java/lang/String";
+
+        <javassist.compiler.CodeGen: java.lang.String javaLangString> = "java.lang.String";
+
+        <javassist.compiler.CodeGen: java.lang.String jvmJavaLangObject> = "java/lang/Object";
+
+        <javassist.compiler.CodeGen: java.lang.String javaLangObject> = "java.lang.Object";
+
+        $r0 = newarray (int)[55];
+
+        $r0[0] = 43;
+
+        $r0[1] = 99;
+
+        $r0[2] = 98;
+
+        $r0[3] = 97;
+
+        $r0[4] = 96;
+
+        $r0[5] = 45;
+
+        $r0[6] = 103;
+
+        $r0[7] = 102;
+
+        $r0[8] = 101;
+
+        $r0[9] = 100;
+
+        $r0[10] = 42;
+
+        $r0[11] = 107;
+
+        $r0[12] = 106;
+
+        $r0[13] = 105;
+
+        $r0[14] = 104;
+
+        $r0[15] = 47;
+
+        $r0[16] = 111;
+
+        $r0[17] = 110;
+
+        $r0[18] = 109;
+
+        $r0[19] = 108;
+
+        $r0[20] = 37;
+
+        $r0[21] = 115;
+
+        $r0[22] = 114;
+
+        $r0[23] = 113;
+
+        $r0[24] = 112;
+
+        $r0[25] = 124;
+
+        $r0[26] = 0;
+
+        $r0[27] = 0;
+
+        $r0[28] = 129;
+
+        $r0[29] = 128;
+
+        $r0[30] = 94;
+
+        $r0[31] = 0;
+
+        $r0[32] = 0;
+
+        $r0[33] = 131;
+
+        $r0[34] = 130;
+
+        $r0[35] = 38;
+
+        $r0[36] = 0;
+
+        $r0[37] = 0;
+
+        $r0[38] = 127;
+
+        $r0[39] = 126;
+
+        $r0[40] = 364;
+
+        $r0[41] = 0;
+
+        $r0[42] = 0;
+
+        $r0[43] = 121;
+
+        $r0[44] = 120;
+
+        $r0[45] = 366;
+
+        $r0[46] = 0;
+
+        $r0[47] = 0;
+
+        $r0[48] = 123;
+
+        $r0[49] = 122;
+
+        $r0[50] = 370;
+
+        $r0[51] = 0;
+
+        $r0[52] = 0;
+
+        $r0[53] = 125;
+
+        $r0[54] = 124;
+
+        <javassist.compiler.CodeGen: int[] binOp> = $r0;
+
+        $r1 = newarray (int)[18];
+
+        $r1[0] = 358;
+
+        $r1[1] = 159;
+
+        $r1[2] = 160;
+
+        $r1[3] = 350;
+
+        $r1[4] = 160;
+
+        $r1[5] = 159;
+
+        $r1[6] = 357;
+
+        $r1[7] = 164;
+
+        $r1[8] = 163;
+
+        $r1[9] = 359;
+
+        $r1[10] = 162;
+
+        $r1[11] = 161;
+
+        $r1[12] = 60;
+
+        $r1[13] = 161;
+
+        $r1[14] = 162;
+
+        $r1[15] = 62;
+
+        $r1[16] = 163;
+
+        $r1[17] = 164;
+
+        <javassist.compiler.CodeGen: int[] ifOp> = $r1;
+
+        $r2 = newarray (int)[18];
+
+        $r2[0] = 358;
+
+        $r2[1] = 153;
+
+        $r2[2] = 154;
+
+        $r2[3] = 350;
+
+        $r2[4] = 154;
+
+        $r2[5] = 153;
+
+        $r2[6] = 357;
+
+        $r2[7] = 158;
+
+        $r2[8] = 157;
+
+        $r2[9] = 359;
+
+        $r2[10] = 156;
+
+        $r2[11] = 155;
+
+        $r2[12] = 60;
+
+        $r2[13] = 155;
+
+        $r2[14] = 156;
+
+        $r2[15] = 62;
+
+        $r2[16] = 157;
+
+        $r2[17] = 158;
+
+        <javassist.compiler.CodeGen: int[] ifOp2> = $r2;
+
+        $r3 = newarray (int)[16];
+
+        $r3[0] = 0;
+
+        $r3[1] = 144;
+
+        $r3[2] = 143;
+
+        $r3[3] = 142;
+
+        $r3[4] = 141;
+
+        $r3[5] = 0;
+
+        $r3[6] = 140;
+
+        $r3[7] = 139;
+
+        $r3[8] = 138;
+
+        $r3[9] = 137;
+
+        $r3[10] = 0;
+
+        $r3[11] = 136;
+
+        $r3[12] = 135;
+
+        $r3[13] = 134;
+
+        $r3[14] = 133;
+
+        $r3[15] = 0;
+
+        <javassist.compiler.CodeGen: int[] castOp> = $r3;
+
+        return;
+    }
+}

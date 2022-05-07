@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MinimumMaximumRule.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jsonschema2pojo-core</a> &gt; <a href="index.source.html" class="el_package">org.jsonschema2pojo.rules</a> &gt; <span class="el_source">MinimumMaximumRule.java</span></div><h1>MinimumMaximumRule.java</h1><pre class="source lang-java linenums">/**
+ * Copyright © 2010-2020 Nokia
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.jsonschema2pojo.rules;
+
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
+
+import org.jsonschema2pojo.Schema;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.sun.codemodel.JAnnotationUse;
+import com.sun.codemodel.JFieldVar;
+
+public class MinimumMaximumRule implements Rule&lt;JFieldVar, JFieldVar&gt; {
+
+    private final RuleFactory ruleFactory;
+
+<span class="fc" id="L32">    protected MinimumMaximumRule(RuleFactory ruleFactory) {</span>
+<span class="fc" id="L33">        this.ruleFactory = ruleFactory;</span>
+<span class="fc" id="L34">    }</span>
+
+    @Override
+    public JFieldVar apply(String nodeName, JsonNode node, JsonNode parent, JFieldVar field, Schema currentSchema) {
+
+<span class="fc bfc" id="L39" title="All 4 branches covered.">        if (ruleFactory.getGenerationConfig().isIncludeJsr303Annotations() &amp;&amp; isApplicableType(field)) {</span>
+
+<span class="fc bfc" id="L41" title="All 2 branches covered.">            if (node.has(&quot;minimum&quot;)) {</span>
+<span class="fc" id="L42">                JAnnotationUse annotation = field.annotate(DecimalMin.class);</span>
+<span class="fc" id="L43">                annotation.param(&quot;value&quot;, node.get(&quot;minimum&quot;).asText());</span>
+            }
+
+<span class="fc bfc" id="L46" title="All 2 branches covered.">            if (node.has(&quot;maximum&quot;)) {</span>
+<span class="fc" id="L47">                JAnnotationUse annotation = field.annotate(DecimalMax.class);</span>
+<span class="fc" id="L48">                annotation.param(&quot;value&quot;, node.get(&quot;maximum&quot;).asText());</span>
+            }
+
+        }
+
+<span class="fc" id="L53">        return field;</span>
+    }
+
+    private boolean isApplicableType(JFieldVar field) {
+        try {
+<span class="fc" id="L58">            Class&lt;?&gt; fieldClass = Class.forName(field.type().boxify().fullName());</span>
+            // Support Strings and most number types except Double and Float, per docs on DecimalMax/Min annotations
+<span class="fc bfc" id="L60" title="All 2 branches covered.">            return String.class.isAssignableFrom(fieldClass) ||</span>
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">                    (Number.class.isAssignableFrom(fieldClass) &amp;&amp;</span>
+<span class="fc bfc" id="L62" title="All 4 branches covered.">                            !Float.class.isAssignableFrom(fieldClass) &amp;&amp; !Double.class.isAssignableFrom(fieldClass));</span>
+<span class="nc" id="L63">        } catch (ClassNotFoundException ignore) {</span>
+<span class="nc" id="L64">            return false;</span>
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

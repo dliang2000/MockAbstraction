@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CopyableValueSerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.java.typeutils.runtime</a> &gt; <span class="el_source">CopyableValueSerializer.java</span></div><h1>CopyableValueSerializer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.java.typeutils.runtime;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.GenericTypeSerializerConfigSnapshot;
+import org.apache.flink.api.common.typeutils.GenericTypeSerializerSnapshot;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.common.typeutils.TypeSerializerSchemaCompatibility;
+import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.types.CopyableValue;
+import org.apache.flink.util.InstantiationUtil;
+
+import java.io.IOException;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+@Internal
+public final class CopyableValueSerializer&lt;T extends CopyableValue&lt;T&gt;&gt; extends TypeSerializer&lt;T&gt; {
+
+    private static final long serialVersionUID = 1L;
+
+    private final Class&lt;T&gt; valueClass;
+
+    private transient T instance;
+
+<span class="fc" id="L45">    public CopyableValueSerializer(Class&lt;T&gt; valueClass) {</span>
+<span class="fc" id="L46">        this.valueClass = checkNotNull(valueClass);</span>
+<span class="fc" id="L47">    }</span>
+
+    private Class&lt;T&gt; getValueClass() {
+<span class="fc" id="L50">        return valueClass;</span>
+    }
+
+    @Override
+    public boolean isImmutableType() {
+<span class="nc" id="L55">        return false;</span>
+    }
+
+    @Override
+    public CopyableValueSerializer&lt;T&gt; duplicate() {
+<span class="nc" id="L60">        return this;</span>
+    }
+
+    @Override
+    public T createInstance() {
+<span class="fc" id="L65">        return InstantiationUtil.instantiate(this.valueClass);</span>
+    }
+
+    @Override
+    public T copy(T from) {
+<span class="nc" id="L70">        return copy(from, createInstance());</span>
+    }
+
+    @Override
+    public T copy(T from, T reuse) {
+<span class="fc" id="L75">        from.copyTo(reuse);</span>
+<span class="fc" id="L76">        return reuse;</span>
+    }
+
+    @Override
+    public int getLength() {
+<span class="nc" id="L81">        ensureInstanceInstantiated();</span>
+<span class="nc" id="L82">        return instance.getBinaryLength();</span>
+    }
+
+    @Override
+    public void serialize(T value, DataOutputView target) throws IOException {
+<span class="fc" id="L87">        value.write(target);</span>
+<span class="fc" id="L88">    }</span>
+
+    @Override
+    public T deserialize(DataInputView source) throws IOException {
+<span class="fc" id="L92">        return deserialize(createInstance(), source);</span>
+    }
+
+    @Override
+    public T deserialize(T reuse, DataInputView source) throws IOException {
+<span class="fc" id="L97">        reuse.read(source);</span>
+<span class="fc" id="L98">        return reuse;</span>
+    }
+
+    @Override
+    public void copy(DataInputView source, DataOutputView target) throws IOException {
+<span class="nc" id="L103">        ensureInstanceInstantiated();</span>
+<span class="nc" id="L104">        instance.copy(source, target);</span>
+<span class="nc" id="L105">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    private void ensureInstanceInstantiated() {
+<span class="nc bnc" id="L110" title="All 2 branches missed.">        if (instance == null) {</span>
+<span class="nc" id="L111">            instance = createInstance();</span>
+        }
+<span class="nc" id="L113">    }</span>
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L117">        return this.valueClass.hashCode();</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="nc bnc" id="L122" title="All 2 branches missed.">        if (obj instanceof CopyableValueSerializer) {</span>
+            @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L124">            CopyableValueSerializer&lt;T&gt; copyableValueSerializer = (CopyableValueSerializer&lt;T&gt;) obj;</span>
+
+<span class="nc bnc" id="L126" title="All 2 branches missed.">            return valueClass == copyableValueSerializer.valueClass;</span>
+        } else {
+<span class="nc" id="L128">            return false;</span>
+        }
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // Serializer configuration snapshotting &amp; compatibility
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public TypeSerializerSnapshot&lt;T&gt; snapshotConfiguration() {
+<span class="fc" id="L138">        return new CopyableValueSerializerSnapshot&lt;&gt;(valueClass);</span>
+    }
+
+    @Deprecated
+    public static final class CopyableValueSerializerConfigSnapshot&lt;T extends CopyableValue&lt;T&gt;&gt;
+            extends GenericTypeSerializerConfigSnapshot&lt;T&gt; {
+
+        private static final int VERSION = 1;
+
+        /** This empty nullary constructor is required for deserializing the configuration. */
+<span class="nc" id="L148">        public CopyableValueSerializerConfigSnapshot() {}</span>
+
+        public CopyableValueSerializerConfigSnapshot(Class&lt;T&gt; copyableValueClass) {
+<span class="nc" id="L151">            super(copyableValueClass);</span>
+<span class="nc" id="L152">        }</span>
+
+        @Override
+        public int getVersion() {
+<span class="nc" id="L156">            return VERSION;</span>
+        }
+
+        @Override
+        public TypeSerializerSchemaCompatibility&lt;T&gt; resolveSchemaCompatibility(
+                TypeSerializer&lt;T&gt; newSerializer) {
+<span class="nc" id="L162">            return new CopyableValueSerializerSnapshot&lt;&gt;(getTypeClass())</span>
+<span class="nc" id="L163">                    .resolveSchemaCompatibility(newSerializer);</span>
+        }
+    }
+
+    /** {@link TypeSerializerSnapshot} for the {@code CopyableValueSerializer}. */
+    @SuppressWarnings(&quot;WeakerAccess&quot;)
+    public static final class CopyableValueSerializerSnapshot&lt;T extends CopyableValue&lt;T&gt;&gt;
+            extends GenericTypeSerializerSnapshot&lt;T, CopyableValueSerializer&gt; {
+
+        /** Used for reflective instantiation. */
+        @SuppressWarnings(&quot;unused&quot;)
+<span class="fc" id="L174">        public CopyableValueSerializerSnapshot() {}</span>
+
+        CopyableValueSerializerSnapshot(Class&lt;T&gt; typeClass) {
+<span class="fc" id="L177">            super(typeClass);</span>
+<span class="fc" id="L178">        }</span>
+
+        @Override
+        protected TypeSerializer&lt;T&gt; createSerializer(Class&lt;T&gt; typeClass) {
+<span class="fc" id="L182">            return new CopyableValueSerializer&lt;&gt;(typeClass);</span>
+        }
+
+        @Override
+        @SuppressWarnings(&quot;unchecked&quot;)
+        protected Class&lt;T&gt; getTypeClass(CopyableValueSerializer serializer) {
+<span class="fc" id="L188">            return serializer.getValueClass();</span>
+        }
+
+        @Override
+        protected Class&lt;?&gt; serializerClass() {
+<span class="fc" id="L193">            return CopyableValueSerializer.class;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

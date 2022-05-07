@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BasicArrayTypeInfo.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeinfo</a> &gt; <span class="el_source">BasicArrayTypeInfo.java</span></div><h1>BasicArrayTypeInfo.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeinfo;
+
+import org.apache.flink.annotation.Public;
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.functions.InvalidTypesException;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.common.typeutils.base.GenericArraySerializer;
+import org.apache.flink.api.common.typeutils.base.array.StringArraySerializer;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * Type information for arrays boxed primitive types.
+ *
+ * @param &lt;T&gt; The type (class) of the array itself.
+ * @param &lt;C&gt; The type (class) of the array component.
+ */
+@Public
+public final class BasicArrayTypeInfo&lt;T, C&gt; extends TypeInformation&lt;T&gt; {
+
+    private static final long serialVersionUID = 1L;
+
+<span class="fc" id="L46">    public static final BasicArrayTypeInfo&lt;String[], String&gt; STRING_ARRAY_TYPE_INFO =</span>
+            new BasicArrayTypeInfo&lt;&gt;(String[].class, BasicTypeInfo.STRING_TYPE_INFO);
+
+<span class="fc" id="L49">    public static final BasicArrayTypeInfo&lt;Boolean[], Boolean&gt; BOOLEAN_ARRAY_TYPE_INFO =</span>
+            new BasicArrayTypeInfo&lt;&gt;(Boolean[].class, BasicTypeInfo.BOOLEAN_TYPE_INFO);
+<span class="fc" id="L51">    public static final BasicArrayTypeInfo&lt;Byte[], Byte&gt; BYTE_ARRAY_TYPE_INFO =</span>
+            new BasicArrayTypeInfo&lt;&gt;(Byte[].class, BasicTypeInfo.BYTE_TYPE_INFO);
+<span class="fc" id="L53">    public static final BasicArrayTypeInfo&lt;Short[], Short&gt; SHORT_ARRAY_TYPE_INFO =</span>
+            new BasicArrayTypeInfo&lt;&gt;(Short[].class, BasicTypeInfo.SHORT_TYPE_INFO);
+<span class="fc" id="L55">    public static final BasicArrayTypeInfo&lt;Integer[], Integer&gt; INT_ARRAY_TYPE_INFO =</span>
+            new BasicArrayTypeInfo&lt;&gt;(Integer[].class, BasicTypeInfo.INT_TYPE_INFO);
+<span class="fc" id="L57">    public static final BasicArrayTypeInfo&lt;Long[], Long&gt; LONG_ARRAY_TYPE_INFO =</span>
+            new BasicArrayTypeInfo&lt;&gt;(Long[].class, BasicTypeInfo.LONG_TYPE_INFO);
+<span class="fc" id="L59">    public static final BasicArrayTypeInfo&lt;Float[], Float&gt; FLOAT_ARRAY_TYPE_INFO =</span>
+            new BasicArrayTypeInfo&lt;&gt;(Float[].class, BasicTypeInfo.FLOAT_TYPE_INFO);
+<span class="fc" id="L61">    public static final BasicArrayTypeInfo&lt;Double[], Double&gt; DOUBLE_ARRAY_TYPE_INFO =</span>
+            new BasicArrayTypeInfo&lt;&gt;(Double[].class, BasicTypeInfo.DOUBLE_TYPE_INFO);
+<span class="fc" id="L63">    public static final BasicArrayTypeInfo&lt;Character[], Character&gt; CHAR_ARRAY_TYPE_INFO =</span>
+            new BasicArrayTypeInfo&lt;&gt;(Character[].class, BasicTypeInfo.CHAR_TYPE_INFO);
+
+    // --------------------------------------------------------------------------------------------
+
+    private final Class&lt;T&gt; arrayClass;
+    private final TypeInformation&lt;C&gt; componentInfo;
+
+<span class="fc" id="L71">    private BasicArrayTypeInfo(Class&lt;T&gt; arrayClass, BasicTypeInfo&lt;C&gt; componentInfo) {</span>
+<span class="fc" id="L72">        this.arrayClass = checkNotNull(arrayClass);</span>
+<span class="fc" id="L73">        this.componentInfo = checkNotNull(componentInfo);</span>
+<span class="fc" id="L74">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    @PublicEvolving
+    public boolean isBasicType() {
+<span class="fc" id="L81">        return false;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public boolean isTupleType() {
+<span class="fc" id="L87">        return false;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public int getArity() {
+<span class="nc" id="L93">        return 1;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public int getTotalFields() {
+<span class="fc" id="L99">        return 1;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public Class&lt;T&gt; getTypeClass() {
+<span class="fc" id="L105">        return this.arrayClass;</span>
+    }
+
+    @PublicEvolving
+    public Class&lt;C&gt; getComponentTypeClass() {
+<span class="nc" id="L110">        return this.componentInfo.getTypeClass();</span>
+    }
+
+    @PublicEvolving
+    public TypeInformation&lt;C&gt; getComponentInfo() {
+<span class="fc" id="L115">        return componentInfo;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public boolean isKeyType() {
+<span class="nc" id="L121">        return false;</span>
+    }
+
+    @Override
+    @SuppressWarnings(&quot;unchecked&quot;)
+    @PublicEvolving
+    public TypeSerializer&lt;T&gt; createSerializer(ExecutionConfig executionConfig) {
+        // special case the string array
+<span class="fc bfc" id="L129" title="All 2 branches covered.">        if (componentInfo.getTypeClass().equals(String.class)) {</span>
+<span class="fc" id="L130">            return (TypeSerializer&lt;T&gt;) StringArraySerializer.INSTANCE;</span>
+        } else {
+<span class="fc" id="L132">            return (TypeSerializer&lt;T&gt;)</span>
+                    new GenericArraySerializer&lt;&gt;(
+<span class="fc" id="L134">                            this.componentInfo.getTypeClass(),</span>
+<span class="fc" id="L135">                            this.componentInfo.createSerializer(executionConfig));</span>
+        }
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="fc bfc" id="L141" title="All 2 branches covered.">        if (obj instanceof BasicArrayTypeInfo) {</span>
+<span class="fc" id="L142">            BasicArrayTypeInfo&lt;?, ?&gt; other = (BasicArrayTypeInfo&lt;?, ?&gt;) obj;</span>
+
+<span class="pc bpc" id="L144" title="1 of 4 branches missed.">            return other.canEqual(this)</span>
+                    &amp;&amp; arrayClass == other.arrayClass
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">                    &amp;&amp; componentInfo.equals(other.componentInfo);</span>
+        } else {
+<span class="fc" id="L148">            return false;</span>
+        }
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L154">        return Objects.hash(arrayClass, componentInfo);</span>
+    }
+
+    @Override
+    public boolean canEqual(Object obj) {
+<span class="fc" id="L159">        return obj instanceof BasicArrayTypeInfo;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L164">        return this.getClass().getSimpleName() + &quot;&lt;&quot; + componentInfo + &quot;&gt;&quot;;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    @PublicEvolving
+    public static &lt;X, C&gt; BasicArrayTypeInfo&lt;X, C&gt; getInfoFor(Class&lt;X&gt; type) {
+<span class="pc bpc" id="L172" title="1 of 2 branches missed.">        if (!type.isArray()) {</span>
+<span class="nc" id="L173">            throw new InvalidTypesException(&quot;The given class is no array.&quot;);</span>
+        }
+
+        // basic type arrays
+<span class="fc" id="L177">        return (BasicArrayTypeInfo&lt;X, C&gt;) TYPES.get(type);</span>
+    }
+
+<span class="fc" id="L180">    private static final Map&lt;Class&lt;?&gt;, BasicArrayTypeInfo&lt;?, ?&gt;&gt; TYPES = new HashMap&lt;&gt;();</span>
+
+    static {
+<span class="fc" id="L183">        TYPES.put(String[].class, STRING_ARRAY_TYPE_INFO);</span>
+<span class="fc" id="L184">        TYPES.put(Boolean[].class, BOOLEAN_ARRAY_TYPE_INFO);</span>
+<span class="fc" id="L185">        TYPES.put(Byte[].class, BYTE_ARRAY_TYPE_INFO);</span>
+<span class="fc" id="L186">        TYPES.put(Short[].class, SHORT_ARRAY_TYPE_INFO);</span>
+<span class="fc" id="L187">        TYPES.put(Integer[].class, INT_ARRAY_TYPE_INFO);</span>
+<span class="fc" id="L188">        TYPES.put(Long[].class, LONG_ARRAY_TYPE_INFO);</span>
+<span class="fc" id="L189">        TYPES.put(Float[].class, FLOAT_ARRAY_TYPE_INFO);</span>
+<span class="fc" id="L190">        TYPES.put(Double[].class, DOUBLE_ARRAY_TYPE_INFO);</span>
+<span class="fc" id="L191">        TYPES.put(Character[].class, CHAR_ARRAY_TYPE_INFO);</span>
+<span class="fc" id="L192">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

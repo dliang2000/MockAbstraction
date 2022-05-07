@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DualInputSemanticProperties.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.operators</a> &gt; <span class="el_source">DualInputSemanticProperties.java</span></div><h1>DualInputSemanticProperties.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.operators;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.operators.util.FieldSet;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/** Container for the semantic properties associated to a dual input operator. */
+@Internal
+public class DualInputSemanticProperties implements SemanticProperties {
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * Mapping from fields in the source record(s) in the first input to fields in the destination
+     * record(s).
+     */
+    private Map&lt;Integer, FieldSet&gt; fieldMapping1;
+
+    /**
+     * Mapping from fields in the source record(s) in the second input to fields in the destination
+     * record(s).
+     */
+    private Map&lt;Integer, FieldSet&gt; fieldMapping2;
+
+    /** Set of fields that are read in the source record(s) from the first input. */
+    private FieldSet readFields1;
+
+    /** Set of fields that are read in the source record(s) from the second input. */
+    private FieldSet readFields2;
+
+<span class="fc" id="L50">    public DualInputSemanticProperties() {</span>
+<span class="fc" id="L51">        this.fieldMapping1 = new HashMap&lt;Integer, FieldSet&gt;();</span>
+<span class="fc" id="L52">        this.fieldMapping2 = new HashMap&lt;Integer, FieldSet&gt;();</span>
+<span class="fc" id="L53">        this.readFields1 = null;</span>
+<span class="fc" id="L54">        this.readFields2 = null;</span>
+<span class="fc" id="L55">    }</span>
+
+    @Override
+    public FieldSet getForwardingTargetFields(int input, int sourceField) {
+
+<span class="pc bpc" id="L60" title="1 of 4 branches missed.">        if (input != 0 &amp;&amp; input != 1) {</span>
+<span class="nc" id="L61">            throw new IndexOutOfBoundsException();</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        } else if (input == 0) {</span>
+
+<span class="fc bfc" id="L64" title="All 2 branches covered.">            return fieldMapping1.containsKey(sourceField)</span>
+<span class="fc" id="L65">                    ? fieldMapping1.get(sourceField)</span>
+                    : FieldSet.EMPTY_SET;
+        } else {
+<span class="fc bfc" id="L68" title="All 2 branches covered.">            return fieldMapping2.containsKey(sourceField)</span>
+<span class="fc" id="L69">                    ? fieldMapping2.get(sourceField)</span>
+                    : FieldSet.EMPTY_SET;
+        }
+    }
+
+    @Override
+    public int getForwardingSourceField(int input, int targetField) {
+        Map&lt;Integer, FieldSet&gt; fieldMapping;
+
+<span class="pc bpc" id="L78" title="1 of 4 branches missed.">        if (input != 0 &amp;&amp; input != 1) {</span>
+<span class="nc" id="L79">            throw new IndexOutOfBoundsException();</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        } else if (input == 0) {</span>
+<span class="fc" id="L81">            fieldMapping = fieldMapping1;</span>
+        } else {
+<span class="fc" id="L83">            fieldMapping = fieldMapping2;</span>
+        }
+
+<span class="fc bfc" id="L86" title="All 2 branches covered.">        for (Map.Entry&lt;Integer, FieldSet&gt; e : fieldMapping.entrySet()) {</span>
+<span class="fc bfc" id="L87" title="All 2 branches covered.">            if (e.getValue().contains(targetField)) {</span>
+<span class="fc" id="L88">                return e.getKey();</span>
+            }
+<span class="fc" id="L90">        }</span>
+<span class="fc" id="L91">        return -1;</span>
+    }
+
+    @Override
+    public FieldSet getReadFields(int input) {
+<span class="pc bpc" id="L96" title="1 of 4 branches missed.">        if (input != 0 &amp;&amp; input != 1) {</span>
+<span class="nc" id="L97">            throw new IndexOutOfBoundsException();</span>
+        }
+
+<span class="fc bfc" id="L100" title="All 2 branches covered.">        if (input == 0) {</span>
+<span class="fc" id="L101">            return readFields1;</span>
+        } else {
+<span class="fc" id="L103">            return readFields2;</span>
+        }
+    }
+
+    /**
+     * Adds, to the existing information, a field that is forwarded directly from the source
+     * record(s) in the first input to the destination record(s).
+     *
+     * @param input the input of the source field
+     * @param sourceField the position in the source record
+     * @param targetField the position in the destination record
+     */
+    public void addForwardedField(int input, int sourceField, int targetField) {
+
+        Map&lt;Integer, FieldSet&gt; fieldMapping;
+
+<span class="pc bpc" id="L119" title="1 of 4 branches missed.">        if (input != 0 &amp;&amp; input != 1) {</span>
+<span class="nc" id="L120">            throw new IndexOutOfBoundsException();</span>
+<span class="fc bfc" id="L121" title="All 2 branches covered.">        } else if (input == 0) {</span>
+<span class="fc" id="L122">            fieldMapping = this.fieldMapping1;</span>
+        } else {
+<span class="fc" id="L124">            fieldMapping = this.fieldMapping2;</span>
+        }
+
+<span class="fc bfc" id="L127" title="All 2 branches covered.">        if (isTargetFieldPresent(targetField, fieldMapping)) {</span>
+<span class="fc" id="L128">            throw new InvalidSemanticAnnotationException(</span>
+                    &quot;Target field &quot; + targetField + &quot; was added twice to input &quot; + input);
+        }
+
+<span class="fc" id="L132">        FieldSet targetFields = fieldMapping.get(sourceField);</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">        if (targetFields != null) {</span>
+<span class="fc" id="L134">            fieldMapping.put(sourceField, targetFields.addField(targetField));</span>
+        } else {
+<span class="fc" id="L136">            fieldMapping.put(sourceField, new FieldSet(targetField));</span>
+        }
+<span class="fc" id="L138">    }</span>
+
+    private boolean isTargetFieldPresent(int targetField, Map&lt;Integer, FieldSet&gt; fieldMapping) {
+
+<span class="fc bfc" id="L142" title="All 2 branches covered.">        for (FieldSet targetFields : fieldMapping.values()) {</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">            if (targetFields.contains(targetField)) {</span>
+<span class="fc" id="L144">                return true;</span>
+            }
+<span class="fc" id="L146">        }</span>
+<span class="fc" id="L147">        return false;</span>
+    }
+
+    /**
+     * Adds, to the existing information, field(s) that are read in the source record(s) from the
+     * first input.
+     *
+     * @param input the input of the read fields
+     * @param readFields the position(s) in the source record(s)
+     */
+    public void addReadFields(int input, FieldSet readFields) {
+
+<span class="pc bpc" id="L159" title="1 of 4 branches missed.">        if (input != 0 &amp;&amp; input != 1) {</span>
+<span class="nc" id="L160">            throw new IndexOutOfBoundsException();</span>
+<span class="fc bfc" id="L161" title="All 2 branches covered.">        } else if (input == 0) {</span>
+<span class="fc bfc" id="L162" title="All 2 branches covered.">            this.readFields1 =</span>
+                    (this.readFields1 == null)
+<span class="fc" id="L164">                            ? readFields.clone()</span>
+<span class="fc" id="L165">                            : this.readFields1.addFields(readFields);</span>
+        } else {
+<span class="fc bfc" id="L167" title="All 2 branches covered.">            this.readFields2 =</span>
+                    (this.readFields2 == null)
+<span class="fc" id="L169">                            ? readFields.clone()</span>
+<span class="fc" id="L170">                            : this.readFields2.addFields(readFields);</span>
+        }
+<span class="fc" id="L172">    }</span>
+
+    @Override
+    public String toString() {
+<span class="nc" id="L176">        return &quot;DISP(&quot; + this.fieldMapping1 + &quot;; &quot; + this.fieldMapping2 + &quot;)&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

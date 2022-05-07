@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Validations.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.validator</a> &gt; <span class="el_source">Validations.java</span></div><h1>Validations.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package br.com.caelum.vraptor.validator;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.ResourceBundle;
+
+import org.hamcrest.Description;
+import org.hamcrest.Matcher;
+import org.hamcrest.ResourceBundleDescription;
+
+import br.com.caelum.vraptor.core.SafeResourceBundle;
+import br.com.caelum.vraptor.util.FallbackResourceBundle;
+
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
+
+/**
+ * Hamcrest based validation support.
+ *
+ * Uses:
+ * validator.checking(new Validations() {{
+ * 		if (that(user, is(notNullValue())) { // that will return if the match was successful
+ *	 		that(user.getAge() &gt; 17, &quot;user.age&quot;, &quot;user.is.underage&quot;); // boolean assertions
+ * 			that(user.getRoles(), hasItem(&quot;ADMIN&quot;), &quot;user.roles&quot;, &quot;user.is.not.admin&quot;); // hamcrest assertions
+ * 		}
+ * }});
+ *
+ * You can use any hamcrest Matcher. Some helpful matchers can be found on org.hamcrest.Matchers.
+ *
+ * @author Guilherme Silveira
+ * @author Lucas Cavalcanti
+ */
+public class Validations {
+
+<span class="fc" id="L52">	private final List&lt;Message&gt; errors = new ArrayList&lt;Message&gt;();</span>
+	private Supplier&lt;ResourceBundle&gt; bundle;
+
+<span class="fc" id="L55">	public Validations(ResourceBundle bundle) {</span>
+<span class="fc" id="L56">		this.bundle = Suppliers.ofInstance(bundle);</span>
+<span class="fc" id="L57">	}</span>
+
+	public Validations() {
+<span class="fc" id="L60">		this(new SafeResourceBundle(ResourceBundle.getBundle(&quot;messages&quot;), true));</span>
+<span class="fc" id="L61">	}</span>
+
+	public &lt;T&gt; boolean that(T id, Matcher&lt;? super T&gt; matcher) {
+<span class="fc" id="L64">	return that(id, matcher, &quot;&quot;, null);</span>
+	}
+
+	public &lt;T&gt; boolean that(T id, Matcher&lt;? super T&gt; matcher, String category) {
+<span class="fc" id="L68">	return that(id, matcher, category, null);</span>
+	}
+
+	public &lt;T&gt; boolean that(T id, Matcher&lt;? super T&gt; matcher, I18nParam category) {
+<span class="fc" id="L72">		return that(id, matcher, category, null);</span>
+	}
+
+	public &lt;T&gt; boolean that(T actual, Matcher&lt;? super T&gt; matcher, String category, String reason, Object... messageParameters) {
+<span class="fc" id="L76">	return genericThat(actual, matcher, category, reason, messageParameters);</span>
+	}
+
+	public &lt;T&gt; boolean that(T actual, Matcher&lt;? super T&gt; matcher, I18nParam category, String reason, Object... messageParameters) {
+<span class="fc" id="L80">		return genericThat(actual, matcher, category, reason, messageParameters);</span>
+	}
+
+	public boolean that(boolean assertion, String category, String reason, Object... messageParameters) {
+<span class="fc" id="L84">	return genericThat(assertion, category, reason, messageParameters);</span>
+	}
+
+	public boolean that(boolean assertion, I18nParam category, String reason, Object... messageParameters) {
+<span class="fc" id="L88">		return genericThat(assertion, category, reason, messageParameters);</span>
+	}
+
+	protected I18nParam i18n(String key) {
+<span class="fc" id="L92">		return new I18nParam(key);</span>
+	}
+
+	/**
+	 * Returns the list of errors.
+	 */
+	public List&lt;Message&gt; getErrors() {
+<span class="fc bfc" id="L99" title="All 2 branches covered.">		for (Message message : errors) {</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">			if (message instanceof I18nMessage) {</span>
+<span class="fc" id="L101">				((I18nMessage) message).setLazyBundle(bundle);</span>
+			}
+<span class="fc" id="L103">		}</span>
+<span class="fc" id="L104">	return errors;</span>
+	}
+
+	/**
+	 * Returns the list of errors, using given resource bundle.
+	 */
+	public List&lt;Message&gt; getErrors(ResourceBundle bundle) {
+<span class="fc" id="L111">		return getErrors(Suppliers.ofInstance(bundle));</span>
+	}
+	/**
+	 * Returns the list of errors, using given resource bundle.
+	 */
+	public List&lt;Message&gt; getErrors(final Supplier&lt;ResourceBundle&gt; bundle) {
+<span class="fc" id="L117">		final Supplier&lt;ResourceBundle&gt; oldBundle = this.bundle;</span>
+<span class="fc" id="L118">		this.bundle = new Supplier&lt;ResourceBundle&gt;() {</span>
+			public ResourceBundle get() {
+<span class="fc bfc" id="L120" title="All 2 branches covered.">				if (isDefaultBundle(oldBundle)) {</span>
+<span class="fc" id="L121">					return new SafeResourceBundle(bundle.get());</span>
+				} else {
+<span class="fc" id="L123">					return new FallbackResourceBundle(oldBundle.get(), bundle.get());</span>
+				}
+			}
+		};
+<span class="fc" id="L127">		return getErrors();</span>
+	}
+
+	private boolean isDefaultBundle(Supplier&lt;ResourceBundle&gt; bundle) {
+<span class="pc bpc" id="L131" title="1 of 4 branches missed.">		return bundle.get() instanceof SafeResourceBundle &amp;&amp; ((SafeResourceBundle) bundle.get()).isDefault();</span>
+	}
+
+	/**
+	 * Adds a list of errors to the error list.
+	 * @return
+	 */
+	public Validations and(List&lt;Message&gt; errors) {
+<span class="fc" id="L139">	this.errors.addAll(errors);</span>
+<span class="fc" id="L140">	return this;</span>
+	}
+
+	/**
+	 * Adds a single error message to the error list.
+	 */
+	public Validations and(Message error) {
+<span class="fc" id="L147">	this.errors.add(error);</span>
+<span class="fc" id="L148">	return this;</span>
+	}
+
+	private &lt;T&gt; boolean genericThat(T actual, Matcher&lt;? super T&gt; matcher, Object category, String reason, Object... messageParameters) {
+<span class="fc bfc" id="L152" title="All 2 branches covered.">		if (!matcher.matches(actual)) {</span>
+<span class="fc bfc" id="L153" title="All 2 branches covered.">		if (reason != null) {</span>
+<span class="fc" id="L154">			errors.add(i18nMessage(category, reason, messageParameters));</span>
+		} else {
+<span class="fc" id="L156">		Description description = new ResourceBundleDescription();</span>
+<span class="fc" id="L157">		description.appendDescriptionOf(matcher);</span>
+<span class="fc" id="L158">		errors.add(i18nMessage(category, description.toString(), actual));</span>
+		}
+<span class="fc" id="L160">		return false;</span>
+	}
+<span class="fc" id="L162">	return true;</span>
+	}
+
+	private I18nMessage i18nMessage(Object category, String reason, Object... messageParameters) {
+<span class="fc bfc" id="L166" title="All 2 branches covered.">		if (category instanceof I18nParam) {</span>
+<span class="fc" id="L167">			return new I18nMessage((I18nParam) category, reason, messageParameters);</span>
+		}
+<span class="fc" id="L169">		return new I18nMessage(category.toString(), reason, messageParameters);</span>
+	}
+
+	private boolean genericThat(boolean assertion, Object category, String reason, Object... messageParameters) {
+<span class="fc bfc" id="L173" title="All 2 branches covered.">		if (!assertion) {</span>
+<span class="fc" id="L174">		errors.add(i18nMessage(category, reason, messageParameters));</span>
+	}
+<span class="fc" id="L176">	return assertion;</span>
+	}
+	
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

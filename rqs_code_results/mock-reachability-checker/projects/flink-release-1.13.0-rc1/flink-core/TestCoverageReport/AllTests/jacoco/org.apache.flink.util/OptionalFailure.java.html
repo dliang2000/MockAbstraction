@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OptionalFailure.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.util</a> &gt; <span class="el_source">OptionalFailure.java</span></div><h1>OptionalFailure.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.util;
+
+import org.apache.flink.util.function.CheckedSupplier;
+
+import javax.annotation.Nullable;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.Objects;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * Wrapper around an object representing either a success (with a given value) or a failure cause.
+ */
+public class OptionalFailure&lt;T&gt; implements Serializable {
+    private static final long serialVersionUID = 1L;
+
+    @Nullable private transient T value;
+
+    @Nullable private Throwable failureCause;
+
+<span class="nc" id="L43">    private OptionalFailure(@Nullable T value, @Nullable Throwable failureCause) {</span>
+<span class="nc" id="L44">        this.value = value;</span>
+<span class="nc" id="L45">        this.failureCause = failureCause;</span>
+<span class="nc" id="L46">    }</span>
+
+    public static &lt;T&gt; OptionalFailure&lt;T&gt; of(T value) {
+<span class="nc" id="L49">        return new OptionalFailure&lt;&gt;(value, null);</span>
+    }
+
+    public static &lt;T&gt; OptionalFailure&lt;T&gt; ofFailure(Throwable failureCause) {
+<span class="nc" id="L53">        return new OptionalFailure&lt;&gt;(null, failureCause);</span>
+    }
+
+    /**
+     * @return wrapped {@link OptionalFailure} returned by {@code valueSupplier} or wrapped failure
+     *     if {@code valueSupplier} has thrown an {@link Exception}.
+     */
+    public static &lt;T&gt; OptionalFailure&lt;T&gt; createFrom(CheckedSupplier&lt;T&gt; valueSupplier) {
+        try {
+<span class="nc" id="L62">            return of(valueSupplier.get());</span>
+<span class="nc" id="L63">        } catch (Exception ex) {</span>
+<span class="nc" id="L64">            return ofFailure(ex);</span>
+        }
+    }
+
+    /** @return stored value or throw a {@link FlinkException} with {@code failureCause}. */
+    public T get() throws FlinkException {
+<span class="nc bnc" id="L70" title="All 2 branches missed.">        if (value != null) {</span>
+<span class="nc" id="L71">            return value;</span>
+        }
+<span class="nc" id="L73">        checkNotNull(failureCause);</span>
+<span class="nc" id="L74">        throw new FlinkException(failureCause);</span>
+    }
+
+    /** @return same as {@link #get()} but throws a {@link FlinkRuntimeException}. */
+    public T getUnchecked() throws FlinkRuntimeException {
+<span class="nc bnc" id="L79" title="All 2 branches missed.">        if (value != null) {</span>
+<span class="nc" id="L80">            return value;</span>
+        }
+<span class="nc" id="L82">        checkNotNull(failureCause);</span>
+<span class="nc" id="L83">        throw new FlinkRuntimeException(failureCause);</span>
+    }
+
+    public Throwable getFailureCause() {
+<span class="nc" id="L87">        return checkNotNull(failureCause);</span>
+    }
+
+    public boolean isFailure() {
+<span class="nc bnc" id="L91" title="All 2 branches missed.">        return failureCause != null;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L96">        return Objects.hash(value, failureCause);</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        if (obj == null) {</span>
+<span class="nc" id="L102">            return false;</span>
+        }
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        if (obj == this) {</span>
+<span class="nc" id="L105">            return true;</span>
+        }
+<span class="nc bnc" id="L107" title="All 2 branches missed.">        if (!(obj instanceof OptionalFailure&lt;?&gt;)) {</span>
+<span class="nc" id="L108">            return false;</span>
+        }
+<span class="nc" id="L110">        OptionalFailure&lt;?&gt; other = (OptionalFailure&lt;?&gt;) obj;</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">        return Objects.equals(value, other.value)</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">                &amp;&amp; Objects.equals(failureCause, other.failureCause);</span>
+    }
+
+    private void writeObject(ObjectOutputStream stream) throws IOException {
+<span class="nc" id="L116">        stream.defaultWriteObject();</span>
+<span class="nc" id="L117">        stream.writeObject(value);</span>
+<span class="nc" id="L118">    }</span>
+
+    private void readObject(ObjectInputStream stream) throws IOException, ClassNotFoundException {
+<span class="nc" id="L121">        stream.defaultReadObject();</span>
+<span class="nc" id="L122">        value = (T) stream.readObject();</span>
+<span class="nc" id="L123">    }</span>
+
+    @Override
+    public String toString() {
+<span class="nc" id="L127">        return getClass().getSimpleName()</span>
+                + &quot;{value=&quot;
+                + value
+                + &quot;, failureCause=&quot;
+                + failureCause
+                + &quot;}&quot;;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

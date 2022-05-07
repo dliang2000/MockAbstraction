@@ -1,0 +1,1925 @@
+public abstract class org.apache.flink.api.common.io.DelimitedInputFormat extends org.apache.flink.api.common.io.FileInputFormat implements org.apache.flink.api.common.io.CheckpointableInputFormat
+{
+    private static final long serialVersionUID;
+    private static final org.slf4j.Logger LOG;
+    private java.lang.String charsetName;
+    private transient java.nio.charset.Charset charset;
+    private static final int DEFAULT_READ_BUFFER_SIZE;
+    private static final int NUM_SAMPLES_UNDEFINED;
+    private static int DEFAULT_MAX_NUM_SAMPLES;
+    private static int DEFAULT_MIN_NUM_SAMPLES;
+    private static int MAX_SAMPLE_LEN;
+    private transient byte[] readBuffer;
+    private transient byte[] wrapBuffer;
+    private transient int readPos;
+    private transient int limit;
+    protected transient byte[] currBuffer;
+    protected transient int currOffset;
+    protected transient int currLen;
+    private transient boolean overLimit;
+    private transient boolean end;
+    private long offset;
+    private byte[] delimiter;
+    private java.lang.String delimiterString;
+    private int lineLengthLimit;
+    private int bufferSize;
+    private int numLineSamples;
+    protected static final java.lang.String RECORD_DELIMITER;
+    private static final java.lang.String NUM_STATISTICS_SAMPLES;
+
+    protected static void loadGlobalConfigParams()
+    {
+        org.apache.flink.configuration.Configuration $r0;
+
+        $r0 = staticinvoke <org.apache.flink.configuration.GlobalConfiguration: org.apache.flink.configuration.Configuration loadConfiguration()>();
+
+        staticinvoke <org.apache.flink.api.common.io.DelimitedInputFormat: void loadConfigParameters(org.apache.flink.configuration.Configuration)>($r0);
+
+        return;
+    }
+
+    protected static void loadConfigParameters(org.apache.flink.configuration.Configuration)
+    {
+        org.apache.flink.configuration.Configuration r0;
+        org.apache.flink.configuration.ConfigOption $r1, $r2, $r3, $r10, $r32, $r36, $r44, $r48;
+        java.lang.StringBuilder $r4, $r6, $r7, $r8, $r13, $r15, $r16, $r17, $r19, $r21, $r22, $r23, $r24, $r25, $r27, $r29, $r30, $r31, $r34, $r39, $r41, $r42, $r43, $r46;
+        org.slf4j.Logger $r5, $r14, $r20, $r28, $r40;
+        java.lang.String $r9, $r18, $r26, $r33, $r35, $r45, $r47;
+        java.lang.Object $r11, $r37, $r49;
+        java.lang.Integer $r12, $r38, $r50;
+        int i0, i1, i2;
+
+        r0 := @parameter0: org.apache.flink.configuration.Configuration;
+
+        $r1 = <org.apache.flink.configuration.OptimizerOptions: org.apache.flink.configuration.ConfigOption DELIMITED_FORMAT_MAX_LINE_SAMPLES>;
+
+        i0 = virtualinvoke r0.<org.apache.flink.configuration.Configuration: int getInteger(org.apache.flink.configuration.ConfigOption)>($r1);
+
+        $r2 = <org.apache.flink.configuration.OptimizerOptions: org.apache.flink.configuration.ConfigOption DELIMITED_FORMAT_MIN_LINE_SAMPLES>;
+
+        i1 = virtualinvoke r0.<org.apache.flink.configuration.Configuration: int getInteger(org.apache.flink.configuration.ConfigOption)>($r2);
+
+        if i0 >= 0 goto label1;
+
+        $r40 = <org.apache.flink.api.common.io.DelimitedInputFormat: org.slf4j.Logger LOG>;
+
+        $r39 = new java.lang.StringBuilder;
+
+        specialinvoke $r39.<java.lang.StringBuilder: void <init>()>();
+
+        $r41 = virtualinvoke $r39.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Invalid default maximum number of line samples: ");
+
+        $r42 = virtualinvoke $r41.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i0);
+
+        $r43 = virtualinvoke $r42.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(". Using default value of ");
+
+        $r44 = <org.apache.flink.configuration.OptimizerOptions: org.apache.flink.configuration.ConfigOption DELIMITED_FORMAT_MAX_LINE_SAMPLES>;
+
+        $r45 = virtualinvoke $r44.<org.apache.flink.configuration.ConfigOption: java.lang.String key()>();
+
+        $r46 = virtualinvoke $r43.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r45);
+
+        $r47 = virtualinvoke $r46.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r40.<org.slf4j.Logger: void error(java.lang.String)>($r47);
+
+        $r48 = <org.apache.flink.configuration.OptimizerOptions: org.apache.flink.configuration.ConfigOption DELIMITED_FORMAT_MAX_LINE_SAMPLES>;
+
+        $r49 = virtualinvoke $r48.<org.apache.flink.configuration.ConfigOption: java.lang.Object defaultValue()>();
+
+        $r50 = (java.lang.Integer) $r49;
+
+        i0 = virtualinvoke $r50.<java.lang.Integer: int intValue()>();
+
+     label1:
+        if i1 >= 0 goto label2;
+
+        $r28 = <org.apache.flink.api.common.io.DelimitedInputFormat: org.slf4j.Logger LOG>;
+
+        $r27 = new java.lang.StringBuilder;
+
+        specialinvoke $r27.<java.lang.StringBuilder: void <init>()>();
+
+        $r29 = virtualinvoke $r27.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Invalid default minimum number of line samples: ");
+
+        $r30 = virtualinvoke $r29.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i1);
+
+        $r31 = virtualinvoke $r30.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(". Using default value of ");
+
+        $r32 = <org.apache.flink.configuration.OptimizerOptions: org.apache.flink.configuration.ConfigOption DELIMITED_FORMAT_MIN_LINE_SAMPLES>;
+
+        $r33 = virtualinvoke $r32.<org.apache.flink.configuration.ConfigOption: java.lang.String key()>();
+
+        $r34 = virtualinvoke $r31.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r33);
+
+        $r35 = virtualinvoke $r34.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r28.<org.slf4j.Logger: void error(java.lang.String)>($r35);
+
+        $r36 = <org.apache.flink.configuration.OptimizerOptions: org.apache.flink.configuration.ConfigOption DELIMITED_FORMAT_MIN_LINE_SAMPLES>;
+
+        $r37 = virtualinvoke $r36.<org.apache.flink.configuration.ConfigOption: java.lang.Object defaultValue()>();
+
+        $r38 = (java.lang.Integer) $r37;
+
+        i1 = virtualinvoke $r38.<java.lang.Integer: int intValue()>();
+
+     label2:
+        <org.apache.flink.api.common.io.DelimitedInputFormat: int DEFAULT_MAX_NUM_SAMPLES> = i0;
+
+        if i1 <= i0 goto label3;
+
+        $r20 = <org.apache.flink.api.common.io.DelimitedInputFormat: org.slf4j.Logger LOG>;
+
+        $r19 = new java.lang.StringBuilder;
+
+        specialinvoke $r19.<java.lang.StringBuilder: void <init>()>();
+
+        $r21 = virtualinvoke $r19.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Default minimum number of line samples cannot be greater the default maximum number of line samples: min=");
+
+        $r22 = virtualinvoke $r21.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i1);
+
+        $r23 = virtualinvoke $r22.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(", max=");
+
+        $r24 = virtualinvoke $r23.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i0);
+
+        $r25 = virtualinvoke $r24.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(". Defaulting minimum to maximum.");
+
+        $r26 = virtualinvoke $r25.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r20.<org.slf4j.Logger: void error(java.lang.String)>($r26);
+
+        <org.apache.flink.api.common.io.DelimitedInputFormat: int DEFAULT_MIN_NUM_SAMPLES> = i0;
+
+        goto label4;
+
+     label3:
+        <org.apache.flink.api.common.io.DelimitedInputFormat: int DEFAULT_MIN_NUM_SAMPLES> = i1;
+
+     label4:
+        $r3 = <org.apache.flink.configuration.OptimizerOptions: org.apache.flink.configuration.ConfigOption DELIMITED_FORMAT_MAX_SAMPLE_LEN>;
+
+        i2 = virtualinvoke r0.<org.apache.flink.configuration.Configuration: int getInteger(org.apache.flink.configuration.ConfigOption)>($r3);
+
+        if i2 > 0 goto label5;
+
+        $r10 = <org.apache.flink.configuration.OptimizerOptions: org.apache.flink.configuration.ConfigOption DELIMITED_FORMAT_MAX_SAMPLE_LEN>;
+
+        $r11 = virtualinvoke $r10.<org.apache.flink.configuration.ConfigOption: java.lang.Object defaultValue()>();
+
+        $r12 = (java.lang.Integer) $r11;
+
+        i2 = virtualinvoke $r12.<java.lang.Integer: int intValue()>();
+
+        $r14 = <org.apache.flink.api.common.io.DelimitedInputFormat: org.slf4j.Logger LOG>;
+
+        $r13 = new java.lang.StringBuilder;
+
+        specialinvoke $r13.<java.lang.StringBuilder: void <init>()>();
+
+        $r15 = virtualinvoke $r13.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Invalid value for the maximum sample record length. Using default value of ");
+
+        $r16 = virtualinvoke $r15.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i2);
+
+        $r17 = virtualinvoke $r16.<java.lang.StringBuilder: java.lang.StringBuilder append(char)>(46);
+
+        $r18 = virtualinvoke $r17.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r14.<org.slf4j.Logger: void error(java.lang.String)>($r18);
+
+        goto label6;
+
+     label5:
+        if i2 >= 1048576 goto label6;
+
+        i2 = 1048576;
+
+        $r5 = <org.apache.flink.api.common.io.DelimitedInputFormat: org.slf4j.Logger LOG>;
+
+        $r4 = new java.lang.StringBuilder;
+
+        specialinvoke $r4.<java.lang.StringBuilder: void <init>()>();
+
+        $r6 = virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Increasing maximum sample record length to size of the read buffer (");
+
+        $r7 = virtualinvoke $r6.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(1048576);
+
+        $r8 = virtualinvoke $r7.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(").");
+
+        $r9 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r5.<org.slf4j.Logger: void warn(java.lang.String)>($r9);
+
+     label6:
+        <org.apache.flink.api.common.io.DelimitedInputFormat: int MAX_SAMPLE_LEN> = i2;
+
+        return;
+    }
+
+    public void <init>()
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        specialinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: void <init>(org.apache.flink.core.fs.Path,org.apache.flink.configuration.Configuration)>(null, null);
+
+        return;
+    }
+
+    protected void <init>(org.apache.flink.core.fs.Path, org.apache.flink.configuration.Configuration)
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        org.apache.flink.core.fs.Path r1;
+        byte[] $r2;
+        org.apache.flink.configuration.Configuration r3;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        r1 := @parameter0: org.apache.flink.core.fs.Path;
+
+        r3 := @parameter1: org.apache.flink.configuration.Configuration;
+
+        specialinvoke r0.<org.apache.flink.api.common.io.FileInputFormat: void <init>(org.apache.flink.core.fs.Path)>(r1);
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: java.lang.String charsetName> = "UTF-8";
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long offset> = -1L;
+
+        $r2 = newarray (byte)[1];
+
+        $r2[0] = 10;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] delimiter> = $r2;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: java.lang.String delimiterString> = null;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int lineLengthLimit> = 2147483647;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize> = -1;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int numLineSamples> = -1;
+
+        if r3 != null goto label1;
+
+        r3 = staticinvoke <org.apache.flink.configuration.GlobalConfiguration: org.apache.flink.configuration.Configuration loadConfiguration()>();
+
+     label1:
+        staticinvoke <org.apache.flink.api.common.io.DelimitedInputFormat: void loadConfigParameters(org.apache.flink.configuration.Configuration)>(r3);
+
+        return;
+    }
+
+    public java.nio.charset.Charset getCharset()
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        java.nio.charset.Charset $r1, $r2, $r4;
+        java.lang.String $r3;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        $r1 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: java.nio.charset.Charset charset>;
+
+        if $r1 != null goto label1;
+
+        $r3 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: java.lang.String charsetName>;
+
+        $r4 = staticinvoke <java.nio.charset.Charset: java.nio.charset.Charset forName(java.lang.String)>($r3);
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: java.nio.charset.Charset charset> = $r4;
+
+     label1:
+        $r2 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: java.nio.charset.Charset charset>;
+
+        return $r2;
+    }
+
+    public void setCharset(java.lang.String)
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        java.lang.String r1, $r3, $r4, $r5;
+        java.lang.Object $r2;
+        java.nio.charset.Charset $r6;
+        byte[] $r7;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r2 = staticinvoke <org.apache.flink.util.Preconditions: java.lang.Object checkNotNull(java.lang.Object)>(r1);
+
+        $r3 = (java.lang.String) $r2;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: java.lang.String charsetName> = $r3;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: java.nio.charset.Charset charset> = null;
+
+        $r4 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: java.lang.String delimiterString>;
+
+        if $r4 == null goto label1;
+
+        $r5 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: java.lang.String delimiterString>;
+
+        $r6 = virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: java.nio.charset.Charset getCharset()>();
+
+        $r7 = virtualinvoke $r5.<java.lang.String: byte[] getBytes(java.nio.charset.Charset)>($r6);
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] delimiter> = $r7;
+
+     label1:
+        return;
+    }
+
+    public byte[] getDelimiter()
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        byte[] $r1;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        $r1 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] delimiter>;
+
+        return $r1;
+    }
+
+    public void setDelimiter(byte[])
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        byte[] r1;
+        java.lang.IllegalArgumentException $r2;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        r1 := @parameter0: byte[];
+
+        if r1 != null goto label1;
+
+        $r2 = new java.lang.IllegalArgumentException;
+
+        specialinvoke $r2.<java.lang.IllegalArgumentException: void <init>(java.lang.String)>("Delimiter must not be null");
+
+        throw $r2;
+
+     label1:
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] delimiter> = r1;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: java.lang.String delimiterString> = null;
+
+        return;
+    }
+
+    public void setDelimiter(char)
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        char c0;
+        java.lang.String $r1;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        c0 := @parameter0: char;
+
+        $r1 = staticinvoke <java.lang.String: java.lang.String valueOf(char)>(c0);
+
+        virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: void setDelimiter(java.lang.String)>($r1);
+
+        return;
+    }
+
+    public void setDelimiter(java.lang.String)
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        java.lang.String r1;
+        java.nio.charset.Charset $r2;
+        byte[] $r3;
+        java.lang.IllegalArgumentException $r4;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        r1 := @parameter0: java.lang.String;
+
+        if r1 != null goto label1;
+
+        $r4 = new java.lang.IllegalArgumentException;
+
+        specialinvoke $r4.<java.lang.IllegalArgumentException: void <init>(java.lang.String)>("Delimiter must not be null");
+
+        throw $r4;
+
+     label1:
+        $r2 = virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: java.nio.charset.Charset getCharset()>();
+
+        $r3 = virtualinvoke r1.<java.lang.String: byte[] getBytes(java.nio.charset.Charset)>($r2);
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] delimiter> = $r3;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: java.lang.String delimiterString> = r1;
+
+        return;
+    }
+
+    public int getLineLengthLimit()
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        int $i0;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        $i0 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int lineLengthLimit>;
+
+        return $i0;
+    }
+
+    public void setLineLengthLimit(int)
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        int i0;
+        java.lang.IllegalArgumentException $r1;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        i0 := @parameter0: int;
+
+        if i0 >= 1 goto label1;
+
+        $r1 = new java.lang.IllegalArgumentException;
+
+        specialinvoke $r1.<java.lang.IllegalArgumentException: void <init>(java.lang.String)>("Line length limit must be at least 1.");
+
+        throw $r1;
+
+     label1:
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int lineLengthLimit> = i0;
+
+        return;
+    }
+
+    public int getBufferSize()
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        int $i0;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        $i0 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize>;
+
+        return $i0;
+    }
+
+    public void setBufferSize(int)
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        int i0;
+        java.lang.IllegalArgumentException $r1;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        i0 := @parameter0: int;
+
+        if i0 >= 2 goto label1;
+
+        $r1 = new java.lang.IllegalArgumentException;
+
+        specialinvoke $r1.<java.lang.IllegalArgumentException: void <init>(java.lang.String)>("Buffer size must be at least 2.");
+
+        throw $r1;
+
+     label1:
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize> = i0;
+
+        return;
+    }
+
+    public int getNumLineSamples()
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        int $i0;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        $i0 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int numLineSamples>;
+
+        return $i0;
+    }
+
+    public void setNumLineSamples(int)
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        int i0;
+        java.lang.IllegalArgumentException $r1;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        i0 := @parameter0: int;
+
+        if i0 >= 0 goto label1;
+
+        $r1 = new java.lang.IllegalArgumentException;
+
+        specialinvoke $r1.<java.lang.IllegalArgumentException: void <init>(java.lang.String)>("Number of line samples must not be negative.");
+
+        throw $r1;
+
+     label1:
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int numLineSamples> = i0;
+
+        return;
+    }
+
+    public abstract java.lang.Object readRecord(java.lang.Object, byte[], int, int) throws java.io.IOException;
+
+    public void configure(org.apache.flink.configuration.Configuration)
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        org.apache.flink.configuration.Configuration r1;
+        byte[] $r3, $r4;
+        boolean $z0, $z1;
+        int $i0, $i1;
+        java.lang.NumberFormatException $r5;
+        org.slf4j.Logger $r6, $r8;
+        java.lang.StringBuilder $r7, $r9, $r10, $r11;
+        java.lang.String $r12, r13, r14;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        r1 := @parameter0: org.apache.flink.configuration.Configuration;
+
+        specialinvoke r0.<org.apache.flink.api.common.io.FileInputFormat: void configure(org.apache.flink.configuration.Configuration)>(r1);
+
+        $r4 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] delimiter>;
+
+        $r3 = newarray (byte)[1];
+
+        $r3[0] = 10;
+
+        $z0 = staticinvoke <java.util.Arrays: boolean equals(byte[],byte[])>($r4, $r3);
+
+        if $z0 == 0 goto label1;
+
+        r13 = virtualinvoke r1.<org.apache.flink.configuration.Configuration: java.lang.String getString(java.lang.String,java.lang.String)>("delimited-format.delimiter", null);
+
+        if r13 == null goto label1;
+
+        virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: void setDelimiter(java.lang.String)>(r13);
+
+     label1:
+        $i1 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int numLineSamples>;
+
+        if $i1 != -1 goto label6;
+
+        r14 = virtualinvoke r1.<org.apache.flink.configuration.Configuration: java.lang.String getString(java.lang.String,java.lang.String)>("delimited-format.numSamples", null);
+
+        if r14 == null goto label6;
+
+     label2:
+        $i0 = staticinvoke <java.lang.Integer: int parseInt(java.lang.String)>(r14);
+
+        virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: void setNumLineSamples(int)>($i0);
+
+     label3:
+        goto label6;
+
+     label4:
+        $r5 := @caughtexception;
+
+        $r6 = <org.apache.flink.api.common.io.DelimitedInputFormat: org.slf4j.Logger LOG>;
+
+        $z1 = interfaceinvoke $r6.<org.slf4j.Logger: boolean isWarnEnabled()>();
+
+        if $z1 == 0 goto label5;
+
+        $r8 = <org.apache.flink.api.common.io.DelimitedInputFormat: org.slf4j.Logger LOG>;
+
+        $r7 = new java.lang.StringBuilder;
+
+        specialinvoke $r7.<java.lang.StringBuilder: void <init>()>();
+
+        $r9 = virtualinvoke $r7.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Invalid value for number of samples to take: ");
+
+        $r10 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r14);
+
+        $r11 = virtualinvoke $r10.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(". Skipping sampling.");
+
+        $r12 = virtualinvoke $r11.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r8.<org.slf4j.Logger: void warn(java.lang.String)>($r12);
+
+     label5:
+        virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: void setNumLineSamples(int)>(0);
+
+     label6:
+        return;
+
+        catch java.lang.NumberFormatException from label2 to label3 with label4;
+    }
+
+    public org.apache.flink.api.common.io.FileInputFormat$FileBaseStatistics getStatistics(org.apache.flink.api.common.io.statistics.BaseStatistics) throws java.io.IOException
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        org.apache.flink.api.common.io.statistics.BaseStatistics r1;
+        long l0, l3, $l5, $l8, $l9, $l14, $l15, $l16, $l17, $l19, $l20, $l22, $l24, $l28, l31, l32;
+        int i1, i2, $i7, $i10, $i11, $i12, $i13, $i18, $i21, $i25, $i26, $i27, i29, i30, i33, i34;
+        org.apache.flink.api.common.io.FileInputFormat$FileBaseStatistics r3, $r9, $r47;
+        boolean $z0, $z1, $z2, $z3, $z4;
+        java.util.ArrayList $r7;
+        org.apache.flink.core.fs.Path[] $r8, $r27, $r40;
+        float $f0, $f1, $f2, $f3;
+        byte $b4, $b6, $b23;
+        java.lang.Object $r10, $r13;
+        org.apache.flink.core.fs.FileInputSplit $r11;
+        org.apache.flink.core.fs.Path $r12;
+        org.apache.flink.core.fs.FileStatus $r14, r52;
+        byte[] $r15;
+        java.lang.RuntimeException $r16;
+        java.lang.StringBuilder $r17, $r18, $r19, $r24, $r26, $r29, $r30, $r32, $r37, $r39, $r42, $r43, $r45;
+        java.lang.String $r20, $r28, $r31, $r33, $r41, $r44, $r46;
+        java.lang.Throwable $r21, $r34, $r35;
+        java.io.IOException $r22;
+        org.slf4j.Logger $r23, $r25, $r36, $r38;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        r1 := @parameter0: org.apache.flink.api.common.io.statistics.BaseStatistics;
+
+        $z0 = r1 instanceof org.apache.flink.api.common.io.FileInputFormat$FileBaseStatistics;
+
+        if $z0 == 0 goto label01;
+
+        $r47 = (org.apache.flink.api.common.io.FileInputFormat$FileBaseStatistics) r1;
+
+        goto label02;
+
+     label01:
+        $r47 = null;
+
+     label02:
+        l0 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long openTimeout>;
+
+        i1 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize>;
+
+        i2 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int lineLengthLimit>;
+
+     label03:
+        $r7 = new java.util.ArrayList;
+
+        specialinvoke $r7.<java.util.ArrayList: void <init>(int)>(1);
+
+        $r8 = virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: org.apache.flink.core.fs.Path[] getFilePaths()>();
+
+        r3 = virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: org.apache.flink.api.common.io.FileInputFormat$FileBaseStatistics getFileStats(org.apache.flink.api.common.io.FileInputFormat$FileBaseStatistics,org.apache.flink.core.fs.Path[],java.util.ArrayList)>($r47, $r8, $r7);
+
+        if r3 != null goto label05;
+
+     label04:
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long openTimeout> = l0;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize> = i1;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int lineLengthLimit> = i2;
+
+        return null;
+
+     label05:
+        $f0 = virtualinvoke r3.<org.apache.flink.api.common.io.FileInputFormat$FileBaseStatistics: float getAverageRecordWidth()>();
+
+        $b4 = $f0 cmpl -1.0F;
+
+        if $b4 != 0 goto label06;
+
+        $l5 = virtualinvoke r3.<org.apache.flink.api.common.io.FileInputFormat$FileBaseStatistics: long getTotalInputSize()>();
+
+        $b6 = $l5 cmp -1L;
+
+        if $b6 != 0 goto label07;
+
+     label06:
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long openTimeout> = l0;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize> = i1;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int lineLengthLimit> = i2;
+
+        return r3;
+
+     label07:
+        $z1 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: boolean unsplittable>;
+
+        if $z1 == 0 goto label09;
+
+     label08:
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long openTimeout> = l0;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize> = i1;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int lineLengthLimit> = i2;
+
+        return r3;
+
+     label09:
+        $i7 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int numLineSamples>;
+
+        if $i7 == -1 goto label10;
+
+        i29 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int numLineSamples>;
+
+        goto label11;
+
+     label10:
+        $l8 = virtualinvoke r3.<org.apache.flink.api.common.io.FileInputFormat$FileBaseStatistics: long getTotalInputSize()>();
+
+        $l9 = $l8 / 1024L;
+
+        i30 = (int) $l9;
+
+        $i11 = <org.apache.flink.api.common.io.DelimitedInputFormat: int DEFAULT_MAX_NUM_SAMPLES>;
+
+        $i10 = <org.apache.flink.api.common.io.DelimitedInputFormat: int DEFAULT_MIN_NUM_SAMPLES>;
+
+        $i12 = staticinvoke <java.lang.Math: int max(int,int)>($i10, i30);
+
+        i29 = staticinvoke <java.lang.Math: int min(int,int)>($i11, $i12);
+
+     label11:
+        if i29 != 0 goto label13;
+
+     label12:
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long openTimeout> = l0;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize> = i1;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int lineLengthLimit> = i2;
+
+        return r3;
+
+     label13:
+        if i29 >= 0 goto label14;
+
+        $r16 = new java.lang.RuntimeException;
+
+        $r17 = new java.lang.StringBuilder;
+
+        specialinvoke $r17.<java.lang.StringBuilder: void <init>()>();
+
+        $r18 = virtualinvoke $r17.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Error: Invalid number of samples: ");
+
+        $r19 = virtualinvoke $r18.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i29);
+
+        $r20 = virtualinvoke $r19.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r16.<java.lang.RuntimeException: void <init>(java.lang.String)>($r20);
+
+        throw $r16;
+
+     label14:
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long openTimeout> = 10000L;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize> = 4096;
+
+        $i13 = <org.apache.flink.api.common.io.DelimitedInputFormat: int MAX_SAMPLE_LEN>;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int lineLengthLimit> = $i13;
+
+        l31 = 0L;
+
+        l32 = 0L;
+
+        $l14 = virtualinvoke r3.<org.apache.flink.api.common.io.FileInputFormat$FileBaseStatistics: long getTotalInputSize()>();
+
+        $l15 = (long) i29;
+
+        l3 = $l14 / $l15;
+
+        i33 = 0;
+
+        i34 = 0;
+
+     label15:
+        if i34 >= i29 goto label23;
+
+        $i18 = virtualinvoke $r7.<java.util.ArrayList: int size()>();
+
+        if i33 >= $i18 goto label23;
+
+        $r10 = virtualinvoke $r7.<java.util.ArrayList: java.lang.Object get(int)>(i33);
+
+        r52 = (org.apache.flink.core.fs.FileStatus) $r10;
+
+        $r11 = new org.apache.flink.core.fs.FileInputSplit;
+
+        $r12 = interfaceinvoke r52.<org.apache.flink.core.fs.FileStatus: org.apache.flink.core.fs.Path getPath()>();
+
+        $l19 = interfaceinvoke r52.<org.apache.flink.core.fs.FileStatus: long getLen()>();
+
+        $l20 = $l19 - l31;
+
+        specialinvoke $r11.<org.apache.flink.core.fs.FileInputSplit: void <init>(int,org.apache.flink.core.fs.Path,long,long,java.lang.String[])>(0, $r12, l31, $l20, null);
+
+     label16:
+        virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: void open(org.apache.flink.core.fs.FileInputSplit)>($r11);
+
+        $z2 = virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: boolean readLine()>();
+
+        if $z2 == 0 goto label17;
+
+        $i26 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int currLen>;
+
+        $r15 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] delimiter>;
+
+        $i25 = lengthof $r15;
+
+        $i27 = $i26 + $i25;
+
+        $l28 = (long) $i27;
+
+        l32 = l32 + $l28;
+
+        i34 = i34 + 1;
+
+     label17:
+        specialinvoke r0.<org.apache.flink.api.common.io.FileInputFormat: void close()>();
+
+        goto label20;
+
+     label18:
+        $r21 := @caughtexception;
+
+     label19:
+        specialinvoke r0.<org.apache.flink.api.common.io.FileInputFormat: void close()>();
+
+        throw $r21;
+
+     label20:
+        l31 = l31 + l3;
+
+     label21:
+        $i21 = virtualinvoke $r7.<java.util.ArrayList: int size()>();
+
+        if i33 >= $i21 goto label22;
+
+        $r13 = virtualinvoke $r7.<java.util.ArrayList: java.lang.Object get(int)>(i33);
+
+        $r14 = (org.apache.flink.core.fs.FileStatus) $r13;
+
+        $l22 = interfaceinvoke $r14.<org.apache.flink.core.fs.FileStatus: long getLen()>();
+
+        $b23 = l31 cmp $l22;
+
+        if $b23 < 0 goto label22;
+
+        $l24 = interfaceinvoke $r14.<org.apache.flink.core.fs.FileStatus: long getLen()>();
+
+        l31 = l31 - $l24;
+
+        i33 = i33 + 1;
+
+        goto label21;
+
+     label22:
+        goto label15;
+
+     label23:
+        $r9 = new org.apache.flink.api.common.io.FileInputFormat$FileBaseStatistics;
+
+        $l16 = virtualinvoke r3.<org.apache.flink.api.common.io.FileInputFormat$FileBaseStatistics: long getLastModificationTime()>();
+
+        $l17 = virtualinvoke r3.<org.apache.flink.api.common.io.FileInputFormat$FileBaseStatistics: long getTotalInputSize()>();
+
+        $f2 = (float) l32;
+
+        $f1 = (float) i34;
+
+        $f3 = $f2 / $f1;
+
+        specialinvoke $r9.<org.apache.flink.api.common.io.FileInputFormat$FileBaseStatistics: void <init>(long,long,float)>($l16, $l17, $f3);
+
+     label24:
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long openTimeout> = l0;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize> = i1;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int lineLengthLimit> = i2;
+
+        return $r9;
+
+     label25:
+        $r22 := @caughtexception;
+
+        $r23 = <org.apache.flink.api.common.io.DelimitedInputFormat: org.slf4j.Logger LOG>;
+
+        $z3 = interfaceinvoke $r23.<org.slf4j.Logger: boolean isWarnEnabled()>();
+
+        if $z3 == 0 goto label26;
+
+        $r25 = <org.apache.flink.api.common.io.DelimitedInputFormat: org.slf4j.Logger LOG>;
+
+        $r24 = new java.lang.StringBuilder;
+
+        specialinvoke $r24.<java.lang.StringBuilder: void <init>()>();
+
+        $r26 = virtualinvoke $r24.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Could not determine statistics for files \'");
+
+        $r27 = virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: org.apache.flink.core.fs.Path[] getFilePaths()>();
+
+        $r28 = staticinvoke <java.util.Arrays: java.lang.String toString(java.lang.Object[])>($r27);
+
+        $r29 = virtualinvoke $r26.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r28);
+
+        $r30 = virtualinvoke $r29.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("\' due to an io error: ");
+
+        $r31 = virtualinvoke $r22.<java.io.IOException: java.lang.String getMessage()>();
+
+        $r32 = virtualinvoke $r30.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r31);
+
+        $r33 = virtualinvoke $r32.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r25.<org.slf4j.Logger: void warn(java.lang.String)>($r33);
+
+     label26:
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long openTimeout> = l0;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize> = i1;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int lineLengthLimit> = i2;
+
+        goto label31;
+
+     label27:
+        $r35 := @caughtexception;
+
+        $r36 = <org.apache.flink.api.common.io.DelimitedInputFormat: org.slf4j.Logger LOG>;
+
+        $z4 = interfaceinvoke $r36.<org.slf4j.Logger: boolean isErrorEnabled()>();
+
+        if $z4 == 0 goto label28;
+
+        $r38 = <org.apache.flink.api.common.io.DelimitedInputFormat: org.slf4j.Logger LOG>;
+
+        $r37 = new java.lang.StringBuilder;
+
+        specialinvoke $r37.<java.lang.StringBuilder: void <init>()>();
+
+        $r39 = virtualinvoke $r37.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Unexpected problem while getting the file statistics for files \'");
+
+        $r40 = virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: org.apache.flink.core.fs.Path[] getFilePaths()>();
+
+        $r41 = staticinvoke <java.util.Arrays: java.lang.String toString(java.lang.Object[])>($r40);
+
+        $r42 = virtualinvoke $r39.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r41);
+
+        $r43 = virtualinvoke $r42.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("\': ");
+
+        $r44 = virtualinvoke $r35.<java.lang.Throwable: java.lang.String getMessage()>();
+
+        $r45 = virtualinvoke $r43.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r44);
+
+        $r46 = virtualinvoke $r45.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        interfaceinvoke $r38.<org.slf4j.Logger: void error(java.lang.String,java.lang.Throwable)>($r46, $r35);
+
+     label28:
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long openTimeout> = l0;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize> = i1;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int lineLengthLimit> = i2;
+
+        goto label31;
+
+     label29:
+        $r34 := @caughtexception;
+
+     label30:
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long openTimeout> = l0;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize> = i1;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int lineLengthLimit> = i2;
+
+        throw $r34;
+
+     label31:
+        return null;
+
+        catch java.lang.Throwable from label16 to label17 with label18;
+        catch java.lang.Throwable from label18 to label19 with label18;
+        catch java.io.IOException from label03 to label04 with label25;
+        catch java.io.IOException from label05 to label06 with label25;
+        catch java.io.IOException from label07 to label08 with label25;
+        catch java.io.IOException from label09 to label12 with label25;
+        catch java.io.IOException from label13 to label24 with label25;
+        catch java.lang.Throwable from label03 to label04 with label27;
+        catch java.lang.Throwable from label05 to label06 with label27;
+        catch java.lang.Throwable from label07 to label08 with label27;
+        catch java.lang.Throwable from label09 to label12 with label27;
+        catch java.lang.Throwable from label13 to label24 with label27;
+        catch java.lang.Throwable from label25 to label26 with label29;
+        catch java.lang.Throwable from label27 to label28 with label29;
+        catch java.lang.Throwable from label29 to label30 with label29;
+    }
+
+    public void open(org.apache.flink.core.fs.FileInputSplit) throws java.io.IOException
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        org.apache.flink.core.fs.FileInputSplit r1;
+        long $l0, $l1, $l3;
+        byte $b2;
+        org.apache.flink.core.fs.FSDataInputStream $r2;
+        boolean $z2;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        r1 := @parameter0: org.apache.flink.core.fs.FileInputSplit;
+
+        specialinvoke r0.<org.apache.flink.api.common.io.FileInputFormat: void open(org.apache.flink.core.fs.FileInputSplit)>(r1);
+
+        specialinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: void initBuffers()>();
+
+        $l0 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long splitStart>;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long offset> = $l0;
+
+        $l1 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long splitStart>;
+
+        $b2 = $l1 cmp 0L;
+
+        if $b2 == 0 goto label1;
+
+        $r2 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: org.apache.flink.core.fs.FSDataInputStream stream>;
+
+        $l3 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long offset>;
+
+        virtualinvoke $r2.<org.apache.flink.core.fs.FSDataInputStream: void seek(long)>($l3);
+
+        virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: boolean readLine()>();
+
+        $z2 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: boolean overLimit>;
+
+        if $z2 == 0 goto label2;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: boolean end> = 1;
+
+        goto label2;
+
+     label1:
+        specialinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: boolean fillBuffer(int)>(0);
+
+     label2:
+        virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: void initializeSplit(org.apache.flink.core.fs.FileInputSplit,java.lang.Long)>(r1, null);
+
+        return;
+    }
+
+    private void initBuffers()
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        int $i0, $i1, $i2, $i3, $i4, $i5, $i6, $i7;
+        byte[] $r1, $r2, $r3, $r4, $r5, $r6, $r9;
+        java.lang.IllegalArgumentException $r7;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        $i0 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize>;
+
+        if $i0 > 0 goto label1;
+
+        $i7 = 1048576;
+
+        goto label2;
+
+     label1:
+        $i7 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize>;
+
+     label2:
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize> = $i7;
+
+        $i2 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize>;
+
+        $r1 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] delimiter>;
+
+        $i1 = lengthof $r1;
+
+        if $i2 > $i1 goto label3;
+
+        $r7 = new java.lang.IllegalArgumentException;
+
+        specialinvoke $r7.<java.lang.IllegalArgumentException: void <init>(java.lang.String)>("Buffer size must be greater than length of delimiter.");
+
+        throw $r7;
+
+     label3:
+        $r2 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] readBuffer>;
+
+        if $r2 == null goto label4;
+
+        $r6 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] readBuffer>;
+
+        $i6 = lengthof $r6;
+
+        $i5 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize>;
+
+        if $i6 == $i5 goto label5;
+
+     label4:
+        $i3 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int bufferSize>;
+
+        $r3 = newarray (byte)[$i3];
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] readBuffer> = $r3;
+
+     label5:
+        $r9 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer>;
+
+        if $r9 == null goto label6;
+
+        $r5 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer>;
+
+        $i4 = lengthof $r5;
+
+        if $i4 >= 256 goto label7;
+
+     label6:
+        $r4 = newarray (byte)[256];
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer> = $r4;
+
+     label7:
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int readPos> = 0;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int limit> = 0;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: boolean overLimit> = 0;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: boolean end> = 0;
+
+        return;
+    }
+
+    public boolean reachedEnd()
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        boolean $z0;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        $z0 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: boolean end>;
+
+        return $z0;
+    }
+
+    public java.lang.Object nextRecord(java.lang.Object) throws java.io.IOException
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        java.lang.Object r1, $r3;
+        boolean $z0;
+        int $i0, $i1;
+        byte[] $r2;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        r1 := @parameter0: java.lang.Object;
+
+        $z0 = virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: boolean readLine()>();
+
+        if $z0 == 0 goto label1;
+
+        $r2 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] currBuffer>;
+
+        $i1 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int currOffset>;
+
+        $i0 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int currLen>;
+
+        $r3 = virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: java.lang.Object readRecord(java.lang.Object,byte[],int,int)>(r1, $r2, $i1, $i0);
+
+        return $r3;
+
+     label1:
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: boolean end> = 1;
+
+        return null;
+    }
+
+    public void close() throws java.io.IOException
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer> = null;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] readBuffer> = null;
+
+        specialinvoke r0.<org.apache.flink.api.common.io.FileInputFormat: void close()>();
+
+        return;
+    }
+
+    protected final boolean readLine() throws java.io.IOException
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        org.apache.flink.core.fs.FSDataInputStream $r1;
+        boolean $z0, $z1;
+        int $i0, $i1, $i2, $i3, $i4, $i7, $i11, $i12, $i13, $i14, $i15, $i16, $i17, $i18, $i19, $i20, $i21, $i25, $i26, $i27, $i28, $i29, $i30, $i31, $i34, $i35, $i36, $i37, $i38, $i39, $i40, $i41, i42, i43, i44, i48, $i49, $i50, i51, i52, i53, i54;
+        byte[] $r2, $r3, $r4, $r5, $r6, $r7, $r8, $r9, $r16, $r17, $r18, $r19, $r20, $r21, $r22, $r23, $r24, $r25, $r27, $r28, $r29, $r30, r31, $r33, r34, r35;
+        long $l5, $l6, $l8, $l9, $l22, $l23, $l24, $l45, $l46, $l47;
+        byte $b10, $b32, $b33;
+        java.io.IOException $r10;
+        java.lang.StringBuilder $r11, $r12, $r13, $r14;
+        java.lang.String $r15;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        $r1 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: org.apache.flink.core.fs.FSDataInputStream stream>;
+
+        if $r1 == null goto label01;
+
+        $z0 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: boolean overLimit>;
+
+        if $z0 == 0 goto label02;
+
+     label01:
+        return 0;
+
+     label02:
+        i42 = 0;
+
+        i43 = 0;
+
+     label03:
+        $i1 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int readPos>;
+
+        $i0 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int limit>;
+
+        if $i1 < $i0 goto label07;
+
+        $z1 = specialinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: boolean fillBuffer(int)>(i43);
+
+        if $z1 != 0 goto label07;
+
+        i44 = i43;
+
+        $i38 = i42 + i43;
+
+        if $i38 <= 0 goto label06;
+
+        if i43 <= 0 goto label05;
+
+        $r27 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer>;
+
+        $i39 = lengthof $r27;
+
+        $i40 = $i39 - i42;
+
+        if $i40 >= i43 goto label04;
+
+        $i41 = i42 + i43;
+
+        r31 = newarray (byte)[$i41];
+
+        $r30 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer>;
+
+        staticinvoke <java.lang.System: void arraycopy(java.lang.Object,int,java.lang.Object,int,int)>($r30, 0, r31, 0, i42);
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer> = r31;
+
+     label04:
+        $r29 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] readBuffer>;
+
+        $r28 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer>;
+
+        staticinvoke <java.lang.System: void arraycopy(java.lang.Object,int,java.lang.Object,int,int)>($r29, 0, $r28, i42, i44);
+
+        i42 = i42 + i44;
+
+     label05:
+        $l45 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long offset>;
+
+        $l46 = (long) i42;
+
+        $l47 = $l45 + $l46;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long offset> = $l47;
+
+        $r33 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer>;
+
+        specialinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: void setResult(byte[],int,int)>($r33, 0, i42);
+
+        return 1;
+
+     label06:
+        return 0;
+
+     label07:
+        $i2 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int readPos>;
+
+        i48 = $i2 - i43;
+
+     label08:
+        $i49 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int readPos>;
+
+        $i50 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int limit>;
+
+        if $i49 >= $i50 goto label11;
+
+        $r23 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] delimiter>;
+
+        $i30 = lengthof $r23;
+
+        if i43 >= $i30 goto label11;
+
+        $r24 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] readBuffer>;
+
+        $i31 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int readPos>;
+
+        $b33 = $r24[$i31];
+
+        $r25 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] delimiter>;
+
+        $b32 = $r25[i43];
+
+        if $b33 != $b32 goto label09;
+
+        i43 = i43 + 1;
+
+        goto label10;
+
+     label09:
+        $i34 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int readPos>;
+
+        $i35 = $i34 - i43;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int readPos> = $i35;
+
+        i43 = 0;
+
+     label10:
+        $i36 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int readPos>;
+
+        $i37 = $i36 + 1;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int readPos> = $i37;
+
+        goto label08;
+
+     label11:
+        $r2 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] delimiter>;
+
+        $i3 = lengthof $r2;
+
+        if i43 != $i3 goto label15;
+
+        $i20 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int readPos>;
+
+        i51 = $i20 - i48;
+
+        $l23 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long offset>;
+
+        $i21 = i42 + i51;
+
+        $l22 = (long) $i21;
+
+        $l24 = $l23 + $l22;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long offset> = $l24;
+
+        $r16 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] delimiter>;
+
+        $i25 = lengthof $r16;
+
+        i52 = i51 - $i25;
+
+        if i42 <= 0 goto label14;
+
+        $r18 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer>;
+
+        $i27 = lengthof $r18;
+
+        $i26 = i42 + i52;
+
+        if $i27 >= $i26 goto label12;
+
+        $i29 = i42 + i52;
+
+        r34 = newarray (byte)[$i29];
+
+        $r22 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer>;
+
+        staticinvoke <java.lang.System: void arraycopy(java.lang.Object,int,java.lang.Object,int,int)>($r22, 0, r34, 0, i42);
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer> = r34;
+
+     label12:
+        if i52 < 0 goto label13;
+
+        $r21 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] readBuffer>;
+
+        $r20 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer>;
+
+        staticinvoke <java.lang.System: void arraycopy(java.lang.Object,int,java.lang.Object,int,int)>($r21, 0, $r20, i42, i52);
+
+     label13:
+        $r19 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer>;
+
+        $i28 = i42 + i52;
+
+        specialinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: void setResult(byte[],int,int)>($r19, 0, $i28);
+
+        return 1;
+
+     label14:
+        $r17 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] readBuffer>;
+
+        specialinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: void setResult(byte[],int,int)>($r17, i48, i52);
+
+        return 1;
+
+     label15:
+        $i4 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int limit>;
+
+        i53 = $i4 - i48;
+
+        $l6 = (long) i42;
+
+        $l5 = (long) i53;
+
+        $l9 = $l6 + $l5;
+
+        $i7 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int lineLengthLimit>;
+
+        $l8 = (long) $i7;
+
+        $b10 = $l9 cmp $l8;
+
+        if $b10 <= 0 goto label16;
+
+        $r10 = new java.io.IOException;
+
+        $r11 = new java.lang.StringBuilder;
+
+        specialinvoke $r11.<java.lang.StringBuilder: void <init>()>();
+
+        $r12 = virtualinvoke $r11.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("The record length exceeded the maximum record length (");
+
+        $i19 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int lineLengthLimit>;
+
+        $r13 = virtualinvoke $r12.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>($i19);
+
+        $r14 = virtualinvoke $r13.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(").");
+
+        $r15 = virtualinvoke $r14.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r10.<java.io.IOException: void <init>(java.lang.String)>($r15);
+
+        throw $r10;
+
+     label16:
+        i54 = i53 - i43;
+
+        $r3 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer>;
+
+        $i11 = lengthof $r3;
+
+        $i12 = $i11 - i42;
+
+        if $i12 >= i54 goto label17;
+
+        $r8 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer>;
+
+        $i15 = lengthof $r8;
+
+        $i17 = $i15 * 2;
+
+        $i16 = i42 + i54;
+
+        $i18 = staticinvoke <java.lang.Math: int max(int,int)>($i17, $i16);
+
+        r35 = newarray (byte)[$i18];
+
+        $r9 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer>;
+
+        staticinvoke <java.lang.System: void arraycopy(java.lang.Object,int,java.lang.Object,int,int)>($r9, 0, r35, 0, i42);
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer> = r35;
+
+     label17:
+        $r5 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] readBuffer>;
+
+        $r4 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] wrapBuffer>;
+
+        staticinvoke <java.lang.System: void arraycopy(java.lang.Object,int,java.lang.Object,int,int)>($r5, i48, $r4, i42, i54);
+
+        i42 = i42 + i54;
+
+        $r7 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] readBuffer>;
+
+        $i13 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int readPos>;
+
+        $i14 = $i13 - i43;
+
+        $r6 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] readBuffer>;
+
+        staticinvoke <java.lang.System: void arraycopy(java.lang.Object,int,java.lang.Object,int,int)>($r7, $i14, $r6, 0, i43);
+
+        goto label03;
+    }
+
+    private void setResult(byte[], int, int)
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        byte[] r1;
+        int i0, i1;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        r1 := @parameter0: byte[];
+
+        i0 := @parameter1: int;
+
+        i1 := @parameter2: int;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] currBuffer> = r1;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int currOffset> = i0;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int currLen> = i1;
+
+        return;
+    }
+
+    private boolean fillBuffer(int) throws java.io.IOException
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        int i0, i1, i2, $i3, $i11, $i16, i17, $i18, i19;
+        byte[] $r1, $r2, $r5;
+        long $l4, $l6, $l8, $l9, $l10, $l12, $l13, $l15;
+        byte $b5, $b7, $b14;
+        org.apache.flink.core.fs.FSDataInputStream $r3, $r4, $r6, $r7;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        i0 := @parameter0: int;
+
+        $r1 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] readBuffer>;
+
+        $i3 = lengthof $r1;
+
+        i1 = $i3 - i0;
+
+        $l4 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long splitLength>;
+
+        $b5 = $l4 cmp -1L;
+
+        if $b5 != 0 goto label2;
+
+        $r6 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: org.apache.flink.core.fs.FSDataInputStream stream>;
+
+        $r5 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] readBuffer>;
+
+        i17 = virtualinvoke $r6.<org.apache.flink.core.fs.FSDataInputStream: int read(byte[],int,int)>($r5, i0, i1);
+
+        if i17 != -1 goto label1;
+
+        $r7 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: org.apache.flink.core.fs.FSDataInputStream stream>;
+
+        virtualinvoke $r7.<org.apache.flink.core.fs.FSDataInputStream: void close()>();
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: org.apache.flink.core.fs.FSDataInputStream stream> = null;
+
+        return 0;
+
+     label1:
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int readPos> = i0;
+
+        $i16 = i17 + i0;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int limit> = $i16;
+
+        return 1;
+
+     label2:
+        $l6 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long splitLength>;
+
+        $b7 = $l6 cmp 0L;
+
+        if $b7 <= 0 goto label5;
+
+        $l13 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long splitLength>;
+
+        $l12 = (long) i1;
+
+        $b14 = $l13 cmp $l12;
+
+        if $b14 <= 0 goto label3;
+
+        $i18 = i1;
+
+        goto label4;
+
+     label3:
+        $l15 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long splitLength>;
+
+        $i18 = (int) $l15;
+
+     label4:
+        i19 = $i18;
+
+        goto label6;
+
+     label5:
+        i19 = i1;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: boolean overLimit> = 1;
+
+     label6:
+        $r3 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: org.apache.flink.core.fs.FSDataInputStream stream>;
+
+        $r2 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: byte[] readBuffer>;
+
+        i2 = virtualinvoke $r3.<org.apache.flink.core.fs.FSDataInputStream: int read(byte[],int,int)>($r2, i0, i19);
+
+        if i2 != -1 goto label7;
+
+        $r4 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: org.apache.flink.core.fs.FSDataInputStream stream>;
+
+        virtualinvoke $r4.<org.apache.flink.core.fs.FSDataInputStream: void close()>();
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: org.apache.flink.core.fs.FSDataInputStream stream> = null;
+
+        return 0;
+
+     label7:
+        $l9 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long splitLength>;
+
+        $l8 = (long) i2;
+
+        $l10 = $l9 - $l8;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long splitLength> = $l10;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int readPos> = i0;
+
+        $i11 = i2 + i0;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: int limit> = $i11;
+
+        return 1;
+    }
+
+    public java.lang.Long getCurrentState() throws java.io.IOException
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        long $l0;
+        java.lang.Long $r1;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        $l0 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long offset>;
+
+        $r1 = staticinvoke <java.lang.Long: java.lang.Long valueOf(long)>($l0);
+
+        return $r1;
+    }
+
+    public void reopen(org.apache.flink.core.fs.FileInputSplit, java.lang.Long) throws java.io.IOException
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        org.apache.flink.core.fs.FileInputSplit r1;
+        java.lang.Long r2;
+        long $l0, $l2, $l3, $l5, $l6, $l8, $l9, $l10, $l12, $l13, $l14, $l15, $l16, $l17, $l18, $l19, $l20, $l22, $l23;
+        byte $b1, $b4, $b7, $b11, $b21, $b24;
+        java.lang.StringBuilder $r5, $r6, $r7, $r8, $r9;
+        java.lang.String $r10;
+        org.apache.flink.core.fs.FSDataInputStream $r11;
+        boolean $z1;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        r1 := @parameter0: org.apache.flink.core.fs.FileInputSplit;
+
+        r2 := @parameter1: java.lang.Long;
+
+        staticinvoke <org.apache.flink.util.Preconditions: java.lang.Object checkNotNull(java.lang.Object,java.lang.String)>(r1, "reopen() cannot be called on a null split.");
+
+        staticinvoke <org.apache.flink.util.Preconditions: java.lang.Object checkNotNull(java.lang.Object,java.lang.String)>(r2, "reopen() cannot be called with a null initial state.");
+
+        $l0 = virtualinvoke r2.<java.lang.Long: long longValue()>();
+
+        $b1 = $l0 cmp -1L;
+
+        if $b1 == 0 goto label1;
+
+        $l22 = virtualinvoke r2.<java.lang.Long: long longValue()>();
+
+        $l23 = virtualinvoke r1.<org.apache.flink.core.fs.FileInputSplit: long getStart()>();
+
+        $b24 = $l22 cmp $l23;
+
+        if $b24 < 0 goto label2;
+
+     label1:
+        $z1 = 1;
+
+        goto label3;
+
+     label2:
+        $z1 = 0;
+
+     label3:
+        $r5 = new java.lang.StringBuilder;
+
+        specialinvoke $r5.<java.lang.StringBuilder: void <init>()>();
+
+        $r6 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" Illegal offset ");
+
+        $r7 = virtualinvoke $r6.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>(r2);
+
+        $r8 = virtualinvoke $r7.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(", smaller than the splits start=");
+
+        $l2 = virtualinvoke r1.<org.apache.flink.core.fs.FileInputSplit: long getStart()>();
+
+        $r9 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.StringBuilder append(long)>($l2);
+
+        $r10 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        staticinvoke <org.apache.flink.util.Preconditions: void checkArgument(boolean,java.lang.Object)>($z1, $r10);
+
+        $l3 = virtualinvoke r1.<org.apache.flink.core.fs.FileInputSplit: long getLength()>();
+
+        $b4 = $l3 cmp -1L;
+
+        if $b4 == 0 goto label4;
+
+        $l17 = virtualinvoke r2.<java.lang.Long: long longValue()>();
+
+        $l18 = virtualinvoke r1.<org.apache.flink.core.fs.FileInputSplit: long getStart()>();
+
+        $l19 = virtualinvoke r1.<org.apache.flink.core.fs.FileInputSplit: long getLength()>();
+
+        $l20 = $l18 + $l19;
+
+        $b21 = $l17 cmp $l20;
+
+        if $b21 <= 0 goto label4;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: boolean end> = 1;
+
+        return;
+
+     label4:
+        $l5 = virtualinvoke r1.<org.apache.flink.core.fs.FileInputSplit: long getStart()>();
+
+        $l6 = virtualinvoke r2.<java.lang.Long: long longValue()>();
+
+        $b7 = $l5 cmp $l6;
+
+        if $b7 != 0 goto label5;
+
+        virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: void open(org.apache.flink.core.fs.FileInputSplit)>(r1);
+
+        return;
+
+     label5:
+        specialinvoke r0.<org.apache.flink.api.common.io.FileInputFormat: void open(org.apache.flink.core.fs.FileInputSplit)>(r1);
+
+        $l8 = virtualinvoke r2.<java.lang.Long: long longValue()>();
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long offset> = $l8;
+
+        specialinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: void initBuffers()>();
+
+        $r11 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: org.apache.flink.core.fs.FSDataInputStream stream>;
+
+        $l9 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long offset>;
+
+        virtualinvoke $r11.<org.apache.flink.core.fs.FSDataInputStream: void seek(long)>($l9);
+
+        $l10 = virtualinvoke r1.<org.apache.flink.core.fs.FileInputSplit: long getLength()>();
+
+        $b11 = $l10 cmp -1L;
+
+        if $b11 != 0 goto label6;
+
+        specialinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: boolean fillBuffer(int)>(0);
+
+        goto label7;
+
+     label6:
+        $l12 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long splitStart>;
+
+        $l13 = virtualinvoke r1.<org.apache.flink.core.fs.FileInputSplit: long getLength()>();
+
+        $l15 = $l12 + $l13;
+
+        $l14 = r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long offset>;
+
+        $l16 = $l15 - $l14;
+
+        r0.<org.apache.flink.api.common.io.DelimitedInputFormat: long splitLength> = $l16;
+
+     label7:
+        virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: void initializeSplit(org.apache.flink.core.fs.FileInputSplit,java.lang.Long)>(r1, r2);
+
+        return;
+    }
+
+    protected void initializeSplit(org.apache.flink.core.fs.FileInputSplit, java.lang.Long) throws java.io.IOException
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        org.apache.flink.core.fs.FileInputSplit r1;
+        java.lang.Long r2;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        r1 := @parameter0: org.apache.flink.core.fs.FileInputSplit;
+
+        r2 := @parameter1: java.lang.Long;
+
+        return;
+    }
+
+    public volatile void open(org.apache.flink.core.io.InputSplit) throws java.io.IOException
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        org.apache.flink.core.io.InputSplit r1;
+        org.apache.flink.core.fs.FileInputSplit $r2;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        r1 := @parameter0: org.apache.flink.core.io.InputSplit;
+
+        $r2 = (org.apache.flink.core.fs.FileInputSplit) r1;
+
+        virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: void open(org.apache.flink.core.fs.FileInputSplit)>($r2);
+
+        return;
+    }
+
+    public volatile org.apache.flink.api.common.io.statistics.BaseStatistics getStatistics(org.apache.flink.api.common.io.statistics.BaseStatistics) throws java.io.IOException
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        org.apache.flink.api.common.io.statistics.BaseStatistics r1;
+        org.apache.flink.api.common.io.FileInputFormat$FileBaseStatistics $r2;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        r1 := @parameter0: org.apache.flink.api.common.io.statistics.BaseStatistics;
+
+        $r2 = virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: org.apache.flink.api.common.io.FileInputFormat$FileBaseStatistics getStatistics(org.apache.flink.api.common.io.statistics.BaseStatistics)>(r1);
+
+        return $r2;
+    }
+
+    public volatile void reopen(org.apache.flink.core.io.InputSplit, java.io.Serializable) throws java.io.IOException
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        org.apache.flink.core.io.InputSplit r1;
+        java.io.Serializable r2;
+        java.lang.Long $r3;
+        org.apache.flink.core.fs.FileInputSplit $r4;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        r1 := @parameter0: org.apache.flink.core.io.InputSplit;
+
+        r2 := @parameter1: java.io.Serializable;
+
+        $r4 = (org.apache.flink.core.fs.FileInputSplit) r1;
+
+        $r3 = (java.lang.Long) r2;
+
+        virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: void reopen(org.apache.flink.core.fs.FileInputSplit,java.lang.Long)>($r4, $r3);
+
+        return;
+    }
+
+    public volatile java.io.Serializable getCurrentState() throws java.io.IOException
+    {
+        org.apache.flink.api.common.io.DelimitedInputFormat r0;
+        java.lang.Long $r1;
+
+        r0 := @this: org.apache.flink.api.common.io.DelimitedInputFormat;
+
+        $r1 = virtualinvoke r0.<org.apache.flink.api.common.io.DelimitedInputFormat: java.lang.Long getCurrentState()>();
+
+        return $r1;
+    }
+
+    static void <clinit>()
+    {
+        org.slf4j.Logger $r0;
+
+        <org.apache.flink.api.common.io.DelimitedInputFormat: java.lang.String NUM_STATISTICS_SAMPLES> = "delimited-format.numSamples";
+
+        <org.apache.flink.api.common.io.DelimitedInputFormat: java.lang.String RECORD_DELIMITER> = "delimited-format.delimiter";
+
+        <org.apache.flink.api.common.io.DelimitedInputFormat: int NUM_SAMPLES_UNDEFINED> = -1;
+
+        <org.apache.flink.api.common.io.DelimitedInputFormat: int DEFAULT_READ_BUFFER_SIZE> = 1048576;
+
+        <org.apache.flink.api.common.io.DelimitedInputFormat: long serialVersionUID> = 1L;
+
+        $r0 = staticinvoke <org.slf4j.LoggerFactory: org.slf4j.Logger getLogger(java.lang.Class)>(class "Lorg/apache/flink/api/common/io/DelimitedInputFormat;");
+
+        <org.apache.flink.api.common.io.DelimitedInputFormat: org.slf4j.Logger LOG> = $r0;
+
+        return;
+    }
+}

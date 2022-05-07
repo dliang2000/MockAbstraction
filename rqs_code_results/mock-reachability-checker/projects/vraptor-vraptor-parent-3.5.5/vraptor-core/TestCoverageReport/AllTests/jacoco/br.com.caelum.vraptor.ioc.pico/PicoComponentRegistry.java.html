@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PicoComponentRegistry.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.ioc.pico</a> &gt; <span class="el_source">PicoComponentRegistry.java</span></div><h1>PicoComponentRegistry.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package br.com.caelum.vraptor.ioc.pico;
+
+import java.lang.reflect.Constructor;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+
+import javax.servlet.http.HttpSession;
+
+import org.picocontainer.Characteristics;
+import org.picocontainer.ComponentAdapter;
+import org.picocontainer.ComponentMonitor;
+import org.picocontainer.DefaultPicoContainer;
+import org.picocontainer.MutablePicoContainer;
+import org.picocontainer.PicoContainer;
+import org.picocontainer.behaviors.Caching;
+import org.picocontainer.lifecycle.JavaEE5LifecycleStrategy;
+import org.picocontainer.monitors.NullComponentMonitor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import br.com.caelum.vraptor.core.RequestInfo;
+import br.com.caelum.vraptor.interceptor.TypeNameExtractor;
+import br.com.caelum.vraptor.ioc.AbstractComponentRegistry;
+import br.com.caelum.vraptor.ioc.ApplicationScoped;
+import br.com.caelum.vraptor.ioc.ComponentFactory;
+import br.com.caelum.vraptor.ioc.ComponentFactoryIntrospector;
+import br.com.caelum.vraptor.ioc.PrototypeScoped;
+import br.com.caelum.vraptor.ioc.SessionScoped;
+
+/**
+ * Provides containers, controlling all scopes and registering all different
+ * components on their respective areas.
+ *
+ * @author Guilherme Silveira
+ * @author Adriano Almeida
+ * @author Sérgio Lopes
+ */
+public class PicoComponentRegistry extends AbstractComponentRegistry {
+
+	public static final class AttributeSetterComponentMonitor extends NullComponentMonitor {
+		private static final long serialVersionUID = 1L;
+		private final AttributeSetter setter;
+		
+		public static interface AttributeSetter {
+			void setAttribute(String name, Object object);
+		}
+
+<span class="fc" id="L67">		public AttributeSetterComponentMonitor(AttributeSetter setter) {</span>
+<span class="fc" id="L68">			this.setter = setter;</span>
+<span class="fc" id="L69">		}</span>
+
+		@Override
+		public &lt;T&gt; void instantiated(PicoContainer container, ComponentAdapter&lt;T&gt; componentAdapter,
+				Constructor&lt;T&gt; constructor, Object instantiated, Object[] injected, long duration) {
+<span class="fc" id="L74">			final TypeNameExtractor extractor = container.getComponent(TypeNameExtractor.class);</span>
+<span class="fc" id="L75">			Object object = componentAdapter.getComponentKey();</span>
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">			if (object instanceof Class&lt;?&gt;) {</span>
+<span class="fc" id="L77">				Class&lt;?&gt; type = (Class&lt;?&gt;) object;</span>
+<span class="fc" id="L78">				setter.setAttribute(extractor.nameFor(type), instantiated);</span>
+<span class="pc bnc" id="L79" title="All 2 branches missed.">			} else if (instantiated != null){</span>
+<span class="nc" id="L80">				setter.setAttribute(extractor.nameFor(instantiated.getClass()), instantiated);</span>
+			}
+<span class="fc" id="L82">		}</span>
+	}
+
+<span class="fc" id="L85">	public static final String CONTAINER_SESSION_KEY = PicoComponentRegistry.class.getName() + &quot;.session&quot;;</span>
+
+<span class="fc" id="L87">	private static final Logger logger = LoggerFactory.getLogger(PicoComponentRegistry.class);</span>
+
+<span class="fc" id="L89">	private final Map&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt; applicationScoped = new HashMap&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt;();</span>
+<span class="fc" id="L90">	private final Map&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt; sessionScoped = new HashMap&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt;();</span>
+<span class="fc" id="L91">	private final Map&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt; requestScoped = new HashMap&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt;();</span>
+<span class="fc" id="L92">	private final Map&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt; prototypeScoped = new HashMap&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt;();</span>
+	private MutablePicoContainer appContainer;
+<span class="fc" id="L94">	private boolean initialized = false;</span>
+
+	private final ComponentFactoryRegistry componentFactoryRegistry;
+
+<span class="fc" id="L98">	public PicoComponentRegistry(MutablePicoContainer container, ComponentFactoryRegistry componentFactoryRegistry) {</span>
+<span class="fc" id="L99">	this.appContainer = container;</span>
+<span class="fc" id="L100">	this.componentFactoryRegistry = componentFactoryRegistry;</span>
+<span class="fc" id="L101">	}</span>
+
+	MutablePicoContainer makeChildContainer() {
+<span class="fc" id="L104">		this.appContainer = appContainer.makeChildContainer();</span>
+<span class="fc" id="L105">		return appContainer;</span>
+	}
+
+	public void register(Class&lt;?&gt; requiredType, Class&lt;?&gt; type) {
+<span class="fc" id="L109">	logger.debug(&quot;Registering {} with {}&quot;, requiredType.getName(), type.getName());</span>
+
+<span class="fc bfc" id="L111" title="All 2 branches covered.">	if (alreadyRegistered(requiredType)) {</span>
+<span class="fc" id="L112">		logger.debug(&quot;Overriding interface {} with {}&quot;, requiredType.getName(), type.getName());</span>
+	}
+<span class="fc" id="L114">	registerOnScope(requiredType, type);</span>
+
+<span class="fc" id="L116">	registerComponentFactory(requiredType, type);</span>
+<span class="fc" id="L117">	checkInitialization(requiredType, type);</span>
+<span class="fc" id="L118">	}</span>
+
+	private void registerOnScope(Class&lt;?&gt; requiredType, Class&lt;?&gt; type) {
+<span class="fc bfc" id="L121" title="All 2 branches covered.">		if (type.isAnnotationPresent(ApplicationScoped.class)) {</span>
+<span class="fc" id="L122">		logger.debug(&quot;Registering {} as an application component&quot;, type.getName());</span>
+<span class="fc" id="L123">		this.applicationScoped.put(requiredType, type);</span>
+<span class="fc bfc" id="L124" title="All 2 branches covered.">	} else if (type.isAnnotationPresent(SessionScoped.class)) {</span>
+<span class="fc" id="L125">		logger.debug(&quot;Registering {} as a session component&quot;, type.getName());</span>
+<span class="fc" id="L126">		this.sessionScoped.put(requiredType, type);</span>
+<span class="fc bfc" id="L127" title="All 2 branches covered.">	} else if (type.isAnnotationPresent(PrototypeScoped.class)) {</span>
+<span class="fc" id="L128">		logger.debug(&quot;Registering {} as a prototype component&quot;, type.getName());</span>
+<span class="fc" id="L129">		this.prototypeScoped.put(requiredType, type);</span>
+	} else {
+		// default behaviour: even without @RequestScoped
+<span class="fc" id="L132">		logger.debug(&quot;Registering {} as a request component&quot;, type.getName());</span>
+<span class="fc" id="L133">		this.requestScoped.put(requiredType, type);</span>
+	}
+<span class="fc" id="L135">	}</span>
+
+	private void checkInitialization(Class&lt;?&gt; requiredType, Class&lt;?&gt; type) {
+<span class="fc bfc" id="L138" title="All 4 branches covered.">		if (type.isAnnotationPresent(ApplicationScoped.class) &amp;&amp; initialized) {</span>
+<span class="fc" id="L139">			logger.warn(&quot;VRaptor was already initialized, the contexts were created but you are registering a component.&quot;</span>
+				+ &quot;This is nasty. The original component might already be in use.&quot;
+<span class="fc" id="L141">				+ &quot;Avoid doing it: &quot; + requiredType.getName());</span>
+<span class="fc" id="L142">			this.appContainer.addComponent(requiredType, type);</span>
+
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">			if (isComponentFactory(requiredType, type)) {</span>
+<span class="nc" id="L145">				Class&lt;?&gt; targetType = new ComponentFactoryIntrospector().targetTypeForComponentFactory(type);</span>
+<span class="nc" id="L146">				this.appContainer.addAdapter(new PicoComponentAdapter(targetType, (Class&lt;? extends ComponentFactory&lt;?&gt;&gt;) type));</span>
+			}
+		}
+<span class="fc" id="L149">	}</span>
+
+	private void registerComponentFactory(Class&lt;?&gt; requiredType, Class&lt;?&gt; type) {
+<span class="fc bfc" id="L152" title="All 2 branches covered.">		if (isComponentFactory(requiredType, type)) {</span>
+<span class="fc" id="L153">		componentFactoryRegistry.register((Class&lt;? extends ComponentFactory&lt;?&gt;&gt;) type);</span>
+	}
+<span class="fc" id="L155">	}</span>
+
+	private boolean isComponentFactory(Class&lt;?&gt; requiredType, Class&lt;?&gt; type) {
+<span class="fc bfc" id="L158" title="All 4 branches covered.">		return ComponentFactory.class.isAssignableFrom(type) &amp;&amp; !requiredType.equals(ComponentFactory.class);</span>
+	}
+
+	/**
+	 * Registers all application scoped elements into the container.
+	 */
+	public void init() {
+<span class="fc" id="L165">	logger.info(&quot;Initializing VRaptor IoC Container implementation based on PicoContainer&quot;);</span>
+
+<span class="fc bfc" id="L167" title="All 2 branches covered.">	for (Map.Entry&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt; entry : applicationScoped.entrySet()) {</span>
+<span class="fc" id="L168">		logger.debug(&quot;Initializing application scope with key: {}, for component: {}&quot;,</span>
+<span class="fc" id="L169">		entry.getKey(), entry.getValue());</span>
+<span class="fc" id="L170">		this.appContainer.addComponent(entry.getKey(), entry.getValue());</span>
+<span class="fc" id="L171">	}</span>
+
+<span class="fc" id="L173">	registerComponentFactories(appContainer, componentFactoryRegistry.getApplicationMap());</span>
+
+<span class="fc" id="L175">	logger.debug(&quot;Session components to initialize: {}&quot;, sessionScoped.keySet());</span>
+<span class="fc" id="L176">	logger.debug(&quot;Requets components to initialize: {}&quot;, requestScoped.keySet());</span>
+<span class="fc" id="L177">	this.initialized = true;</span>
+<span class="fc" id="L178">	}</span>
+
+	PicoBasedContainer provideRequestContainer(final RequestInfo request) {
+	MutablePicoContainer parentContainer;
+
+<span class="fc bfc" id="L183" title="All 2 branches covered.">	if (sessionScoped.isEmpty()) {</span>
+<span class="fc" id="L184">		logger.debug(&quot;There's no @SessionScoped component, so skipping session container creation&quot;);</span>
+<span class="fc" id="L185">		parentContainer = this.appContainer;</span>
+	} else {
+<span class="fc" id="L187">		parentContainer = getSessionContainer(request);</span>
+	}
+
+<span class="fc" id="L190">	logger.debug(&quot;Request components are {}&quot;, requestScoped);</span>
+<span class="fc" id="L191">	ComponentMonitor monitor = new AttributeSetterComponentMonitor(new AttributeSetterComponentMonitor.AttributeSetter() {</span>
+			public void setAttribute(String name, Object object) {
+<span class="fc" id="L193">				request.getRequest().setAttribute(name, object);</span>
+<span class="fc" id="L194">			}</span>
+		});
+<span class="fc" id="L196">		MutablePicoContainer requestContainer = new DefaultPicoContainer(new Caching(),</span>
+				new JavaEE5LifecycleStrategy(monitor), parentContainer, monitor);
+<span class="fc" id="L198">	requestContainer.addComponent(HttpSession.class, request.getRequest().getSession());</span>
+
+<span class="fc bfc" id="L200" title="All 2 branches covered.">	for (Map.Entry&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt; entry : requestScoped.entrySet()) {</span>
+<span class="fc" id="L201">		requestContainer.addComponent(entry.getKey(), entry.getValue());</span>
+<span class="fc" id="L202">	}</span>
+<span class="fc bfc" id="L203" title="All 2 branches covered.">	for (Map.Entry&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt; entry : prototypeScoped.entrySet()) {</span>
+<span class="fc" id="L204">		requestContainer.as(Characteristics.NO_CACHE).addComponent(entry.getKey(), entry.getValue());</span>
+<span class="fc" id="L205">	}</span>
+<span class="fc" id="L206">	requestContainer.addComponent(request).addComponent(request.getRequest()).addComponent(request.getResponse());</span>
+
+<span class="fc" id="L208">	registerComponentFactories(requestContainer, componentFactoryRegistry.getRequestMap());</span>
+
+<span class="fc" id="L210">	return new PicoBasedContainer(requestContainer);</span>
+	}
+
+	private MutablePicoContainer getSessionContainer(RequestInfo request) {
+<span class="fc" id="L214">		HttpSession session = request.getRequest().getSession();</span>
+<span class="fc" id="L215">	MutablePicoContainer sessionScope = (MutablePicoContainer) session.getAttribute(CONTAINER_SESSION_KEY);</span>
+<span class="pc bpc" id="L216" title="1 of 2 branches missed.">	if (sessionScope == null) {</span>
+<span class="fc" id="L217">		sessionScope = createSessionContainer(session);</span>
+	}
+<span class="fc" id="L219">		return sessionScope;</span>
+	}
+
+	private boolean alreadyRegistered(Class&lt;?&gt; interfaceType) {
+<span class="fc bfc" id="L223" title="All 2 branches covered.">	for (Map&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt; scope : new Map[]{applicationScoped, sessionScoped, requestScoped, prototypeScoped}) {</span>
+<span class="fc bfc" id="L224" title="All 2 branches covered.">		if (scope.containsKey(interfaceType)) {</span>
+<span class="fc" id="L225">		scope.remove(interfaceType);</span>
+<span class="fc" id="L226">		return true;</span>
+		}
+	}
+<span class="fc" id="L229">	return false;</span>
+	}
+
+	private MutablePicoContainer createSessionContainer(final HttpSession session) {
+<span class="fc" id="L233">		ComponentMonitor monitor = new AttributeSetterComponentMonitor(new AttributeSetterComponentMonitor.AttributeSetter() {</span>
+			public void setAttribute(String name, Object object) {
+<span class="fc" id="L235">				session.setAttribute(name, object);</span>
+<span class="fc" id="L236">			}</span>
+		});
+<span class="fc" id="L238">	MutablePicoContainer sessionContainer = new DefaultPicoContainer(new Caching(), </span>
+			new JavaEE5LifecycleStrategy(monitor), this.appContainer, monitor);
+
+<span class="fc" id="L241">	sessionContainer.addComponent(HttpSession.class, session);</span>
+<span class="fc" id="L242">	session.setAttribute(CONTAINER_SESSION_KEY, sessionContainer);</span>
+
+<span class="fc" id="L244">	logger.debug(&quot;Session components are {}&quot;, sessionScoped);</span>
+
+<span class="fc bfc" id="L246" title="All 2 branches covered.">	for (Map.Entry&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt; entry : sessionScoped.entrySet()) {</span>
+<span class="fc" id="L247">		sessionContainer.addComponent(entry.getKey(), entry.getValue());</span>
+<span class="fc" id="L248">	}</span>
+
+<span class="fc" id="L250">	registerComponentFactories(sessionContainer, componentFactoryRegistry.getSessionMap());</span>
+
+<span class="fc" id="L252">	sessionContainer.start();</span>
+<span class="fc" id="L253">	return sessionContainer;</span>
+	}
+
+	/**
+	 * Register all component factories found in classpath scanning
+	 *
+	 * @param container
+	 * @param componentFactoryMap
+	 */
+	private void registerComponentFactories(MutablePicoContainer container, Map&lt;Class&lt;?&gt;, Class&lt;? extends ComponentFactory&gt;&gt; componentFactoryMap) {
+<span class="fc bfc" id="L263" title="All 2 branches covered.">	for (Class&lt;?&gt; targetType : componentFactoryMap.keySet()) {</span>
+<span class="fc" id="L264">		container.addAdapter(new PicoComponentAdapter(targetType, componentFactoryMap.get(targetType)));</span>
+<span class="fc" id="L265">	}</span>
+<span class="fc" id="L266">	}</span>
+
+	public Collection&lt;Class&lt;?&gt;&gt; getAllRegisteredApplicationScopedComponents() {
+<span class="fc" id="L269">		Collection&lt;Class&lt;?&gt;&gt; components = new HashSet&lt;Class&lt;?&gt;&gt;();</span>
+<span class="fc" id="L270">		components.addAll(applicationScoped.values());</span>
+<span class="fc" id="L271">		components.addAll(sessionScoped.values());</span>
+<span class="fc" id="L272">		components.addAll(requestScoped.values());</span>
+<span class="fc" id="L273">		components.addAll(prototypeScoped.values());</span>
+<span class="fc" id="L274">		return components;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

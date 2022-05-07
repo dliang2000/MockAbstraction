@@ -1,0 +1,1623 @@
+public class org.apache.flink.core.fs.LimitedConnectionsFileSystem extends org.apache.flink.core.fs.FileSystem
+{
+    private static final org.slf4j.Logger LOG;
+    private final org.apache.flink.core.fs.FileSystem originalFs;
+    private final java.util.concurrent.locks.ReentrantLock lock;
+    private final java.util.concurrent.locks.Condition available;
+    private final int maxNumOpenOutputStreams;
+    private final int maxNumOpenInputStreams;
+    private final int maxNumOpenStreamsTotal;
+    private final long streamOpenTimeoutNanos;
+    private final long streamInactivityTimeoutNanos;
+    private final java.util.HashSet openOutputStreams;
+    private final java.util.HashSet openInputStreams;
+    private int numReservedOutputStreams;
+    private int numReservedInputStreams;
+    static final boolean $assertionsDisabled;
+
+    public void <init>(org.apache.flink.core.fs.FileSystem, int)
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.FileSystem r1;
+        int i0;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.FileSystem;
+
+        i0 := @parameter1: int;
+
+        specialinvoke r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: void <init>(org.apache.flink.core.fs.FileSystem,int,long,long)>(r1, i0, 0L, 0L);
+
+        return;
+    }
+
+    public void <init>(org.apache.flink.core.fs.FileSystem, int, long, long)
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.FileSystem r1;
+        int i0;
+        long l1, l2;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.FileSystem;
+
+        i0 := @parameter1: int;
+
+        l1 := @parameter2: long;
+
+        l2 := @parameter3: long;
+
+        specialinvoke r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: void <init>(org.apache.flink.core.fs.FileSystem,int,int,int,long,long)>(r1, i0, 0, 0, l1, l2);
+
+        return;
+    }
+
+    public void <init>(org.apache.flink.core.fs.FileSystem, int, int, int, long, long)
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.FileSystem r1, $r3;
+        int i0, i1, i2;
+        long l3, l4, l5, l6, $l11, $l12;
+        byte $b7, $b8, $b9, $b10;
+        java.lang.Object $r2;
+        java.util.concurrent.locks.ReentrantLock $r4, $r5;
+        java.util.concurrent.locks.Condition $r6;
+        java.util.HashSet $r7, $r8;
+        boolean $z0, $z1, $z2, $z3, $z4;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.FileSystem;
+
+        i0 := @parameter1: int;
+
+        i1 := @parameter2: int;
+
+        i2 := @parameter3: int;
+
+        l3 := @parameter4: long;
+
+        l4 := @parameter5: long;
+
+        specialinvoke r0.<org.apache.flink.core.fs.FileSystem: void <init>()>();
+
+        if i0 < 0 goto label01;
+
+        $z0 = 1;
+
+        goto label02;
+
+     label01:
+        $z0 = 0;
+
+     label02:
+        staticinvoke <org.apache.flink.util.Preconditions: void checkArgument(boolean,java.lang.Object)>($z0, "maxNumOpenStreamsTotal must be >= 0");
+
+        if i1 < 0 goto label03;
+
+        $z1 = 1;
+
+        goto label04;
+
+     label03:
+        $z1 = 0;
+
+     label04:
+        staticinvoke <org.apache.flink.util.Preconditions: void checkArgument(boolean,java.lang.Object)>($z1, "maxNumOpenOutputStreams must be >= 0");
+
+        if i2 < 0 goto label05;
+
+        $z2 = 1;
+
+        goto label06;
+
+     label05:
+        $z2 = 0;
+
+     label06:
+        staticinvoke <org.apache.flink.util.Preconditions: void checkArgument(boolean,java.lang.Object)>($z2, "maxNumOpenInputStreams must be >= 0");
+
+        $b7 = l3 cmp 0L;
+
+        if $b7 < 0 goto label07;
+
+        $z3 = 1;
+
+        goto label08;
+
+     label07:
+        $z3 = 0;
+
+     label08:
+        staticinvoke <org.apache.flink.util.Preconditions: void checkArgument(boolean,java.lang.Object)>($z3, "stream opening timeout must be >= 0 (0 means infinite timeout)");
+
+        $b8 = l4 cmp 0L;
+
+        if $b8 < 0 goto label09;
+
+        $z4 = 1;
+
+        goto label10;
+
+     label09:
+        $z4 = 0;
+
+     label10:
+        staticinvoke <org.apache.flink.util.Preconditions: void checkArgument(boolean,java.lang.Object)>($z4, "stream inactivity timeout must be >= 0 (0 means infinite timeout)");
+
+        $r2 = staticinvoke <org.apache.flink.util.Preconditions: java.lang.Object checkNotNull(java.lang.Object,java.lang.String)>(r1, "originalFs");
+
+        $r3 = (org.apache.flink.core.fs.FileSystem) $r2;
+
+        r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs> = $r3;
+
+        $r4 = new java.util.concurrent.locks.ReentrantLock;
+
+        specialinvoke $r4.<java.util.concurrent.locks.ReentrantLock: void <init>(boolean)>(1);
+
+        r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock> = $r4;
+
+        $r5 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        $r6 = virtualinvoke $r5.<java.util.concurrent.locks.ReentrantLock: java.util.concurrent.locks.Condition newCondition()>();
+
+        r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.Condition available> = $r6;
+
+        $r7 = new java.util.HashSet;
+
+        specialinvoke $r7.<java.util.HashSet: void <init>()>();
+
+        r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.HashSet openOutputStreams> = $r7;
+
+        $r8 = new java.util.HashSet;
+
+        specialinvoke $r8.<java.util.HashSet: void <init>()>();
+
+        r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.HashSet openInputStreams> = $r8;
+
+        r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int maxNumOpenStreamsTotal> = i0;
+
+        r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int maxNumOpenOutputStreams> = i1;
+
+        r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int maxNumOpenInputStreams> = i2;
+
+        l5 = l3 * 1000000L;
+
+        l6 = l4 * 1000000L;
+
+        $b9 = l5 cmp l3;
+
+        if $b9 < 0 goto label11;
+
+        $l11 = l5;
+
+        goto label12;
+
+     label11:
+        $l11 = 9223372036854775807L;
+
+     label12:
+        r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: long streamOpenTimeoutNanos> = $l11;
+
+        $b10 = l6 cmp l4;
+
+        if $b10 < 0 goto label13;
+
+        $l12 = l6;
+
+        goto label14;
+
+     label13:
+        $l12 = 9223372036854775807L;
+
+     label14:
+        r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: long streamInactivityTimeoutNanos> = $l12;
+
+        return;
+    }
+
+    public int getMaxNumOpenOutputStreams()
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        int $i0;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        $i0 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int maxNumOpenOutputStreams>;
+
+        return $i0;
+    }
+
+    public int getMaxNumOpenInputStreams()
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        int $i0;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        $i0 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int maxNumOpenInputStreams>;
+
+        return $i0;
+    }
+
+    public int getMaxNumOpenStreamsTotal()
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        int $i0;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        $i0 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int maxNumOpenStreamsTotal>;
+
+        return $i0;
+    }
+
+    public long getStreamOpenTimeout()
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        long $l0, $l1;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        $l0 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: long streamOpenTimeoutNanos>;
+
+        $l1 = $l0 / 1000000L;
+
+        return $l1;
+    }
+
+    public long getStreamInactivityTimeout()
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        long $l0, $l1;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        $l0 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: long streamInactivityTimeoutNanos>;
+
+        $l1 = $l0 / 1000000L;
+
+        return $l1;
+    }
+
+    public int getTotalNumberOfOpenStreams()
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        int i0, $i1, $i2;
+        java.util.concurrent.locks.ReentrantLock $r2, $r3, $r5;
+        java.lang.Throwable $r4;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        $r2 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r2.<java.util.concurrent.locks.ReentrantLock: void lock()>();
+
+     label1:
+        $i2 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedOutputStreams>;
+
+        $i1 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedInputStreams>;
+
+        i0 = $i2 + $i1;
+
+     label2:
+        $r3 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r3.<java.util.concurrent.locks.ReentrantLock: void unlock()>();
+
+        return i0;
+
+     label3:
+        $r4 := @caughtexception;
+
+        $r5 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r5.<java.util.concurrent.locks.ReentrantLock: void unlock()>();
+
+        throw $r4;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+    }
+
+    public int getNumberOfOpenOutputStreams()
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        int i0;
+        java.util.concurrent.locks.ReentrantLock $r2, $r3, $r5;
+        java.lang.Throwable $r4;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        $r2 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r2.<java.util.concurrent.locks.ReentrantLock: void lock()>();
+
+     label1:
+        i0 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedOutputStreams>;
+
+     label2:
+        $r3 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r3.<java.util.concurrent.locks.ReentrantLock: void unlock()>();
+
+        return i0;
+
+     label3:
+        $r4 := @caughtexception;
+
+        $r5 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r5.<java.util.concurrent.locks.ReentrantLock: void unlock()>();
+
+        throw $r4;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+    }
+
+    public int getNumberOfOpenInputStreams()
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        int $i0;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        $i0 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedInputStreams>;
+
+        return $i0;
+    }
+
+    public org.apache.flink.core.fs.FSDataOutputStream create(org.apache.flink.core.fs.Path, org.apache.flink.core.fs.FileSystem$WriteMode) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.Path r1;
+        org.apache.flink.core.fs.FileSystem$WriteMode r2;
+        org.apache.flink.util.function.SupplierWithException $r3;
+        org.apache.flink.core.fs.FSDataOutputStream $r4;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.Path;
+
+        r2 := @parameter1: org.apache.flink.core.fs.FileSystem$WriteMode;
+
+        $r3 = staticinvoke <org.apache.flink.core.fs.LimitedConnectionsFileSystem$lambda_create_0__171: org.apache.flink.util.function.SupplierWithException bootstrap$(org.apache.flink.core.fs.LimitedConnectionsFileSystem,org.apache.flink.core.fs.Path,org.apache.flink.core.fs.FileSystem$WriteMode)>(r0, r1, r2);
+
+        $r4 = specialinvoke r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FSDataOutputStream createOutputStream(org.apache.flink.util.function.SupplierWithException)>($r3);
+
+        return $r4;
+    }
+
+    public org.apache.flink.core.fs.FSDataOutputStream create(org.apache.flink.core.fs.Path, boolean, int, short, long) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.Path r1;
+        boolean z0;
+        int i0;
+        short s1;
+        long l2;
+        org.apache.flink.util.function.SupplierWithException $r2;
+        org.apache.flink.core.fs.FSDataOutputStream $r3;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.Path;
+
+        z0 := @parameter1: boolean;
+
+        i0 := @parameter2: int;
+
+        s1 := @parameter3: short;
+
+        l2 := @parameter4: long;
+
+        $r2 = staticinvoke <org.apache.flink.core.fs.LimitedConnectionsFileSystem$lambda_create_1__189: org.apache.flink.util.function.SupplierWithException bootstrap$(org.apache.flink.core.fs.LimitedConnectionsFileSystem,org.apache.flink.core.fs.Path,boolean,int,short,long)>(r0, r1, z0, i0, s1, l2);
+
+        $r3 = specialinvoke r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FSDataOutputStream createOutputStream(org.apache.flink.util.function.SupplierWithException)>($r2);
+
+        return $r3;
+    }
+
+    public org.apache.flink.core.fs.FSDataInputStream open(org.apache.flink.core.fs.Path, int) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.Path r1;
+        int i0;
+        org.apache.flink.util.function.SupplierWithException $r2;
+        org.apache.flink.core.fs.FSDataInputStream $r3;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.Path;
+
+        i0 := @parameter1: int;
+
+        $r2 = staticinvoke <org.apache.flink.core.fs.LimitedConnectionsFileSystem$lambda_open_2__188: org.apache.flink.util.function.SupplierWithException bootstrap$(org.apache.flink.core.fs.LimitedConnectionsFileSystem,org.apache.flink.core.fs.Path,int)>(r0, r1, i0);
+
+        $r3 = specialinvoke r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FSDataInputStream createInputStream(org.apache.flink.util.function.SupplierWithException)>($r2);
+
+        return $r3;
+    }
+
+    public org.apache.flink.core.fs.FSDataInputStream open(org.apache.flink.core.fs.Path) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.Path r1;
+        org.apache.flink.util.function.SupplierWithException $r2;
+        org.apache.flink.core.fs.FSDataInputStream $r3;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.Path;
+
+        $r2 = staticinvoke <org.apache.flink.core.fs.LimitedConnectionsFileSystem$lambda_open_3__185: org.apache.flink.util.function.SupplierWithException bootstrap$(org.apache.flink.core.fs.LimitedConnectionsFileSystem,org.apache.flink.core.fs.Path)>(r0, r1);
+
+        $r3 = specialinvoke r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FSDataInputStream createInputStream(org.apache.flink.util.function.SupplierWithException)>($r2);
+
+        return $r3;
+    }
+
+    private org.apache.flink.core.fs.FSDataOutputStream createOutputStream(org.apache.flink.util.function.SupplierWithException) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.util.function.SupplierWithException r1, r2;
+        java.util.HashSet $r3;
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamWithTimeout $r4;
+        org.apache.flink.core.fs.FSDataOutputStream $r5;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.util.function.SupplierWithException;
+
+        r2 = staticinvoke <org.apache.flink.core.fs.LimitedConnectionsFileSystem$lambda_createOutputStream_4__277: org.apache.flink.util.function.SupplierWithException bootstrap$(org.apache.flink.core.fs.LimitedConnectionsFileSystem,org.apache.flink.util.function.SupplierWithException)>(r0, r1);
+
+        $r3 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.HashSet openOutputStreams>;
+
+        $r4 = specialinvoke r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamWithTimeout createStream(org.apache.flink.util.function.SupplierWithException,java.util.HashSet,boolean)>(r2, $r3, 1);
+
+        $r5 = (org.apache.flink.core.fs.FSDataOutputStream) $r4;
+
+        return $r5;
+    }
+
+    private org.apache.flink.core.fs.FSDataInputStream createInputStream(org.apache.flink.util.function.SupplierWithException) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.util.function.SupplierWithException r1, r2;
+        java.util.HashSet $r3;
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamWithTimeout $r4;
+        org.apache.flink.core.fs.FSDataInputStream $r5;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.util.function.SupplierWithException;
+
+        r2 = staticinvoke <org.apache.flink.core.fs.LimitedConnectionsFileSystem$lambda_createInputStream_5__286: org.apache.flink.util.function.SupplierWithException bootstrap$(org.apache.flink.core.fs.LimitedConnectionsFileSystem,org.apache.flink.util.function.SupplierWithException)>(r0, r1);
+
+        $r3 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.HashSet openInputStreams>;
+
+        $r4 = specialinvoke r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamWithTimeout createStream(org.apache.flink.util.function.SupplierWithException,java.util.HashSet,boolean)>(r2, $r3, 0);
+
+        $r5 = (org.apache.flink.core.fs.FSDataInputStream) $r4;
+
+        return $r5;
+    }
+
+    public org.apache.flink.core.fs.FileSystemKind getKind()
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.FileSystem $r1;
+        org.apache.flink.core.fs.FileSystemKind $r2;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        $r1 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs>;
+
+        $r2 = virtualinvoke $r1.<org.apache.flink.core.fs.FileSystem: org.apache.flink.core.fs.FileSystemKind getKind()>();
+
+        return $r2;
+    }
+
+    public boolean isDistributedFS()
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.FileSystem $r1;
+        boolean $z0;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        $r1 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs>;
+
+        $z0 = virtualinvoke $r1.<org.apache.flink.core.fs.FileSystem: boolean isDistributedFS()>();
+
+        return $z0;
+    }
+
+    public org.apache.flink.core.fs.Path getWorkingDirectory()
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.FileSystem $r1;
+        org.apache.flink.core.fs.Path $r2;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        $r1 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs>;
+
+        $r2 = virtualinvoke $r1.<org.apache.flink.core.fs.FileSystem: org.apache.flink.core.fs.Path getWorkingDirectory()>();
+
+        return $r2;
+    }
+
+    public org.apache.flink.core.fs.Path getHomeDirectory()
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.FileSystem $r1;
+        org.apache.flink.core.fs.Path $r2;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        $r1 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs>;
+
+        $r2 = virtualinvoke $r1.<org.apache.flink.core.fs.FileSystem: org.apache.flink.core.fs.Path getHomeDirectory()>();
+
+        return $r2;
+    }
+
+    public java.net.URI getUri()
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.FileSystem $r1;
+        java.net.URI $r2;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        $r1 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs>;
+
+        $r2 = virtualinvoke $r1.<org.apache.flink.core.fs.FileSystem: java.net.URI getUri()>();
+
+        return $r2;
+    }
+
+    public org.apache.flink.core.fs.FileStatus getFileStatus(org.apache.flink.core.fs.Path) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.Path r1;
+        org.apache.flink.core.fs.FileSystem $r2;
+        org.apache.flink.core.fs.FileStatus $r3;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.Path;
+
+        $r2 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs>;
+
+        $r3 = virtualinvoke $r2.<org.apache.flink.core.fs.FileSystem: org.apache.flink.core.fs.FileStatus getFileStatus(org.apache.flink.core.fs.Path)>(r1);
+
+        return $r3;
+    }
+
+    public org.apache.flink.core.fs.BlockLocation[] getFileBlockLocations(org.apache.flink.core.fs.FileStatus, long, long) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.FileStatus r1;
+        long l0, l1;
+        org.apache.flink.core.fs.FileSystem $r2;
+        org.apache.flink.core.fs.BlockLocation[] $r3;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.FileStatus;
+
+        l0 := @parameter1: long;
+
+        l1 := @parameter2: long;
+
+        $r2 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs>;
+
+        $r3 = virtualinvoke $r2.<org.apache.flink.core.fs.FileSystem: org.apache.flink.core.fs.BlockLocation[] getFileBlockLocations(org.apache.flink.core.fs.FileStatus,long,long)>(r1, l0, l1);
+
+        return $r3;
+    }
+
+    public org.apache.flink.core.fs.FileStatus[] listStatus(org.apache.flink.core.fs.Path) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.Path r1;
+        org.apache.flink.core.fs.FileSystem $r2;
+        org.apache.flink.core.fs.FileStatus[] $r3;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.Path;
+
+        $r2 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs>;
+
+        $r3 = virtualinvoke $r2.<org.apache.flink.core.fs.FileSystem: org.apache.flink.core.fs.FileStatus[] listStatus(org.apache.flink.core.fs.Path)>(r1);
+
+        return $r3;
+    }
+
+    public boolean delete(org.apache.flink.core.fs.Path, boolean) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.Path r1;
+        boolean z0, $z1;
+        org.apache.flink.core.fs.FileSystem $r2;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.Path;
+
+        z0 := @parameter1: boolean;
+
+        $r2 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs>;
+
+        $z1 = virtualinvoke $r2.<org.apache.flink.core.fs.FileSystem: boolean delete(org.apache.flink.core.fs.Path,boolean)>(r1, z0);
+
+        return $z1;
+    }
+
+    public boolean mkdirs(org.apache.flink.core.fs.Path) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.Path r1;
+        org.apache.flink.core.fs.FileSystem $r2;
+        boolean $z0;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.Path;
+
+        $r2 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs>;
+
+        $z0 = virtualinvoke $r2.<org.apache.flink.core.fs.FileSystem: boolean mkdirs(org.apache.flink.core.fs.Path)>(r1);
+
+        return $z0;
+    }
+
+    public boolean rename(org.apache.flink.core.fs.Path, org.apache.flink.core.fs.Path) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.Path r1, r2;
+        org.apache.flink.core.fs.FileSystem $r3;
+        boolean $z0;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.Path;
+
+        r2 := @parameter1: org.apache.flink.core.fs.Path;
+
+        $r3 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs>;
+
+        $z0 = virtualinvoke $r3.<org.apache.flink.core.fs.FileSystem: boolean rename(org.apache.flink.core.fs.Path,org.apache.flink.core.fs.Path)>(r1, r2);
+
+        return $z0;
+    }
+
+    public boolean exists(org.apache.flink.core.fs.Path) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.Path r1;
+        org.apache.flink.core.fs.FileSystem $r2;
+        boolean $z0;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.Path;
+
+        $r2 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs>;
+
+        $z0 = virtualinvoke $r2.<org.apache.flink.core.fs.FileSystem: boolean exists(org.apache.flink.core.fs.Path)>(r1);
+
+        return $z0;
+    }
+
+    public long getDefaultBlockSize()
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.FileSystem $r1;
+        long $l0;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        $r1 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs>;
+
+        $l0 = virtualinvoke $r1.<org.apache.flink.core.fs.FileSystem: long getDefaultBlockSize()>();
+
+        return $l0;
+    }
+
+    private org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamWithTimeout createStream(org.apache.flink.util.function.SupplierWithException, java.util.HashSet, boolean) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.util.function.SupplierWithException r1;
+        java.util.HashSet r2, $r15, $r19;
+        boolean z0, $z1, $z2, z4;
+        int i0, i1, i2, $i5, $i6, $i7, $i8, $i13, $i14, $i15, $i16, $i17, $i18, $i19, $i20, $i21, $i22, $i23, $i24, $i25, $i26;
+        byte b3, b4, $b27, $b28;
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamWithTimeout r3;
+        java.util.concurrent.locks.ReentrantLock $r7, $r8, $r10, $r11, $r22, $r24, $r26, $r31, $r35;
+        java.lang.Object $r9;
+        java.lang.AssertionError $r18, $r20;
+        java.lang.Throwable $r21, $r23, $r30, $r34;
+        java.util.concurrent.locks.Condition $r25;
+        java.lang.InterruptedException $r27;
+        java.lang.Thread $r28;
+        java.io.IOException $r29;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.util.function.SupplierWithException;
+
+        r2 := @parameter1: java.util.HashSet;
+
+        z0 := @parameter2: boolean;
+
+        if z0 == 0 goto label01;
+
+        $i18 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int maxNumOpenOutputStreams>;
+
+        if $i18 <= 0 goto label01;
+
+        $i23 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int maxNumOpenOutputStreams>;
+
+        goto label02;
+
+     label01:
+        $i23 = 2147483647;
+
+     label02:
+        i0 = $i23;
+
+        if z0 != 0 goto label03;
+
+        $i17 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int maxNumOpenInputStreams>;
+
+        if $i17 <= 0 goto label03;
+
+        $i24 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int maxNumOpenInputStreams>;
+
+        goto label04;
+
+     label03:
+        $i24 = 2147483647;
+
+     label04:
+        i1 = $i24;
+
+        $i25 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int maxNumOpenStreamsTotal>;
+
+        if $i25 <= 0 goto label05;
+
+        $i26 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int maxNumOpenStreamsTotal>;
+
+        goto label06;
+
+     label05:
+        $i26 = 2147483647;
+
+     label06:
+        i2 = $i26;
+
+        if z0 == 0 goto label07;
+
+        $b27 = 1;
+
+        goto label08;
+
+     label07:
+        $b27 = 0;
+
+     label08:
+        b3 = $b27;
+
+        if z0 == 0 goto label09;
+
+        $b28 = 0;
+
+        goto label10;
+
+     label09:
+        $b28 = 1;
+
+     label10:
+        b4 = $b28;
+
+     label11:
+        $r7 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r7.<java.util.concurrent.locks.ReentrantLock: void lockInterruptibly()>();
+
+     label12:
+        $z1 = <org.apache.flink.core.fs.LimitedConnectionsFileSystem: boolean $assertionsDisabled>;
+
+        if $z1 != 0 goto label13;
+
+        $r19 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.HashSet openOutputStreams>;
+
+        $i15 = virtualinvoke $r19.<java.util.HashSet: int size()>();
+
+        $i16 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedOutputStreams>;
+
+        if $i15 <= $i16 goto label13;
+
+        $r20 = new java.lang.AssertionError;
+
+        specialinvoke $r20.<java.lang.AssertionError: void <init>()>();
+
+        throw $r20;
+
+     label13:
+        $z2 = <org.apache.flink.core.fs.LimitedConnectionsFileSystem: boolean $assertionsDisabled>;
+
+        if $z2 != 0 goto label14;
+
+        $r15 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.HashSet openInputStreams>;
+
+        $i13 = virtualinvoke $r15.<java.util.HashSet: int size()>();
+
+        $i14 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedInputStreams>;
+
+        if $i13 <= $i14 goto label14;
+
+        $r18 = new java.lang.AssertionError;
+
+        specialinvoke $r18.<java.lang.AssertionError: void <init>()>();
+
+        throw $r18;
+
+     label14:
+        specialinvoke r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: void waitForAvailability(int,int,int)>(i2, i0, i1);
+
+        $i5 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedOutputStreams>;
+
+        $i6 = $i5 + b3;
+
+        r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedOutputStreams> = $i6;
+
+        $i7 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedInputStreams>;
+
+        $i8 = $i7 + b4;
+
+        r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedInputStreams> = $i8;
+
+     label15:
+        $r8 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r8.<java.util.concurrent.locks.ReentrantLock: void unlock()>();
+
+        goto label18;
+
+     label16:
+        $r21 := @caughtexception;
+
+     label17:
+        $r22 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r22.<java.util.concurrent.locks.ReentrantLock: void unlock()>();
+
+        throw $r21;
+
+     label18:
+        goto label20;
+
+     label19:
+        $r27 := @caughtexception;
+
+        $r28 = staticinvoke <java.lang.Thread: java.lang.Thread currentThread()>();
+
+        virtualinvoke $r28.<java.lang.Thread: void interrupt()>();
+
+        $r29 = new java.io.IOException;
+
+        specialinvoke $r29.<java.io.IOException: void <init>(java.lang.String)>("interrupted before opening stream");
+
+        throw $r29;
+
+     label20:
+        z4 = 0;
+
+     label21:
+        $r9 = interfaceinvoke r1.<org.apache.flink.util.function.SupplierWithException: java.lang.Object get()>();
+
+        r3 = (org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamWithTimeout) $r9;
+
+        $r10 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r10.<java.util.concurrent.locks.ReentrantLock: void lock()>();
+
+     label22:
+        virtualinvoke r2.<java.util.HashSet: boolean add(java.lang.Object)>(r3);
+
+     label23:
+        $r11 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r11.<java.util.concurrent.locks.ReentrantLock: void unlock()>();
+
+        goto label26;
+
+     label24:
+        $r34 := @caughtexception;
+
+     label25:
+        $r35 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r35.<java.util.concurrent.locks.ReentrantLock: void unlock()>();
+
+        throw $r34;
+
+     label26:
+        z4 = 1;
+
+     label27:
+        goto label28;
+
+     label28:
+        return r3;
+
+     label29:
+        $r23 := @caughtexception;
+
+     label30:
+        if z4 != 0 goto label35;
+
+        $r24 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r24.<java.util.concurrent.locks.ReentrantLock: void lock()>();
+
+     label31:
+        $i19 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedOutputStreams>;
+
+        $i20 = $i19 - b3;
+
+        r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedOutputStreams> = $i20;
+
+        $i21 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedInputStreams>;
+
+        $i22 = $i21 - b4;
+
+        r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedInputStreams> = $i22;
+
+        $r25 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.Condition available>;
+
+        interfaceinvoke $r25.<java.util.concurrent.locks.Condition: void signalAll()>();
+
+     label32:
+        $r26 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r26.<java.util.concurrent.locks.ReentrantLock: void unlock()>();
+
+        goto label35;
+
+     label33:
+        $r30 := @caughtexception;
+
+     label34:
+        $r31 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r31.<java.util.concurrent.locks.ReentrantLock: void unlock()>();
+
+        throw $r30;
+
+     label35:
+        throw $r23;
+
+        catch java.lang.Throwable from label12 to label15 with label16;
+        catch java.lang.Throwable from label16 to label17 with label16;
+        catch java.lang.InterruptedException from label11 to label18 with label19;
+        catch java.lang.Throwable from label22 to label23 with label24;
+        catch java.lang.Throwable from label24 to label25 with label24;
+        catch java.lang.Throwable from label21 to label27 with label29;
+        catch java.lang.Throwable from label31 to label32 with label33;
+        catch java.lang.Throwable from label33 to label34 with label33;
+        catch java.lang.Throwable from label29 to label30 with label29;
+    }
+
+    private void waitForAvailability(int, int, int) throws java.lang.InterruptedException, java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        int i0, i1, i2, $i13, $i14, $i15, $i16, $i17;
+        long l3, l5, $l6, $l8, $l9, $l11, $l12, $l18, $l19, $l20, l22, l23, $l24, $l25, l27, $l28, $l29;
+        java.util.concurrent.locks.ReentrantLock $r1;
+        boolean $z0, $z1, $z2, $z3, $z4, $z6;
+        byte $b7, $b10, $b21, $b26, $b30, $b31;
+        java.io.IOException $r2;
+        java.lang.Object[] $r3;
+        java.lang.Integer $r4, $r5, $r6, $r7, $r8;
+        java.lang.Long $r9;
+        java.lang.String $r10;
+        java.util.HashSet $r11, $r12;
+        java.util.concurrent.TimeUnit $r13, $r15;
+        java.util.concurrent.locks.Condition $r14, $r16;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        i0 := @parameter0: int;
+
+        i1 := @parameter1: int;
+
+        i2 := @parameter2: int;
+
+        $r1 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        $z0 = virtualinvoke $r1.<java.util.concurrent.locks.ReentrantLock: boolean isHeldByCurrentThread()>();
+
+        staticinvoke <org.apache.flink.util.Preconditions: void checkState(boolean)>($z0);
+
+        $l6 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: long streamOpenTimeoutNanos>;
+
+        $b7 = $l6 cmp 0L;
+
+        if $b7 != 0 goto label1;
+
+        l22 = 9223372036854775807L;
+
+        goto label4;
+
+     label1:
+        $l8 = staticinvoke <java.lang.System: long nanoTime()>();
+
+        $l9 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: long streamOpenTimeoutNanos>;
+
+        l23 = $l8 + $l9;
+
+        $b10 = l23 cmp 0L;
+
+        if $b10 <= 0 goto label2;
+
+        $l24 = l23;
+
+        goto label3;
+
+     label2:
+        $l24 = 9223372036854775807L;
+
+     label3:
+        l22 = $l24;
+
+     label4:
+        $l25 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: long streamInactivityTimeoutNanos>;
+
+        $b26 = $l25 cmp 0L;
+
+        if $b26 != 0 goto label6;
+
+     label5:
+        $l19 = staticinvoke <java.lang.System: long nanoTime()>();
+
+        $l20 = l22 - $l19;
+
+        l27 = $l20;
+
+        $b21 = $l20 cmp 0L;
+
+        if $b21 <= 0 goto label8;
+
+        $z6 = specialinvoke r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: boolean hasAvailability(int,int,int)>(i0, i1, i2);
+
+        if $z6 != 0 goto label8;
+
+        $r16 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.Condition available>;
+
+        $r15 = <java.util.concurrent.TimeUnit: java.util.concurrent.TimeUnit NANOSECONDS>;
+
+        interfaceinvoke $r16.<java.util.concurrent.locks.Condition: boolean await(long,java.util.concurrent.TimeUnit)>($l20, $r15);
+
+        goto label5;
+
+     label6:
+        $l11 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: long streamInactivityTimeoutNanos>;
+
+        $l12 = $l11 >>> 1;
+
+        l3 = $l12 + 1L;
+
+     label7:
+        $l28 = staticinvoke <java.lang.System: long nanoTime()>();
+
+        $l29 = l22 - $l28;
+
+        l27 = $l29;
+
+        $b30 = $l29 cmp 0L;
+
+        if $b30 <= 0 goto label8;
+
+        $z2 = specialinvoke r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: boolean hasAvailability(int,int,int)>(i0, i1, i2);
+
+        if $z2 != 0 goto label8;
+
+        $r11 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.HashSet openOutputStreams>;
+
+        $z3 = specialinvoke r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: boolean closeInactiveStream(java.util.HashSet,long)>($r11, $l28);
+
+        if $z3 != 0 goto label7;
+
+        $r12 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.HashSet openInputStreams>;
+
+        $z4 = specialinvoke r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: boolean closeInactiveStream(java.util.HashSet,long)>($r12, $l28);
+
+        if $z4 != 0 goto label7;
+
+        l5 = staticinvoke <java.lang.Math: long min(long,long)>(l3, $l29);
+
+        $r14 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.Condition available>;
+
+        $r13 = <java.util.concurrent.TimeUnit: java.util.concurrent.TimeUnit NANOSECONDS>;
+
+        interfaceinvoke $r14.<java.util.concurrent.locks.Condition: boolean await(long,java.util.concurrent.TimeUnit)>(l5, $r13);
+
+        goto label7;
+
+     label8:
+        $b31 = l27 cmp 0L;
+
+        if $b31 > 0 goto label9;
+
+        $z1 = specialinvoke r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: boolean hasAvailability(int,int,int)>(i0, i1, i2);
+
+        if $z1 != 0 goto label9;
+
+        $r2 = new java.io.IOException;
+
+        $r3 = newarray (java.lang.Object)[6];
+
+        $i13 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int maxNumOpenStreamsTotal>;
+
+        $r4 = staticinvoke <java.lang.Integer: java.lang.Integer valueOf(int)>($i13);
+
+        $r3[0] = $r4;
+
+        $i14 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int maxNumOpenInputStreams>;
+
+        $r5 = staticinvoke <java.lang.Integer: java.lang.Integer valueOf(int)>($i14);
+
+        $r3[1] = $r5;
+
+        $i15 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int maxNumOpenOutputStreams>;
+
+        $r6 = staticinvoke <java.lang.Integer: java.lang.Integer valueOf(int)>($i15);
+
+        $r3[2] = $r6;
+
+        $i16 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedInputStreams>;
+
+        $r7 = staticinvoke <java.lang.Integer: java.lang.Integer valueOf(int)>($i16);
+
+        $r3[3] = $r7;
+
+        $i17 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedOutputStreams>;
+
+        $r8 = staticinvoke <java.lang.Integer: java.lang.Integer valueOf(int)>($i17);
+
+        $r3[4] = $r8;
+
+        $l18 = virtualinvoke r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: long getStreamOpenTimeout()>();
+
+        $r9 = staticinvoke <java.lang.Long: java.lang.Long valueOf(long)>($l18);
+
+        $r3[5] = $r9;
+
+        $r10 = staticinvoke <java.lang.String: java.lang.String format(java.lang.String,java.lang.Object[])>("Timeout while waiting for an available stream/connection. limits: total=%d, input=%d, output=%d ; Open: input=%d, output=%d ; timeout: %d ms", $r3);
+
+        specialinvoke $r2.<java.io.IOException: void <init>(java.lang.String)>($r10);
+
+        throw $r2;
+
+     label9:
+        return;
+    }
+
+    private boolean hasAvailability(int, int, int)
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        int i0, i1, i2, $i3, $i4, $i5, $i6, $i7;
+        boolean $z0;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        i0 := @parameter0: int;
+
+        i1 := @parameter1: int;
+
+        i2 := @parameter2: int;
+
+        $i3 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedOutputStreams>;
+
+        if $i3 >= i1 goto label1;
+
+        $i4 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedInputStreams>;
+
+        if $i4 >= i2 goto label1;
+
+        $i6 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedOutputStreams>;
+
+        $i5 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedInputStreams>;
+
+        $i7 = $i6 + $i5;
+
+        if $i7 >= i0 goto label1;
+
+        $z0 = 1;
+
+        goto label2;
+
+     label1:
+        $z0 = 0;
+
+     label2:
+        return $z0;
+    }
+
+    private boolean closeInactiveStream(java.util.HashSet, long)
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        java.util.HashSet r1;
+        long l0, $l1, $l2, $l3;
+        java.util.Iterator r2;
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamWithTimeout r3;
+        boolean $z0, $z1, $z2;
+        java.lang.Object $r4;
+        byte $b4;
+        java.io.IOException $r5;
+        org.slf4j.Logger $r6;
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamTimeoutException $r7;
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamProgressTracker r8;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: java.util.HashSet;
+
+        l0 := @parameter1: long;
+
+        r2 = virtualinvoke r1.<java.util.HashSet: java.util.Iterator iterator()>();
+
+     label01:
+        $z0 = interfaceinvoke r2.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label10;
+
+        $r4 = interfaceinvoke r2.<java.util.Iterator: java.lang.Object next()>();
+
+        r3 = (org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamWithTimeout) $r4;
+
+     label02:
+        r8 = interfaceinvoke r3.<org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamWithTimeout: org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamProgressTracker getProgressTracker()>();
+
+        $z1 = interfaceinvoke r3.<org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamWithTimeout: boolean isClosed()>();
+
+        if $z1 != 0 goto label03;
+
+        $l1 = virtualinvoke r8.<org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamProgressTracker: long getLastCheckTimestampNanos()>();
+
+        $l2 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: long streamInactivityTimeoutNanos>;
+
+        $l3 = $l1 + $l2;
+
+        $b4 = l0 cmp $l3;
+
+        if $b4 >= 0 goto label04;
+
+     label03:
+        return 0;
+
+     label04:
+        $z2 = virtualinvoke r8.<org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamProgressTracker: boolean checkNewBytesAndMark(long)>(l0);
+
+        if $z2 != 0 goto label06;
+
+        interfaceinvoke r3.<org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamWithTimeout: void closeDueToTimeout()>();
+
+     label05:
+        return 1;
+
+     label06:
+        goto label09;
+
+     label07:
+        $r7 := @caughtexception;
+
+        goto label09;
+
+     label08:
+        $r5 := @caughtexception;
+
+        $r6 = <org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.slf4j.Logger LOG>;
+
+        interfaceinvoke $r6.<org.slf4j.Logger: void debug(java.lang.String,java.lang.Throwable)>("Could not check for stream progress to determine inactivity", $r5);
+
+     label09:
+        goto label01;
+
+     label10:
+        return 0;
+
+        catch org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamTimeoutException from label02 to label03 with label07;
+        catch org.apache.flink.core.fs.LimitedConnectionsFileSystem$StreamTimeoutException from label04 to label05 with label07;
+        catch java.io.IOException from label02 to label03 with label08;
+        catch java.io.IOException from label04 to label05 with label08;
+    }
+
+    void unregisterOutputStream(org.apache.flink.core.fs.LimitedConnectionsFileSystem$OutStream)
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem$OutStream r1;
+        java.util.concurrent.locks.ReentrantLock $r3, $r5, $r8;
+        java.util.HashSet $r4;
+        boolean $z0;
+        int $i0, $i1;
+        java.util.concurrent.locks.Condition $r6;
+        java.lang.Throwable $r7;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.LimitedConnectionsFileSystem$OutStream;
+
+        $r3 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r3.<java.util.concurrent.locks.ReentrantLock: void lock()>();
+
+     label1:
+        $r4 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.HashSet openOutputStreams>;
+
+        $z0 = virtualinvoke $r4.<java.util.HashSet: boolean remove(java.lang.Object)>(r1);
+
+        if $z0 == 0 goto label2;
+
+        $i0 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedOutputStreams>;
+
+        $i1 = $i0 - 1;
+
+        r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedOutputStreams> = $i1;
+
+        $r6 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.Condition available>;
+
+        interfaceinvoke $r6.<java.util.concurrent.locks.Condition: void signalAll()>();
+
+     label2:
+        $r5 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r5.<java.util.concurrent.locks.ReentrantLock: void unlock()>();
+
+        goto label4;
+
+     label3:
+        $r7 := @caughtexception;
+
+        $r8 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r8.<java.util.concurrent.locks.ReentrantLock: void unlock()>();
+
+        throw $r7;
+
+     label4:
+        return;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+    }
+
+    void unregisterInputStream(org.apache.flink.core.fs.LimitedConnectionsFileSystem$InStream)
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem$InStream r1;
+        java.util.concurrent.locks.ReentrantLock $r3, $r5, $r8;
+        java.util.HashSet $r4;
+        boolean $z0;
+        int $i0, $i1;
+        java.util.concurrent.locks.Condition $r6;
+        java.lang.Throwable $r7;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.LimitedConnectionsFileSystem$InStream;
+
+        $r3 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r3.<java.util.concurrent.locks.ReentrantLock: void lock()>();
+
+     label1:
+        $r4 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.HashSet openInputStreams>;
+
+        $z0 = virtualinvoke $r4.<java.util.HashSet: boolean remove(java.lang.Object)>(r1);
+
+        if $z0 == 0 goto label2;
+
+        $i0 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedInputStreams>;
+
+        $i1 = $i0 - 1;
+
+        r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: int numReservedInputStreams> = $i1;
+
+        $r6 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.Condition available>;
+
+        interfaceinvoke $r6.<java.util.concurrent.locks.Condition: void signalAll()>();
+
+     label2:
+        $r5 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r5.<java.util.concurrent.locks.ReentrantLock: void unlock()>();
+
+        goto label4;
+
+     label3:
+        $r7 := @caughtexception;
+
+        $r8 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: java.util.concurrent.locks.ReentrantLock lock>;
+
+        virtualinvoke $r8.<java.util.concurrent.locks.ReentrantLock: void unlock()>();
+
+        throw $r7;
+
+     label4:
+        return;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+    }
+
+    public org.apache.flink.core.fs.LimitedConnectionsFileSystem$InStream lambda$createInputStream$5(org.apache.flink.util.function.SupplierWithException) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.util.function.SupplierWithException r1;
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem$InStream $r2;
+        java.lang.Object $r3;
+        org.apache.flink.core.fs.FSDataInputStream $r4;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.util.function.SupplierWithException;
+
+        $r2 = new org.apache.flink.core.fs.LimitedConnectionsFileSystem$InStream;
+
+        $r3 = interfaceinvoke r1.<org.apache.flink.util.function.SupplierWithException: java.lang.Object get()>();
+
+        $r4 = (org.apache.flink.core.fs.FSDataInputStream) $r3;
+
+        specialinvoke $r2.<org.apache.flink.core.fs.LimitedConnectionsFileSystem$InStream: void <init>(org.apache.flink.core.fs.FSDataInputStream,org.apache.flink.core.fs.LimitedConnectionsFileSystem)>($r4, r0);
+
+        return $r2;
+    }
+
+    public org.apache.flink.core.fs.LimitedConnectionsFileSystem$OutStream lambda$createOutputStream$4(org.apache.flink.util.function.SupplierWithException) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.util.function.SupplierWithException r1;
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem$OutStream $r2;
+        java.lang.Object $r3;
+        org.apache.flink.core.fs.FSDataOutputStream $r4;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.util.function.SupplierWithException;
+
+        $r2 = new org.apache.flink.core.fs.LimitedConnectionsFileSystem$OutStream;
+
+        $r3 = interfaceinvoke r1.<org.apache.flink.util.function.SupplierWithException: java.lang.Object get()>();
+
+        $r4 = (org.apache.flink.core.fs.FSDataOutputStream) $r3;
+
+        specialinvoke $r2.<org.apache.flink.core.fs.LimitedConnectionsFileSystem$OutStream: void <init>(org.apache.flink.core.fs.FSDataOutputStream,org.apache.flink.core.fs.LimitedConnectionsFileSystem)>($r4, r0);
+
+        return $r2;
+    }
+
+    public org.apache.flink.core.fs.FSDataInputStream lambda$open$3(org.apache.flink.core.fs.Path) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.Path r1;
+        org.apache.flink.core.fs.FileSystem $r2;
+        org.apache.flink.core.fs.FSDataInputStream $r3;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.Path;
+
+        $r2 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs>;
+
+        $r3 = virtualinvoke $r2.<org.apache.flink.core.fs.FileSystem: org.apache.flink.core.fs.FSDataInputStream open(org.apache.flink.core.fs.Path)>(r1);
+
+        return $r3;
+    }
+
+    public org.apache.flink.core.fs.FSDataInputStream lambda$open$2(org.apache.flink.core.fs.Path, int) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.Path r1;
+        int i0;
+        org.apache.flink.core.fs.FileSystem $r2;
+        org.apache.flink.core.fs.FSDataInputStream $r3;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.Path;
+
+        i0 := @parameter1: int;
+
+        $r2 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs>;
+
+        $r3 = virtualinvoke $r2.<org.apache.flink.core.fs.FileSystem: org.apache.flink.core.fs.FSDataInputStream open(org.apache.flink.core.fs.Path,int)>(r1, i0);
+
+        return $r3;
+    }
+
+    public org.apache.flink.core.fs.FSDataOutputStream lambda$create$1(org.apache.flink.core.fs.Path, boolean, int, short, long) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.Path r1;
+        boolean z0;
+        int i0;
+        short s1;
+        long l2;
+        org.apache.flink.core.fs.FileSystem $r2;
+        org.apache.flink.core.fs.FSDataOutputStream $r3;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.Path;
+
+        z0 := @parameter1: boolean;
+
+        i0 := @parameter2: int;
+
+        s1 := @parameter3: short;
+
+        l2 := @parameter4: long;
+
+        $r2 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs>;
+
+        $r3 = virtualinvoke $r2.<org.apache.flink.core.fs.FileSystem: org.apache.flink.core.fs.FSDataOutputStream create(org.apache.flink.core.fs.Path,boolean,int,short,long)>(r1, z0, i0, s1, l2);
+
+        return $r3;
+    }
+
+    public org.apache.flink.core.fs.FSDataOutputStream lambda$create$0(org.apache.flink.core.fs.Path, org.apache.flink.core.fs.FileSystem$WriteMode) throws java.io.IOException
+    {
+        org.apache.flink.core.fs.LimitedConnectionsFileSystem r0;
+        org.apache.flink.core.fs.Path r1;
+        org.apache.flink.core.fs.FileSystem$WriteMode r2;
+        org.apache.flink.core.fs.FileSystem $r3;
+        org.apache.flink.core.fs.FSDataOutputStream $r4;
+
+        r0 := @this: org.apache.flink.core.fs.LimitedConnectionsFileSystem;
+
+        r1 := @parameter0: org.apache.flink.core.fs.Path;
+
+        r2 := @parameter1: org.apache.flink.core.fs.FileSystem$WriteMode;
+
+        $r3 = r0.<org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.apache.flink.core.fs.FileSystem originalFs>;
+
+        $r4 = virtualinvoke $r3.<org.apache.flink.core.fs.FileSystem: org.apache.flink.core.fs.FSDataOutputStream create(org.apache.flink.core.fs.Path,org.apache.flink.core.fs.FileSystem$WriteMode)>(r1, r2);
+
+        return $r4;
+    }
+
+    static void <clinit>()
+    {
+        java.lang.Class $r0;
+        boolean $z0, $z1;
+        org.slf4j.Logger $r1;
+
+        $r0 = class "Lorg/apache/flink/core/fs/LimitedConnectionsFileSystem;";
+
+        $z0 = virtualinvoke $r0.<java.lang.Class: boolean desiredAssertionStatus()>();
+
+        if $z0 != 0 goto label1;
+
+        $z1 = 1;
+
+        goto label2;
+
+     label1:
+        $z1 = 0;
+
+     label2:
+        <org.apache.flink.core.fs.LimitedConnectionsFileSystem: boolean $assertionsDisabled> = $z1;
+
+        $r1 = staticinvoke <org.slf4j.LoggerFactory: org.slf4j.Logger getLogger(java.lang.Class)>(class "Lorg/apache/flink/core/fs/LimitedConnectionsFileSystem;");
+
+        <org.apache.flink.core.fs.LimitedConnectionsFileSystem: org.slf4j.Logger LOG> = $r1;
+
+        return;
+    }
+}

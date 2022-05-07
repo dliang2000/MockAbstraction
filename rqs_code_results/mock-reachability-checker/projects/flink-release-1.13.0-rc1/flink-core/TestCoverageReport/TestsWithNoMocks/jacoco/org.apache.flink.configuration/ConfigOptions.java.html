@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ConfigOptions.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.configuration</a> &gt; <span class="el_source">ConfigOptions.java</span></div><h1>ConfigOptions.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.configuration;
+
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.configuration.description.Description;
+
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * {@code ConfigOptions} are used to build a {@link ConfigOption}. The option is typically built in
+ * one of the following pattern:
+ *
+ * &lt;pre&gt;{@code
+ * // simple string-valued option with a default value
+ * ConfigOption&lt;String&gt; tempDirs = ConfigOptions
+ *     .key(&quot;tmp.dir&quot;)
+ *     .stringType()
+ *     .defaultValue(&quot;/tmp&quot;);
+ *
+ * // simple integer-valued option with a default value
+ * ConfigOption&lt;Integer&gt; parallelism = ConfigOptions
+ *     .key(&quot;application.parallelism&quot;)
+ *     .intType()
+ *     .defaultValue(100);
+ *
+ * // option of list of integers with a default value
+ * ConfigOption&lt;Integer&gt; parallelism = ConfigOptions
+ *     .key(&quot;application.ports&quot;)
+ *     .intType()
+ *     .asList()
+ *     .defaultValue(8000, 8001, 8002);
+ *
+ * // option with no default value
+ * ConfigOption&lt;String&gt; userName = ConfigOptions
+ *     .key(&quot;user.name&quot;)
+ *     .stringType()
+ *     .noDefaultValue();
+ *
+ * // option with deprecated keys to check
+ * ConfigOption&lt;Double&gt; threshold = ConfigOptions
+ *     .key(&quot;cpu.utilization.threshold&quot;)
+ *     .doubleType()
+ *     .defaultValue(0.9).
+ *     .withDeprecatedKeys(&quot;cpu.threshold&quot;);
+ * }&lt;/pre&gt;
+ */
+@PublicEvolving
+public class ConfigOptions {
+
+    /**
+     * Starts building a new {@link ConfigOption}.
+     *
+     * @param key The key for the config option.
+     * @return The builder for the config option with the given key.
+     */
+    public static OptionBuilder key(String key) {
+<span class="fc" id="L79">        checkNotNull(key);</span>
+<span class="fc" id="L80">        return new OptionBuilder(key);</span>
+    }
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * The option builder is used to create a {@link ConfigOption}. It is instantiated via {@link
+     * ConfigOptions#key(String)}.
+     */
+    public static final class OptionBuilder {
+        /**
+         * Workaround to reuse the {@link TypedConfigOptionBuilder} for a {@link Map Map&amp;lt;String,
+         * String&amp;gt;}.
+         */
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L95">        private static final Class&lt;Map&lt;String, String&gt;&gt; PROPERTIES_MAP_CLASS =</span>
+                (Class&lt;Map&lt;String, String&gt;&gt;) (Class&lt;?&gt;) Map.class;
+
+        /** The key for the config option. */
+        private final String key;
+
+        /**
+         * Creates a new OptionBuilder.
+         *
+         * @param key The key for the config option
+         */
+<span class="fc" id="L106">        OptionBuilder(String key) {</span>
+<span class="fc" id="L107">            this.key = key;</span>
+<span class="fc" id="L108">        }</span>
+
+        /** Defines that the value of the option should be of {@link Boolean} type. */
+        public TypedConfigOptionBuilder&lt;Boolean&gt; booleanType() {
+<span class="fc" id="L112">            return new TypedConfigOptionBuilder&lt;&gt;(key, Boolean.class);</span>
+        }
+
+        /** Defines that the value of the option should be of {@link Integer} type. */
+        public TypedConfigOptionBuilder&lt;Integer&gt; intType() {
+<span class="fc" id="L117">            return new TypedConfigOptionBuilder&lt;&gt;(key, Integer.class);</span>
+        }
+
+        /** Defines that the value of the option should be of {@link Long} type. */
+        public TypedConfigOptionBuilder&lt;Long&gt; longType() {
+<span class="fc" id="L122">            return new TypedConfigOptionBuilder&lt;&gt;(key, Long.class);</span>
+        }
+
+        /** Defines that the value of the option should be of {@link Float} type. */
+        public TypedConfigOptionBuilder&lt;Float&gt; floatType() {
+<span class="fc" id="L127">            return new TypedConfigOptionBuilder&lt;&gt;(key, Float.class);</span>
+        }
+
+        /** Defines that the value of the option should be of {@link Double} type. */
+        public TypedConfigOptionBuilder&lt;Double&gt; doubleType() {
+<span class="fc" id="L132">            return new TypedConfigOptionBuilder&lt;&gt;(key, Double.class);</span>
+        }
+
+        /** Defines that the value of the option should be of {@link String} type. */
+        public TypedConfigOptionBuilder&lt;String&gt; stringType() {
+<span class="fc" id="L137">            return new TypedConfigOptionBuilder&lt;&gt;(key, String.class);</span>
+        }
+
+        /** Defines that the value of the option should be of {@link Duration} type. */
+        public TypedConfigOptionBuilder&lt;Duration&gt; durationType() {
+<span class="fc" id="L142">            return new TypedConfigOptionBuilder&lt;&gt;(key, Duration.class);</span>
+        }
+
+        /** Defines that the value of the option should be of {@link MemorySize} type. */
+        public TypedConfigOptionBuilder&lt;MemorySize&gt; memoryType() {
+<span class="fc" id="L147">            return new TypedConfigOptionBuilder&lt;&gt;(key, MemorySize.class);</span>
+        }
+
+        /**
+         * Defines that the value of the option should be of {@link Enum} type.
+         *
+         * @param enumClass Concrete type of the expected enum.
+         */
+        public &lt;T extends Enum&lt;T&gt;&gt; TypedConfigOptionBuilder&lt;T&gt; enumType(Class&lt;T&gt; enumClass) {
+<span class="fc" id="L156">            return new TypedConfigOptionBuilder&lt;&gt;(key, enumClass);</span>
+        }
+
+        /**
+         * Defines that the value of the option should be a set of properties, which can be
+         * represented as {@code Map&lt;String, String&gt;}.
+         */
+        public TypedConfigOptionBuilder&lt;Map&lt;String, String&gt;&gt; mapType() {
+<span class="fc" id="L164">            return new TypedConfigOptionBuilder&lt;&gt;(key, PROPERTIES_MAP_CLASS);</span>
+        }
+
+        /**
+         * Creates a ConfigOption with the given default value.
+         *
+         * &lt;p&gt;This method does not accept &quot;null&quot;. For options with no default value, choose one of
+         * the {@code noDefaultValue} methods.
+         *
+         * @param value The default value for the config option
+         * @param &lt;T&gt; The type of the default value.
+         * @return The config option with the default value.
+         * @deprecated define the type explicitly first with one of the intType(), stringType(),
+         *     etc.
+         */
+        @Deprecated
+        public &lt;T&gt; ConfigOption&lt;T&gt; defaultValue(T value) {
+<span class="fc" id="L181">            checkNotNull(value);</span>
+<span class="fc" id="L182">            return new ConfigOption&lt;&gt;(</span>
+<span class="fc" id="L183">                    key, value.getClass(), ConfigOption.EMPTY_DESCRIPTION, value, false);</span>
+        }
+
+        /**
+         * Creates a string-valued option with no default value. String-valued options are the only
+         * ones that can have no default value.
+         *
+         * @return The created ConfigOption.
+         * @deprecated define the type explicitly first with one of the intType(), stringType(),
+         *     etc.
+         */
+        @Deprecated
+        public ConfigOption&lt;String&gt; noDefaultValue() {
+<span class="fc" id="L196">            return new ConfigOption&lt;&gt;(</span>
+                    key, String.class, ConfigOption.EMPTY_DESCRIPTION, null, false);
+        }
+    }
+
+    /**
+     * Builder for {@link ConfigOption} with a defined atomic type.
+     *
+     * @param &lt;T&gt; atomic type of the option
+     */
+    public static class TypedConfigOptionBuilder&lt;T&gt; {
+        private final String key;
+        private final Class&lt;T&gt; clazz;
+
+<span class="fc" id="L210">        TypedConfigOptionBuilder(String key, Class&lt;T&gt; clazz) {</span>
+<span class="fc" id="L211">            this.key = key;</span>
+<span class="fc" id="L212">            this.clazz = clazz;</span>
+<span class="fc" id="L213">        }</span>
+
+        /** Defines that the option's type should be a list of previously defined atomic type. */
+        public ListConfigOptionBuilder&lt;T&gt; asList() {
+<span class="fc" id="L217">            return new ListConfigOptionBuilder&lt;&gt;(key, clazz);</span>
+        }
+
+        /**
+         * Creates a ConfigOption with the given default value.
+         *
+         * @param value The default value for the config option
+         * @return The config option with the default value.
+         */
+        public ConfigOption&lt;T&gt; defaultValue(T value) {
+<span class="fc" id="L227">            return new ConfigOption&lt;&gt;(key, clazz, ConfigOption.EMPTY_DESCRIPTION, value, false);</span>
+        }
+
+        /**
+         * Creates a ConfigOption without a default value.
+         *
+         * @return The config option without a default value.
+         */
+        public ConfigOption&lt;T&gt; noDefaultValue() {
+<span class="fc" id="L236">            return new ConfigOption&lt;&gt;(</span>
+<span class="fc" id="L237">                    key, clazz, Description.builder().text(&quot;&quot;).build(), null, false);</span>
+        }
+    }
+
+    /**
+     * Builder for {@link ConfigOption} of list of type {@link E}.
+     *
+     * @param &lt;E&gt; list element type of the option
+     */
+    public static class ListConfigOptionBuilder&lt;E&gt; {
+        private final String key;
+        private final Class&lt;E&gt; clazz;
+
+<span class="fc" id="L250">        ListConfigOptionBuilder(String key, Class&lt;E&gt; clazz) {</span>
+<span class="fc" id="L251">            this.key = key;</span>
+<span class="fc" id="L252">            this.clazz = clazz;</span>
+<span class="fc" id="L253">        }</span>
+
+        /**
+         * Creates a ConfigOption with the given default value.
+         *
+         * @param values The list of default values for the config option
+         * @return The config option with the default value.
+         */
+        @SafeVarargs
+        public final ConfigOption&lt;List&lt;E&gt;&gt; defaultValues(E... values) {
+<span class="fc" id="L263">            return new ConfigOption&lt;&gt;(</span>
+<span class="fc" id="L264">                    key, clazz, ConfigOption.EMPTY_DESCRIPTION, Arrays.asList(values), true);</span>
+        }
+
+        /**
+         * Creates a ConfigOption without a default value.
+         *
+         * @return The config option without a default value.
+         */
+        public ConfigOption&lt;List&lt;E&gt;&gt; noDefaultValue() {
+<span class="fc" id="L273">            return new ConfigOption&lt;&gt;(key, clazz, ConfigOption.EMPTY_DESCRIPTION, null, true);</span>
+        }
+    }
+
+    // ------------------------------------------------------------------------
+
+    /** Not intended to be instantiated. */
+    private ConfigOptions() {}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

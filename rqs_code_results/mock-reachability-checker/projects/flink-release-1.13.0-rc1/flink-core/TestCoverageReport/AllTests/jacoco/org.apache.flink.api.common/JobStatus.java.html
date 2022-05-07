@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobStatus.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common</a> &gt; <span class="el_source">JobStatus.java</span></div><h1>JobStatus.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common;
+
+import org.apache.flink.annotation.PublicEvolving;
+
+/** Possible states of a job once it has been accepted by the dispatcher. */
+<span class="nc" id="L24">@PublicEvolving</span>
+public enum JobStatus {
+    /**
+     * The job has been received by the Dispatcher, and is waiting for the job manager to be
+     * created.
+     */
+<span class="nc" id="L30">    INITIALIZING(TerminalState.NON_TERMINAL),</span>
+
+    /** Job is newly created, no task has started to run. */
+<span class="nc" id="L33">    CREATED(TerminalState.NON_TERMINAL),</span>
+
+    /** Some tasks are scheduled or running, some may be pending, some may be finished. */
+<span class="nc" id="L36">    RUNNING(TerminalState.NON_TERMINAL),</span>
+
+    /** The job has failed and is currently waiting for the cleanup to complete. */
+<span class="nc" id="L39">    FAILING(TerminalState.NON_TERMINAL),</span>
+
+    /** The job has failed with a non-recoverable task failure. */
+<span class="nc" id="L42">    FAILED(TerminalState.GLOBALLY),</span>
+
+    /** Job is being cancelled. */
+<span class="nc" id="L45">    CANCELLING(TerminalState.NON_TERMINAL),</span>
+
+    /** Job has been cancelled. */
+<span class="nc" id="L48">    CANCELED(TerminalState.GLOBALLY),</span>
+
+    /** All of the job's tasks have successfully finished. */
+<span class="nc" id="L51">    FINISHED(TerminalState.GLOBALLY),</span>
+
+    /** The job is currently undergoing a reset and total restart. */
+<span class="nc" id="L54">    RESTARTING(TerminalState.NON_TERMINAL),</span>
+
+    /**
+     * The job has been suspended which means that it has been stopped but not been removed from a
+     * potential HA job store.
+     */
+<span class="nc" id="L60">    SUSPENDED(TerminalState.LOCALLY),</span>
+
+    /** The job is currently reconciling and waits for task execution report to recover state. */
+<span class="nc" id="L63">    RECONCILING(TerminalState.NON_TERMINAL);</span>
+
+    // --------------------------------------------------------------------------------------------
+
+<span class="nc" id="L67">    private enum TerminalState {</span>
+<span class="nc" id="L68">        NON_TERMINAL,</span>
+<span class="nc" id="L69">        LOCALLY,</span>
+<span class="nc" id="L70">        GLOBALLY</span>
+    }
+
+    private final TerminalState terminalState;
+
+<span class="nc" id="L75">    JobStatus(TerminalState terminalState) {</span>
+<span class="nc" id="L76">        this.terminalState = terminalState;</span>
+<span class="nc" id="L77">    }</span>
+
+    /**
+     * Checks whether this state is &lt;i&gt;globally terminal&lt;/i&gt;. A globally terminal job is complete
+     * and cannot fail any more and will not be restarted or recovered by another standby master
+     * node.
+     *
+     * &lt;p&gt;When a globally terminal state has been reached, all recovery data for the job is dropped
+     * from the high-availability services.
+     *
+     * @return True, if this job status is globally terminal, false otherwise.
+     */
+    public boolean isGloballyTerminalState() {
+<span class="nc bnc" id="L90" title="All 2 branches missed.">        return terminalState == TerminalState.GLOBALLY;</span>
+    }
+
+    /**
+     * Checks whether this state is &lt;i&gt;locally terminal&lt;/i&gt;. Locally terminal refers to the state of
+     * a job's execution graph within an executing JobManager. If the execution graph is locally
+     * terminal, the JobManager will not continue executing or recovering the job.
+     *
+     * &lt;p&gt;The only state that is locally terminal, but not globally terminal is {@link #SUSPENDED},
+     * which is typically entered when the executing JobManager looses its leader status.
+     *
+     * @return True, if this job status is terminal, false otherwise.
+     */
+    public boolean isTerminalState() {
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        return terminalState != TerminalState.NON_TERMINAL;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

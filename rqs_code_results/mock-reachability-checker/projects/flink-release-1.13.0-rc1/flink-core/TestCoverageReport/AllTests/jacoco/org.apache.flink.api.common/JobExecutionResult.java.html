@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JobExecutionResult.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common</a> &gt; <span class="el_source">JobExecutionResult.java</span></div><h1>JobExecutionResult.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common;
+
+import org.apache.flink.annotation.Public;
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.accumulators.AccumulatorHelper;
+import org.apache.flink.util.OptionalFailure;
+
+import java.util.Collections;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+/**
+ * The result of a job execution. Gives access to the execution time of the job, and to all
+ * accumulators created by this job.
+ */
+@Public
+public class JobExecutionResult extends JobSubmissionResult {
+
+    private final long netRuntime;
+
+    private final Map&lt;String, OptionalFailure&lt;Object&gt;&gt; accumulatorResults;
+
+    /**
+     * Creates a new JobExecutionResult.
+     *
+     * @param jobID The job's ID.
+     * @param netRuntime The net runtime of the job (excluding pre-flight phase like the optimizer)
+     *     in milliseconds
+     * @param accumulators A map of all accumulators produced by the job.
+     */
+    public JobExecutionResult(
+            JobID jobID, long netRuntime, Map&lt;String, OptionalFailure&lt;Object&gt;&gt; accumulators) {
+<span class="nc" id="L52">        super(jobID);</span>
+<span class="nc" id="L53">        this.netRuntime = netRuntime;</span>
+
+<span class="nc bnc" id="L55" title="All 2 branches missed.">        if (accumulators != null) {</span>
+<span class="nc" id="L56">            this.accumulatorResults = accumulators;</span>
+        } else {
+<span class="nc" id="L58">            this.accumulatorResults = Collections.emptyMap();</span>
+        }
+<span class="nc" id="L60">    }</span>
+
+    @Override
+    public boolean isJobExecutionResult() {
+<span class="nc" id="L64">        return true;</span>
+    }
+
+    @Override
+    public JobExecutionResult getJobExecutionResult() {
+<span class="nc" id="L69">        return this;</span>
+    }
+
+    /**
+     * Gets the net execution time of the job, i.e., the execution time in the parallel system,
+     * without the pre-flight steps like the optimizer.
+     *
+     * @return The net execution time in milliseconds.
+     */
+    public long getNetRuntime() {
+<span class="nc" id="L79">        return this.netRuntime;</span>
+    }
+
+    /**
+     * Gets the net execution time of the job, i.e., the execution time in the parallel system,
+     * without the pre-flight steps like the optimizer in a desired time unit.
+     *
+     * @param desiredUnit the unit of the &lt;tt&gt;NetRuntime&lt;/tt&gt;
+     * @return The net execution time in the desired unit.
+     */
+    public long getNetRuntime(TimeUnit desiredUnit) {
+<span class="nc" id="L90">        return desiredUnit.convert(getNetRuntime(), TimeUnit.MILLISECONDS);</span>
+    }
+
+    /**
+     * Gets the accumulator with the given name. Returns {@code null}, if no accumulator with that
+     * name was produced.
+     *
+     * @param accumulatorName The name of the accumulator.
+     * @param &lt;T&gt; The generic type of the accumulator value.
+     * @return The value of the accumulator with the given name.
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public &lt;T&gt; T getAccumulatorResult(String accumulatorName) {
+<span class="nc" id="L103">        OptionalFailure&lt;Object&gt; result = this.accumulatorResults.get(accumulatorName);</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        if (result != null) {</span>
+<span class="nc" id="L105">            return (T) result.getUnchecked();</span>
+        } else {
+<span class="nc" id="L107">            return null;</span>
+        }
+    }
+
+    /**
+     * Gets all accumulators produced by the job. The map contains the accumulators as mappings from
+     * the accumulator name to the accumulator value.
+     *
+     * @return A map containing all accumulators produced by the job.
+     */
+    public Map&lt;String, Object&gt; getAllAccumulatorResults() {
+<span class="nc" id="L118">        return accumulatorResults.entrySet().stream()</span>
+<span class="nc" id="L119">                .collect(</span>
+<span class="nc" id="L120">                        Collectors.toMap(</span>
+<span class="nc" id="L121">                                Map.Entry::getKey, entry -&gt; entry.getValue().getUnchecked()));</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L126">        final StringBuilder result = new StringBuilder();</span>
+<span class="nc" id="L127">        result.append(&quot;Program execution finished&quot;).append(&quot;\n&quot;);</span>
+<span class="nc" id="L128">        result.append(&quot;Job with JobID &quot;).append(getJobID()).append(&quot; has finished.&quot;).append(&quot;\n&quot;);</span>
+<span class="nc" id="L129">        result.append(&quot;Job Runtime: &quot;).append(getNetRuntime()).append(&quot; ms&quot;).append(&quot;\n&quot;);</span>
+
+<span class="nc" id="L131">        final Map&lt;String, Object&gt; accumulatorsResult = getAllAccumulatorResults();</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        if (accumulatorsResult.size() &gt; 0) {</span>
+<span class="nc" id="L133">            result.append(&quot;Accumulator Results: &quot;).append(&quot;\n&quot;);</span>
+<span class="nc" id="L134">            result.append(AccumulatorHelper.getResultsFormatted(accumulatorsResult)).append(&quot;\n&quot;);</span>
+        }
+
+<span class="nc" id="L137">        return result.toString();</span>
+    }
+
+    /**
+     * Gets the accumulator with the given name as an integer.
+     *
+     * @param accumulatorName Name of the counter
+     * @return Result of the counter, or null if the counter does not exist
+     * @throws java.lang.ClassCastException Thrown, if the accumulator was not aggregating a {@link
+     *     java.lang.Integer}
+     * @deprecated Will be removed in future versions. Use {@link #getAccumulatorResult} instead.
+     */
+    @Deprecated
+    @PublicEvolving
+    public Integer getIntCounterResult(String accumulatorName) {
+<span class="nc" id="L152">        Object result = this.accumulatorResults.get(accumulatorName).getUnchecked();</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">        if (result == null) {</span>
+<span class="nc" id="L154">            return null;</span>
+        }
+<span class="nc bnc" id="L156" title="All 2 branches missed.">        if (!(result instanceof Integer)) {</span>
+<span class="nc" id="L157">            throw new ClassCastException(</span>
+                    &quot;Requested result of the accumulator '&quot;
+                            + accumulatorName
+                            + &quot;' should be Integer but has type &quot;
+<span class="nc" id="L161">                            + result.getClass());</span>
+        }
+<span class="nc" id="L163">        return (Integer) result;</span>
+    }
+
+    /**
+     * Returns a dummy object for wrapping a JobSubmissionResult.
+     *
+     * @param result The SubmissionResult
+     * @return a JobExecutionResult
+     * @deprecated Will be removed in future versions.
+     */
+    @Deprecated
+    public static JobExecutionResult fromJobSubmissionResult(JobSubmissionResult result) {
+<span class="nc" id="L175">        return new JobExecutionResult(result.getJobID(), -1, null);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

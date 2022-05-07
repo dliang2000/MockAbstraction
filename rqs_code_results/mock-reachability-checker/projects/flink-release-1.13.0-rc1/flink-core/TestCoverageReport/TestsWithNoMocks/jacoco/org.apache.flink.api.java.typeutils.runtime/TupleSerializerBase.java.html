@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TupleSerializerBase.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.java.typeutils.runtime</a> &gt; <span class="el_source">TupleSerializerBase.java</span></div><h1>TupleSerializerBase.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.java.typeutils.runtime;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Objects;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+@Internal
+public abstract class TupleSerializerBase&lt;T&gt; extends TypeSerializer&lt;T&gt; {
+
+    private static final long serialVersionUID = 1L;
+
+    protected final Class&lt;T&gt; tupleClass;
+
+    protected TypeSerializer&lt;Object&gt;[] fieldSerializers;
+
+    protected final int arity;
+
+<span class="fc" id="L44">    private int length = -2;</span>
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L47">    public TupleSerializerBase(Class&lt;T&gt; tupleClass, TypeSerializer&lt;?&gt;[] fieldSerializers) {</span>
+<span class="fc" id="L48">        this.tupleClass = checkNotNull(tupleClass);</span>
+<span class="fc" id="L49">        this.fieldSerializers = (TypeSerializer&lt;Object&gt;[]) checkNotNull(fieldSerializers);</span>
+<span class="fc" id="L50">        this.arity = fieldSerializers.length;</span>
+<span class="fc" id="L51">    }</span>
+
+    public Class&lt;T&gt; getTupleClass() {
+<span class="fc" id="L54">        return this.tupleClass;</span>
+    }
+
+    @Override
+    public boolean isImmutableType() {
+<span class="nc" id="L59">        return false;</span>
+    }
+
+    @Override
+    public int getLength() {
+<span class="fc bfc" id="L64" title="All 2 branches covered.">        if (length == -2) {</span>
+<span class="fc" id="L65">            int sum = 0;</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">            for (TypeSerializer&lt;Object&gt; serializer : fieldSerializers) {</span>
+<span class="fc bfc" id="L67" title="All 2 branches covered.">                if (serializer.getLength() &gt; 0) {</span>
+<span class="fc" id="L68">                    sum += serializer.getLength();</span>
+                } else {
+<span class="fc" id="L70">                    length = -1;</span>
+<span class="fc" id="L71">                    return length;</span>
+                }
+            }
+<span class="fc" id="L74">            length = sum;</span>
+        }
+<span class="fc" id="L76">        return length;</span>
+    }
+
+    public int getArity() {
+<span class="nc" id="L80">        return arity;</span>
+    }
+
+    // We use this in the Aggregate and Distinct Operators to create instances
+    // of immutable Tuples (i.e. Scala Tuples)
+    public abstract T createInstance(Object[] fields);
+
+    public abstract T createOrReuseInstance(Object[] fields, T reuse);
+
+    @Override
+    public void copy(DataInputView source, DataOutputView target) throws IOException {
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        for (int i = 0; i &lt; arity; i++) {</span>
+<span class="fc" id="L92">            fieldSerializers[i].copy(source, target);</span>
+        }
+<span class="fc" id="L94">    }</span>
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L98">        return 31 * Arrays.hashCode(fieldSerializers) + Objects.hash(tupleClass, arity);</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">        if (obj instanceof TupleSerializerBase) {</span>
+<span class="fc" id="L104">            TupleSerializerBase&lt;?&gt; other = (TupleSerializerBase&lt;?&gt;) obj;</span>
+
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">            return tupleClass == other.tupleClass</span>
+<span class="pc bpc" id="L107" title="2 of 4 branches missed.">                    &amp;&amp; Arrays.equals(fieldSerializers, other.fieldSerializers)</span>
+                    &amp;&amp; arity == other.arity;
+        } else {
+<span class="nc" id="L110">            return false;</span>
+        }
+    }
+
+    @VisibleForTesting
+    public TypeSerializer&lt;Object&gt;[] getFieldSerializers() {
+<span class="fc" id="L116">        return fieldSerializers;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

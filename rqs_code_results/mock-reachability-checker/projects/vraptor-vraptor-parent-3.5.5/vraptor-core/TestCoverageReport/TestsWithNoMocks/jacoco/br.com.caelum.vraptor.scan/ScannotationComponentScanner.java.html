@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ScannotationComponentScanner.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.scan</a> &gt; <span class="el_source">ScannotationComponentScanner.java</span></div><h1>ScannotationComponentScanner.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+package br.com.caelum.vraptor.scan;
+
+import static com.google.common.base.Objects.firstNonNull;
+
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.lang.annotation.Annotation;
+import java.net.URL;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.scannotation.AnnotationDB;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import br.com.caelum.vraptor.core.BaseComponents;
+import br.com.caelum.vraptor.ioc.Stereotype;
+
+/**
+ * A Scannotation based Component Scanner
+ *
+ * @author Sérgio Lopes
+ * @since 3.2
+ */
+<span class="fc" id="L45">public class ScannotationComponentScanner implements ComponentScanner {</span>
+
+<span class="fc" id="L47">	private static final Logger logger = LoggerFactory.getLogger(ScannotationComponentScanner.class);</span>
+
+	public Collection&lt;String&gt; scan(ClasspathResolver resolver) {
+<span class="fc" id="L50">	final URL webInfClasses = resolver.findWebInfClassesLocation();</span>
+<span class="fc" id="L51">	final List&lt;String&gt; basePackages = resolver.findBasePackages();</span>
+
+<span class="fc" id="L53">	HashSet&lt;String&gt; results = new HashSet&lt;String&gt;();</span>
+
+<span class="fc" id="L55">	Map&lt;String, Set&lt;String&gt;&gt; webInfClassesAnnotationMap = scanWebInfClasses(webInfClasses);</span>
+<span class="fc" id="L56">	Map&lt;String, Set&lt;String&gt;&gt; basePackagesAnnotationMap = scanBasePackages(basePackages, resolver);</span>
+
+<span class="fc" id="L58">	Set&lt;String&gt; stereotypeNames = findStereotypes(webInfClassesAnnotationMap, basePackagesAnnotationMap, basePackages);</span>
+
+<span class="fc" id="L60">	findComponentsFromWebInfClasses(webInfClassesAnnotationMap, stereotypeNames, results);</span>
+<span class="fc" id="L61">	findComponentsFromBasePackages(basePackagesAnnotationMap, basePackages, results);</span>
+
+<span class="fc" id="L63">	return results;</span>
+	}
+
+	private Map&lt;String, Set&lt;String&gt;&gt; scanWebInfClasses(URL webInfClasses) {
+	try {
+<span class="fc" id="L68">		AnnotationDB db = createAnnotationDB();</span>
+<span class="fc" id="L69">		db.scanArchives(webInfClasses);</span>
+<span class="fc" id="L70">		return db.getAnnotationIndex();</span>
+<span class="nc" id="L71">	} catch (FileNotFoundException e) {</span>
+<span class="nc" id="L72">		return Collections.emptyMap();</span>
+<span class="nc" id="L73">	} catch (IOException e) {</span>
+<span class="nc" id="L74">		throw new ScannerException(&quot;Could not scan WEB-INF/classes&quot;, e);</span>
+	}
+	}
+
+	private Map&lt;String, Set&lt;String&gt;&gt; scanBasePackages(List&lt;String&gt; basePackages, ClasspathResolver resolver) {
+	try {
+<span class="fc" id="L80">		AnnotationDB db = createAnnotationDB();</span>
+
+<span class="fc bfc" id="L82" title="All 2 branches covered.">		for (String basePackage : basePackages) {</span>
+<span class="fc" id="L83">		scanPackage(basePackage, db, resolver);</span>
+<span class="fc" id="L84">		}</span>
+
+<span class="fc" id="L86">		return db.getAnnotationIndex();</span>
+<span class="nc" id="L87">	} catch (IOException e) {</span>
+<span class="nc" id="L88">		throw new ScannerException(&quot;Could not scan base packages&quot;, e);</span>
+	}
+	}
+
+
+
+	private void scanPackage(String basePackage, AnnotationDB db, ClasspathResolver resolver) throws IOException {
+<span class="fc" id="L95">	String resource = basePackage.replace('.', '/');</span>
+<span class="fc" id="L96">	Enumeration&lt;URL&gt; urls = resolver.getClassLoader().getResources(resource);</span>
+<span class="pc bpc" id="L97" title="1 of 2 branches missed.">	if (!urls.hasMoreElements()) {</span>
+<span class="nc" id="L98">		logger.error(&quot;There's no occurence of package {} in classpath&quot;, basePackage);</span>
+<span class="nc" id="L99">		return;</span>
+	}
+	do {
+<span class="fc" id="L102">		URL url = urls.nextElement();</span>
+
+<span class="fc" id="L104">		String file = toFileName(resource, url);</span>
+
+<span class="fc" id="L106">		db.scanArchives(new URL(file));</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">	} while (urls.hasMoreElements());</span>
+<span class="fc" id="L108">	}</span>
+
+	private String toFileName(String resource, URL url) {
+<span class="fc" id="L111">	String file = url.getFile().substring(0, url.getFile().length() - resource.length() - 1).replaceAll(&quot;(!)(/)?$&quot;, &quot;&quot;);</span>
+
+<span class="fc bfc" id="L113" title="All 2 branches covered.">	if (!file.startsWith(&quot;file:&quot;)) {</span>
+<span class="fc" id="L114">		file = &quot;file:&quot; + file;</span>
+	}
+<span class="fc" id="L116">	return file;</span>
+	}
+
+	private Set&lt;String&gt; findStereotypes(Map&lt;String, Set&lt;String&gt;&gt; webInfClassesAnnotationMap, Map&lt;String, Set&lt;String&gt;&gt; basePackagesAnnotationMap, List&lt;String&gt; basePackages) {
+<span class="fc" id="L120">	HashSet&lt;String&gt; results = new HashSet&lt;String&gt;();</span>
+
+<span class="fc" id="L122">	addVRaptorStereotypes(results);</span>
+
+<span class="fc" id="L124">	addWebInfClassesStereotypes(webInfClassesAnnotationMap, results);</span>
+
+<span class="fc" id="L126">	addBasePackagesStereotypes(basePackagesAnnotationMap, basePackages, results);</span>
+
+<span class="fc" id="L128">	return results;</span>
+	}
+
+	private void addBasePackagesStereotypes(Map&lt;String, Set&lt;String&gt;&gt; basePackagesAnnotationMap,
+		List&lt;String&gt; basePackages, HashSet&lt;String&gt; results) {
+<span class="fc" id="L133">	Set&lt;String&gt; libStereotypes = nullToEmpty(basePackagesAnnotationMap.get(Stereotype.class.getName()));</span>
+<span class="pc bpc" id="L134" title="1 of 2 branches missed.">	for (String stereotype : libStereotypes) {</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">		if (packagesContains(basePackages, stereotype)) {</span>
+<span class="nc" id="L136">		results.add(stereotype);</span>
+		}
+<span class="nc" id="L138">	}</span>
+<span class="fc" id="L139">	}</span>
+
+	private boolean packagesContains(List&lt;String&gt; basePackages, String clazz) {
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">	for (String basePackage : basePackages) {</span>
+<span class="pc bpc" id="L143" title="1 of 2 branches missed.">		if (clazz.startsWith(basePackage)) {</span>
+<span class="fc" id="L144">		return true;</span>
+		}
+<span class="nc" id="L146">	}</span>
+<span class="nc" id="L147">	return false;</span>
+	}
+
+	private void addWebInfClassesStereotypes(Map&lt;String, Set&lt;String&gt;&gt; webInfClassesAnnotationMap,
+		HashSet&lt;String&gt; results) {
+<span class="fc" id="L152">	Set&lt;String&gt; myStereotypes = nullToEmpty(webInfClassesAnnotationMap.get(Stereotype.class.getName()));</span>
+<span class="fc" id="L153">	results.addAll(myStereotypes);</span>
+<span class="fc" id="L154">	}</span>
+
+	private void addVRaptorStereotypes(HashSet&lt;String&gt; results) {
+<span class="fc bfc" id="L157" title="All 2 branches covered.">	for (Class&lt;? extends Annotation&gt; stereotype : BaseComponents.getStereotypes()) {</span>
+<span class="fc" id="L158">		results.add(stereotype.getName());</span>
+	}
+<span class="fc" id="L160">	}</span>
+
+	private void findComponentsFromWebInfClasses(Map&lt;String, Set&lt;String&gt;&gt; index, Set&lt;String&gt; stereotypeNames, Set&lt;String&gt; results) {
+<span class="fc bfc" id="L163" title="All 2 branches covered.">	for (String stereotype : stereotypeNames) {</span>
+<span class="fc" id="L164">		Set&lt;String&gt; classes = nullToEmpty(index.get(stereotype));</span>
+<span class="fc" id="L165">		results.addAll(classes);</span>
+<span class="fc" id="L166">	}</span>
+<span class="fc" id="L167">	}</span>
+
+	private void findComponentsFromBasePackages(Map&lt;String, Set&lt;String&gt;&gt; index, List&lt;String&gt; basePackages, Set&lt;String&gt; results) {
+<span class="fc bfc" id="L170" title="All 2 branches covered.">	for (Class&lt;? extends Annotation&gt; stereotype : BaseComponents.getStereotypes()) {</span>
+<span class="fc" id="L171">		Set&lt;String&gt; classes = nullToEmpty(index.get(stereotype.getName()));</span>
+
+<span class="fc bfc" id="L173" title="All 2 branches covered.">		for (String clazz : classes) {</span>
+<span class="pc bpc" id="L174" title="1 of 2 branches missed.">		if (packagesContains(basePackages, clazz)) {</span>
+<span class="fc" id="L175">			results.add(clazz);</span>
+		}
+<span class="fc" id="L177">		}</span>
+	}
+<span class="fc" id="L179">	}</span>
+
+	private &lt;T&gt; Set&lt;T&gt; nullToEmpty(Set&lt;T&gt; set) {
+<span class="fc" id="L182">	return firstNonNull(set, Collections.&lt;T&gt;emptySet());</span>
+	}
+
+	private AnnotationDB createAnnotationDB() {
+<span class="fc" id="L186">	AnnotationDB db = new AnnotationDB();</span>
+<span class="fc" id="L187">	db.setScanClassAnnotations(true);</span>
+<span class="fc" id="L188">	db.setScanFieldAnnotations(false);</span>
+<span class="fc" id="L189">	db.setScanMethodAnnotations(false);</span>
+<span class="fc" id="L190">	db.setScanParameterAnnotations(false);</span>
+<span class="fc" id="L191">	return db;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

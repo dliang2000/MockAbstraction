@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultSpringLocator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.ioc.spring</a> &gt; <span class="el_source">DefaultSpringLocator.java</span></div><h1>DefaultSpringLocator.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package br.com.caelum.vraptor.ioc.spring;
+
+import javax.servlet.ServletContext;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.context.ConfigurableWebApplicationContext;
+import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
+import org.springframework.web.context.support.WebApplicationContextUtils;
+import org.springframework.web.context.support.XmlWebApplicationContext;
+
+import br.com.caelum.vraptor.ioc.ApplicationScoped;
+
+/**
+ * Default implementation for SpringLocator.
+ * It tries to use spring default location to create the ApplicationContext
+ * @author Lucas Cavalcanti
+ *
+ */
+@ApplicationScoped
+<span class="fc" id="L38">public class DefaultSpringLocator implements SpringLocator {</span>
+
+<span class="fc" id="L40">	private static final Logger logger = LoggerFactory.getLogger(DefaultSpringLocator.class);</span>
+
+	public ConfigurableWebApplicationContext getApplicationContext(ServletContext servletContext) {
+<span class="fc" id="L43">		ConfigurableWebApplicationContext context = (ConfigurableWebApplicationContext) WebApplicationContextUtils.getWebApplicationContext(servletContext);</span>
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">		if (context != null) {</span>
+<span class="nc" id="L45">			logger.info(&quot;Using a web application context: {}&quot;, context);</span>
+<span class="nc" id="L46">			return context;</span>
+		}
+<span class="pc bpc" id="L48" title="1 of 2 branches missed.">		if (DefaultSpringLocator.class.getResource(&quot;/applicationContext.xml&quot;) != null) {</span>
+<span class="nc" id="L49">			logger.info(&quot;Using an XmlWebApplicationContext, searching for applicationContext.xml&quot;);</span>
+<span class="nc" id="L50">			XmlWebApplicationContext ctx = new XmlWebApplicationContext();</span>
+<span class="nc" id="L51">			ctx.setConfigLocation(&quot;classpath:applicationContext.xml&quot;);</span>
+<span class="nc" id="L52">			servletContext.setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, ctx);</span>
+<span class="nc" id="L53">			return ctx;</span>
+		}
+<span class="fc" id="L55">		logger.info(&quot;No application context found&quot;);</span>
+<span class="fc" id="L56">		ConfigurableWebApplicationContext ctx = new AnnotationConfigWebApplicationContext();</span>
+<span class="fc" id="L57">		ctx.setId(&quot;VRaptor&quot;);</span>
+<span class="fc" id="L58">		servletContext.setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, ctx);</span>
+<span class="fc" id="L59">		return ctx;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

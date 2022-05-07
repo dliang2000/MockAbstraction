@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ClosingFSDataOutputStream.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.core.fs</a> &gt; <span class="el_source">ClosingFSDataOutputStream.java</span></div><h1>ClosingFSDataOutputStream.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.core.fs;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.util.Preconditions;
+
+import java.io.IOException;
+
+/**
+ * This class is a {@link org.apache.flink.util.WrappingProxy} for {@link FSDataOutputStream} that
+ * is used to implement a safety net against unclosed streams.
+ *
+ * &lt;p&gt;See {@link SafetyNetCloseableRegistry} for more details on how this is utilized.
+ */
+@Internal
+public class ClosingFSDataOutputStream extends FSDataOutputStreamWrapper
+        implements WrappingProxyCloseable&lt;FSDataOutputStream&gt; {
+
+    private final SafetyNetCloseableRegistry registry;
+    private final String debugString;
+
+    private volatile boolean closed;
+
+    public ClosingFSDataOutputStream(
+            FSDataOutputStream delegate, SafetyNetCloseableRegistry registry) throws IOException {
+<span class="nc" id="L43">        this(delegate, registry, &quot;&quot;);</span>
+<span class="nc" id="L44">    }</span>
+
+    private ClosingFSDataOutputStream(
+            FSDataOutputStream delegate, SafetyNetCloseableRegistry registry, String debugString)
+            throws IOException {
+<span class="fc" id="L49">        super(delegate);</span>
+<span class="fc" id="L50">        this.registry = Preconditions.checkNotNull(registry);</span>
+<span class="fc" id="L51">        this.debugString = Preconditions.checkNotNull(debugString);</span>
+<span class="fc" id="L52">        this.closed = false;</span>
+<span class="fc" id="L53">    }</span>
+
+    public boolean isClosed() {
+<span class="nc" id="L56">        return closed;</span>
+    }
+
+    @Override
+    public void close() throws IOException {
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">        if (!closed) {</span>
+<span class="fc" id="L62">            closed = true;</span>
+<span class="fc" id="L63">            registry.unregisterCloseable(this);</span>
+<span class="fc" id="L64">            outputStream.close();</span>
+        }
+<span class="fc" id="L66">    }</span>
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L70">        return outputStream.hashCode();</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+
+<span class="nc bnc" id="L76" title="All 2 branches missed.">        if (this == obj) {</span>
+<span class="nc" id="L77">            return true;</span>
+        }
+
+<span class="nc bnc" id="L80" title="All 2 branches missed.">        if (obj instanceof ClosingFSDataOutputStream) {</span>
+<span class="nc" id="L81">            return outputStream.equals(((ClosingFSDataOutputStream) obj).outputStream);</span>
+        }
+
+<span class="nc" id="L84">        return false;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L89">        return &quot;ClosingFSDataOutputStream(&quot; + outputStream.toString() + &quot;) : &quot; + debugString;</span>
+    }
+
+    public static ClosingFSDataOutputStream wrapSafe(
+            FSDataOutputStream delegate, SafetyNetCloseableRegistry registry) throws IOException {
+<span class="nc" id="L94">        return wrapSafe(delegate, registry, &quot;&quot;);</span>
+    }
+
+    public static ClosingFSDataOutputStream wrapSafe(
+            FSDataOutputStream delegate, SafetyNetCloseableRegistry registry, String debugInfo)
+            throws IOException {
+
+<span class="fc" id="L101">        ClosingFSDataOutputStream inputStream =</span>
+                new ClosingFSDataOutputStream(delegate, registry, debugInfo);
+<span class="fc" id="L103">        registry.registerCloseable(inputStream);</span>
+<span class="fc" id="L104">        return inputStream;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

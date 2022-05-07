@@ -1,0 +1,419 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ConstructorRule.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jsonschema2pojo-core</a> &gt; <a href="index.source.html" class="el_package">org.jsonschema2pojo.rules</a> &gt; <span class="el_source">ConstructorRule.java</span></div><h1>ConstructorRule.java</h1><pre class="source lang-java linenums">/**
+ * Copyright © 2010-2020 Nokia
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.jsonschema2pojo.rules;
+
+import java.beans.ConstructorProperties;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Objects;
+import java.util.Set;
+
+import org.jsonschema2pojo.GenerationConfig;
+import org.jsonschema2pojo.Schema;
+import org.jsonschema2pojo.util.NameHelper;
+import org.jsonschema2pojo.util.ReflectionHelper;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.sun.codemodel.JAnnotationArrayMember;
+import com.sun.codemodel.JBlock;
+import com.sun.codemodel.JClass;
+import com.sun.codemodel.JConditional;
+import com.sun.codemodel.JDefinedClass;
+import com.sun.codemodel.JExpr;
+import com.sun.codemodel.JFieldVar;
+import com.sun.codemodel.JInvocation;
+import com.sun.codemodel.JMethod;
+import com.sun.codemodel.JMod;
+import com.sun.codemodel.JVar;
+
+public class ConstructorRule implements Rule&lt;JDefinedClass, JDefinedClass&gt; {
+
+  private final RuleFactory ruleFactory;
+  private final ReflectionHelper reflectionHelper;
+
+<span class="nc" id="L54">  ConstructorRule(RuleFactory ruleFactory, ReflectionHelper reflectionHelper) {</span>
+<span class="nc" id="L55">    this.ruleFactory = ruleFactory;</span>
+<span class="nc" id="L56">    this.reflectionHelper = reflectionHelper;</span>
+<span class="nc" id="L57">  }</span>
+
+  @Override
+  public JDefinedClass apply(String nodeName, JsonNode node, JsonNode parent, JDefinedClass instanceClass, Schema currentSchema) {
+<span class="nc" id="L61">    GenerationConfig generationConfig = ruleFactory.getGenerationConfig();</span>
+
+<span class="nc bnc" id="L63" title="All 2 branches missed.">    if (generationConfig.isConstructorsRequiredPropertiesOnly()) {</span>
+<span class="nc" id="L64">      handleLegacyConfiguration(node, instanceClass, currentSchema);</span>
+    } else {
+<span class="nc" id="L66">      handleMultiChoiceConstructorConfiguration(node, instanceClass, currentSchema);</span>
+    }
+
+<span class="nc" id="L69">    return instanceClass;</span>
+  }
+
+  private JDefinedClass handleLegacyConfiguration(JsonNode node, JDefinedClass instanceClass, Schema currentSchema) {
+    // Determine which properties belong to that class (or its superType/parent)
+<span class="nc" id="L74">    LinkedHashSet&lt;String&gt; requiredClassProperties = getConstructorProperties(node, true);</span>
+<span class="nc" id="L75">    LinkedHashSet&lt;String&gt; requiredCombinedSuperProperties = getSuperTypeConstructorPropertiesRecursive(node, currentSchema, true);</span>
+
+    // Only generate the constructors if there are actually properties to put in them
+<span class="nc bnc" id="L78" title="All 4 branches missed.">    if (!requiredClassProperties.isEmpty() || !requiredCombinedSuperProperties.isEmpty()) {</span>
+
+      // Generate the no arguments constructor - we'll need this even if there is a property
+      // constructor available, because it is used by the serialization and deserialization
+<span class="nc" id="L82">      generateNoArgsConstructor(instanceClass);</span>
+
+      // Generate the actual constructor taking in only the required properties
+<span class="nc" id="L85">      addFieldsConstructor(instanceClass, requiredClassProperties, requiredCombinedSuperProperties);</span>
+    }
+
+    // Return the original class we modified
+<span class="nc" id="L89">    return instanceClass;</span>
+  }
+
+  private void handleMultiChoiceConstructorConfiguration(JsonNode node, JDefinedClass instanceClass, Schema currentSchema) {
+    // Use this flag to keep track of whether or not we'll actually need to generate any constructors
+<span class="nc" id="L94">    boolean requiresConstructors = false;</span>
+
+    // Use these lists to keep track of the properties on the class, but we'll only populate them if we need to
+<span class="nc" id="L97">    LinkedHashSet&lt;String&gt; requiredClassProperties = null;</span>
+<span class="nc" id="L98">    LinkedHashSet&lt;String&gt; classProperties = null;</span>
+<span class="nc" id="L99">    LinkedHashSet&lt;String&gt; requiredCombinedSuperProperties = null;</span>
+<span class="nc" id="L100">    LinkedHashSet&lt;String&gt; combinedSuperProperties = null;</span>
+
+<span class="nc" id="L102">    GenerationConfig generationConfig = ruleFactory.getGenerationConfig();</span>
+<span class="nc" id="L103">    boolean includeCopyConstructor = generationConfig.isIncludeCopyConstructor();</span>
+<span class="nc" id="L104">    boolean includeAllPropertiesConstructor = generationConfig.isIncludeAllPropertiesConstructor();</span>
+<span class="nc" id="L105">    boolean includeRequiredPropertiesConstructor = generationConfig.isIncludeRequiredPropertiesConstructor();</span>
+
+<span class="nc bnc" id="L107" title="All 4 branches missed.">    if (includeAllPropertiesConstructor || includeCopyConstructor) {</span>
+<span class="nc" id="L108">      classProperties = getConstructorProperties(node, false);</span>
+<span class="nc" id="L109">      combinedSuperProperties = getSuperTypeConstructorPropertiesRecursive(node, currentSchema, false);</span>
+
+      // If we're generating a copy constructor / field constructor but there are no properties then there is
+      // no need to actually generate any constructors.
+<span class="nc bnc" id="L113" title="All 6 branches missed.">      requiresConstructors = requiresConstructors || !classProperties.isEmpty() || !combinedSuperProperties.isEmpty();</span>
+    }
+<span class="nc bnc" id="L115" title="All 2 branches missed.">    if (includeRequiredPropertiesConstructor) {</span>
+<span class="nc" id="L116">      requiredClassProperties = getConstructorProperties(node, true);</span>
+<span class="nc" id="L117">      requiredCombinedSuperProperties = getSuperTypeConstructorPropertiesRecursive(node, currentSchema, true);</span>
+
+      // If we're generating a field constructor, but there are no actual fields on the class then there is
+      // no need to actually generate constructors since the default constructor is sufficient
+<span class="nc bnc" id="L121" title="All 6 branches missed.">      requiresConstructors = requiresConstructors || !requiredClassProperties.isEmpty() || !requiredCombinedSuperProperties.isEmpty();</span>
+    }
+
+    // Only generate the constructors if there are actually properties to put in them
+<span class="nc bnc" id="L125" title="All 2 branches missed.">    if (requiresConstructors) {</span>
+      // Generate the no arguments constructor - we'll need this even if there is a property
+      // constructor available, because it is used by the serialization and deserialization
+<span class="nc" id="L128">      generateNoArgsConstructor(instanceClass);</span>
+
+<span class="nc bnc" id="L130" title="All 2 branches missed.">      if (includeCopyConstructor) {</span>
+<span class="nc" id="L131">        addCopyConstructor(instanceClass, classProperties, combinedSuperProperties);</span>
+      }
+<span class="nc bnc" id="L133" title="All 4 branches missed.">      if (includeAllPropertiesConstructor &amp;&amp; (classProperties.size() + combinedSuperProperties.size()) &gt; 0) {</span>
+<span class="nc" id="L134">        addFieldsConstructor(instanceClass, classProperties, combinedSuperProperties);</span>
+      }
+<span class="nc bnc" id="L136" title="All 4 branches missed.">      if (includeRequiredPropertiesConstructor &amp;&amp; (requiredClassProperties.size() + requiredCombinedSuperProperties.size()) &gt; 0) {</span>
+<span class="nc" id="L137">        addFieldsConstructor(instanceClass, requiredClassProperties, requiredCombinedSuperProperties);</span>
+      }
+    }
+<span class="nc" id="L140">  }</span>
+
+  private void addFieldsConstructor(JDefinedClass instanceClass, Set&lt;String&gt; classProperties, Set&lt;String&gt; combinedSuperProperties) {
+<span class="nc" id="L143">    GenerationConfig generationConfig = ruleFactory.getGenerationConfig();</span>
+
+    // Generate the constructor with the properties which were located
+<span class="nc" id="L146">    JMethod instanceConstructor = generateFieldsConstructor(instanceClass, classProperties, combinedSuperProperties);</span>
+
+    // If we're using InnerClassBuilder implementations then we also need to generate those
+<span class="nc bnc" id="L149" title="All 4 branches missed.">    if (generationConfig.isGenerateBuilders() &amp;&amp; generationConfig.isUseInnerClassBuilders()) {</span>
+<span class="nc" id="L150">      JDefinedClass baseBuilderClass = ruleFactory.getReflectionHelper().getBaseBuilderClass(instanceClass);</span>
+<span class="nc" id="L151">      JDefinedClass concreteBuilderClass = ruleFactory.getReflectionHelper().getConcreteBuilderClass(instanceClass);</span>
+
+<span class="nc" id="L153">      generateFieldsBuilderConstructor(baseBuilderClass, concreteBuilderClass, instanceClass, instanceConstructor);</span>
+    }
+<span class="nc" id="L155">  }</span>
+
+  private void addCopyConstructor(JDefinedClass instanceClass, Set&lt;String&gt; classProperties, Set&lt;String&gt; combinedSuperProperties) {
+<span class="nc" id="L158">    GenerationConfig generationConfig = ruleFactory.getGenerationConfig();</span>
+
+    // Generate the constructor with the properties which were located
+<span class="nc" id="L161">    JMethod instanceConstructor = generateCopyConstructor(instanceClass, classProperties, combinedSuperProperties);</span>
+
+    // If we're using InnerClassBuilder implementations then we also need to generate those
+<span class="nc bnc" id="L164" title="All 4 branches missed.">    if (generationConfig.isGenerateBuilders() &amp;&amp; generationConfig.isUseInnerClassBuilders()) {</span>
+<span class="nc" id="L165">      JDefinedClass baseBuilderClass = ruleFactory.getReflectionHelper().getBaseBuilderClass(instanceClass);</span>
+<span class="nc" id="L166">      JDefinedClass concreteBuilderClass = ruleFactory.getReflectionHelper().getConcreteBuilderClass(instanceClass);</span>
+
+<span class="nc" id="L168">      generateFieldsBuilderConstructor(baseBuilderClass, concreteBuilderClass, instanceClass, instanceConstructor);</span>
+    }
+<span class="nc" id="L170">  }</span>
+
+  /**
+   * Retrieve the list of properties to go in the constructor from node. This is all properties listed in node[&quot;properties&quot;] if ! onlyRequired, and
+   * only required properties if onlyRequired.
+   */
+  private LinkedHashSet&lt;String&gt; getConstructorProperties(JsonNode node, boolean onlyRequired) {
+
+<span class="nc bnc" id="L178" title="All 2 branches missed.">    if (!node.has(&quot;properties&quot;)) {</span>
+<span class="nc" id="L179">      return new LinkedHashSet&lt;&gt;();</span>
+    }
+
+<span class="nc" id="L182">    LinkedHashSet&lt;String&gt; rtn = new LinkedHashSet&lt;&gt;();</span>
+<span class="nc" id="L183">    Set&lt;String&gt; draft4RequiredProperties = new HashSet&lt;&gt;();</span>
+
+    // setup the set of required properties for draft4 style &quot;required&quot;
+<span class="nc bnc" id="L186" title="All 4 branches missed.">    if (onlyRequired &amp;&amp; node.has(&quot;required&quot;)) {</span>
+<span class="nc" id="L187">      JsonNode requiredArray = node.get(&quot;required&quot;);</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">      if (requiredArray.isArray()) {</span>
+<span class="nc bnc" id="L189" title="All 2 branches missed.">        for (JsonNode requiredEntry : requiredArray) {</span>
+<span class="nc bnc" id="L190" title="All 2 branches missed.">          if (requiredEntry.isTextual()) {</span>
+<span class="nc" id="L191">            draft4RequiredProperties.add(requiredEntry.asText());</span>
+          }
+<span class="nc" id="L193">        }</span>
+      }
+    }
+
+<span class="nc" id="L197">    NameHelper nameHelper = ruleFactory.getNameHelper();</span>
+<span class="nc" id="L198">    for (Iterator&lt;Entry&lt;String, JsonNode&gt;&gt; properties = node.get(&quot;properties&quot;)</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">        .fields(); properties.hasNext(); ) {</span>
+<span class="nc" id="L200">      Map.Entry&lt;String, JsonNode&gt; property = properties.next();</span>
+
+<span class="nc" id="L202">      JsonNode propertyObj = property.getValue();</span>
+<span class="nc bnc" id="L203" title="All 2 branches missed.">      if (onlyRequired) {</span>
+        // draft3 style
+<span class="nc bnc" id="L205" title="All 2 branches missed.">        if (propertyObj.has(&quot;required&quot;) &amp;&amp; propertyObj.get(&quot;required&quot;)</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">            .asBoolean()) {</span>
+<span class="nc" id="L207">          rtn.add(nameHelper.getPropertyName(property.getKey(), property.getValue()));</span>
+        }
+
+        // draft4 style
+<span class="nc bnc" id="L211" title="All 2 branches missed.">        if (draft4RequiredProperties.contains(property.getKey())) {</span>
+<span class="nc" id="L212">          rtn.add(nameHelper.getPropertyName(property.getKey(), property.getValue()));</span>
+        }
+      } else {
+<span class="nc" id="L215">        rtn.add(nameHelper.getPropertyName(property.getKey(), property.getValue()));</span>
+      }
+<span class="nc" id="L217">    }</span>
+<span class="nc" id="L218">    return rtn;</span>
+  }
+
+  /**
+   * Recursive, walks the schema tree and assembles a list of all properties of this schema's super schemas
+   */
+  private LinkedHashSet&lt;String&gt; getSuperTypeConstructorPropertiesRecursive(JsonNode node, Schema schema, boolean onlyRequired) {
+<span class="nc" id="L225">    Schema superTypeSchema = reflectionHelper.getSuperSchema(node, schema, true);</span>
+
+<span class="nc bnc" id="L227" title="All 2 branches missed.">    if (superTypeSchema == null) {</span>
+<span class="nc" id="L228">      return new LinkedHashSet&lt;&gt;();</span>
+    }
+
+<span class="nc" id="L231">    JsonNode superSchemaNode = superTypeSchema.getContent();</span>
+
+<span class="nc" id="L233">    LinkedHashSet&lt;String&gt; rtn = getConstructorProperties(superSchemaNode, onlyRequired);</span>
+<span class="nc" id="L234">    rtn.addAll(getSuperTypeConstructorPropertiesRecursive(superSchemaNode, superTypeSchema, onlyRequired));</span>
+
+<span class="nc" id="L236">    return rtn;</span>
+  }
+
+  private void generateFieldsBuilderConstructor(JDefinedClass builderClass, JDefinedClass concreteBuilderClass, JDefinedClass instanceClass, JMethod instanceConstructor) {
+
+    // Locate the instance field since we'll need it to assign a value
+<span class="nc" id="L242">    JFieldVar instanceField = reflectionHelper.searchClassAndSuperClassesForField(&quot;instance&quot;, builderClass);</span>
+
+    // Create a new method to be the builder constructor we're defining
+<span class="nc" id="L245">    JMethod builderConstructor = builderClass.constructor(JMod.PUBLIC);</span>
+<span class="nc" id="L246">    builderConstructor.annotate(SuppressWarnings.class)</span>
+<span class="nc" id="L247">        .param(&quot;value&quot;, &quot;unchecked&quot;);</span>
+<span class="nc" id="L248">    JBlock constructorBlock = builderConstructor.body();</span>
+
+    // The builder constructor should have the exact same parameters as the instanceConstructor
+<span class="nc bnc" id="L251" title="All 2 branches missed.">    for (JVar param : instanceConstructor.params()) {</span>
+<span class="nc" id="L252">      builderConstructor.param(param.type(), param.name());</span>
+<span class="nc" id="L253">    }</span>
+
+    // Determine if we need to invoke the super() method for our parent builder
+<span class="nc" id="L256">    JClass parentClass = builderClass._extends();</span>
+<span class="nc bnc" id="L257" title="All 6 branches missed.">    if (!(parentClass.isPrimitive() || reflectionHelper.isFinal(parentClass) || Objects.equals(parentClass.fullName(), &quot;java.lang.Object&quot;))) {</span>
+<span class="nc" id="L258">      constructorBlock.invoke(&quot;super&quot;);</span>
+    }
+
+    // The constructor invocation will also need all the parameters passed through
+<span class="nc" id="L262">    JInvocation instanceConstructorInvocation = JExpr._new(instanceClass);</span>
+<span class="nc bnc" id="L263" title="All 2 branches missed.">    for (JVar param : instanceConstructor.params()) {</span>
+<span class="nc" id="L264">      instanceConstructorInvocation.arg(param);</span>
+<span class="nc" id="L265">    }</span>
+
+    // Only initialize the instance if the object being constructed is actually this class
+    // if it's a subtype then ignore the instance initialization since the subclass will initialize it
+<span class="nc" id="L269">    constructorBlock.directStatement(&quot;// Skip initialization when called from subclass&quot;);</span>
+
+<span class="nc" id="L271">    JInvocation comparison = JExpr._this()</span>
+<span class="nc" id="L272">        .invoke(&quot;getClass&quot;)</span>
+<span class="nc" id="L273">        .invoke(&quot;equals&quot;)</span>
+<span class="nc" id="L274">        .arg(JExpr.dotclass(concreteBuilderClass));</span>
+<span class="nc" id="L275">    JConditional ifNotSubclass = constructorBlock._if(comparison);</span>
+<span class="nc" id="L276">    ifNotSubclass._then()</span>
+<span class="nc" id="L277">        .assign(JExpr._this()</span>
+<span class="nc" id="L278">            .ref(instanceField), JExpr.cast(instanceField.type(), instanceConstructorInvocation));</span>
+
+<span class="nc" id="L280">    generateFieldsConcreteBuilderConstructor(builderClass, concreteBuilderClass, instanceConstructor);</span>
+
+<span class="nc" id="L282">  }</span>
+
+  private void generateFieldsConcreteBuilderConstructor(JDefinedClass baseBuilderClass, JDefinedClass builderClass, JMethod instanceConstructor) {
+
+    // Create Typed Builder Constructor
+<span class="nc" id="L287">    JMethod builderConstructor = builderClass.constructor(JMod.PUBLIC);</span>
+<span class="nc" id="L288">    JBlock builderConstructorBlock = builderConstructor.body();</span>
+
+    // The typed builder constructor should have the exact same parameters as the inheritable builder.
+<span class="nc bnc" id="L291" title="All 2 branches missed.">    for (JVar param : instanceConstructor.params()) {</span>
+<span class="nc" id="L292">      builderConstructor.param(param.type(), param.name());</span>
+<span class="nc" id="L293">    }</span>
+
+<span class="nc bnc" id="L295" title="All 6 branches missed.">    if (!(baseBuilderClass.isPrimitive() || reflectionHelper.isFinal(baseBuilderClass) || Objects.equals(baseBuilderClass.fullName(), &quot;java.lang.Object&quot;))) {</span>
+<span class="nc" id="L296">      JInvocation superMethod = builderConstructorBlock.invoke(&quot;super&quot;);</span>
+
+<span class="nc bnc" id="L298" title="All 2 branches missed.">      for (JVar param : builderConstructor.params()) {</span>
+<span class="nc" id="L299">        superMethod.arg(param);</span>
+<span class="nc" id="L300">      }</span>
+    }
+<span class="nc" id="L302">  }</span>
+
+  private JMethod generateCopyConstructor(JDefinedClass jclass, Set&lt;String&gt; classProperties, Set&lt;String&gt; combinedSuperProperties) {
+
+    // Create the JMethod for the copy constructor
+<span class="nc" id="L307">    JMethod copyConstructorResult = jclass.constructor(JMod.PUBLIC);</span>
+
+    // Add a parameter to the copyConstructor for the actual object being copied
+<span class="nc" id="L310">    copyConstructorResult.javadoc()</span>
+<span class="nc" id="L311">        .addParam(&quot;source&quot;);</span>
+<span class="nc" id="L312">    JVar copyConstructorParam = copyConstructorResult.param(jclass, &quot;source&quot;);</span>
+
+    // Create the method block for the copyConstructor
+<span class="nc" id="L315">    JBlock constructorBody = copyConstructorResult.body();</span>
+
+    // Invoke the super class constructor for this class. We'll include the original object
+    // being copied if there are any combinedSuperProperties to be set, and if not then we'll
+    // simply call the empty constructor from the super class
+<span class="nc" id="L320">    JInvocation superInvocation = constructorBody.invoke(&quot;super&quot;);</span>
+<span class="nc bnc" id="L321" title="All 2 branches missed.">    if (!combinedSuperProperties.isEmpty()) {</span>
+<span class="nc" id="L322">      superInvocation.arg(copyConstructorParam);</span>
+    }
+
+    // For each of the class properties being set we then need to do something like the following
+    // this.property = source.property
+<span class="nc" id="L327">    Map&lt;String, JFieldVar&gt; fields = jclass.fields();</span>
+<span class="nc bnc" id="L328" title="All 2 branches missed.">    for (String property : classProperties) {</span>
+<span class="nc" id="L329">      JFieldVar field = fields.get(property);</span>
+
+<span class="nc bnc" id="L331" title="All 2 branches missed.">      if (field == null) {</span>
+<span class="nc" id="L332">        throw new IllegalStateException(&quot;Property &quot; + property + &quot; hasn't been added to JDefinedClass before calling addConstructors&quot;);</span>
+      }
+
+<span class="nc" id="L335">      constructorBody.assign(JExpr._this()</span>
+<span class="nc" id="L336">          .ref(field), copyConstructorParam.ref(field));</span>
+<span class="nc" id="L337">    }</span>
+
+<span class="nc" id="L339">    return copyConstructorResult;</span>
+  }
+
+  private JMethod generateFieldsConstructor(JDefinedClass jclass, Set&lt;String&gt; classProperties, Set&lt;String&gt; combinedSuperProperties) {
+    // add the public constructor with property parameters
+<span class="nc" id="L344">    JMethod fieldsConstructor = jclass.constructor(JMod.PUBLIC);</span>
+
+<span class="nc" id="L346">    GenerationConfig generationConfig = ruleFactory.getGenerationConfig();</span>
+
+    JAnnotationArrayMember constructorPropertiesAnnotation;
+
+<span class="nc bnc" id="L350" title="All 2 branches missed.">    if (generationConfig.isIncludeConstructorPropertiesAnnotation()) {</span>
+<span class="nc" id="L351">      constructorPropertiesAnnotation = fieldsConstructor.annotate(ConstructorProperties.class).paramArray(&quot;value&quot;);</span>
+    } else {
+<span class="nc" id="L353">      constructorPropertiesAnnotation = null;</span>
+    }
+
+<span class="nc" id="L356">    JBlock constructorBody = fieldsConstructor.body();</span>
+<span class="nc" id="L357">    JInvocation superInvocation = constructorBody.invoke(&quot;super&quot;);</span>
+
+<span class="nc" id="L359">    Map&lt;String, JFieldVar&gt; fields = jclass.fields();</span>
+<span class="nc" id="L360">    Map&lt;String, JVar&gt; classFieldParams = new HashMap&lt;&gt;();</span>
+
+<span class="nc bnc" id="L362" title="All 2 branches missed.">    for (String property : classProperties) {</span>
+<span class="nc" id="L363">      JFieldVar field = fields.get(property);</span>
+
+<span class="nc bnc" id="L365" title="All 2 branches missed.">      if (field == null) {</span>
+<span class="nc" id="L366">        throw new IllegalStateException(&quot;Property &quot; + property + &quot; hasn't been added to JDefinedClass before calling addConstructors&quot;);</span>
+      }
+
+<span class="nc" id="L369">      fieldsConstructor.javadoc()</span>
+<span class="nc" id="L370">          .addParam(property);</span>
+<span class="nc bnc" id="L371" title="All 4 branches missed.">      if (generationConfig.isIncludeConstructorPropertiesAnnotation() &amp;&amp; constructorPropertiesAnnotation != null) {</span>
+<span class="nc" id="L372">        constructorPropertiesAnnotation.param(field.name());</span>
+      }
+
+<span class="nc" id="L375">      JVar param = fieldsConstructor.param(field.type(), field.name());</span>
+<span class="nc" id="L376">      constructorBody.assign(JExpr._this()</span>
+<span class="nc" id="L377">          .ref(field), param);</span>
+<span class="nc" id="L378">      classFieldParams.put(property, param);</span>
+<span class="nc" id="L379">    }</span>
+
+<span class="nc" id="L381">    List&lt;JVar&gt; superConstructorParams = new ArrayList&lt;&gt;();</span>
+
+<span class="nc bnc" id="L383" title="All 2 branches missed.">    for (String property : combinedSuperProperties) {</span>
+<span class="nc" id="L384">      JFieldVar field = reflectionHelper.searchSuperClassesForField(property, jclass);</span>
+
+<span class="nc bnc" id="L386" title="All 2 branches missed.">      if (field == null) {</span>
+<span class="nc" id="L387">        throw new IllegalStateException(&quot;Property &quot; + property + &quot; hasn't been added to JDefinedClass before calling addConstructors&quot;);</span>
+      }
+
+<span class="nc" id="L390">      JVar param = classFieldParams.get(property);</span>
+
+<span class="nc bnc" id="L392" title="All 2 branches missed.">      if (param == null) {</span>
+<span class="nc" id="L393">        param = fieldsConstructor.param(field.type(), field.name());</span>
+      }
+
+<span class="nc" id="L396">      fieldsConstructor.javadoc()</span>
+<span class="nc" id="L397">          .addParam(property);</span>
+<span class="nc bnc" id="L398" title="All 4 branches missed.">      if (generationConfig.isIncludeConstructorPropertiesAnnotation() &amp;&amp; constructorPropertiesAnnotation != null) {</span>
+<span class="nc" id="L399">        constructorPropertiesAnnotation.param(param.name());</span>
+      }
+
+<span class="nc" id="L402">      superConstructorParams.add(param);</span>
+<span class="nc" id="L403">    }</span>
+
+<span class="nc bnc" id="L405" title="All 2 branches missed.">    for (JVar param : superConstructorParams) {</span>
+<span class="nc" id="L406">      superInvocation.arg(param);</span>
+<span class="nc" id="L407">    }</span>
+
+<span class="nc" id="L409">    return fieldsConstructor;</span>
+  }
+
+  private void generateNoArgsConstructor(JDefinedClass jclass) {
+    // add a no-args constructor for serialization purposes
+<span class="nc" id="L414">    JMethod noargsConstructor = jclass.constructor(JMod.PUBLIC);</span>
+<span class="nc" id="L415">    noargsConstructor.javadoc()</span>
+<span class="nc" id="L416">        .add(&quot;No args constructor for use in serialization&quot;);</span>
+<span class="nc" id="L417">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

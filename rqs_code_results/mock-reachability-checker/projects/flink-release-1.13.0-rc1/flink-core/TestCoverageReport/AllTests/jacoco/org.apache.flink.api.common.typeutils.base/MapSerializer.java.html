@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MapSerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeutils.base</a> &gt; <span class="el_source">MapSerializer.java</span></div><h1>MapSerializer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeutils.base;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.util.Preconditions;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * A serializer for {@link Map}. The serializer relies on a key serializer and a value serializer
+ * for the serialization of the map's key-value pairs.
+ *
+ * &lt;p&gt;The serialization format for the map is as follows: four bytes for the length of the map,
+ * followed by the serialized representation of each key-value pair. To allow null values, each
+ * value is prefixed by a null marker.
+ *
+ * @param &lt;K&gt; The type of the keys in the map.
+ * @param &lt;V&gt; The type of the values in the map.
+ */
+@Internal
+public final class MapSerializer&lt;K, V&gt; extends TypeSerializer&lt;Map&lt;K, V&gt;&gt; {
+
+    private static final long serialVersionUID = -6885593032367050078L;
+
+    /** The serializer for the keys in the map */
+    private final TypeSerializer&lt;K&gt; keySerializer;
+
+    /** The serializer for the values in the map */
+    private final TypeSerializer&lt;V&gt; valueSerializer;
+
+    /**
+     * Creates a map serializer that uses the given serializers to serialize the key-value pairs in
+     * the map.
+     *
+     * @param keySerializer The serializer for the keys in the map
+     * @param valueSerializer The serializer for the values in the map
+     */
+<span class="fc" id="L61">    public MapSerializer(TypeSerializer&lt;K&gt; keySerializer, TypeSerializer&lt;V&gt; valueSerializer) {</span>
+<span class="fc" id="L62">        this.keySerializer =</span>
+<span class="fc" id="L63">                Preconditions.checkNotNull(keySerializer, &quot;The key serializer cannot be null&quot;);</span>
+<span class="fc" id="L64">        this.valueSerializer =</span>
+<span class="fc" id="L65">                Preconditions.checkNotNull(valueSerializer, &quot;The value serializer cannot be null.&quot;);</span>
+<span class="fc" id="L66">    }</span>
+
+    // ------------------------------------------------------------------------
+    //  MapSerializer specific properties
+    // ------------------------------------------------------------------------
+
+    public TypeSerializer&lt;K&gt; getKeySerializer() {
+<span class="fc" id="L73">        return keySerializer;</span>
+    }
+
+    public TypeSerializer&lt;V&gt; getValueSerializer() {
+<span class="fc" id="L77">        return valueSerializer;</span>
+    }
+
+    // ------------------------------------------------------------------------
+    //  Type Serializer implementation
+    // ------------------------------------------------------------------------
+
+    @Override
+    public boolean isImmutableType() {
+<span class="nc" id="L86">        return false;</span>
+    }
+
+    @Override
+    public TypeSerializer&lt;Map&lt;K, V&gt;&gt; duplicate() {
+<span class="fc" id="L91">        TypeSerializer&lt;K&gt; duplicateKeySerializer = keySerializer.duplicate();</span>
+<span class="fc" id="L92">        TypeSerializer&lt;V&gt; duplicateValueSerializer = valueSerializer.duplicate();</span>
+
+<span class="pc bpc" id="L94" title="1 of 4 branches missed.">        return (duplicateKeySerializer == keySerializer)</span>
+                        &amp;&amp; (duplicateValueSerializer == valueSerializer)
+                ? this
+                : new MapSerializer&lt;&gt;(duplicateKeySerializer, duplicateValueSerializer);
+    }
+
+    @Override
+    public Map&lt;K, V&gt; createInstance() {
+<span class="fc" id="L102">        return new HashMap&lt;&gt;();</span>
+    }
+
+    @Override
+    public Map&lt;K, V&gt; copy(Map&lt;K, V&gt; from) {
+<span class="fc" id="L107">        Map&lt;K, V&gt; newMap = new HashMap&lt;&gt;(from.size());</span>
+
+<span class="fc bfc" id="L109" title="All 2 branches covered.">        for (Map.Entry&lt;K, V&gt; entry : from.entrySet()) {</span>
+<span class="fc" id="L110">            K newKey = keySerializer.copy(entry.getKey());</span>
+<span class="fc bfc" id="L111" title="All 2 branches covered.">            V newValue = entry.getValue() == null ? null : valueSerializer.copy(entry.getValue());</span>
+
+<span class="fc" id="L113">            newMap.put(newKey, newValue);</span>
+<span class="fc" id="L114">        }</span>
+
+<span class="fc" id="L116">        return newMap;</span>
+    }
+
+    @Override
+    public Map&lt;K, V&gt; copy(Map&lt;K, V&gt; from, Map&lt;K, V&gt; reuse) {
+<span class="fc" id="L121">        return copy(from);</span>
+    }
+
+    @Override
+    public int getLength() {
+<span class="fc" id="L126">        return -1; // var length</span>
+    }
+
+    @Override
+    public void serialize(Map&lt;K, V&gt; map, DataOutputView target) throws IOException {
+<span class="fc" id="L131">        final int size = map.size();</span>
+<span class="fc" id="L132">        target.writeInt(size);</span>
+
+<span class="fc bfc" id="L134" title="All 2 branches covered.">        for (Map.Entry&lt;K, V&gt; entry : map.entrySet()) {</span>
+<span class="fc" id="L135">            keySerializer.serialize(entry.getKey(), target);</span>
+
+<span class="fc bfc" id="L137" title="All 2 branches covered.">            if (entry.getValue() == null) {</span>
+<span class="fc" id="L138">                target.writeBoolean(true);</span>
+            } else {
+<span class="fc" id="L140">                target.writeBoolean(false);</span>
+<span class="fc" id="L141">                valueSerializer.serialize(entry.getValue(), target);</span>
+            }
+<span class="fc" id="L143">        }</span>
+<span class="fc" id="L144">    }</span>
+
+    @Override
+    public Map&lt;K, V&gt; deserialize(DataInputView source) throws IOException {
+<span class="fc" id="L148">        final int size = source.readInt();</span>
+
+<span class="fc" id="L150">        final Map&lt;K, V&gt; map = new HashMap&lt;&gt;(size);</span>
+<span class="fc bfc" id="L151" title="All 2 branches covered.">        for (int i = 0; i &lt; size; ++i) {</span>
+<span class="fc" id="L152">            K key = keySerializer.deserialize(source);</span>
+
+<span class="fc" id="L154">            boolean isNull = source.readBoolean();</span>
+<span class="fc bfc" id="L155" title="All 2 branches covered.">            V value = isNull ? null : valueSerializer.deserialize(source);</span>
+
+<span class="fc" id="L157">            map.put(key, value);</span>
+        }
+
+<span class="fc" id="L160">        return map;</span>
+    }
+
+    @Override
+    public Map&lt;K, V&gt; deserialize(Map&lt;K, V&gt; reuse, DataInputView source) throws IOException {
+<span class="fc" id="L165">        return deserialize(source);</span>
+    }
+
+    @Override
+    public void copy(DataInputView source, DataOutputView target) throws IOException {
+<span class="fc" id="L170">        final int size = source.readInt();</span>
+<span class="fc" id="L171">        target.writeInt(size);</span>
+
+<span class="fc bfc" id="L173" title="All 2 branches covered.">        for (int i = 0; i &lt; size; ++i) {</span>
+<span class="fc" id="L174">            keySerializer.copy(source, target);</span>
+
+<span class="fc" id="L176">            boolean isNull = source.readBoolean();</span>
+<span class="fc" id="L177">            target.writeBoolean(isNull);</span>
+
+<span class="fc bfc" id="L179" title="All 2 branches covered.">            if (!isNull) {</span>
+<span class="fc" id="L180">                valueSerializer.copy(source, target);</span>
+            }
+        }
+<span class="fc" id="L183">    }</span>
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="pc bpc" id="L187" title="1 of 4 branches missed.">        return obj == this</span>
+                || (obj != null
+<span class="pc bpc" id="L189" title="1 of 2 branches missed.">                        &amp;&amp; obj.getClass() == getClass()</span>
+<span class="pc bpc" id="L190" title="1 of 2 branches missed.">                        &amp;&amp; keySerializer.equals(((MapSerializer&lt;?, ?&gt;) obj).getKeySerializer())</span>
+<span class="pc bpc" id="L191" title="1 of 2 branches missed.">                        &amp;&amp; valueSerializer.equals(</span>
+<span class="fc" id="L192">                                ((MapSerializer&lt;?, ?&gt;) obj).getValueSerializer()));</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L197">        return keySerializer.hashCode() * 31 + valueSerializer.hashCode();</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // Serializer configuration snapshotting
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public TypeSerializerSnapshot&lt;Map&lt;K, V&gt;&gt; snapshotConfiguration() {
+<span class="fc" id="L206">        return new MapSerializerSnapshot&lt;&gt;(this);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

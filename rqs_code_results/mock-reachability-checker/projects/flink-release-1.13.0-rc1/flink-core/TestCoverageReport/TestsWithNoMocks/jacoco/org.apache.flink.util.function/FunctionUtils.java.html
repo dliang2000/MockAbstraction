@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FunctionUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.util.function</a> &gt; <span class="el_source">FunctionUtils.java</span></div><h1>FunctionUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.util.function;
+
+import org.apache.flink.util.ExceptionUtils;
+
+import java.util.concurrent.Callable;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
+/** Utility class for Flink's functions. */
+public class FunctionUtils {
+
+<span class="nc" id="L31">    private FunctionUtils() {</span>
+<span class="nc" id="L32">        throw new UnsupportedOperationException(&quot;This class should never be instantiated.&quot;);</span>
+    }
+
+<span class="pc" id="L35">    private static final Function&lt;Object, Void&gt; NULL_FN = ignored -&gt; null;</span>
+
+<span class="pc" id="L37">    private static final Consumer&lt;Object&gt; IGNORE_FN = ignored -&gt; {};</span>
+
+    /**
+     * Function which returns {@code null} (type: Void).
+     *
+     * @param &lt;T&gt; input type
+     * @return Function which returns {@code null}.
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public static &lt;T&gt; Function&lt;T, Void&gt; nullFn() {
+<span class="nc" id="L47">        return (Function&lt;T, Void&gt;) NULL_FN;</span>
+    }
+
+    /**
+     * Consumer which ignores the input.
+     *
+     * @param &lt;T&gt; type of the input
+     * @return Ignoring {@link Consumer}
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public static &lt;T&gt; Consumer&lt;T&gt; ignoreFn() {
+<span class="nc" id="L58">        return (Consumer&lt;T&gt;) IGNORE_FN;</span>
+    }
+
+    /**
+     * Convert at {@link FunctionWithException} into a {@link Function}.
+     *
+     * @param functionWithException function with exception to convert into a function
+     * @param &lt;A&gt; input type
+     * @param &lt;B&gt; output type
+     * @return {@link Function} which throws all checked exception as an unchecked exception.
+     */
+    public static &lt;A, B&gt; Function&lt;A, B&gt; uncheckedFunction(
+            FunctionWithException&lt;A, B, ?&gt; functionWithException) {
+<span class="fc" id="L71">        return (A value) -&gt; {</span>
+            try {
+<span class="fc" id="L73">                return functionWithException.apply(value);</span>
+<span class="fc" id="L74">            } catch (Throwable t) {</span>
+<span class="nc" id="L75">                ExceptionUtils.rethrow(t);</span>
+                // we need this to appease the compiler :-(
+<span class="nc" id="L77">                return null;</span>
+            }
+        };
+    }
+
+    /**
+     * Converts a {@link ThrowingConsumer} into a {@link Consumer} which throws checked exceptions
+     * as unchecked.
+     *
+     * @param throwingConsumer to convert into a {@link Consumer}
+     * @param &lt;A&gt; input type
+     * @return {@link Consumer} which throws all checked exceptions as unchecked
+     */
+    public static &lt;A&gt; Consumer&lt;A&gt; uncheckedConsumer(ThrowingConsumer&lt;A, ?&gt; throwingConsumer) {
+<span class="nc" id="L91">        return (A value) -&gt; {</span>
+            try {
+<span class="nc" id="L93">                throwingConsumer.accept(value);</span>
+<span class="nc" id="L94">            } catch (Throwable t) {</span>
+<span class="nc" id="L95">                ExceptionUtils.rethrow(t);</span>
+<span class="nc" id="L96">            }</span>
+<span class="nc" id="L97">        };</span>
+    }
+
+    /**
+     * Converts a {@link SupplierWithException} into a {@link Supplier} which throws all checked
+     * exceptions as unchecked.
+     *
+     * @param supplierWithException to convert into a {@link Supplier}
+     * @return {@link Supplier} which throws all checked exceptions as unchecked.
+     */
+    public static &lt;T&gt; Supplier&lt;T&gt; uncheckedSupplier(
+            SupplierWithException&lt;T, ?&gt; supplierWithException) {
+<span class="nc" id="L109">        return () -&gt; {</span>
+<span class="nc" id="L110">            T result = null;</span>
+            try {
+<span class="nc" id="L112">                result = supplierWithException.get();</span>
+<span class="nc" id="L113">            } catch (Throwable t) {</span>
+<span class="nc" id="L114">                ExceptionUtils.rethrow(t);</span>
+<span class="nc" id="L115">            }</span>
+<span class="nc" id="L116">            return result;</span>
+        };
+    }
+
+    /**
+     * Converts {@link RunnableWithException} into a {@link Callable} that will return the {@code
+     * result}.
+     */
+    public static &lt;T&gt; Callable&lt;T&gt; asCallable(RunnableWithException command, T result) {
+<span class="nc" id="L125">        return () -&gt; {</span>
+<span class="nc" id="L126">            command.run();</span>
+<span class="nc" id="L127">            return result;</span>
+        };
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

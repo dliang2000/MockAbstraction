@@ -1,0 +1,464 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PojoTypeInfo.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.java.typeutils</a> &gt; <span class="el_source">PojoTypeInfo.java</span></div><h1>PojoTypeInfo.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.java.typeutils;
+
+import org.apache.flink.annotation.Public;
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.operators.Keys.ExpressionKeys;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeutils.CompositeType;
+import org.apache.flink.api.common.typeutils.TypeComparator;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.java.typeutils.runtime.PojoComparator;
+import org.apache.flink.api.java.typeutils.runtime.PojoSerializer;
+import org.apache.flink.api.java.typeutils.runtime.kryo.KryoSerializer;
+
+import org.apache.commons.lang3.StringUtils;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkState;
+
+/**
+ * TypeInformation for &quot;Java Beans&quot;-style types. Flink refers to them as POJOs, since the conditions
+ * are slightly different from Java Beans. A type is considered a FLink POJO type, if it fulfills
+ * the conditions below.
+ *
+ * &lt;ul&gt;
+ *   &lt;li&gt;It is a public class, and standalone (not a non-static inner class)
+ *   &lt;li&gt;It has a public no-argument constructor.
+ *   &lt;li&gt;All fields are either public, or have public getters and setters.
+ * &lt;/ul&gt;
+ *
+ * @param &lt;T&gt; The type represented by this type information.
+ */
+@Public
+public class PojoTypeInfo&lt;T&gt; extends CompositeType&lt;T&gt; {
+
+    private static final long serialVersionUID = 1L;
+
+    private static final String REGEX_FIELD = &quot;[\\p{L}_\\$][\\p{L}\\p{Digit}_\\$]*&quot;;
+    private static final String REGEX_NESTED_FIELDS = &quot;(&quot; + REGEX_FIELD + &quot;)(\\.(.+))?&quot;;
+    private static final String REGEX_NESTED_FIELDS_WILDCARD =
+            REGEX_NESTED_FIELDS
+                    + &quot;|\\&quot;
+                    + ExpressionKeys.SELECT_ALL_CHAR
+                    + &quot;|\\&quot;
+                    + ExpressionKeys.SELECT_ALL_CHAR_SCALA;
+
+<span class="fc" id="L74">    private static final Pattern PATTERN_NESTED_FIELDS = Pattern.compile(REGEX_NESTED_FIELDS);</span>
+<span class="fc" id="L75">    private static final Pattern PATTERN_NESTED_FIELDS_WILDCARD =</span>
+<span class="fc" id="L76">            Pattern.compile(REGEX_NESTED_FIELDS_WILDCARD);</span>
+
+    private final PojoField[] fields;
+
+    private final int totalFields;
+
+    @PublicEvolving
+    public PojoTypeInfo(Class&lt;T&gt; typeClass, List&lt;PojoField&gt; fields) {
+<span class="fc" id="L84">        super(typeClass);</span>
+
+<span class="fc" id="L86">        checkArgument(</span>
+<span class="fc" id="L87">                Modifier.isPublic(typeClass.getModifiers()), &quot;POJO %s is not public&quot;, typeClass);</span>
+
+<span class="fc" id="L89">        this.fields = fields.toArray(new PojoField[fields.size()]);</span>
+
+<span class="fc" id="L91">        Arrays.sort(</span>
+                this.fields,
+<span class="fc" id="L93">                new Comparator&lt;PojoField&gt;() {</span>
+                    @Override
+                    public int compare(PojoField o1, PojoField o2) {
+<span class="fc" id="L96">                        return o1.getField().getName().compareTo(o2.getField().getName());</span>
+                    }
+                });
+
+<span class="fc" id="L100">        int counterFields = 0;</span>
+
+<span class="fc bfc" id="L102" title="All 2 branches covered.">        for (PojoField field : fields) {</span>
+<span class="fc" id="L103">            counterFields += field.getTypeInformation().getTotalFields();</span>
+<span class="fc" id="L104">        }</span>
+
+<span class="fc" id="L106">        totalFields = counterFields;</span>
+<span class="fc" id="L107">    }</span>
+
+    @Override
+    @PublicEvolving
+    public boolean isBasicType() {
+<span class="fc" id="L112">        return false;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public boolean isTupleType() {
+<span class="fc" id="L118">        return false;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public int getArity() {
+<span class="fc" id="L124">        return fields.length;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public int getTotalFields() {
+<span class="fc" id="L130">        return totalFields;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public boolean isSortKeyType() {
+        // Support for sorting POJOs that implement Comparable is not implemented yet.
+        // Since the order of fields in a POJO type is not well defined, sorting on fields
+        //   gives only some undefined order.
+<span class="nc" id="L139">        return false;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public void getFlatFields(
+            String fieldExpression, int offset, List&lt;FlatFieldDescriptor&gt; result) {
+
+<span class="fc" id="L147">        Matcher matcher = PATTERN_NESTED_FIELDS_WILDCARD.matcher(fieldExpression);</span>
+<span class="pc bpc" id="L148" title="1 of 2 branches missed.">        if (!matcher.matches()) {</span>
+<span class="nc" id="L149">            throw new InvalidFieldReferenceException(</span>
+                    &quot;Invalid POJO field reference \&quot;&quot; + fieldExpression + &quot;\&quot;.&quot;);
+        }
+
+<span class="fc" id="L153">        String field = matcher.group(0);</span>
+<span class="fc bfc" id="L154" title="All 2 branches covered.">        if (field.equals(ExpressionKeys.SELECT_ALL_CHAR)</span>
+<span class="fc bfc" id="L155" title="All 2 branches covered.">                || field.equals(ExpressionKeys.SELECT_ALL_CHAR_SCALA)) {</span>
+            // handle select all
+<span class="fc" id="L157">            int keyPosition = 0;</span>
+<span class="fc bfc" id="L158" title="All 2 branches covered.">            for (PojoField pField : fields) {</span>
+<span class="fc bfc" id="L159" title="All 2 branches covered.">                if (pField.getTypeInformation() instanceof CompositeType) {</span>
+<span class="fc" id="L160">                    CompositeType&lt;?&gt; cType = (CompositeType&lt;?&gt;) pField.getTypeInformation();</span>
+<span class="fc" id="L161">                    cType.getFlatFields(</span>
+<span class="fc" id="L162">                            String.valueOf(ExpressionKeys.SELECT_ALL_CHAR),</span>
+                            offset + keyPosition,
+                            result);
+<span class="fc" id="L165">                    keyPosition += cType.getTotalFields() - 1;</span>
+<span class="fc" id="L166">                } else {</span>
+<span class="fc" id="L167">                    result.add(</span>
+                            new NamedFlatFieldDescriptor(
+<span class="fc" id="L169">                                    pField.getField().getName(),</span>
+                                    offset + keyPosition,
+<span class="fc" id="L171">                                    pField.getTypeInformation()));</span>
+                }
+<span class="fc" id="L173">                keyPosition++;</span>
+            }
+<span class="fc" id="L175">            return;</span>
+        } else {
+<span class="fc" id="L177">            field = matcher.group(1);</span>
+        }
+
+        // get field
+<span class="fc" id="L181">        int fieldPos = -1;</span>
+<span class="fc" id="L182">        TypeInformation&lt;?&gt; fieldType = null;</span>
+<span class="fc bfc" id="L183" title="All 2 branches covered.">        for (int i = 0; i &lt; fields.length; i++) {</span>
+<span class="fc bfc" id="L184" title="All 2 branches covered.">            if (fields[i].getField().getName().equals(field)) {</span>
+<span class="fc" id="L185">                fieldPos = i;</span>
+<span class="fc" id="L186">                fieldType = fields[i].getTypeInformation();</span>
+<span class="fc" id="L187">                break;</span>
+            }
+        }
+<span class="fc bfc" id="L190" title="All 2 branches covered.">        if (fieldPos == -1) {</span>
+<span class="fc" id="L191">            throw new InvalidFieldReferenceException(</span>
+                    &quot;Unable to find field \&quot;&quot; + field + &quot;\&quot; in type &quot; + this + &quot;.&quot;);
+        }
+<span class="fc" id="L194">        String tail = matcher.group(3);</span>
+<span class="fc bfc" id="L195" title="All 2 branches covered.">        if (tail == null) {</span>
+<span class="fc bfc" id="L196" title="All 2 branches covered.">            if (fieldType instanceof CompositeType) {</span>
+                // forward offset
+<span class="fc bfc" id="L198" title="All 2 branches covered.">                for (int i = 0; i &lt; fieldPos; i++) {</span>
+<span class="fc" id="L199">                    offset += this.getTypeAt(i).getTotalFields();</span>
+                }
+                // add all fields of composite type
+<span class="fc" id="L202">                ((CompositeType&lt;?&gt;) fieldType).getFlatFields(&quot;*&quot;, offset, result);</span>
+            } else {
+                // we found the field to add
+                // compute flat field position by adding skipped fields
+<span class="fc" id="L206">                int flatFieldPos = offset;</span>
+<span class="fc bfc" id="L207" title="All 2 branches covered.">                for (int i = 0; i &lt; fieldPos; i++) {</span>
+<span class="fc" id="L208">                    flatFieldPos += this.getTypeAt(i).getTotalFields();</span>
+                }
+<span class="fc" id="L210">                result.add(new FlatFieldDescriptor(flatFieldPos, fieldType));</span>
+<span class="fc" id="L211">            }</span>
+        } else {
+<span class="fc bfc" id="L213" title="All 2 branches covered.">            if (fieldType instanceof CompositeType&lt;?&gt;) {</span>
+                // forward offset
+<span class="fc bfc" id="L215" title="All 2 branches covered.">                for (int i = 0; i &lt; fieldPos; i++) {</span>
+<span class="fc" id="L216">                    offset += this.getTypeAt(i).getTotalFields();</span>
+                }
+<span class="fc" id="L218">                ((CompositeType&lt;?&gt;) fieldType).getFlatFields(tail, offset, result);</span>
+            } else {
+<span class="fc" id="L220">                throw new InvalidFieldReferenceException(</span>
+                        &quot;Nested field expression \&quot;&quot;
+                                + tail
+                                + &quot;\&quot; not possible on atomic type &quot;
+                                + fieldType
+                                + &quot;.&quot;);
+            }
+        }
+<span class="fc" id="L228">    }</span>
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    @Override
+    @PublicEvolving
+    public &lt;X&gt; TypeInformation&lt;X&gt; getTypeAt(String fieldExpression) {
+
+<span class="fc" id="L235">        Matcher matcher = PATTERN_NESTED_FIELDS.matcher(fieldExpression);</span>
+<span class="pc bpc" id="L236" title="1 of 2 branches missed.">        if (!matcher.matches()) {</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">            if (fieldExpression.startsWith(ExpressionKeys.SELECT_ALL_CHAR)</span>
+<span class="nc bnc" id="L238" title="All 2 branches missed.">                    || fieldExpression.startsWith(ExpressionKeys.SELECT_ALL_CHAR_SCALA)) {</span>
+<span class="nc" id="L239">                throw new InvalidFieldReferenceException(</span>
+                        &quot;Wildcard expressions are not allowed here.&quot;);
+            } else {
+<span class="nc" id="L242">                throw new InvalidFieldReferenceException(</span>
+                        &quot;Invalid format of POJO field expression \&quot;&quot; + fieldExpression + &quot;\&quot;.&quot;);
+            }
+        }
+
+<span class="fc" id="L247">        String field = matcher.group(1);</span>
+        // get field
+<span class="fc" id="L249">        int fieldPos = -1;</span>
+<span class="fc" id="L250">        TypeInformation&lt;?&gt; fieldType = null;</span>
+<span class="pc bpc" id="L251" title="1 of 2 branches missed.">        for (int i = 0; i &lt; fields.length; i++) {</span>
+<span class="fc bfc" id="L252" title="All 2 branches covered.">            if (fields[i].getField().getName().equals(field)) {</span>
+<span class="fc" id="L253">                fieldPos = i;</span>
+<span class="fc" id="L254">                fieldType = fields[i].getTypeInformation();</span>
+<span class="fc" id="L255">                break;</span>
+            }
+        }
+<span class="pc bpc" id="L258" title="1 of 2 branches missed.">        if (fieldPos == -1) {</span>
+<span class="nc" id="L259">            throw new InvalidFieldReferenceException(</span>
+                    &quot;Unable to find field \&quot;&quot; + field + &quot;\&quot; in type &quot; + this + &quot;.&quot;);
+        }
+
+<span class="fc" id="L263">        String tail = matcher.group(3);</span>
+<span class="fc bfc" id="L264" title="All 2 branches covered.">        if (tail == null) {</span>
+            // we found the type
+<span class="fc" id="L266">            return (TypeInformation&lt;X&gt;) fieldType;</span>
+        } else {
+<span class="pc bpc" id="L268" title="1 of 2 branches missed.">            if (fieldType instanceof CompositeType&lt;?&gt;) {</span>
+<span class="fc" id="L269">                return ((CompositeType&lt;?&gt;) fieldType).getTypeAt(tail);</span>
+            } else {
+<span class="nc" id="L271">                throw new InvalidFieldReferenceException(</span>
+                        &quot;Nested field expression \&quot;&quot;
+                                + tail
+                                + &quot;\&quot; not possible on atomic type &quot;
+                                + fieldType
+                                + &quot;.&quot;);
+            }
+        }
+    }
+
+    @Override
+    @PublicEvolving
+    public &lt;X&gt; TypeInformation&lt;X&gt; getTypeAt(int pos) {
+<span class="pc bpc" id="L284" title="2 of 4 branches missed.">        if (pos &lt; 0 || pos &gt;= this.fields.length) {</span>
+<span class="nc" id="L285">            throw new IndexOutOfBoundsException();</span>
+        }
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L288">        TypeInformation&lt;X&gt; typed = (TypeInformation&lt;X&gt;) fields[pos].getTypeInformation();</span>
+<span class="fc" id="L289">        return typed;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    protected TypeComparatorBuilder&lt;T&gt; createTypeComparatorBuilder() {
+<span class="fc" id="L295">        return new PojoTypeComparatorBuilder();</span>
+    }
+
+    @PublicEvolving
+    public PojoField getPojoFieldAt(int pos) {
+<span class="pc bpc" id="L300" title="2 of 4 branches missed.">        if (pos &lt; 0 || pos &gt;= this.fields.length) {</span>
+<span class="nc" id="L301">            throw new IndexOutOfBoundsException();</span>
+        }
+<span class="fc" id="L303">        return this.fields[pos];</span>
+    }
+
+    @PublicEvolving
+    public String[] getFieldNames() {
+<span class="nc" id="L308">        String[] result = new String[fields.length];</span>
+<span class="nc bnc" id="L309" title="All 2 branches missed.">        for (int i = 0; i &lt; fields.length; i++) {</span>
+<span class="nc" id="L310">            result[i] = fields[i].getField().getName();</span>
+        }
+<span class="nc" id="L312">        return result;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public int getFieldIndex(String fieldName) {
+<span class="nc bnc" id="L318" title="All 2 branches missed.">        for (int i = 0; i &lt; fields.length; i++) {</span>
+<span class="nc bnc" id="L319" title="All 2 branches missed.">            if (fields[i].getField().getName().equals(fieldName)) {</span>
+<span class="nc" id="L320">                return i;</span>
+            }
+        }
+<span class="nc" id="L323">        return -1;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public TypeSerializer&lt;T&gt; createSerializer(ExecutionConfig config) {
+<span class="pc bpc" id="L330" title="1 of 2 branches missed.">        if (config.isForceKryoEnabled()) {</span>
+<span class="nc" id="L331">            return new KryoSerializer&lt;&gt;(getTypeClass(), config);</span>
+        }
+
+<span class="pc bpc" id="L334" title="1 of 2 branches missed.">        if (config.isForceAvroEnabled()) {</span>
+<span class="nc" id="L335">            return AvroUtils.getAvroUtils().createAvroSerializer(getTypeClass());</span>
+        }
+
+<span class="fc" id="L338">        return createPojoSerializer(config);</span>
+    }
+
+    public PojoSerializer&lt;T&gt; createPojoSerializer(ExecutionConfig config) {
+<span class="fc" id="L342">        TypeSerializer&lt;?&gt;[] fieldSerializers = new TypeSerializer&lt;?&gt;[fields.length];</span>
+<span class="fc" id="L343">        Field[] reflectiveFields = new Field[fields.length];</span>
+
+<span class="fc bfc" id="L345" title="All 2 branches covered.">        for (int i = 0; i &lt; fields.length; i++) {</span>
+<span class="fc" id="L346">            fieldSerializers[i] = fields[i].getTypeInformation().createSerializer(config);</span>
+<span class="fc" id="L347">            reflectiveFields[i] = fields[i].getField();</span>
+        }
+
+<span class="fc" id="L350">        return new PojoSerializer&lt;T&gt;(getTypeClass(), fieldSerializers, reflectiveFields, config);</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="pc bpc" id="L355" title="1 of 2 branches missed.">        if (obj instanceof PojoTypeInfo) {</span>
+            @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L357">            PojoTypeInfo&lt;T&gt; pojoTypeInfo = (PojoTypeInfo&lt;T&gt;) obj;</span>
+
+<span class="pc bpc" id="L359" title="1 of 2 branches missed.">            return pojoTypeInfo.canEqual(this)</span>
+<span class="pc bpc" id="L360" title="1 of 2 branches missed.">                    &amp;&amp; super.equals(pojoTypeInfo)</span>
+<span class="pc bpc" id="L361" title="2 of 4 branches missed.">                    &amp;&amp; Arrays.equals(fields, pojoTypeInfo.fields)</span>
+                    &amp;&amp; totalFields == pojoTypeInfo.totalFields;
+        } else {
+<span class="nc" id="L364">            return false;</span>
+        }
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L370">        return 31 * (31 * Arrays.hashCode(fields) + totalFields) + super.hashCode();</span>
+    }
+
+    @Override
+    public boolean canEqual(Object obj) {
+<span class="fc" id="L375">        return obj instanceof PojoTypeInfo;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L380">        List&lt;String&gt; fieldStrings = new ArrayList&lt;String&gt;();</span>
+<span class="fc bfc" id="L381" title="All 2 branches covered.">        for (PojoField field : fields) {</span>
+<span class="fc" id="L382">            fieldStrings.add(</span>
+<span class="fc" id="L383">                    field.getField().getName() + &quot;: &quot; + field.getTypeInformation().toString());</span>
+        }
+<span class="fc" id="L385">        return &quot;PojoType&lt;&quot;</span>
+<span class="fc" id="L386">                + getTypeClass().getName()</span>
+                + &quot;, fields = [&quot;
+<span class="fc" id="L388">                + StringUtils.join(fieldStrings, &quot;, &quot;)</span>
+                + &quot;]&quot;
+                + &quot;&gt;&quot;;
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    private class PojoTypeComparatorBuilder implements TypeComparatorBuilder&lt;T&gt; {
+
+        private ArrayList&lt;TypeComparator&gt; fieldComparators;
+        private ArrayList&lt;Field&gt; keyFields;
+
+<span class="fc" id="L400">        public PojoTypeComparatorBuilder() {</span>
+<span class="fc" id="L401">            fieldComparators = new ArrayList&lt;TypeComparator&gt;();</span>
+<span class="fc" id="L402">            keyFields = new ArrayList&lt;Field&gt;();</span>
+<span class="fc" id="L403">        }</span>
+
+        @Override
+        public void initializeTypeComparatorBuilder(int size) {
+<span class="fc" id="L407">            fieldComparators.ensureCapacity(size);</span>
+<span class="fc" id="L408">            keyFields.ensureCapacity(size);</span>
+<span class="fc" id="L409">        }</span>
+
+        @Override
+        public void addComparatorField(int fieldId, TypeComparator&lt;?&gt; comparator) {
+<span class="fc" id="L413">            fieldComparators.add(comparator);</span>
+<span class="fc" id="L414">            keyFields.add(fields[fieldId].getField());</span>
+<span class="fc" id="L415">        }</span>
+
+        @Override
+        public TypeComparator&lt;T&gt; createTypeComparator(ExecutionConfig config) {
+<span class="fc" id="L419">            checkState(</span>
+<span class="pc bpc" id="L420" title="1 of 2 branches missed.">                    keyFields.size() &gt; 0,</span>
+                    &quot;No keys were defined for the PojoTypeComparatorBuilder.&quot;);
+
+<span class="fc" id="L423">            checkState(</span>
+<span class="pc bpc" id="L424" title="1 of 2 branches missed.">                    fieldComparators.size() &gt; 0,</span>
+                    &quot;No type comparators were defined for the PojoTypeComparatorBuilder.&quot;);
+
+<span class="fc" id="L427">            checkState(</span>
+<span class="pc bpc" id="L428" title="1 of 2 branches missed.">                    keyFields.size() == fieldComparators.size(),</span>
+                    &quot;Number of key fields and field comparators is not equal.&quot;);
+
+<span class="fc" id="L431">            return new PojoComparator&lt;T&gt;(</span>
+<span class="fc" id="L432">                    keyFields.toArray(new Field[keyFields.size()]),</span>
+<span class="fc" id="L433">                    fieldComparators.toArray(new TypeComparator[fieldComparators.size()]),</span>
+<span class="fc" id="L434">                    createSerializer(config),</span>
+<span class="fc" id="L435">                    getTypeClass());</span>
+        }
+    }
+
+    public static class NamedFlatFieldDescriptor extends FlatFieldDescriptor {
+
+        private String fieldName;
+
+        public NamedFlatFieldDescriptor(String name, int keyPosition, TypeInformation&lt;?&gt; type) {
+<span class="fc" id="L444">            super(keyPosition, type);</span>
+<span class="fc" id="L445">            this.fieldName = name;</span>
+<span class="fc" id="L446">        }</span>
+
+        public String getFieldName() {
+<span class="nc" id="L449">            return fieldName;</span>
+        }
+
+        @Override
+        public String toString() {
+<span class="nc" id="L454">            return &quot;NamedFlatFieldDescriptor [name=&quot;</span>
+                    + fieldName
+                    + &quot; position=&quot;
+<span class="nc" id="L457">                    + getPosition()</span>
+                    + &quot; typeInfo=&quot;
+<span class="nc" id="L459">                    + getType()</span>
+                    + &quot;]&quot;;
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

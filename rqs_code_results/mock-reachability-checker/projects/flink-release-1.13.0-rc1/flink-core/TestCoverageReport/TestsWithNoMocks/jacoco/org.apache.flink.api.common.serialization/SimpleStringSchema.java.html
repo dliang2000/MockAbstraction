@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SimpleStringSchema.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.serialization</a> &gt; <span class="el_source">SimpleStringSchema.java</span></div><h1>SimpleStringSchema.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.serialization;
+
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * Very simple serialization schema for strings.
+ *
+ * &lt;p&gt;By default, the serializer uses &quot;UTF-8&quot; for string/byte conversion.
+ */
+@PublicEvolving
+public class SimpleStringSchema
+        implements DeserializationSchema&lt;String&gt;, SerializationSchema&lt;String&gt; {
+
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * The charset to use to convert between strings and bytes. The field is transient because we
+     * serialize a different delegate object instead
+     */
+    private transient Charset charset;
+
+    /** Creates a new SimpleStringSchema that uses &quot;UTF-8&quot; as the encoding. */
+    public SimpleStringSchema() {
+<span class="nc" id="L50">        this(StandardCharsets.UTF_8);</span>
+<span class="nc" id="L51">    }</span>
+
+    /**
+     * Creates a new SimpleStringSchema that uses the given charset to convert between strings and
+     * bytes.
+     *
+     * @param charset The charset to use to convert between strings and bytes.
+     */
+<span class="fc" id="L59">    public SimpleStringSchema(Charset charset) {</span>
+<span class="fc" id="L60">        this.charset = checkNotNull(charset);</span>
+<span class="fc" id="L61">    }</span>
+
+    /**
+     * Gets the charset used by this schema for serialization.
+     *
+     * @return The charset used by this schema for serialization.
+     */
+    public Charset getCharset() {
+<span class="fc" id="L69">        return charset;</span>
+    }
+
+    // ------------------------------------------------------------------------
+    //  Kafka Serialization
+    // ------------------------------------------------------------------------
+
+    @Override
+    public String deserialize(byte[] message) {
+<span class="fc" id="L78">        return new String(message, charset);</span>
+    }
+
+    @Override
+    public boolean isEndOfStream(String nextElement) {
+<span class="nc" id="L83">        return false;</span>
+    }
+
+    @Override
+    public byte[] serialize(String element) {
+<span class="fc" id="L88">        return element.getBytes(charset);</span>
+    }
+
+    @Override
+    public TypeInformation&lt;String&gt; getProducedType() {
+<span class="nc" id="L93">        return BasicTypeInfo.STRING_TYPE_INFO;</span>
+    }
+
+    // ------------------------------------------------------------------------
+    //  Java Serialization
+    // ------------------------------------------------------------------------
+
+    private void writeObject(ObjectOutputStream out) throws IOException {
+<span class="fc" id="L101">        out.defaultWriteObject();</span>
+<span class="fc" id="L102">        out.writeUTF(charset.name());</span>
+<span class="fc" id="L103">    }</span>
+
+    private void readObject(java.io.ObjectInputStream in)
+            throws IOException, ClassNotFoundException {
+<span class="fc" id="L107">        in.defaultReadObject();</span>
+<span class="fc" id="L108">        String charsetName = in.readUTF();</span>
+<span class="fc" id="L109">        this.charset = Charset.forName(charsetName);</span>
+<span class="fc" id="L110">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

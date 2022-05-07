@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FilteredProjectDependencyGraph.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.graph</a> &gt; <span class="el_source">FilteredProjectDependencyGraph.java</span></div><h1>FilteredProjectDependencyGraph.java</h1><pre class="source lang-java linenums">package org.apache.maven.graph;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+import org.apache.maven.execution.ProjectDependencyGraph;
+import org.apache.maven.project.MavenProject;
+
+/**
+ * Provides a sub view of another dependency graph.
+ *
+ * @author Benjamin Bentmann
+ */
+class FilteredProjectDependencyGraph
+    implements ProjectDependencyGraph
+{
+
+    private ProjectDependencyGraph projectDependencyGraph;
+
+    private Map&lt;MavenProject, ?&gt; whiteList;
+
+    private List&lt;MavenProject&gt; sortedProjects;
+
+    /**
+     * Creates a new project dependency graph from the specified graph.
+     *
+     * @param projectDependencyGraph The project dependency graph to create a sub view from, must not be {@code null}.
+     * @param whiteList The projects on which the dependency view should focus, must not be {@code null}.
+     */
+    FilteredProjectDependencyGraph( ProjectDependencyGraph projectDependencyGraph,
+                                    Collection&lt;? extends MavenProject&gt; whiteList )
+<span class="nc" id="L55">    {</span>
+<span class="nc" id="L56">        this.projectDependencyGraph =</span>
+<span class="nc" id="L57">                Objects.requireNonNull( projectDependencyGraph, &quot;projectDependencyGraph cannot be null&quot; );</span>
+
+<span class="nc" id="L59">        this.whiteList = new IdentityHashMap&lt;MavenProject, Object&gt;();</span>
+
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        for ( MavenProject project : whiteList )</span>
+        {
+<span class="nc" id="L63">            this.whiteList.put( project, null );</span>
+<span class="nc" id="L64">        }</span>
+<span class="nc" id="L65">    }</span>
+
+    /**
+     * @since 3.5.0
+     */
+    public List&lt;MavenProject&gt; getAllProjects()
+    {
+<span class="nc" id="L72">        return this.projectDependencyGraph.getAllProjects();</span>
+    }
+
+    public List&lt;MavenProject&gt; getSortedProjects()
+    {
+<span class="nc bnc" id="L77" title="All 2 branches missed.">        if ( sortedProjects == null )</span>
+        {
+<span class="nc" id="L79">            sortedProjects = applyFilter( projectDependencyGraph.getSortedProjects() );</span>
+        }
+
+<span class="nc" id="L82">        return new ArrayList&lt;&gt;( sortedProjects );</span>
+    }
+
+    public List&lt;MavenProject&gt; getDownstreamProjects( MavenProject project, boolean transitive )
+    {
+<span class="nc" id="L87">        return applyFilter( projectDependencyGraph.getDownstreamProjects( project, transitive ) );</span>
+    }
+
+    public List&lt;MavenProject&gt; getUpstreamProjects( MavenProject project, boolean transitive )
+    {
+<span class="nc" id="L92">        return applyFilter( projectDependencyGraph.getUpstreamProjects( project, transitive ) );</span>
+    }
+
+    private List&lt;MavenProject&gt; applyFilter( Collection&lt;? extends MavenProject&gt; projects )
+    {
+<span class="nc" id="L97">        List&lt;MavenProject&gt; filtered = new ArrayList&lt;&gt;( projects.size() );</span>
+
+<span class="nc bnc" id="L99" title="All 2 branches missed.">        for ( MavenProject project : projects )</span>
+        {
+<span class="nc bnc" id="L101" title="All 2 branches missed.">            if ( whiteList.containsKey( project ) )</span>
+            {
+<span class="nc" id="L103">                filtered.add( project );</span>
+            }
+<span class="nc" id="L105">        }</span>
+
+<span class="nc" id="L107">        return filtered;</span>
+    }
+
+    @Override
+    public String toString()
+    {
+<span class="nc" id="L113">        return getSortedProjects().toString();</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

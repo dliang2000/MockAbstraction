@@ -1,0 +1,469 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NetUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.util</a> &gt; <span class="el_source">NetUtils.java</span></div><h1>NetUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.util;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.configuration.IllegalConfigurationException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import sun.net.util.IPAddressUtil;
+
+import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
+import java.net.ServerSocket;
+import java.net.URL;
+import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
+
+/** Utility for various network related tasks (such as finding free ports). */
+@Internal
+<span class="nc" id="L43">public class NetUtils {</span>
+
+<span class="fc" id="L45">    private static final Logger LOG = LoggerFactory.getLogger(NetUtils.class);</span>
+
+    /** The wildcard address to listen on all interfaces (either 0.0.0.0 or ::). */
+<span class="fc" id="L48">    private static final String WILDCARD_ADDRESS =</span>
+<span class="fc" id="L49">            new InetSocketAddress(0).getAddress().getHostAddress();</span>
+
+    /**
+     * Turn a fully qualified domain name (fqdn) into a hostname. If the fqdn has multiple subparts
+     * (separated by a period '.'), it will take the first part. Otherwise it takes the entire fqdn.
+     *
+     * @param fqdn The fully qualified domain name.
+     * @return The hostname.
+     */
+    public static String getHostnameFromFQDN(String fqdn) {
+<span class="pc bpc" id="L59" title="1 of 2 branches missed.">        if (fqdn == null) {</span>
+<span class="nc" id="L60">            throw new IllegalArgumentException(&quot;fqdn is null&quot;);</span>
+        }
+<span class="fc" id="L62">        int dotPos = fqdn.indexOf('.');</span>
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">        if (dotPos == -1) {</span>
+<span class="fc" id="L64">            return fqdn;</span>
+        } else {
+<span class="nc" id="L66">            return fqdn.substring(0, dotPos);</span>
+        }
+    }
+
+    /**
+     * Converts a string of the form &quot;host:port&quot; into an {@link URL}.
+     *
+     * @param hostPort The &quot;host:port&quot; string.
+     * @return The converted URL.
+     */
+    public static URL getCorrectHostnamePort(String hostPort) {
+<span class="fc" id="L77">        return validateHostPortString(hostPort);</span>
+    }
+
+    /**
+     * Converts a string of the form &quot;host:port&quot; into an {@link InetSocketAddress}.
+     *
+     * @param hostPort The &quot;host:port&quot; string.
+     * @return The converted InetSocketAddress.
+     */
+    public static InetSocketAddress parseHostPortAddress(String hostPort) {
+<span class="fc" id="L87">        URL url = validateHostPortString(hostPort);</span>
+<span class="fc" id="L88">        return new InetSocketAddress(url.getHost(), url.getPort());</span>
+    }
+
+    /**
+     * Validates if the given String represents a hostname:port.
+     *
+     * &lt;p&gt;Works also for ipv6.
+     *
+     * &lt;p&gt;See:
+     * http://stackoverflow.com/questions/2345063/java-common-way-to-validate-and-convert-hostport-to-inetsocketaddress
+     *
+     * @return URL object for accessing host and port
+     */
+    private static URL validateHostPortString(String hostPort) {
+        try {
+<span class="fc" id="L103">            URL u = new URL(&quot;http://&quot; + hostPort);</span>
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">            if (u.getHost() == null) {</span>
+<span class="nc" id="L105">                throw new IllegalArgumentException(</span>
+                        &quot;The given host:port ('&quot; + hostPort + &quot;') doesn't contain a valid host&quot;);
+            }
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">            if (u.getPort() == -1) {</span>
+<span class="nc" id="L109">                throw new IllegalArgumentException(</span>
+                        &quot;The given host:port ('&quot; + hostPort + &quot;') doesn't contain a valid port&quot;);
+            }
+<span class="fc" id="L112">            return u;</span>
+<span class="nc" id="L113">        } catch (MalformedURLException e) {</span>
+<span class="nc" id="L114">            throw new IllegalArgumentException(</span>
+                    &quot;The given host:port ('&quot; + hostPort + &quot;') is invalid&quot;, e);
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    //  Lookup of to free ports
+    // ------------------------------------------------------------------------
+
+    /**
+     * Find a non-occupied port.
+     *
+     * @return A non-occupied port.
+     */
+    public static int getAvailablePort() {
+<span class="nc bnc" id="L129" title="All 2 branches missed.">        for (int i = 0; i &lt; 50; i++) {</span>
+<span class="nc" id="L130">            try (ServerSocket serverSocket = new ServerSocket(0)) {</span>
+<span class="nc" id="L131">                int port = serverSocket.getLocalPort();</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">                if (port != 0) {</span>
+<span class="nc" id="L133">                    return port;</span>
+                }
+<span class="nc" id="L135">            } catch (IOException ignored) {</span>
+<span class="nc" id="L136">            }</span>
+        }
+
+<span class="nc" id="L139">        throw new RuntimeException(&quot;Could not find a free permitted port on the machine.&quot;);</span>
+    }
+
+    // ------------------------------------------------------------------------
+    //  Encoding of IP addresses for URLs
+    // ------------------------------------------------------------------------
+
+    /**
+     * Returns an address in a normalized format for Akka. When an IPv6 address is specified, it
+     * normalizes the IPv6 address to avoid complications with the exact URL match policy of Akka.
+     *
+     * @param host The hostname, IPv4 or IPv6 address
+     * @return host which will be normalized if it is an IPv6 address
+     */
+    public static String unresolvedHostToNormalizedString(String host) {
+        // Return loopback interface address if host is null
+        // This represents the behavior of {@code InetAddress.getByName } and RFC 3330
+<span class="pc bpc" id="L156" title="1 of 2 branches missed.">        if (host == null) {</span>
+<span class="nc" id="L157">            host = InetAddress.getLoopbackAddress().getHostAddress();</span>
+        } else {
+<span class="fc" id="L159">            host = host.trim().toLowerCase();</span>
+<span class="pc bpc" id="L160" title="1 of 4 branches missed.">            if (host.startsWith(&quot;[&quot;) &amp;&amp; host.endsWith(&quot;]&quot;)) {</span>
+<span class="fc" id="L161">                String address = host.substring(1, host.length() - 1);</span>
+<span class="pc bpc" id="L162" title="1 of 2 branches missed.">                if (IPAddressUtil.isIPv6LiteralAddress(address)) {</span>
+<span class="fc" id="L163">                    host = address;</span>
+                }
+            }
+        }
+
+        // normalize and valid address
+<span class="fc bfc" id="L169" title="All 2 branches covered.">        if (IPAddressUtil.isIPv6LiteralAddress(host)) {</span>
+<span class="fc" id="L170">            byte[] ipV6Address = IPAddressUtil.textToNumericFormatV6(host);</span>
+<span class="fc" id="L171">            host = getIPv6UrlRepresentation(ipV6Address);</span>
+<span class="fc bfc" id="L172" title="All 2 branches covered.">        } else if (!IPAddressUtil.isIPv4LiteralAddress(host)) {</span>
+            try {
+                // We don't allow these in hostnames
+<span class="pc bpc" id="L175" title="1 of 2 branches missed.">                Preconditions.checkArgument(!host.startsWith(&quot;.&quot;));</span>
+<span class="fc bfc" id="L176" title="All 2 branches covered.">                Preconditions.checkArgument(!host.endsWith(&quot;.&quot;));</span>
+<span class="fc bfc" id="L177" title="All 2 branches covered.">                Preconditions.checkArgument(!host.contains(&quot;:&quot;));</span>
+<span class="fc" id="L178">            } catch (Exception e) {</span>
+<span class="fc" id="L179">                throw new IllegalConfigurationException(&quot;The configured hostname is not valid&quot;, e);</span>
+<span class="fc" id="L180">            }</span>
+        }
+
+<span class="fc" id="L183">        return host;</span>
+    }
+
+    /**
+     * Returns a valid address for Akka. It returns a String of format 'host:port'. When an IPv6
+     * address is specified, it normalizes the IPv6 address to avoid complications with the exact
+     * URL match policy of Akka.
+     *
+     * @param host The hostname, IPv4 or IPv6 address
+     * @param port The port
+     * @return host:port where host will be normalized if it is an IPv6 address
+     */
+    public static String unresolvedHostAndPortToNormalizedString(String host, int port) {
+<span class="fc" id="L196">        Preconditions.checkArgument(isValidHostPort(port), &quot;Port is not within the valid range,&quot;);</span>
+<span class="fc" id="L197">        return unresolvedHostToNormalizedString(host) + &quot;:&quot; + port;</span>
+    }
+
+    /**
+     * Encodes an IP address properly as a URL string. This method makes sure that IPv6 addresses
+     * have the proper formatting to be included in URLs.
+     *
+     * @param address The IP address to encode.
+     * @return The proper URL string encoded IP address.
+     */
+    public static String ipAddressToUrlString(InetAddress address) {
+<span class="pc bpc" id="L208" title="1 of 2 branches missed.">        if (address == null) {</span>
+<span class="nc" id="L209">            throw new NullPointerException(&quot;address is null&quot;);</span>
+<span class="fc bfc" id="L210" title="All 2 branches covered.">        } else if (address instanceof Inet4Address) {</span>
+<span class="fc" id="L211">            return address.getHostAddress();</span>
+<span class="pc bpc" id="L212" title="1 of 2 branches missed.">        } else if (address instanceof Inet6Address) {</span>
+<span class="fc" id="L213">            return getIPv6UrlRepresentation((Inet6Address) address);</span>
+        } else {
+<span class="nc" id="L215">            throw new IllegalArgumentException(&quot;Unrecognized type of InetAddress: &quot; + address);</span>
+        }
+    }
+
+    /**
+     * Encodes an IP address and port to be included in URL. in particular, this method makes sure
+     * that IPv6 addresses have the proper formatting to be included in URLs.
+     *
+     * @param address The address to be included in the URL.
+     * @param port The port for the URL address.
+     * @return The proper URL string encoded IP address and port.
+     */
+    public static String ipAddressAndPortToUrlString(InetAddress address, int port) {
+<span class="fc" id="L228">        return ipAddressToUrlString(address) + ':' + port;</span>
+    }
+
+    /**
+     * Encodes an IP address and port to be included in URL. in particular, this method makes sure
+     * that IPv6 addresses have the proper formatting to be included in URLs.
+     *
+     * @param address The socket address with the IP address and port.
+     * @return The proper URL string encoded IP address and port.
+     */
+    public static String socketAddressToUrlString(InetSocketAddress address) {
+<span class="pc bpc" id="L239" title="1 of 2 branches missed.">        if (address.isUnresolved()) {</span>
+<span class="nc" id="L240">            throw new IllegalArgumentException(</span>
+<span class="nc" id="L241">                    &quot;Address cannot be resolved: &quot; + address.getHostString());</span>
+        }
+<span class="fc" id="L243">        return ipAddressAndPortToUrlString(address.getAddress(), address.getPort());</span>
+    }
+
+    /**
+     * Normalizes and encodes a hostname and port to be included in URL. In particular, this method
+     * makes sure that IPv6 address literals have the proper formatting to be included in URLs.
+     *
+     * @param host The address to be included in the URL.
+     * @param port The port for the URL address.
+     * @return The proper URL string encoded IP address and port.
+     * @throws java.net.UnknownHostException Thrown, if the hostname cannot be translated into a
+     *     URL.
+     */
+    public static String hostAndPortToUrlString(String host, int port) throws UnknownHostException {
+<span class="nc" id="L257">        return ipAddressAndPortToUrlString(InetAddress.getByName(host), port);</span>
+    }
+
+    /**
+     * Creates a compressed URL style representation of an Inet6Address.
+     *
+     * &lt;p&gt;This method copies and adopts code from Google's Guava library. We re-implement this here
+     * in order to reduce dependency on Guava. The Guava library has frequently caused dependency
+     * conflicts in the past.
+     */
+    private static String getIPv6UrlRepresentation(Inet6Address address) {
+<span class="fc" id="L268">        return getIPv6UrlRepresentation(address.getAddress());</span>
+    }
+
+    /**
+     * Creates a compressed URL style representation of an Inet6Address.
+     *
+     * &lt;p&gt;This method copies and adopts code from Google's Guava library. We re-implement this here
+     * in order to reduce dependency on Guava. The Guava library has frequently caused dependency
+     * conflicts in the past.
+     */
+    private static String getIPv6UrlRepresentation(byte[] addressBytes) {
+        // first, convert bytes to 16 bit chunks
+<span class="fc" id="L280">        int[] hextets = new int[8];</span>
+<span class="fc bfc" id="L281" title="All 2 branches covered.">        for (int i = 0; i &lt; hextets.length; i++) {</span>
+<span class="fc" id="L282">            hextets[i] = (addressBytes[2 * i] &amp; 0xFF) &lt;&lt; 8 | (addressBytes[2 * i + 1] &amp; 0xFF);</span>
+        }
+
+        // now, find the sequence of zeros that should be compressed
+<span class="fc" id="L286">        int bestRunStart = -1;</span>
+<span class="fc" id="L287">        int bestRunLength = -1;</span>
+<span class="fc" id="L288">        int runStart = -1;</span>
+<span class="fc bfc" id="L289" title="All 2 branches covered.">        for (int i = 0; i &lt; hextets.length + 1; i++) {</span>
+<span class="fc bfc" id="L290" title="All 4 branches covered.">            if (i &lt; hextets.length &amp;&amp; hextets[i] == 0) {</span>
+<span class="fc bfc" id="L291" title="All 2 branches covered.">                if (runStart &lt; 0) {</span>
+<span class="fc" id="L292">                    runStart = i;</span>
+                }
+<span class="fc bfc" id="L294" title="All 2 branches covered.">            } else if (runStart &gt;= 0) {</span>
+<span class="fc" id="L295">                int runLength = i - runStart;</span>
+<span class="pc bpc" id="L296" title="1 of 2 branches missed.">                if (runLength &gt; bestRunLength) {</span>
+<span class="fc" id="L297">                    bestRunStart = runStart;</span>
+<span class="fc" id="L298">                    bestRunLength = runLength;</span>
+                }
+<span class="fc" id="L300">                runStart = -1;</span>
+            }
+        }
+<span class="fc bfc" id="L303" title="All 2 branches covered.">        if (bestRunLength &gt;= 2) {</span>
+<span class="fc" id="L304">            Arrays.fill(hextets, bestRunStart, bestRunStart + bestRunLength, -1);</span>
+        }
+
+        // convert into text form
+<span class="fc" id="L308">        StringBuilder buf = new StringBuilder(40);</span>
+<span class="fc" id="L309">        buf.append('[');</span>
+
+<span class="fc" id="L311">        boolean lastWasNumber = false;</span>
+<span class="fc bfc" id="L312" title="All 2 branches covered.">        for (int i = 0; i &lt; hextets.length; i++) {</span>
+<span class="fc bfc" id="L313" title="All 2 branches covered.">            boolean thisIsNumber = hextets[i] &gt;= 0;</span>
+<span class="fc bfc" id="L314" title="All 2 branches covered.">            if (thisIsNumber) {</span>
+<span class="fc bfc" id="L315" title="All 2 branches covered.">                if (lastWasNumber) {</span>
+<span class="fc" id="L316">                    buf.append(':');</span>
+                }
+<span class="fc" id="L318">                buf.append(Integer.toHexString(hextets[i]));</span>
+            } else {
+<span class="pc bpc" id="L320" title="1 of 4 branches missed.">                if (i == 0 || lastWasNumber) {</span>
+<span class="fc" id="L321">                    buf.append(&quot;::&quot;);</span>
+                }
+            }
+<span class="fc" id="L324">            lastWasNumber = thisIsNumber;</span>
+        }
+<span class="fc" id="L326">        buf.append(']');</span>
+<span class="fc" id="L327">        return buf.toString();</span>
+    }
+
+    // ------------------------------------------------------------------------
+    //  Port range parsing
+    // ------------------------------------------------------------------------
+
+    /**
+     * Returns an iterator over available ports defined by the range definition.
+     *
+     * @param rangeDefinition String describing a single port, a range of ports or multiple ranges.
+     * @return Set of ports from the range definition
+     * @throws NumberFormatException If an invalid string is passed.
+     */
+    public static Iterator&lt;Integer&gt; getPortRangeFromString(String rangeDefinition)
+            throws NumberFormatException {
+<span class="fc" id="L343">        final String[] ranges = rangeDefinition.trim().split(&quot;,&quot;);</span>
+
+<span class="fc" id="L345">        UnionIterator&lt;Integer&gt; iterators = new UnionIterator&lt;&gt;();</span>
+
+<span class="fc bfc" id="L347" title="All 2 branches covered.">        for (String rawRange : ranges) {</span>
+            Iterator&lt;Integer&gt; rangeIterator;
+<span class="fc" id="L349">            String range = rawRange.trim();</span>
+<span class="fc" id="L350">            int dashIdx = range.indexOf('-');</span>
+<span class="fc bfc" id="L351" title="All 2 branches covered.">            if (dashIdx == -1) {</span>
+                // only one port in range:
+<span class="fc" id="L353">                final int port = Integer.valueOf(range);</span>
+<span class="pc bpc" id="L354" title="1 of 2 branches missed.">                if (!isValidHostPort(port)) {</span>
+<span class="nc" id="L355">                    throw new IllegalConfigurationException(</span>
+                            &quot;Invalid port configuration. Port must be between 0&quot;
+                                    + &quot;and 65535, but was &quot;
+                                    + port
+                                    + &quot;.&quot;);
+                }
+<span class="fc" id="L361">                rangeIterator = Collections.singleton(Integer.valueOf(range)).iterator();</span>
+<span class="fc" id="L362">            } else {</span>
+                // evaluate range
+<span class="fc" id="L364">                final int start = Integer.valueOf(range.substring(0, dashIdx));</span>
+<span class="pc bpc" id="L365" title="1 of 2 branches missed.">                if (!isValidHostPort(start)) {</span>
+<span class="nc" id="L366">                    throw new IllegalConfigurationException(</span>
+                            &quot;Invalid port configuration. Port must be between 0&quot;
+                                    + &quot;and 65535, but was &quot;
+                                    + start
+                                    + &quot;.&quot;);
+                }
+<span class="fc" id="L372">                final int end = Integer.valueOf(range.substring(dashIdx + 1, range.length()));</span>
+<span class="pc bpc" id="L373" title="1 of 2 branches missed.">                if (!isValidHostPort(end)) {</span>
+<span class="nc" id="L374">                    throw new IllegalConfigurationException(</span>
+                            &quot;Invalid port configuration. Port must be between 0&quot;
+                                    + &quot;and 65535, but was &quot;
+                                    + end
+                                    + &quot;.&quot;);
+                }
+<span class="fc" id="L380">                rangeIterator =</span>
+<span class="fc" id="L381">                        new Iterator&lt;Integer&gt;() {</span>
+<span class="fc" id="L382">                            int i = start;</span>
+
+                            @Override
+                            public boolean hasNext() {
+<span class="fc bfc" id="L386" title="All 2 branches covered.">                                return i &lt;= end;</span>
+                            }
+
+                            @Override
+                            public Integer next() {
+<span class="fc" id="L391">                                return i++;</span>
+                            }
+
+                            @Override
+                            public void remove() {
+<span class="nc" id="L396">                                throw new UnsupportedOperationException(&quot;Remove not supported&quot;);</span>
+                            }
+                        };
+            }
+<span class="fc" id="L400">            iterators.add(rangeIterator);</span>
+        }
+
+<span class="fc" id="L403">        return iterators;</span>
+    }
+
+    /**
+     * Tries to allocate a socket from the given sets of ports.
+     *
+     * @param portsIterator A set of ports to choose from.
+     * @param factory A factory for creating the SocketServer
+     * @return null if no port was available or an allocated socket.
+     */
+    public static ServerSocket createSocketFromPorts(
+            Iterator&lt;Integer&gt; portsIterator, SocketFactory factory) {
+<span class="nc bnc" id="L415" title="All 2 branches missed.">        while (portsIterator.hasNext()) {</span>
+<span class="nc" id="L416">            int port = portsIterator.next();</span>
+<span class="nc" id="L417">            LOG.debug(&quot;Trying to open socket on port {}&quot;, port);</span>
+            try {
+<span class="nc" id="L419">                return factory.createSocket(port);</span>
+<span class="nc" id="L420">            } catch (IOException | IllegalArgumentException e) {</span>
+<span class="nc bnc" id="L421" title="All 2 branches missed.">                if (LOG.isDebugEnabled()) {</span>
+<span class="nc" id="L422">                    LOG.debug(&quot;Unable to allocate socket on port&quot;, e);</span>
+                } else {
+<span class="nc" id="L424">                    LOG.info(</span>
+                            &quot;Unable to allocate on port {}, due to error: {}&quot;,
+<span class="nc" id="L426">                            port,</span>
+<span class="nc" id="L427">                            e.getMessage());</span>
+                }
+            }
+<span class="nc" id="L430">        }</span>
+<span class="nc" id="L431">        return null;</span>
+    }
+
+    /**
+     * Returns the wildcard address to listen on all interfaces.
+     *
+     * @return Either 0.0.0.0 or :: depending on the IP setup.
+     */
+    public static String getWildcardIPAddress() {
+<span class="nc" id="L440">        return WILDCARD_ADDRESS;</span>
+    }
+
+    /** A factory for a local socket from port number. */
+    @FunctionalInterface
+    public interface SocketFactory {
+        ServerSocket createSocket(int port) throws IOException;
+    }
+
+    /**
+     * Check whether the given port is in right range when connecting to somewhere.
+     *
+     * @param port the port to check
+     * @return true if the number in the range 1 to 65535
+     */
+    public static boolean isValidClientPort(int port) {
+<span class="nc bnc" id="L456" title="All 4 branches missed.">        return 1 &lt;= port &amp;&amp; port &lt;= 65535;</span>
+    }
+
+    /**
+     * check whether the given port is in right range when getting port from local system.
+     *
+     * @param port the port to check
+     * @return true if the number in the range 0 to 65535
+     */
+    public static boolean isValidHostPort(int port) {
+<span class="pc bpc" id="L466" title="1 of 4 branches missed.">        return 0 &lt;= port &amp;&amp; port &lt;= 65535;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

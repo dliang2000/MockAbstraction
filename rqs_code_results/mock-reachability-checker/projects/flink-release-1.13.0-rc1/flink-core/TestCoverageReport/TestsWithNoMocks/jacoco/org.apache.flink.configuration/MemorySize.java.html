@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MemorySize.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.configuration</a> &gt; <span class="el_source">MemorySize.java</span></div><h1>MemorySize.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.configuration;
+
+import org.apache.flink.annotation.PublicEvolving;
+
+import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.stream.IntStream;
+
+import static org.apache.flink.configuration.MemorySize.MemoryUnit.BYTES;
+import static org.apache.flink.configuration.MemorySize.MemoryUnit.GIGA_BYTES;
+import static org.apache.flink.configuration.MemorySize.MemoryUnit.KILO_BYTES;
+import static org.apache.flink.configuration.MemorySize.MemoryUnit.MEGA_BYTES;
+import static org.apache.flink.configuration.MemorySize.MemoryUnit.TERA_BYTES;
+import static org.apache.flink.configuration.MemorySize.MemoryUnit.hasUnit;
+import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * MemorySize is a representation of a number of bytes, viewable in different units.
+ *
+ * &lt;h2&gt;Parsing&lt;/h2&gt;
+ *
+ * &lt;p&gt;The size can be parsed from a text expression. If the expression is a pure number, the value
+ * will be interpreted as bytes.
+ */
+@PublicEvolving
+public class MemorySize implements java.io.Serializable, Comparable&lt;MemorySize&gt; {
+
+    private static final long serialVersionUID = 1L;
+
+<span class="fc" id="L53">    public static final MemorySize ZERO = new MemorySize(0L);</span>
+
+<span class="fc" id="L55">    public static final MemorySize MAX_VALUE = new MemorySize(Long.MAX_VALUE);</span>
+
+<span class="fc" id="L57">    private static final List&lt;MemoryUnit&gt; ORDERED_UNITS =</span>
+<span class="fc" id="L58">            Arrays.asList(BYTES, KILO_BYTES, MEGA_BYTES, GIGA_BYTES, TERA_BYTES);</span>
+
+    // ------------------------------------------------------------------------
+
+    /** The memory size, in bytes. */
+    private final long bytes;
+
+    /** The memorized value returned by toString(). */
+    private transient String stringified;
+
+    /** The memorized value returned by toHumanReadableString(). */
+    private transient String humanReadableStr;
+
+    /**
+     * Constructs a new MemorySize.
+     *
+     * @param bytes The size, in bytes. Must be zero or larger.
+     */
+<span class="fc" id="L76">    public MemorySize(long bytes) {</span>
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        checkArgument(bytes &gt;= 0, &quot;bytes must be &gt;= 0&quot;);</span>
+<span class="fc" id="L78">        this.bytes = bytes;</span>
+<span class="fc" id="L79">    }</span>
+
+    public static MemorySize ofMebiBytes(long mebiBytes) {
+<span class="fc" id="L82">        return new MemorySize(mebiBytes &lt;&lt; 20);</span>
+    }
+
+    // ------------------------------------------------------------------------
+
+    /** Gets the memory size in bytes. */
+    public long getBytes() {
+<span class="fc" id="L89">        return bytes;</span>
+    }
+
+    /** Gets the memory size in Kibibytes (= 1024 bytes). */
+    public long getKibiBytes() {
+<span class="fc" id="L94">        return bytes &gt;&gt; 10;</span>
+    }
+
+    /** Gets the memory size in Mebibytes (= 1024 Kibibytes). */
+    public int getMebiBytes() {
+<span class="fc" id="L99">        return (int) (bytes &gt;&gt; 20);</span>
+    }
+
+    /** Gets the memory size in Gibibytes (= 1024 Mebibytes). */
+    public long getGibiBytes() {
+<span class="fc" id="L104">        return bytes &gt;&gt; 30;</span>
+    }
+
+    /** Gets the memory size in Tebibytes (= 1024 Gibibytes). */
+    public long getTebiBytes() {
+<span class="fc" id="L109">        return bytes &gt;&gt; 40;</span>
+    }
+
+    // ------------------------------------------------------------------------
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L116">        return (int) (bytes ^ (bytes &gt;&gt;&gt; 32));</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="pc bpc" id="L121" title="2 of 4 branches missed.">        return obj == this</span>
+                || (obj != null
+<span class="pc bpc" id="L123" title="1 of 4 branches missed.">                        &amp;&amp; obj.getClass() == this.getClass()</span>
+                        &amp;&amp; ((MemorySize) obj).bytes == this.bytes);
+    }
+
+    @Override
+    public String toString() {
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">        if (stringified == null) {</span>
+<span class="fc" id="L130">            stringified = formatToString();</span>
+        }
+
+<span class="fc" id="L133">        return stringified;</span>
+    }
+
+    private String formatToString() {
+<span class="fc" id="L137">        MemoryUnit highestIntegerUnit =</span>
+<span class="fc" id="L138">                IntStream.range(0, ORDERED_UNITS.size())</span>
+<span class="fc" id="L139">                        .sequential()</span>
+<span class="fc bfc" id="L140" title="All 2 branches covered.">                        .filter(idx -&gt; bytes % ORDERED_UNITS.get(idx).getMultiplier() != 0)</span>
+<span class="fc" id="L141">                        .boxed()</span>
+<span class="fc" id="L142">                        .findFirst()</span>
+<span class="fc" id="L143">                        .map(</span>
+                                idx -&gt; {
+<span class="pc bpc" id="L145" title="1 of 2 branches missed.">                                    if (idx == 0) {</span>
+<span class="nc" id="L146">                                        return ORDERED_UNITS.get(0);</span>
+                                    } else {
+<span class="fc" id="L148">                                        return ORDERED_UNITS.get(idx - 1);</span>
+                                    }
+                                })
+<span class="fc" id="L151">                        .orElse(BYTES);</span>
+
+<span class="fc" id="L153">        return String.format(</span>
+                &quot;%d %s&quot;,
+<span class="fc" id="L155">                bytes / highestIntegerUnit.getMultiplier(), highestIntegerUnit.getUnits()[1]);</span>
+    }
+
+    public String toHumanReadableString() {
+<span class="pc bpc" id="L159" title="1 of 2 branches missed.">        if (humanReadableStr == null) {</span>
+<span class="fc" id="L160">            humanReadableStr = formatToHumanReadableString();</span>
+        }
+
+<span class="fc" id="L163">        return humanReadableStr;</span>
+    }
+
+    private String formatToHumanReadableString() {
+<span class="fc" id="L167">        MemoryUnit highestUnit =</span>
+<span class="fc" id="L168">                IntStream.range(0, ORDERED_UNITS.size())</span>
+<span class="fc" id="L169">                        .sequential()</span>
+<span class="fc bfc" id="L170" title="All 2 branches covered.">                        .filter(idx -&gt; bytes &gt; ORDERED_UNITS.get(idx).getMultiplier())</span>
+<span class="fc" id="L171">                        .boxed()</span>
+<span class="fc" id="L172">                        .max(Comparator.naturalOrder())</span>
+<span class="fc" id="L173">                        .map(ORDERED_UNITS::get)</span>
+<span class="fc" id="L174">                        .orElse(BYTES);</span>
+
+<span class="fc bfc" id="L176" title="All 2 branches covered.">        if (highestUnit == BYTES) {</span>
+<span class="fc" id="L177">            return String.format(&quot;%d %s&quot;, bytes, BYTES.getUnits()[1]);</span>
+        } else {
+<span class="fc" id="L179">            double approximate = 1.0 * bytes / highestUnit.getMultiplier();</span>
+<span class="fc" id="L180">            return String.format(</span>
+                    Locale.ROOT,
+                    &quot;%.3f%s (%d bytes)&quot;,
+<span class="fc" id="L183">                    approximate,</span>
+<span class="fc" id="L184">                    highestUnit.getUnits()[1],</span>
+<span class="fc" id="L185">                    bytes);</span>
+        }
+    }
+
+    @Override
+    public int compareTo(MemorySize that) {
+<span class="fc" id="L191">        return Long.compare(this.bytes, that.bytes);</span>
+    }
+
+    // ------------------------------------------------------------------------
+    //  Calculations
+    // ------------------------------------------------------------------------
+
+    public MemorySize add(MemorySize that) {
+<span class="fc" id="L199">        return new MemorySize(Math.addExact(this.bytes, that.bytes));</span>
+    }
+
+    public MemorySize subtract(MemorySize that) {
+<span class="fc" id="L203">        return new MemorySize(Math.subtractExact(this.bytes, that.bytes));</span>
+    }
+
+    public MemorySize multiply(double multiplier) {
+<span class="nc bnc" id="L207" title="All 2 branches missed.">        checkArgument(multiplier &gt;= 0, &quot;multiplier must be &gt;= 0&quot;);</span>
+
+<span class="nc" id="L209">        BigDecimal product =</span>
+<span class="nc" id="L210">                BigDecimal.valueOf(this.bytes).multiply(BigDecimal.valueOf(multiplier));</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">        if (product.compareTo(BigDecimal.valueOf(Long.MAX_VALUE)) &gt; 0) {</span>
+<span class="nc" id="L212">            throw new ArithmeticException(&quot;long overflow&quot;);</span>
+        }
+<span class="nc" id="L214">        return new MemorySize(product.longValue());</span>
+    }
+
+    public MemorySize divide(long by) {
+<span class="fc bfc" id="L218" title="All 2 branches covered.">        checkArgument(by &gt;= 0, &quot;divisor must be &gt;= 0&quot;);</span>
+<span class="fc" id="L219">        return new MemorySize(bytes / by);</span>
+    }
+
+    // ------------------------------------------------------------------------
+    //  Parsing
+    // ------------------------------------------------------------------------
+
+    /**
+     * Parses the given string as as MemorySize.
+     *
+     * @param text The string to parse
+     * @return The parsed MemorySize
+     * @throws IllegalArgumentException Thrown, if the expression cannot be parsed.
+     */
+    public static MemorySize parse(String text) throws IllegalArgumentException {
+<span class="fc" id="L234">        return new MemorySize(parseBytes(text));</span>
+    }
+
+    /**
+     * Parses the given string with a default unit.
+     *
+     * @param text The string to parse.
+     * @param defaultUnit specify the default unit.
+     * @return The parsed MemorySize.
+     * @throws IllegalArgumentException Thrown, if the expression cannot be parsed.
+     */
+    public static MemorySize parse(String text, MemoryUnit defaultUnit)
+            throws IllegalArgumentException {
+<span class="fc bfc" id="L247" title="All 2 branches covered.">        if (!hasUnit(text)) {</span>
+<span class="fc" id="L248">            return parse(text + defaultUnit.getUnits()[0]);</span>
+        }
+
+<span class="fc" id="L251">        return parse(text);</span>
+    }
+
+    /**
+     * Parses the given string as bytes. The supported expressions are listed under {@link
+     * MemorySize}.
+     *
+     * @param text The string to parse
+     * @return The parsed size, in bytes.
+     * @throws IllegalArgumentException Thrown, if the expression cannot be parsed.
+     */
+    public static long parseBytes(String text) throws IllegalArgumentException {
+<span class="fc" id="L263">        checkNotNull(text, &quot;text&quot;);</span>
+
+<span class="fc" id="L265">        final String trimmed = text.trim();</span>
+<span class="fc bfc" id="L266" title="All 2 branches covered.">        checkArgument(!trimmed.isEmpty(), &quot;argument is an empty- or whitespace-only string&quot;);</span>
+
+<span class="fc" id="L268">        final int len = trimmed.length();</span>
+<span class="fc" id="L269">        int pos = 0;</span>
+
+        char current;
+<span class="fc bfc" id="L272" title="All 6 branches covered.">        while (pos &lt; len &amp;&amp; (current = trimmed.charAt(pos)) &gt;= '0' &amp;&amp; current &lt;= '9') {</span>
+<span class="fc" id="L273">            pos++;</span>
+        }
+
+<span class="fc" id="L276">        final String number = trimmed.substring(0, pos);</span>
+<span class="fc" id="L277">        final String unit = trimmed.substring(pos).trim().toLowerCase(Locale.US);</span>
+
+<span class="fc bfc" id="L279" title="All 2 branches covered.">        if (number.isEmpty()) {</span>
+<span class="fc" id="L280">            throw new NumberFormatException(&quot;text does not start with a number&quot;);</span>
+        }
+
+        final long value;
+        try {
+<span class="fc" id="L285">            value = Long.parseLong(number); // this throws a NumberFormatException on overflow</span>
+<span class="fc" id="L286">        } catch (NumberFormatException e) {</span>
+<span class="fc" id="L287">            throw new IllegalArgumentException(</span>
+                    &quot;The value '&quot;
+                            + number
+                            + &quot;' cannot be re represented as 64bit number (numeric overflow).&quot;);
+<span class="fc" id="L291">        }</span>
+
+<span class="fc" id="L293">        final long multiplier = parseUnit(unit).map(MemoryUnit::getMultiplier).orElse(1L);</span>
+<span class="fc" id="L294">        final long result = value * multiplier;</span>
+
+        // check for overflow
+<span class="fc bfc" id="L297" title="All 2 branches covered.">        if (result / multiplier != value) {</span>
+<span class="fc" id="L298">            throw new IllegalArgumentException(</span>
+                    &quot;The value '&quot;
+                            + text
+                            + &quot;' cannot be re represented as 64bit number of bytes (numeric overflow).&quot;);
+        }
+
+<span class="fc" id="L304">        return result;</span>
+    }
+
+    private static Optional&lt;MemoryUnit&gt; parseUnit(String unit) {
+<span class="fc bfc" id="L308" title="All 2 branches covered.">        if (matchesAny(unit, BYTES)) {</span>
+<span class="fc" id="L309">            return Optional.of(BYTES);</span>
+<span class="fc bfc" id="L310" title="All 2 branches covered.">        } else if (matchesAny(unit, KILO_BYTES)) {</span>
+<span class="fc" id="L311">            return Optional.of(KILO_BYTES);</span>
+<span class="fc bfc" id="L312" title="All 2 branches covered.">        } else if (matchesAny(unit, MEGA_BYTES)) {</span>
+<span class="fc" id="L313">            return Optional.of(MEGA_BYTES);</span>
+<span class="fc bfc" id="L314" title="All 2 branches covered.">        } else if (matchesAny(unit, GIGA_BYTES)) {</span>
+<span class="fc" id="L315">            return Optional.of(GIGA_BYTES);</span>
+<span class="fc bfc" id="L316" title="All 2 branches covered.">        } else if (matchesAny(unit, TERA_BYTES)) {</span>
+<span class="fc" id="L317">            return Optional.of(TERA_BYTES);</span>
+<span class="fc bfc" id="L318" title="All 2 branches covered.">        } else if (!unit.isEmpty()) {</span>
+<span class="fc" id="L319">            throw new IllegalArgumentException(</span>
+                    &quot;Memory size unit '&quot;
+                            + unit
+                            + &quot;' does not match any of the recognized units: &quot;
+<span class="fc" id="L323">                            + MemoryUnit.getAllUnits());</span>
+        }
+
+<span class="fc" id="L326">        return Optional.empty();</span>
+    }
+
+    private static boolean matchesAny(String str, MemoryUnit unit) {
+<span class="fc bfc" id="L330" title="All 2 branches covered.">        for (String s : unit.getUnits()) {</span>
+<span class="fc bfc" id="L331" title="All 2 branches covered.">            if (s.equals(str)) {</span>
+<span class="fc" id="L332">                return true;</span>
+            }
+        }
+<span class="fc" id="L335">        return false;</span>
+    }
+
+    /**
+     * Enum which defines memory unit, mostly used to parse value from configuration file.
+     *
+     * &lt;p&gt;To make larger values more compact, the common size suffixes are supported:
+     *
+     * &lt;ul&gt;
+     *   &lt;li&gt;1b or 1bytes (bytes)
+     *   &lt;li&gt;1k or 1kb or 1kibibytes (interpreted as kibibytes = 1024 bytes)
+     *   &lt;li&gt;1m or 1mb or 1mebibytes (interpreted as mebibytes = 1024 kibibytes)
+     *   &lt;li&gt;1g or 1gb or 1gibibytes (interpreted as gibibytes = 1024 mebibytes)
+     *   &lt;li&gt;1t or 1tb or 1tebibytes (interpreted as tebibytes = 1024 gibibytes)
+     * &lt;/ul&gt;
+     */
+<span class="fc" id="L351">    public enum MemoryUnit {</span>
+<span class="fc" id="L352">        BYTES(new String[] {&quot;b&quot;, &quot;bytes&quot;}, 1L),</span>
+<span class="fc" id="L353">        KILO_BYTES(new String[] {&quot;k&quot;, &quot;kb&quot;, &quot;kibibytes&quot;}, 1024L),</span>
+<span class="fc" id="L354">        MEGA_BYTES(new String[] {&quot;m&quot;, &quot;mb&quot;, &quot;mebibytes&quot;}, 1024L * 1024L),</span>
+<span class="fc" id="L355">        GIGA_BYTES(new String[] {&quot;g&quot;, &quot;gb&quot;, &quot;gibibytes&quot;}, 1024L * 1024L * 1024L),</span>
+<span class="fc" id="L356">        TERA_BYTES(new String[] {&quot;t&quot;, &quot;tb&quot;, &quot;tebibytes&quot;}, 1024L * 1024L * 1024L * 1024L);</span>
+
+        private final String[] units;
+
+        private final long multiplier;
+
+<span class="fc" id="L362">        MemoryUnit(String[] units, long multiplier) {</span>
+<span class="fc" id="L363">            this.units = units;</span>
+<span class="fc" id="L364">            this.multiplier = multiplier;</span>
+<span class="fc" id="L365">        }</span>
+
+        public String[] getUnits() {
+<span class="fc" id="L368">            return units;</span>
+        }
+
+        public long getMultiplier() {
+<span class="fc" id="L372">            return multiplier;</span>
+        }
+
+        public static String getAllUnits() {
+<span class="fc" id="L376">            return concatenateUnits(</span>
+<span class="fc" id="L377">                    BYTES.getUnits(),</span>
+<span class="fc" id="L378">                    KILO_BYTES.getUnits(),</span>
+<span class="fc" id="L379">                    MEGA_BYTES.getUnits(),</span>
+<span class="fc" id="L380">                    GIGA_BYTES.getUnits(),</span>
+<span class="fc" id="L381">                    TERA_BYTES.getUnits());</span>
+        }
+
+        public static boolean hasUnit(String text) {
+<span class="fc" id="L385">            checkNotNull(text, &quot;text&quot;);</span>
+
+<span class="fc" id="L387">            final String trimmed = text.trim();</span>
+<span class="pc bpc" id="L388" title="1 of 2 branches missed.">            checkArgument(!trimmed.isEmpty(), &quot;argument is an empty- or whitespace-only string&quot;);</span>
+
+<span class="fc" id="L390">            final int len = trimmed.length();</span>
+<span class="fc" id="L391">            int pos = 0;</span>
+
+            char current;
+<span class="fc bfc" id="L394" title="All 6 branches covered.">            while (pos &lt; len &amp;&amp; (current = trimmed.charAt(pos)) &gt;= '0' &amp;&amp; current &lt;= '9') {</span>
+<span class="fc" id="L395">                pos++;</span>
+            }
+
+<span class="fc" id="L398">            final String unit = trimmed.substring(pos).trim().toLowerCase(Locale.US);</span>
+
+<span class="fc bfc" id="L400" title="All 2 branches covered.">            return unit.length() &gt; 0;</span>
+        }
+
+        private static String concatenateUnits(final String[]... allUnits) {
+<span class="fc" id="L404">            final StringBuilder builder = new StringBuilder(128);</span>
+
+<span class="fc bfc" id="L406" title="All 2 branches covered.">            for (String[] units : allUnits) {</span>
+<span class="fc" id="L407">                builder.append('(');</span>
+
+<span class="fc bfc" id="L409" title="All 2 branches covered.">                for (String unit : units) {</span>
+<span class="fc" id="L410">                    builder.append(unit);</span>
+<span class="fc" id="L411">                    builder.append(&quot; | &quot;);</span>
+                }
+
+<span class="fc" id="L414">                builder.setLength(builder.length() - 3);</span>
+<span class="fc" id="L415">                builder.append(&quot;) / &quot;);</span>
+            }
+
+<span class="fc" id="L418">            builder.setLength(builder.length() - 3);</span>
+<span class="fc" id="L419">            return builder.toString();</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

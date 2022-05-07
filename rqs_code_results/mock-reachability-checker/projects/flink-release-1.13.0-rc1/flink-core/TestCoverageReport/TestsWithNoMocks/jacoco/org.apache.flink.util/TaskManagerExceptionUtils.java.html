@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TaskManagerExceptionUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.util</a> &gt; <span class="el_source">TaskManagerExceptionUtils.java</span></div><h1>TaskManagerExceptionUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.util;
+
+import org.apache.flink.configuration.TaskManagerOptions;
+
+import javax.annotation.Nullable;
+
+import static org.apache.flink.util.ExceptionUtils.tryEnrichOutOfMemoryError;
+
+/** Exception utils to handle and enrich exceptions occurring in TaskManager. */
+public class TaskManagerExceptionUtils {
+<span class="nc" id="L29">    private static final String TM_DIRECT_OOM_ERROR_MESSAGE =</span>
+<span class="nc" id="L30">            String.format(</span>
+                    &quot;Direct buffer memory. The direct out-of-memory error has occurred. This can mean two things: either job(s) require(s) &quot;
+                            + &quot;a larger size of JVM direct memory or there is a direct memory leak. The direct memory can be &quot;
+                            + &quot;allocated by user code or some of its dependencies. In this case '%s' configuration option should be &quot;
+                            + &quot;increased. Flink framework and its dependencies also consume the direct memory, mostly for network &quot;
+                            + &quot;communication. The most of network memory is managed by Flink and should not result in out-of-memory &quot;
+                            + &quot;error. In certain special cases, in particular for jobs with high parallelism, the framework may &quot;
+                            + &quot;require more direct memory which is not managed by Flink. In this case '%s' configuration option &quot;
+                            + &quot;should be increased. If the error persists then there is probably a direct memory leak in user code or &quot;
+                            + &quot;some of its dependencies which has to be investigated and fixed. The task executor has to be shutdown...&quot;,
+<span class="nc" id="L40">                    TaskManagerOptions.TASK_OFF_HEAP_MEMORY.key(),</span>
+<span class="nc" id="L41">                    TaskManagerOptions.FRAMEWORK_OFF_HEAP_MEMORY.key());</span>
+
+<span class="nc" id="L43">    private static final String TM_METASPACE_OOM_ERROR_MESSAGE =</span>
+<span class="nc" id="L44">            String.format(</span>
+                    &quot;Metaspace. The metaspace out-of-memory error has occurred. This can mean two things: either the job requires &quot;
+                            + &quot;a larger size of JVM metaspace to load classes or there is a class loading leak. In the first case &quot;
+                            + &quot;'%s' configuration option should be increased. If the error persists (usually in cluster after &quot;
+                            + &quot;several job (re-)submissions) then there is probably a class loading leak in user code or some of its dependencies &quot;
+                            + &quot;which has to be investigated and fixed. The task executor has to be shutdown...&quot;,
+<span class="nc" id="L50">                    TaskManagerOptions.JVM_METASPACE.key());</span>
+
+    private TaskManagerExceptionUtils() {}
+
+    /**
+     * Tries to enrich the passed exception or its causes with additional information.
+     *
+     * &lt;p&gt;This method improves error messages for direct and metaspace {@link OutOfMemoryError}. It
+     * adds descriptions about possible causes and ways of resolution.
+     *
+     * @param root The Throwable of which the cause tree shall be traversed.
+     */
+    public static void tryEnrichTaskManagerError(@Nullable Throwable root) {
+<span class="nc" id="L63">        tryEnrichOutOfMemoryError(</span>
+                root, TM_METASPACE_OOM_ERROR_MESSAGE, TM_DIRECT_OOM_ERROR_MESSAGE, null);
+<span class="nc" id="L65">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

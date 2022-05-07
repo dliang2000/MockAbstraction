@@ -1,0 +1,1594 @@
+public class javassist.ClassPool extends java.lang.Object
+{
+    public boolean childFirstLookup;
+    public static boolean doPruning;
+    private int compressCount;
+    private static final int COMPRESS_THRESHOLD;
+    public static boolean releaseUnmodifiedClassFile;
+    protected javassist.ClassPoolTail source;
+    protected javassist.ClassPool parent;
+    protected java.util.Hashtable classes;
+    private java.util.Hashtable cflow;
+    private static final int INIT_HASH_SIZE;
+    private java.util.ArrayList importedPackages;
+    private static javassist.ClassPool defaultPool;
+
+    public void <init>()
+    {
+        javassist.ClassPool r0;
+
+        r0 := @this: javassist.ClassPool;
+
+        specialinvoke r0.<javassist.ClassPool: void <init>(javassist.ClassPool)>(null);
+
+        return;
+    }
+
+    public void <init>(boolean)
+    {
+        javassist.ClassPool r0;
+        boolean z0;
+
+        r0 := @this: javassist.ClassPool;
+
+        z0 := @parameter0: boolean;
+
+        specialinvoke r0.<javassist.ClassPool: void <init>(javassist.ClassPool)>(null);
+
+        if z0 == 0 goto label1;
+
+        virtualinvoke r0.<javassist.ClassPool: javassist.ClassPath appendSystemPath()>();
+
+     label1:
+        return;
+    }
+
+    public void <init>(javassist.ClassPool)
+    {
+        javassist.ClassPool r0, r1;
+        javassist.CtClass[] r2;
+        java.util.Hashtable $r3, $r6;
+        javassist.ClassPoolTail $r4;
+        int $i0, i1;
+        javassist.CtClass $r5, $r8;
+        java.lang.String $r7;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: javassist.ClassPool;
+
+        specialinvoke r0.<java.lang.Object: void <init>()>();
+
+        r0.<javassist.ClassPool: boolean childFirstLookup> = 0;
+
+        r0.<javassist.ClassPool: java.util.Hashtable cflow> = null;
+
+        $r3 = new java.util.Hashtable;
+
+        specialinvoke $r3.<java.util.Hashtable: void <init>(int)>(191);
+
+        r0.<javassist.ClassPool: java.util.Hashtable classes> = $r3;
+
+        $r4 = new javassist.ClassPoolTail;
+
+        specialinvoke $r4.<javassist.ClassPoolTail: void <init>()>();
+
+        r0.<javassist.ClassPool: javassist.ClassPoolTail source> = $r4;
+
+        r0.<javassist.ClassPool: javassist.ClassPool parent> = r1;
+
+        if r1 != null goto label2;
+
+        r2 = <javassist.CtClass: javassist.CtClass[] primitiveTypes>;
+
+        i1 = 0;
+
+     label1:
+        $i0 = lengthof r2;
+
+        if i1 >= $i0 goto label2;
+
+        $r6 = r0.<javassist.ClassPool: java.util.Hashtable classes>;
+
+        $r5 = r2[i1];
+
+        $r7 = virtualinvoke $r5.<javassist.CtClass: java.lang.String getName()>();
+
+        $r8 = r2[i1];
+
+        virtualinvoke $r6.<java.util.Hashtable: java.lang.Object put(java.lang.Object,java.lang.Object)>($r7, $r8);
+
+        i1 = i1 + 1;
+
+        goto label1;
+
+     label2:
+        r0.<javassist.ClassPool: java.util.Hashtable cflow> = null;
+
+        r0.<javassist.ClassPool: int compressCount> = 0;
+
+        virtualinvoke r0.<javassist.ClassPool: void clearImportedPackages()>();
+
+        return;
+    }
+
+    public static synchronized javassist.ClassPool getDefault()
+    {
+        javassist.ClassPool $r0, $r1, $r2, $r3;
+
+        $r0 = <javassist.ClassPool: javassist.ClassPool defaultPool>;
+
+        if $r0 != null goto label1;
+
+        $r2 = new javassist.ClassPool;
+
+        specialinvoke $r2.<javassist.ClassPool: void <init>(javassist.ClassPool)>(null);
+
+        <javassist.ClassPool: javassist.ClassPool defaultPool> = $r2;
+
+        $r3 = <javassist.ClassPool: javassist.ClassPool defaultPool>;
+
+        virtualinvoke $r3.<javassist.ClassPool: javassist.ClassPath appendSystemPath()>();
+
+     label1:
+        $r1 = <javassist.ClassPool: javassist.ClassPool defaultPool>;
+
+        return $r1;
+    }
+
+    protected javassist.CtClass getCached(java.lang.String)
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        java.util.Hashtable $r2;
+        java.lang.Object $r3;
+        javassist.CtClass $r4;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r2 = r0.<javassist.ClassPool: java.util.Hashtable classes>;
+
+        $r3 = virtualinvoke $r2.<java.util.Hashtable: java.lang.Object get(java.lang.Object)>(r1);
+
+        $r4 = (javassist.CtClass) $r3;
+
+        return $r4;
+    }
+
+    protected void cacheCtClass(java.lang.String, javassist.CtClass, boolean)
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        javassist.CtClass r2;
+        boolean z0;
+        java.util.Hashtable $r3;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        r2 := @parameter1: javassist.CtClass;
+
+        z0 := @parameter2: boolean;
+
+        $r3 = r0.<javassist.ClassPool: java.util.Hashtable classes>;
+
+        virtualinvoke $r3.<java.util.Hashtable: java.lang.Object put(java.lang.Object,java.lang.Object)>(r1, r2);
+
+        return;
+    }
+
+    protected javassist.CtClass removeCached(java.lang.String)
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        java.util.Hashtable $r2;
+        java.lang.Object $r3;
+        javassist.CtClass $r4;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r2 = r0.<javassist.ClassPool: java.util.Hashtable classes>;
+
+        $r3 = virtualinvoke $r2.<java.util.Hashtable: java.lang.Object remove(java.lang.Object)>(r1);
+
+        $r4 = (javassist.CtClass) $r3;
+
+        return $r4;
+    }
+
+    public java.lang.String toString()
+    {
+        javassist.ClassPool r0;
+        javassist.ClassPoolTail $r1;
+        java.lang.String $r2;
+
+        r0 := @this: javassist.ClassPool;
+
+        $r1 = r0.<javassist.ClassPool: javassist.ClassPoolTail source>;
+
+        $r2 = virtualinvoke $r1.<javassist.ClassPoolTail: java.lang.String toString()>();
+
+        return $r2;
+    }
+
+    void compress()
+    {
+        javassist.ClassPool r0;
+        java.util.Enumeration r1;
+        int $i0, $i1;
+        java.util.Hashtable $r2;
+        boolean $z0;
+        java.lang.Object $r3;
+        javassist.CtClass $r4;
+
+        r0 := @this: javassist.ClassPool;
+
+        $i0 = r0.<javassist.ClassPool: int compressCount>;
+
+        $i1 = $i0 + 1;
+
+        r0.<javassist.ClassPool: int compressCount> = $i1;
+
+        if $i0 <= 100 goto label2;
+
+        r0.<javassist.ClassPool: int compressCount> = 0;
+
+        $r2 = r0.<javassist.ClassPool: java.util.Hashtable classes>;
+
+        r1 = virtualinvoke $r2.<java.util.Hashtable: java.util.Enumeration elements()>();
+
+     label1:
+        $z0 = interfaceinvoke r1.<java.util.Enumeration: boolean hasMoreElements()>();
+
+        if $z0 == 0 goto label2;
+
+        $r3 = interfaceinvoke r1.<java.util.Enumeration: java.lang.Object nextElement()>();
+
+        $r4 = (javassist.CtClass) $r3;
+
+        virtualinvoke $r4.<javassist.CtClass: void compress()>();
+
+        goto label1;
+
+     label2:
+        return;
+    }
+
+    public void importPackage(java.lang.String)
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        java.util.ArrayList $r2;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r2 = r0.<javassist.ClassPool: java.util.ArrayList importedPackages>;
+
+        virtualinvoke $r2.<java.util.ArrayList: boolean add(java.lang.Object)>(r1);
+
+        return;
+    }
+
+    public void clearImportedPackages()
+    {
+        javassist.ClassPool r0;
+        java.util.ArrayList $r1, $r2;
+
+        r0 := @this: javassist.ClassPool;
+
+        $r1 = new java.util.ArrayList;
+
+        specialinvoke $r1.<java.util.ArrayList: void <init>()>();
+
+        r0.<javassist.ClassPool: java.util.ArrayList importedPackages> = $r1;
+
+        $r2 = r0.<javassist.ClassPool: java.util.ArrayList importedPackages>;
+
+        virtualinvoke $r2.<java.util.ArrayList: boolean add(java.lang.Object)>("java.lang");
+
+        return;
+    }
+
+    public java.util.Iterator getImportedPackages()
+    {
+        javassist.ClassPool r0;
+        java.util.ArrayList $r1;
+        java.util.Iterator $r2;
+
+        r0 := @this: javassist.ClassPool;
+
+        $r1 = r0.<javassist.ClassPool: java.util.ArrayList importedPackages>;
+
+        $r2 = virtualinvoke $r1.<java.util.ArrayList: java.util.Iterator iterator()>();
+
+        return $r2;
+    }
+
+    public void recordInvalidClassName(java.lang.String)
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        return;
+    }
+
+    void recordCflow(java.lang.String, java.lang.String, java.lang.String)
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1, r2, r3;
+        java.util.Hashtable $r4, $r6, $r8;
+        java.lang.Object[] $r5;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        r2 := @parameter1: java.lang.String;
+
+        r3 := @parameter2: java.lang.String;
+
+        $r4 = r0.<javassist.ClassPool: java.util.Hashtable cflow>;
+
+        if $r4 != null goto label1;
+
+        $r8 = new java.util.Hashtable;
+
+        specialinvoke $r8.<java.util.Hashtable: void <init>()>();
+
+        r0.<javassist.ClassPool: java.util.Hashtable cflow> = $r8;
+
+     label1:
+        $r6 = r0.<javassist.ClassPool: java.util.Hashtable cflow>;
+
+        $r5 = newarray (java.lang.Object)[2];
+
+        $r5[0] = r2;
+
+        $r5[1] = r3;
+
+        virtualinvoke $r6.<java.util.Hashtable: java.lang.Object put(java.lang.Object,java.lang.Object)>(r1, $r5);
+
+        return;
+    }
+
+    public java.lang.Object[] lookupCflow(java.lang.String)
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        java.util.Hashtable $r2, $r3, $r6;
+        java.lang.Object $r4;
+        java.lang.Object[] $r5;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r2 = r0.<javassist.ClassPool: java.util.Hashtable cflow>;
+
+        if $r2 != null goto label1;
+
+        $r6 = new java.util.Hashtable;
+
+        specialinvoke $r6.<java.util.Hashtable: void <init>()>();
+
+        r0.<javassist.ClassPool: java.util.Hashtable cflow> = $r6;
+
+     label1:
+        $r3 = r0.<javassist.ClassPool: java.util.Hashtable cflow>;
+
+        $r4 = virtualinvoke $r3.<java.util.Hashtable: java.lang.Object get(java.lang.Object)>(r1);
+
+        $r5 = (java.lang.Object[]) $r4;
+
+        return $r5;
+    }
+
+    public javassist.CtClass getAndRename(java.lang.String, java.lang.String) throws javassist.NotFoundException
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1, r2;
+        javassist.CtClass r3;
+        boolean $z0;
+        javassist.CtClassType $r4;
+        javassist.NotFoundException $r5;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        r2 := @parameter1: java.lang.String;
+
+        r3 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass get0(java.lang.String,boolean)>(r1, 0);
+
+        if r3 != null goto label1;
+
+        $r5 = new javassist.NotFoundException;
+
+        specialinvoke $r5.<javassist.NotFoundException: void <init>(java.lang.String)>(r1);
+
+        throw $r5;
+
+     label1:
+        $z0 = r3 instanceof javassist.CtClassType;
+
+        if $z0 == 0 goto label2;
+
+        $r4 = (javassist.CtClassType) r3;
+
+        virtualinvoke $r4.<javassist.CtClassType: void setClassPool(javassist.ClassPool)>(r0);
+
+     label2:
+        virtualinvoke r3.<javassist.CtClass: void setName(java.lang.String)>(r2);
+
+        return r3;
+    }
+
+    synchronized void classNameChanged(java.lang.String, javassist.CtClass)
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1, r4;
+        javassist.CtClass r2, r3;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        r2 := @parameter1: javassist.CtClass;
+
+        r3 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass getCached(java.lang.String)>(r1);
+
+        if r3 != r2 goto label1;
+
+        virtualinvoke r0.<javassist.ClassPool: javassist.CtClass removeCached(java.lang.String)>(r1);
+
+     label1:
+        r4 = virtualinvoke r2.<javassist.CtClass: java.lang.String getName()>();
+
+        virtualinvoke r0.<javassist.ClassPool: void checkNotFrozen(java.lang.String)>(r4);
+
+        virtualinvoke r0.<javassist.ClassPool: void cacheCtClass(java.lang.String,javassist.CtClass,boolean)>(r4, r2, 0);
+
+        return;
+    }
+
+    public javassist.CtClass get(java.lang.String) throws javassist.NotFoundException
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        javassist.NotFoundException $r2;
+        javassist.CtClass r3;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        if r1 != null goto label1;
+
+        r3 = null;
+
+        goto label2;
+
+     label1:
+        r3 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass get0(java.lang.String,boolean)>(r1, 1);
+
+     label2:
+        if r3 != null goto label3;
+
+        $r2 = new javassist.NotFoundException;
+
+        specialinvoke $r2.<javassist.NotFoundException: void <init>(java.lang.String)>(r1);
+
+        throw $r2;
+
+     label3:
+        virtualinvoke r3.<javassist.CtClass: void incGetCounter()>();
+
+        return r3;
+    }
+
+    public javassist.CtClass getOrNull(java.lang.String)
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        javassist.NotFoundException $r3;
+        javassist.CtClass r4;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        r4 = null;
+
+        if r1 != null goto label1;
+
+        r4 = null;
+
+        goto label4;
+
+     label1:
+        r4 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass get0(java.lang.String,boolean)>(r1, 1);
+
+     label2:
+        goto label4;
+
+     label3:
+        $r3 := @caughtexception;
+
+     label4:
+        if r4 == null goto label5;
+
+        virtualinvoke r4.<javassist.CtClass: void incGetCounter()>();
+
+     label5:
+        return r4;
+
+        catch javassist.NotFoundException from label1 to label2 with label3;
+    }
+
+    public javassist.CtClass getCtClass(java.lang.String) throws javassist.NotFoundException
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        char $c0;
+        javassist.CtClass $r2, $r3;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        $c0 = virtualinvoke r1.<java.lang.String: char charAt(int)>(0);
+
+        if $c0 != 91 goto label1;
+
+        $r3 = staticinvoke <javassist.bytecode.Descriptor: javassist.CtClass toCtClass(java.lang.String,javassist.ClassPool)>(r1, r0);
+
+        return $r3;
+
+     label1:
+        $r2 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass get(java.lang.String)>(r1);
+
+        return $r2;
+    }
+
+    protected synchronized javassist.CtClass get0(java.lang.String, boolean) throws javassist.NotFoundException
+    {
+        javassist.ClassPool r0, $r2, $r3, $r5, $r6;
+        java.lang.String r1, $r4;
+        boolean z0, $z1, $z2;
+        javassist.CtClass r7, r8, r9;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        z0 := @parameter1: boolean;
+
+        if z0 == 0 goto label1;
+
+        r7 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass getCached(java.lang.String)>(r1);
+
+        if r7 == null goto label1;
+
+        return r7;
+
+     label1:
+        $z1 = r0.<javassist.ClassPool: boolean childFirstLookup>;
+
+        if $z1 != 0 goto label2;
+
+        $r5 = r0.<javassist.ClassPool: javassist.ClassPool parent>;
+
+        if $r5 == null goto label2;
+
+        $r6 = r0.<javassist.ClassPool: javassist.ClassPool parent>;
+
+        r8 = virtualinvoke $r6.<javassist.ClassPool: javassist.CtClass get0(java.lang.String,boolean)>(r1, z0);
+
+        if r8 == null goto label2;
+
+        return r8;
+
+     label2:
+        r9 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass createCtClass(java.lang.String,boolean)>(r1, z0);
+
+        if r9 == null goto label4;
+
+        if z0 == 0 goto label3;
+
+        $r4 = virtualinvoke r9.<javassist.CtClass: java.lang.String getName()>();
+
+        virtualinvoke r0.<javassist.ClassPool: void cacheCtClass(java.lang.String,javassist.CtClass,boolean)>($r4, r9, 0);
+
+     label3:
+        return r9;
+
+     label4:
+        $z2 = r0.<javassist.ClassPool: boolean childFirstLookup>;
+
+        if $z2 == 0 goto label5;
+
+        $r2 = r0.<javassist.ClassPool: javassist.ClassPool parent>;
+
+        if $r2 == null goto label5;
+
+        $r3 = r0.<javassist.ClassPool: javassist.ClassPool parent>;
+
+        r9 = virtualinvoke $r3.<javassist.ClassPool: javassist.CtClass get0(java.lang.String,boolean)>(r1, z0);
+
+     label5:
+        return r9;
+    }
+
+    protected javassist.CtClass createCtClass(java.lang.String, boolean)
+    {
+        javassist.ClassPool r0;
+        boolean z0, $z1;
+        java.lang.String r1, r7;
+        char $c0;
+        java.net.URL $r2, $r4;
+        javassist.CtClassType $r3;
+        int $i1;
+        javassist.CtArray $r5;
+        javassist.CtClass $r6;
+
+        r0 := @this: javassist.ClassPool;
+
+        r7 := @parameter0: java.lang.String;
+
+        z0 := @parameter1: boolean;
+
+        $c0 = virtualinvoke r7.<java.lang.String: char charAt(int)>(0);
+
+        if $c0 != 91 goto label1;
+
+        r7 = staticinvoke <javassist.bytecode.Descriptor: java.lang.String toClassName(java.lang.String)>(r7);
+
+     label1:
+        $z1 = virtualinvoke r7.<java.lang.String: boolean endsWith(java.lang.String)>("[]");
+
+        if $z1 == 0 goto label4;
+
+        $i1 = virtualinvoke r7.<java.lang.String: int indexOf(int)>(91);
+
+        r1 = virtualinvoke r7.<java.lang.String: java.lang.String substring(int,int)>(0, $i1);
+
+        if z0 == 0 goto label2;
+
+        $r6 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass getCached(java.lang.String)>(r1);
+
+        if $r6 != null goto label3;
+
+     label2:
+        $r4 = virtualinvoke r0.<javassist.ClassPool: java.net.URL find(java.lang.String)>(r1);
+
+        if $r4 != null goto label3;
+
+        return null;
+
+     label3:
+        $r5 = new javassist.CtArray;
+
+        specialinvoke $r5.<javassist.CtArray: void <init>(java.lang.String,javassist.ClassPool)>(r7, r0);
+
+        return $r5;
+
+     label4:
+        $r2 = virtualinvoke r0.<javassist.ClassPool: java.net.URL find(java.lang.String)>(r7);
+
+        if $r2 != null goto label5;
+
+        return null;
+
+     label5:
+        $r3 = new javassist.CtClassType;
+
+        specialinvoke $r3.<javassist.CtClassType: void <init>(java.lang.String,javassist.ClassPool)>(r7, r0);
+
+        return $r3;
+    }
+
+    public java.net.URL find(java.lang.String)
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        javassist.ClassPoolTail $r2;
+        java.net.URL $r3;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r2 = r0.<javassist.ClassPool: javassist.ClassPoolTail source>;
+
+        $r3 = virtualinvoke $r2.<javassist.ClassPoolTail: java.net.URL find(java.lang.String)>(r1);
+
+        return $r3;
+    }
+
+    void checkNotFrozen(java.lang.String) throws java.lang.RuntimeException
+    {
+        javassist.ClassPool r0, $r8, $r9;
+        java.lang.String r1, $r7, $r14;
+        boolean $z0, $z1;
+        java.lang.RuntimeException $r3, $r10;
+        java.lang.StringBuilder $r4, $r5, $r6, $r11, $r12, $r13;
+        javassist.NotFoundException $r15;
+        javassist.CtClass r16;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        r16 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass getCached(java.lang.String)>(r1);
+
+        if r16 != null goto label5;
+
+        $z1 = r0.<javassist.ClassPool: boolean childFirstLookup>;
+
+        if $z1 != 0 goto label6;
+
+        $r8 = r0.<javassist.ClassPool: javassist.ClassPool parent>;
+
+        if $r8 == null goto label6;
+
+     label1:
+        $r9 = r0.<javassist.ClassPool: javassist.ClassPool parent>;
+
+        r16 = virtualinvoke $r9.<javassist.ClassPool: javassist.CtClass get0(java.lang.String,boolean)>(r1, 1);
+
+     label2:
+        goto label4;
+
+     label3:
+        $r15 := @caughtexception;
+
+     label4:
+        if r16 == null goto label6;
+
+        $r10 = new java.lang.RuntimeException;
+
+        $r11 = new java.lang.StringBuilder;
+
+        specialinvoke $r11.<java.lang.StringBuilder: void <init>()>();
+
+        $r12 = virtualinvoke $r11.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r1);
+
+        $r13 = virtualinvoke $r12.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" is in a parent ClassPool.  Use the parent.");
+
+        $r14 = virtualinvoke $r13.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r10.<java.lang.RuntimeException: void <init>(java.lang.String)>($r14);
+
+        throw $r10;
+
+     label5:
+        $z0 = virtualinvoke r16.<javassist.CtClass: boolean isFrozen()>();
+
+        if $z0 == 0 goto label6;
+
+        $r3 = new java.lang.RuntimeException;
+
+        $r4 = new java.lang.StringBuilder;
+
+        specialinvoke $r4.<java.lang.StringBuilder: void <init>()>();
+
+        $r5 = virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r1);
+
+        $r6 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(": frozen class (cannot edit)");
+
+        $r7 = virtualinvoke $r6.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r3.<java.lang.RuntimeException: void <init>(java.lang.String)>($r7);
+
+        throw $r3;
+
+     label6:
+        return;
+
+        catch javassist.NotFoundException from label1 to label2 with label3;
+    }
+
+    javassist.CtClass checkNotExists(java.lang.String)
+    {
+        javassist.ClassPool r0, $r3, $r4;
+        java.lang.String r1;
+        boolean $z0;
+        javassist.NotFoundException $r5;
+        javassist.CtClass r6;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        r6 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass getCached(java.lang.String)>(r1);
+
+        if r6 != null goto label4;
+
+        $z0 = r0.<javassist.ClassPool: boolean childFirstLookup>;
+
+        if $z0 != 0 goto label4;
+
+        $r3 = r0.<javassist.ClassPool: javassist.ClassPool parent>;
+
+        if $r3 == null goto label4;
+
+     label1:
+        $r4 = r0.<javassist.ClassPool: javassist.ClassPool parent>;
+
+        r6 = virtualinvoke $r4.<javassist.ClassPool: javassist.CtClass get0(java.lang.String,boolean)>(r1, 1);
+
+     label2:
+        goto label4;
+
+     label3:
+        $r5 := @caughtexception;
+
+     label4:
+        return r6;
+
+        catch javassist.NotFoundException from label1 to label2 with label3;
+    }
+
+    java.io.InputStream openClassfile(java.lang.String) throws javassist.NotFoundException
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        javassist.ClassPoolTail $r2;
+        java.io.InputStream $r3;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r2 = r0.<javassist.ClassPool: javassist.ClassPoolTail source>;
+
+        $r3 = virtualinvoke $r2.<javassist.ClassPoolTail: java.io.InputStream openClassfile(java.lang.String)>(r1);
+
+        return $r3;
+    }
+
+    void writeClassfile(java.lang.String, java.io.OutputStream) throws javassist.NotFoundException, java.io.IOException, javassist.CannotCompileException
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        java.io.OutputStream r2;
+        javassist.ClassPoolTail $r3;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        r2 := @parameter1: java.io.OutputStream;
+
+        $r3 = r0.<javassist.ClassPool: javassist.ClassPoolTail source>;
+
+        virtualinvoke $r3.<javassist.ClassPoolTail: void writeClassfile(java.lang.String,java.io.OutputStream)>(r1, r2);
+
+        return;
+    }
+
+    public javassist.CtClass[] get(java.lang.String[]) throws javassist.NotFoundException
+    {
+        javassist.ClassPool r0;
+        java.lang.String[] r1;
+        int i0, i1;
+        javassist.CtClass[] r2, $r5;
+        java.lang.String $r3;
+        javassist.CtClass $r4;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String[];
+
+        if r1 != null goto label1;
+
+        $r5 = newarray (javassist.CtClass)[0];
+
+        return $r5;
+
+     label1:
+        i0 = lengthof r1;
+
+        r2 = newarray (javassist.CtClass)[i0];
+
+        i1 = 0;
+
+     label2:
+        if i1 >= i0 goto label3;
+
+        $r3 = r1[i1];
+
+        $r4 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass get(java.lang.String)>($r3);
+
+        r2[i1] = $r4;
+
+        i1 = i1 + 1;
+
+        goto label2;
+
+     label3:
+        return r2;
+    }
+
+    public javassist.CtMethod getMethod(java.lang.String, java.lang.String) throws javassist.NotFoundException
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1, r2;
+        javassist.CtClass r3;
+        javassist.CtMethod $r4;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        r2 := @parameter1: java.lang.String;
+
+        r3 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass get(java.lang.String)>(r1);
+
+        $r4 = virtualinvoke r3.<javassist.CtClass: javassist.CtMethod getDeclaredMethod(java.lang.String)>(r2);
+
+        return $r4;
+    }
+
+    public javassist.CtClass makeClass(java.io.InputStream) throws java.io.IOException, java.lang.RuntimeException
+    {
+        javassist.ClassPool r0;
+        java.io.InputStream r1;
+        javassist.CtClass $r2;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.io.InputStream;
+
+        $r2 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass makeClass(java.io.InputStream,boolean)>(r1, 1);
+
+        return $r2;
+    }
+
+    public javassist.CtClass makeClass(java.io.InputStream, boolean) throws java.io.IOException, java.lang.RuntimeException
+    {
+        javassist.ClassPool r0;
+        boolean z0;
+        java.lang.String r2;
+        java.io.BufferedInputStream $r3;
+        javassist.CtClassType $r4;
+        java.io.InputStream r5;
+
+        r0 := @this: javassist.ClassPool;
+
+        r5 := @parameter0: java.io.InputStream;
+
+        z0 := @parameter1: boolean;
+
+        virtualinvoke r0.<javassist.ClassPool: void compress()>();
+
+        $r3 = new java.io.BufferedInputStream;
+
+        specialinvoke $r3.<java.io.BufferedInputStream: void <init>(java.io.InputStream)>(r5);
+
+        $r4 = new javassist.CtClassType;
+
+        specialinvoke $r4.<javassist.CtClassType: void <init>(java.io.InputStream,javassist.ClassPool)>($r3, r0);
+
+        virtualinvoke $r4.<javassist.CtClass: void checkModify()>();
+
+        r2 = virtualinvoke $r4.<javassist.CtClass: java.lang.String getName()>();
+
+        if z0 == 0 goto label1;
+
+        virtualinvoke r0.<javassist.ClassPool: void checkNotFrozen(java.lang.String)>(r2);
+
+     label1:
+        virtualinvoke r0.<javassist.ClassPool: void cacheCtClass(java.lang.String,javassist.CtClass,boolean)>(r2, $r4, 1);
+
+        return $r4;
+    }
+
+    public javassist.CtClass makeClass(javassist.bytecode.ClassFile) throws java.lang.RuntimeException
+    {
+        javassist.ClassPool r0;
+        javassist.bytecode.ClassFile r1;
+        javassist.CtClass $r2;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: javassist.bytecode.ClassFile;
+
+        $r2 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass makeClass(javassist.bytecode.ClassFile,boolean)>(r1, 1);
+
+        return $r2;
+    }
+
+    public javassist.CtClass makeClass(javassist.bytecode.ClassFile, boolean) throws java.lang.RuntimeException
+    {
+        javassist.ClassPool r0;
+        javassist.bytecode.ClassFile r1;
+        boolean z0;
+        java.lang.String r3;
+        javassist.CtClassType $r4;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: javassist.bytecode.ClassFile;
+
+        z0 := @parameter1: boolean;
+
+        virtualinvoke r0.<javassist.ClassPool: void compress()>();
+
+        $r4 = new javassist.CtClassType;
+
+        specialinvoke $r4.<javassist.CtClassType: void <init>(javassist.bytecode.ClassFile,javassist.ClassPool)>(r1, r0);
+
+        virtualinvoke $r4.<javassist.CtClass: void checkModify()>();
+
+        r3 = virtualinvoke $r4.<javassist.CtClass: java.lang.String getName()>();
+
+        if z0 == 0 goto label1;
+
+        virtualinvoke r0.<javassist.ClassPool: void checkNotFrozen(java.lang.String)>(r3);
+
+     label1:
+        virtualinvoke r0.<javassist.ClassPool: void cacheCtClass(java.lang.String,javassist.CtClass,boolean)>(r3, $r4, 1);
+
+        return $r4;
+    }
+
+    public javassist.CtClass makeClassIfNew(java.io.InputStream) throws java.io.IOException, java.lang.RuntimeException
+    {
+        javassist.ClassPool r0;
+        java.lang.String r2;
+        javassist.CtClass r3;
+        java.io.BufferedInputStream $r4;
+        javassist.CtClassType $r5;
+        java.io.InputStream r6;
+
+        r0 := @this: javassist.ClassPool;
+
+        r6 := @parameter0: java.io.InputStream;
+
+        virtualinvoke r0.<javassist.ClassPool: void compress()>();
+
+        $r4 = new java.io.BufferedInputStream;
+
+        specialinvoke $r4.<java.io.BufferedInputStream: void <init>(java.io.InputStream)>(r6);
+
+        $r5 = new javassist.CtClassType;
+
+        specialinvoke $r5.<javassist.CtClassType: void <init>(java.io.InputStream,javassist.ClassPool)>($r4, r0);
+
+        virtualinvoke $r5.<javassist.CtClass: void checkModify()>();
+
+        r2 = virtualinvoke $r5.<javassist.CtClass: java.lang.String getName()>();
+
+        r3 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass checkNotExists(java.lang.String)>(r2);
+
+        if r3 == null goto label1;
+
+        return r3;
+
+     label1:
+        virtualinvoke r0.<javassist.ClassPool: void cacheCtClass(java.lang.String,javassist.CtClass,boolean)>(r2, $r5, 1);
+
+        return $r5;
+    }
+
+    public javassist.CtClass makeClass(java.lang.String) throws java.lang.RuntimeException
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        javassist.CtClass $r2;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r2 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass makeClass(java.lang.String,javassist.CtClass)>(r1, null);
+
+        return $r2;
+    }
+
+    public synchronized javassist.CtClass makeClass(java.lang.String, javassist.CtClass) throws java.lang.RuntimeException
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        javassist.CtClass r2;
+        javassist.CtNewClass $r4;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        r2 := @parameter1: javassist.CtClass;
+
+        virtualinvoke r0.<javassist.ClassPool: void checkNotFrozen(java.lang.String)>(r1);
+
+        $r4 = new javassist.CtNewClass;
+
+        specialinvoke $r4.<javassist.CtNewClass: void <init>(java.lang.String,javassist.ClassPool,boolean,javassist.CtClass)>(r1, r0, 0, r2);
+
+        virtualinvoke r0.<javassist.ClassPool: void cacheCtClass(java.lang.String,javassist.CtClass,boolean)>(r1, $r4, 1);
+
+        return $r4;
+    }
+
+    synchronized javassist.CtClass makeNestedClass(java.lang.String)
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        javassist.CtNewClass $r3;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        virtualinvoke r0.<javassist.ClassPool: void checkNotFrozen(java.lang.String)>(r1);
+
+        $r3 = new javassist.CtNewClass;
+
+        specialinvoke $r3.<javassist.CtNewClass: void <init>(java.lang.String,javassist.ClassPool,boolean,javassist.CtClass)>(r1, r0, 0, null);
+
+        virtualinvoke r0.<javassist.ClassPool: void cacheCtClass(java.lang.String,javassist.CtClass,boolean)>(r1, $r3, 1);
+
+        return $r3;
+    }
+
+    public javassist.CtClass makeInterface(java.lang.String) throws java.lang.RuntimeException
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        javassist.CtClass $r2;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r2 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass makeInterface(java.lang.String,javassist.CtClass)>(r1, null);
+
+        return $r2;
+    }
+
+    public synchronized javassist.CtClass makeInterface(java.lang.String, javassist.CtClass) throws java.lang.RuntimeException
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        javassist.CtClass r2;
+        javassist.CtNewClass $r4;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        r2 := @parameter1: javassist.CtClass;
+
+        virtualinvoke r0.<javassist.ClassPool: void checkNotFrozen(java.lang.String)>(r1);
+
+        $r4 = new javassist.CtNewClass;
+
+        specialinvoke $r4.<javassist.CtNewClass: void <init>(java.lang.String,javassist.ClassPool,boolean,javassist.CtClass)>(r1, r0, 1, r2);
+
+        virtualinvoke r0.<javassist.ClassPool: void cacheCtClass(java.lang.String,javassist.CtClass,boolean)>(r1, $r4, 1);
+
+        return $r4;
+    }
+
+    public javassist.CtClass makeAnnotation(java.lang.String) throws java.lang.RuntimeException
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1, $r5;
+        javassist.CtClass $r2, r6;
+        int $i0, $i1;
+        javassist.NotFoundException $r3;
+        java.lang.RuntimeException $r4;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+     label1:
+        $r2 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass get(java.lang.String)>("java.lang.annotation.Annotation");
+
+        r6 = virtualinvoke r0.<javassist.ClassPool: javassist.CtClass makeInterface(java.lang.String,javassist.CtClass)>(r1, $r2);
+
+        $i0 = virtualinvoke r6.<javassist.CtClass: int getModifiers()>();
+
+        $i1 = $i0 | 8192;
+
+        virtualinvoke r6.<javassist.CtClass: void setModifiers(int)>($i1);
+
+     label2:
+        return r6;
+
+     label3:
+        $r3 := @caughtexception;
+
+        $r4 = new java.lang.RuntimeException;
+
+        $r5 = virtualinvoke $r3.<javassist.NotFoundException: java.lang.String getMessage()>();
+
+        specialinvoke $r4.<java.lang.RuntimeException: void <init>(java.lang.String,java.lang.Throwable)>($r5, $r3);
+
+        throw $r4;
+
+        catch javassist.NotFoundException from label1 to label2 with label3;
+    }
+
+    public javassist.ClassPath appendSystemPath()
+    {
+        javassist.ClassPool r0;
+        javassist.ClassPoolTail $r1;
+        javassist.ClassPath $r2;
+
+        r0 := @this: javassist.ClassPool;
+
+        $r1 = r0.<javassist.ClassPool: javassist.ClassPoolTail source>;
+
+        $r2 = virtualinvoke $r1.<javassist.ClassPoolTail: javassist.ClassPath appendSystemPath()>();
+
+        return $r2;
+    }
+
+    public javassist.ClassPath insertClassPath(javassist.ClassPath)
+    {
+        javassist.ClassPool r0;
+        javassist.ClassPath r1, $r3;
+        javassist.ClassPoolTail $r2;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: javassist.ClassPath;
+
+        $r2 = r0.<javassist.ClassPool: javassist.ClassPoolTail source>;
+
+        $r3 = virtualinvoke $r2.<javassist.ClassPoolTail: javassist.ClassPath insertClassPath(javassist.ClassPath)>(r1);
+
+        return $r3;
+    }
+
+    public javassist.ClassPath appendClassPath(javassist.ClassPath)
+    {
+        javassist.ClassPool r0;
+        javassist.ClassPath r1, $r3;
+        javassist.ClassPoolTail $r2;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: javassist.ClassPath;
+
+        $r2 = r0.<javassist.ClassPool: javassist.ClassPoolTail source>;
+
+        $r3 = virtualinvoke $r2.<javassist.ClassPoolTail: javassist.ClassPath appendClassPath(javassist.ClassPath)>(r1);
+
+        return $r3;
+    }
+
+    public javassist.ClassPath insertClassPath(java.lang.String) throws javassist.NotFoundException
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        javassist.ClassPoolTail $r2;
+        javassist.ClassPath $r3;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r2 = r0.<javassist.ClassPool: javassist.ClassPoolTail source>;
+
+        $r3 = virtualinvoke $r2.<javassist.ClassPoolTail: javassist.ClassPath insertClassPath(java.lang.String)>(r1);
+
+        return $r3;
+    }
+
+    public javassist.ClassPath appendClassPath(java.lang.String) throws javassist.NotFoundException
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1;
+        javassist.ClassPoolTail $r2;
+        javassist.ClassPath $r3;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r2 = r0.<javassist.ClassPool: javassist.ClassPoolTail source>;
+
+        $r3 = virtualinvoke $r2.<javassist.ClassPoolTail: javassist.ClassPath appendClassPath(java.lang.String)>(r1);
+
+        return $r3;
+    }
+
+    public void removeClassPath(javassist.ClassPath)
+    {
+        javassist.ClassPool r0;
+        javassist.ClassPath r1;
+        javassist.ClassPoolTail $r2;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: javassist.ClassPath;
+
+        $r2 = r0.<javassist.ClassPool: javassist.ClassPoolTail source>;
+
+        virtualinvoke $r2.<javassist.ClassPoolTail: void removeClassPath(javassist.ClassPath)>(r1);
+
+        return;
+    }
+
+    public void appendPathList(java.lang.String) throws javassist.NotFoundException
+    {
+        javassist.ClassPool r0;
+        java.lang.String r1, $r2, $r4;
+        char c0;
+        int i1, i2;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.String;
+
+        c0 = <java.io.File: char pathSeparatorChar>;
+
+        i2 = 0;
+
+     label1:
+        i1 = virtualinvoke r1.<java.lang.String: int indexOf(int,int)>(c0, i2);
+
+        if i1 >= 0 goto label2;
+
+        $r4 = virtualinvoke r1.<java.lang.String: java.lang.String substring(int)>(i2);
+
+        virtualinvoke r0.<javassist.ClassPool: javassist.ClassPath appendClassPath(java.lang.String)>($r4);
+
+        goto label3;
+
+     label2:
+        $r2 = virtualinvoke r1.<java.lang.String: java.lang.String substring(int,int)>(i2, i1);
+
+        virtualinvoke r0.<javassist.ClassPool: javassist.ClassPath appendClassPath(java.lang.String)>($r2);
+
+        i2 = i1 + 1;
+
+        goto label1;
+
+     label3:
+        return;
+    }
+
+    public java.lang.Class toClass(javassist.CtClass) throws javassist.CannotCompileException
+    {
+        javassist.ClassPool r0;
+        javassist.CtClass r1;
+        java.lang.ClassLoader $r2;
+        java.lang.Class $r3;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: javassist.CtClass;
+
+        $r2 = virtualinvoke r0.<javassist.ClassPool: java.lang.ClassLoader getClassLoader()>();
+
+        $r3 = virtualinvoke r0.<javassist.ClassPool: java.lang.Class toClass(javassist.CtClass,java.lang.ClassLoader)>(r1, $r2);
+
+        return $r3;
+    }
+
+    public java.lang.ClassLoader getClassLoader()
+    {
+        javassist.ClassPool r0;
+        java.lang.ClassLoader $r1;
+
+        r0 := @this: javassist.ClassPool;
+
+        $r1 = staticinvoke <javassist.ClassPool: java.lang.ClassLoader getContextClassLoader()>();
+
+        return $r1;
+    }
+
+    static java.lang.ClassLoader getContextClassLoader()
+    {
+        java.lang.Thread $r0;
+        java.lang.ClassLoader $r1;
+
+        $r0 = staticinvoke <java.lang.Thread: java.lang.Thread currentThread()>();
+
+        $r1 = virtualinvoke $r0.<java.lang.Thread: java.lang.ClassLoader getContextClassLoader()>();
+
+        return $r1;
+    }
+
+    public java.lang.Class toClass(javassist.CtClass, java.lang.ClassLoader) throws javassist.CannotCompileException
+    {
+        javassist.ClassPool r0;
+        javassist.CtClass r1;
+        java.lang.ClassLoader r2;
+        java.lang.Class $r3;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: javassist.CtClass;
+
+        r2 := @parameter1: java.lang.ClassLoader;
+
+        $r3 = virtualinvoke r0.<javassist.ClassPool: java.lang.Class toClass(javassist.CtClass,java.lang.Class,java.lang.ClassLoader,java.security.ProtectionDomain)>(r1, null, r2, null);
+
+        return $r3;
+    }
+
+    public java.lang.Class toClass(javassist.CtClass, java.lang.ClassLoader, java.security.ProtectionDomain) throws javassist.CannotCompileException
+    {
+        javassist.ClassPool r0;
+        javassist.CtClass r1;
+        java.lang.ClassLoader r2;
+        java.security.ProtectionDomain r3;
+        java.lang.Class $r4;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: javassist.CtClass;
+
+        r2 := @parameter1: java.lang.ClassLoader;
+
+        r3 := @parameter2: java.security.ProtectionDomain;
+
+        $r4 = virtualinvoke r0.<javassist.ClassPool: java.lang.Class toClass(javassist.CtClass,java.lang.Class,java.lang.ClassLoader,java.security.ProtectionDomain)>(r1, null, r2, r3);
+
+        return $r4;
+    }
+
+    public java.lang.Class toClass(javassist.CtClass, java.lang.Class) throws javassist.CannotCompileException
+    {
+        javassist.ClassPool r0;
+        javassist.CtClass r1;
+        java.lang.Class r2, $r5;
+        byte[] $r4;
+        java.io.IOException $r6;
+        javassist.CannotCompileException $r7;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: javassist.CtClass;
+
+        r2 := @parameter1: java.lang.Class;
+
+     label1:
+        $r4 = virtualinvoke r1.<javassist.CtClass: byte[] toBytecode()>();
+
+        $r5 = staticinvoke <javassist.util.proxy.DefineClassHelper: java.lang.Class toClass(java.lang.Class,byte[])>(r2, $r4);
+
+     label2:
+        return $r5;
+
+     label3:
+        $r6 := @caughtexception;
+
+        $r7 = new javassist.CannotCompileException;
+
+        specialinvoke $r7.<javassist.CannotCompileException: void <init>(java.lang.Throwable)>($r6);
+
+        throw $r7;
+
+        catch java.io.IOException from label1 to label2 with label3;
+    }
+
+    public java.lang.Class toClass(javassist.CtClass, java.lang.invoke.MethodHandles$Lookup) throws javassist.CannotCompileException
+    {
+        javassist.ClassPool r0;
+        javassist.CtClass r1;
+        java.lang.invoke.MethodHandles$Lookup r2;
+        byte[] $r4;
+        java.lang.Class $r5;
+        java.io.IOException $r6;
+        javassist.CannotCompileException $r7;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: javassist.CtClass;
+
+        r2 := @parameter1: java.lang.invoke.MethodHandles$Lookup;
+
+     label1:
+        $r4 = virtualinvoke r1.<javassist.CtClass: byte[] toBytecode()>();
+
+        $r5 = staticinvoke <javassist.util.proxy.DefineClassHelper: java.lang.Class toClass(java.lang.invoke.MethodHandles$Lookup,byte[])>(r2, $r4);
+
+     label2:
+        return $r5;
+
+     label3:
+        $r6 := @caughtexception;
+
+        $r7 = new javassist.CannotCompileException;
+
+        specialinvoke $r7.<javassist.CannotCompileException: void <init>(java.lang.Throwable)>($r6);
+
+        throw $r7;
+
+        catch java.io.IOException from label1 to label2 with label3;
+    }
+
+    public java.lang.Class toClass(javassist.CtClass, java.lang.Class, java.lang.ClassLoader, java.security.ProtectionDomain) throws javassist.CannotCompileException
+    {
+        javassist.ClassPool r0;
+        javassist.CtClass r1;
+        java.lang.Class r2, $r8;
+        java.lang.ClassLoader r3;
+        java.security.ProtectionDomain r4;
+        java.lang.String $r6;
+        byte[] $r7;
+        java.io.IOException $r9;
+        javassist.CannotCompileException $r10;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: javassist.CtClass;
+
+        r2 := @parameter1: java.lang.Class;
+
+        r3 := @parameter2: java.lang.ClassLoader;
+
+        r4 := @parameter3: java.security.ProtectionDomain;
+
+     label1:
+        $r6 = virtualinvoke r1.<javassist.CtClass: java.lang.String getName()>();
+
+        $r7 = virtualinvoke r1.<javassist.CtClass: byte[] toBytecode()>();
+
+        $r8 = staticinvoke <javassist.util.proxy.DefineClassHelper: java.lang.Class toClass(java.lang.String,java.lang.Class,java.lang.ClassLoader,java.security.ProtectionDomain,byte[])>($r6, r2, r3, r4, $r7);
+
+     label2:
+        return $r8;
+
+     label3:
+        $r9 := @caughtexception;
+
+        $r10 = new javassist.CannotCompileException;
+
+        specialinvoke $r10.<javassist.CannotCompileException: void <init>(java.lang.Throwable)>($r9);
+
+        throw $r10;
+
+        catch java.io.IOException from label1 to label2 with label3;
+    }
+
+    public void makePackage(java.lang.ClassLoader, java.lang.String) throws javassist.CannotCompileException
+    {
+        javassist.ClassPool r0;
+        java.lang.ClassLoader r1;
+        java.lang.String r2;
+
+        r0 := @this: javassist.ClassPool;
+
+        r1 := @parameter0: java.lang.ClassLoader;
+
+        r2 := @parameter1: java.lang.String;
+
+        staticinvoke <javassist.util.proxy.DefinePackageHelper: void definePackage(java.lang.String,java.lang.ClassLoader)>(r2, r1);
+
+        return;
+    }
+
+    static void <clinit>()
+    {
+        <javassist.ClassPool: int INIT_HASH_SIZE> = 191;
+
+        <javassist.ClassPool: int COMPRESS_THRESHOLD> = 100;
+
+        <javassist.ClassPool: boolean doPruning> = 0;
+
+        <javassist.ClassPool: boolean releaseUnmodifiedClassFile> = 1;
+
+        <javassist.ClassPool: javassist.ClassPool defaultPool> = null;
+
+        return;
+    }
+}

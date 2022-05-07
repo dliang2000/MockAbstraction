@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LifecycleDebugLogger.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.lifecycle.internal</a> &gt; <span class="el_source">LifecycleDebugLogger.java</span></div><h1>LifecycleDebugLogger.java</h1><pre class="source lang-java linenums">package org.apache.maven.lifecycle.internal;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import org.apache.maven.lifecycle.MavenExecutionPlan;
+import org.apache.maven.lifecycle.internal.builder.BuilderCommon;
+import org.apache.maven.plugin.MojoExecution;
+import org.apache.maven.plugin.descriptor.MojoDescriptor;
+import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.component.annotations.Component;
+import org.codehaus.plexus.component.annotations.Requirement;
+import org.codehaus.plexus.logging.Logger;
+import org.codehaus.plexus.util.StringUtils;
+
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+
+/**
+ * &lt;p&gt;
+ * Logs debug output from the various lifecycle phases.
+ * &lt;/p&gt;
+ * &lt;strong&gt;NOTE:&lt;/strong&gt; This class is not part of any public api and can be changed or deleted without prior notice.
+ *
+ * @since 3.0
+ * @author Benjamin Bentmann
+ * @author Jason van Zyl
+ * @author Kristian Rosenvold (extracted class only)
+ */
+@Component( role = LifecycleDebugLogger.class )
+public class LifecycleDebugLogger
+{
+    @Requirement
+    private Logger logger;
+
+
+    public LifecycleDebugLogger()
+<span class="nc" id="L57">    {</span>
+<span class="nc" id="L58">    }</span>
+
+    public LifecycleDebugLogger( Logger logger )
+<span class="nc" id="L61">    {</span>
+<span class="nc" id="L62">        this.logger = logger;</span>
+<span class="nc" id="L63">    }</span>
+
+
+    public void debug( String s )
+    {
+<span class="nc" id="L68">        logger.debug( s );</span>
+<span class="nc" id="L69">    }</span>
+
+    public void info( String s )
+    {
+<span class="nc" id="L73">        logger.info( s );</span>
+<span class="nc" id="L74">    }</span>
+
+    public void debugReactorPlan( ProjectBuildList projectBuilds )
+    {
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        if ( !logger.isDebugEnabled() )</span>
+        {
+<span class="nc" id="L80">            return;</span>
+        }
+
+<span class="nc" id="L83">        logger.debug( &quot;=== REACTOR BUILD PLAN ================================================&quot; );</span>
+
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        for ( Iterator&lt;ProjectSegment&gt; it = projectBuilds.iterator(); it.hasNext(); )</span>
+        {
+<span class="nc" id="L87">            ProjectSegment projectBuild = it.next();</span>
+
+<span class="nc" id="L89">            logger.debug( &quot;Project: &quot; + projectBuild.getProject().getId() );</span>
+<span class="nc" id="L90">            logger.debug( &quot;Tasks:   &quot; + projectBuild.getTaskSegment().getTasks() );</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">            logger.debug( &quot;Style:   &quot; + ( projectBuild.getTaskSegment().isAggregating() ? &quot;Aggregating&quot; : &quot;Regular&quot; ) );</span>
+
+<span class="nc bnc" id="L93" title="All 2 branches missed.">            if ( it.hasNext() )</span>
+            {
+<span class="nc" id="L95">                logger.debug( &quot;-----------------------------------------------------------------------&quot; );</span>
+            }
+<span class="nc" id="L97">        }</span>
+
+<span class="nc" id="L99">        logger.debug( &quot;=======================================================================&quot; );</span>
+<span class="nc" id="L100">    }</span>
+
+
+    public void debugProjectPlan( MavenProject currentProject, MavenExecutionPlan executionPlan )
+    {
+<span class="nc bnc" id="L105" title="All 2 branches missed.">        if ( !logger.isDebugEnabled() )</span>
+        {
+<span class="nc" id="L107">            return;</span>
+        }
+
+<span class="nc" id="L110">        logger.debug( &quot;=== PROJECT BUILD PLAN ================================================&quot; );</span>
+<span class="nc" id="L111">        logger.debug( &quot;Project:       &quot; + BuilderCommon.getKey( currentProject ) );</span>
+
+<span class="nc" id="L113">        debugDependencyRequirements( executionPlan.getMojoExecutions() );</span>
+
+<span class="nc" id="L115">        logger.debug( &quot;Repositories (dependencies): &quot; + currentProject.getRemoteProjectRepositories() );</span>
+<span class="nc" id="L116">        logger.debug( &quot;Repositories (plugins)     : &quot; + currentProject.getRemotePluginRepositories() );</span>
+
+<span class="nc bnc" id="L118" title="All 2 branches missed.">        for ( ExecutionPlanItem mojoExecution : executionPlan )</span>
+        {
+<span class="nc" id="L120">            debugMojoExecution( mojoExecution.getMojoExecution() );</span>
+<span class="nc" id="L121">        }</span>
+
+<span class="nc" id="L123">        logger.debug( &quot;=======================================================================&quot; );</span>
+<span class="nc" id="L124">    }</span>
+
+    private void debugMojoExecution( MojoExecution mojoExecution )
+    {
+<span class="nc" id="L128">        String mojoExecId =</span>
+<span class="nc" id="L129">            mojoExecution.getGroupId() + ':' + mojoExecution.getArtifactId() + ':' + mojoExecution.getVersion() + ':'</span>
+<span class="nc" id="L130">                + mojoExecution.getGoal() + &quot; (&quot; + mojoExecution.getExecutionId() + ')';</span>
+
+<span class="nc" id="L132">        Map&lt;String, List&lt;MojoExecution&gt;&gt; forkedExecutions = mojoExecution.getForkedExecutions();</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        if ( !forkedExecutions.isEmpty() )</span>
+        {
+<span class="nc bnc" id="L135" title="All 2 branches missed.">            for ( Map.Entry&lt;String, List&lt;MojoExecution&gt;&gt; fork : forkedExecutions.entrySet() )</span>
+            {
+<span class="nc" id="L137">                logger.debug( &quot;--- init fork of &quot; + fork.getKey() + &quot; for &quot; + mojoExecId + &quot; ---&quot; );</span>
+
+<span class="nc" id="L139">                debugDependencyRequirements( fork.getValue() );</span>
+
+<span class="nc bnc" id="L141" title="All 2 branches missed.">                for ( MojoExecution forkedExecution : fork.getValue() )</span>
+                {
+<span class="nc" id="L143">                    debugMojoExecution( forkedExecution );</span>
+<span class="nc" id="L144">                }</span>
+
+<span class="nc" id="L146">                logger.debug( &quot;--- exit fork of &quot; + fork.getKey() + &quot; for &quot; + mojoExecId + &quot; ---&quot; );</span>
+<span class="nc" id="L147">            }</span>
+        }
+
+<span class="nc" id="L150">        logger.debug( &quot;-----------------------------------------------------------------------&quot; );</span>
+<span class="nc" id="L151">        logger.debug( &quot;Goal:          &quot; + mojoExecId );</span>
+<span class="nc" id="L152">        logger.debug(</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">            &quot;Style:         &quot; + ( mojoExecution.getMojoDescriptor().isAggregator() ? &quot;Aggregating&quot; : &quot;Regular&quot; ) );</span>
+<span class="nc" id="L154">        logger.debug( &quot;Configuration: &quot; + mojoExecution.getConfiguration() );</span>
+<span class="nc" id="L155">    }</span>
+
+    private void debugDependencyRequirements( List&lt;MojoExecution&gt; mojoExecutions )
+    {
+<span class="nc" id="L159">        Set&lt;String&gt; scopesToCollect = new TreeSet&lt;&gt;();</span>
+<span class="nc" id="L160">        Set&lt;String&gt; scopesToResolve = new TreeSet&lt;&gt;();</span>
+
+<span class="nc bnc" id="L162" title="All 2 branches missed.">        for ( MojoExecution mojoExecution : mojoExecutions )</span>
+        {
+<span class="nc" id="L164">            MojoDescriptor mojoDescriptor = mojoExecution.getMojoDescriptor();</span>
+
+<span class="nc" id="L166">            String scopeToCollect = mojoDescriptor.getDependencyCollectionRequired();</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">            if ( StringUtils.isNotEmpty( scopeToCollect ) )</span>
+            {
+<span class="nc" id="L169">                scopesToCollect.add( scopeToCollect );</span>
+            }
+
+<span class="nc" id="L172">            String scopeToResolve = mojoDescriptor.getDependencyResolutionRequired();</span>
+<span class="nc bnc" id="L173" title="All 2 branches missed.">            if ( StringUtils.isNotEmpty( scopeToResolve ) )</span>
+            {
+<span class="nc" id="L175">                scopesToResolve.add( scopeToResolve );</span>
+            }
+<span class="nc" id="L177">        }</span>
+
+<span class="nc" id="L179">        logger.debug( &quot;Dependencies (collect): &quot; + scopesToCollect );</span>
+<span class="nc" id="L180">        logger.debug( &quot;Dependencies (resolve): &quot; + scopesToResolve );</span>
+<span class="nc" id="L181">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

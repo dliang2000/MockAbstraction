@@ -1,0 +1,146 @@
+<!--
+
+       Copyright ${license.git.copyrightYears} the original author or authors.
+
+       Licensed under the Apache License, Version 2.0 (the "License");
+       you may not use this file except in compliance with the License.
+       You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+       Unless required by applicable law or agreed to in writing, software
+       distributed under the License is distributed on an "AS IS" BASIS,
+       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+       See the License for the specific language governing permissions and
+       limitations under the License.
+
+-->
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BlockingCache.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mybatis</a> &gt; <a href="index.source.html" class="el_package">org.apache.ibatis.cache.decorators</a> &gt; <span class="el_source">BlockingCache.java</span></div><h1>BlockingCache.java</h1><pre class="source lang-java linenums">/**
+ *    Copyright 2009-2021 the original author or authors.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+package org.apache.ibatis.cache.decorators;
+
+import java.text.MessageFormat;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.ibatis.cache.Cache;
+import org.apache.ibatis.cache.CacheException;
+
+/**
+ * &lt;p&gt;Simple blocking decorator
+ *
+ * &lt;p&gt;Simple and inefficient version of EhCache's BlockingCache decorator.
+ * It sets a lock over a cache key when the element is not found in cache.
+ * This way, other threads will wait until this element is filled instead of hitting the database.
+ *
+ * &lt;p&gt;By its nature, this implementation can cause deadlock when used incorrecly.
+ *
+ * @author Eduardo Macarron
+ *
+ */
+public class BlockingCache implements Cache {
+
+  private long timeout;
+  private final Cache delegate;
+  private final ConcurrentHashMap&lt;Object, CountDownLatch&gt; locks;
+
+<span class="fc" id="L44">  public BlockingCache(Cache delegate) {</span>
+<span class="fc" id="L45">    this.delegate = delegate;</span>
+<span class="fc" id="L46">    this.locks = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="fc" id="L47">  }</span>
+
+  @Override
+  public String getId() {
+<span class="fc" id="L51">    return delegate.getId();</span>
+  }
+
+  @Override
+  public int getSize() {
+<span class="nc" id="L56">    return delegate.getSize();</span>
+  }
+
+  @Override
+  public void putObject(Object key, Object value) {
+    try {
+<span class="fc" id="L62">      delegate.putObject(key, value);</span>
+    } finally {
+<span class="fc" id="L64">      releaseLock(key);</span>
+    }
+<span class="fc" id="L66">  }</span>
+
+  @Override
+  public Object getObject(Object key) {
+<span class="fc" id="L70">    acquireLock(key);</span>
+<span class="fc" id="L71">    Object value = delegate.getObject(key);</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">    if (value != null) {</span>
+<span class="fc" id="L73">      releaseLock(key);</span>
+    }
+<span class="fc" id="L75">    return value;</span>
+  }
+
+  @Override
+  public Object removeObject(Object key) {
+    // despite of its name, this method is called only to release locks
+<span class="fc" id="L81">    releaseLock(key);</span>
+<span class="fc" id="L82">    return null;</span>
+  }
+
+  @Override
+  public void clear() {
+<span class="fc" id="L87">    delegate.clear();</span>
+<span class="fc" id="L88">  }</span>
+
+  private void acquireLock(Object key) {
+<span class="fc" id="L91">    CountDownLatch newLatch = new CountDownLatch(1);</span>
+    while (true) {
+<span class="fc" id="L93">      CountDownLatch latch = locks.putIfAbsent(key, newLatch);</span>
+<span class="fc bfc" id="L94" title="All 2 branches covered.">      if (latch == null) {</span>
+<span class="fc" id="L95">        break;</span>
+      }
+      try {
+<span class="pc bpc" id="L98" title="1 of 2 branches missed.">        if (timeout &gt; 0) {</span>
+<span class="nc" id="L99">          boolean acquired = latch.await(timeout, TimeUnit.MILLISECONDS);</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">          if (!acquired) {</span>
+<span class="nc" id="L101">            throw new CacheException(</span>
+<span class="nc" id="L102">                &quot;Couldn't get a lock in &quot; + timeout + &quot; for the key &quot; + key + &quot; at the cache &quot; + delegate.getId());</span>
+          }
+<span class="nc" id="L104">        } else {</span>
+<span class="fc" id="L105">          latch.await();</span>
+        }
+<span class="nc" id="L107">      } catch (InterruptedException e) {</span>
+<span class="nc" id="L108">        throw new CacheException(&quot;Got interrupted while trying to acquire lock for key &quot; + key, e);</span>
+<span class="fc" id="L109">      }</span>
+<span class="fc" id="L110">    }</span>
+<span class="fc" id="L111">  }</span>
+
+  private void releaseLock(Object key) {
+<span class="fc" id="L114">    CountDownLatch latch = locks.remove(key);</span>
+<span class="pc bpc" id="L115" title="1 of 2 branches missed.">    if (latch == null) {</span>
+<span class="nc" id="L116">      throw new IllegalStateException(&quot;Detected an attempt at releasing unacquired lock. This should never happen.&quot;);</span>
+    }
+<span class="fc" id="L118">    latch.countDown();</span>
+<span class="fc" id="L119">  }</span>
+
+  public long getTimeout() {
+<span class="nc" id="L122">    return timeout;</span>
+  }
+
+  public void setTimeout(long timeout) {
+<span class="nc" id="L126">    this.timeout = timeout;</span>
+<span class="nc" id="L127">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

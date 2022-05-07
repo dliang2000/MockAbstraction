@@ -1,0 +1,1847 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Record.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.types</a> &gt; <span class="el_source">Record.java</span></div><h1>Record.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.types;
+
+import org.apache.flink.annotation.Public;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.core.memory.MemoryUtils;
+import org.apache.flink.util.InstantiationUtil;
+
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.Serializable;
+import java.io.UTFDataFormatException;
+import java.nio.ByteOrder;
+
+/**
+ * The Record represents a multi-valued data record. The record is a tuple of arbitrary values. It
+ * implements a sparse tuple model, meaning that the record can contain many fields which are
+ * actually null and not represented in the record. It has internally a bitmap marking which fields
+ * are set and which are not.
+ *
+ * &lt;p&gt;For efficient data exchange, a record that is read from any source holds its data in
+ * serialized binary form. Fields are deserialized lazily upon first access. Modified fields are
+ * cached and the modifications are incorporated into the binary representation upon the next
+ * serialization or any explicit call to the {@link #updateBinaryRepresenation()} method.
+ *
+ * &lt;p&gt;IMPORTANT NOTE: Records must be used as mutable objects and be reused across user function
+ * calls in order to achieve performance. The record is a heavy-weight object, designed to minimize
+ * calls to the individual fields' serialization and deserialization methods. It holds quite a bit
+ * of state consumes a comparably large amount of memory (&amp;gt; 200 bytes in a 64 bit JVM) due to
+ * several pointers and arrays.
+ *
+ * &lt;p&gt;This class is NOT thread-safe!
+ */
+@Public
+public final class Record implements Value, CopyableValue&lt;Record&gt; {
+    private static final long serialVersionUID = 1L;
+
+    private static final int NULL_INDICATOR_OFFSET =
+            Integer.MIN_VALUE; // value marking a field as null
+
+    private static final int MODIFIED_INDICATOR_OFFSET =
+            Integer.MIN_VALUE + 1; // value marking field as modified
+
+    private static final int DEFAULT_FIELD_LEN_ESTIMATE = 8; // length estimate for bin array
+
+    // --------------------------------------------------------------------------------------------
+
+<span class="pc" id="L68">    private final InternalDeSerializer serializer =</span>
+            new InternalDeSerializer(); // DataInput and DataOutput abstraction
+
+    private byte[] binaryData; // the buffer containing the binary representation
+
+    private byte[] switchBuffer; // the buffer containing the binary representation
+
+    private int[] offsets; // the offsets to the binary representations of the fields
+
+    private int[] lengths; // the lengths of the fields
+
+    private Value[]
+            readFields; // the cache for objects into which the binary representations are read
+
+    private Value[]
+            writeFields; // the cache for objects into which the binary representations are read
+
+    private int binaryLen; // the length of the contents in the binary buffer that is valid
+
+    private int numFields; // the number of fields in the record
+
+    private int firstModifiedPos; // position of the first modification (since (de)serialization)
+
+    // --------------------------------------------------------------------------------------------
+
+    /** Required nullary constructor for instantiation by serialization logic. */
+<span class="fc" id="L94">    public Record() {}</span>
+
+    /**
+     * Creates a new record containing only a single field, which is the given value.
+     *
+     * @param value The value for the single field of the record.
+     */
+<span class="fc" id="L101">    public Record(Value value) {</span>
+<span class="fc" id="L102">        setField(0, value);</span>
+<span class="fc" id="L103">    }</span>
+
+    /**
+     * Creates a new record containing exactly two fields, which are the given values.
+     *
+     * @param val1 The value for the first field.
+     * @param val2 The value for the second field.
+     */
+<span class="fc" id="L111">    public Record(Value val1, Value val2) {</span>
+<span class="fc" id="L112">        makeSpace(2);</span>
+<span class="fc" id="L113">        setField(0, val1);</span>
+<span class="fc" id="L114">        setField(1, val2);</span>
+<span class="fc" id="L115">    }</span>
+
+    /**
+     * Creates a new record, containing the given number of fields. The fields are initially all
+     * nulls.
+     *
+     * @param numFields The number of fields for the record.
+     */
+<span class="nc" id="L123">    public Record(int numFields) {</span>
+<span class="nc" id="L124">        setNumFields(numFields);</span>
+<span class="nc" id="L125">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+    //                             Basic Accessors
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Gets the number of fields currently in the record. This also includes null fields.
+     *
+     * @return The number of fields in the record.
+     */
+    public int getNumFields() {
+<span class="fc" id="L137">        return this.numFields;</span>
+    }
+
+    /**
+     * Sets the number of fields in the record. If the new number of fields is longer than the
+     * current number of fields, then null fields are appended. If the new number of fields is
+     * smaller than the current number of fields, then the last fields are truncated.
+     *
+     * @param numFields The new number of fields.
+     */
+    public void setNumFields(final int numFields) {
+<span class="fc" id="L148">        final int oldNumFields = this.numFields;</span>
+        // check whether we increase or decrease the fields
+<span class="fc bfc" id="L150" title="All 2 branches covered.">        if (numFields &gt; oldNumFields) {</span>
+<span class="fc" id="L151">            makeSpace(numFields);</span>
+<span class="fc bfc" id="L152" title="All 2 branches covered.">            for (int i = oldNumFields; i &lt; numFields; i++) {</span>
+<span class="fc" id="L153">                this.offsets[i] = NULL_INDICATOR_OFFSET;</span>
+            }
+<span class="fc" id="L155">            markModified(oldNumFields);</span>
+        } else {
+            // decrease the number of fields
+            // we do not remove the values from the cache, as the objects (if they are there) will
+            // most likely
+            // be reused when the record is re-filled
+<span class="fc" id="L161">            markModified(numFields);</span>
+        }
+<span class="fc" id="L163">        this.numFields = numFields;</span>
+<span class="fc" id="L164">    }</span>
+
+    /**
+     * Reserves space for at least the given number of fields in the internal arrays.
+     *
+     * @param numFields The number of fields to reserve space for.
+     */
+    public void makeSpace(int numFields) {
+<span class="fc" id="L172">        final int oldNumFields = this.numFields;</span>
+        // increase the number of fields in the arrays
+<span class="fc bfc" id="L174" title="All 2 branches covered.">        if (this.offsets == null) {</span>
+<span class="fc" id="L175">            this.offsets = new int[numFields];</span>
+<span class="fc bfc" id="L176" title="All 2 branches covered.">        } else if (this.offsets.length &lt; numFields) {</span>
+<span class="fc" id="L177">            int[] newOffs = new int[Math.max(numFields + 1, oldNumFields &lt;&lt; 1)];</span>
+<span class="fc" id="L178">            System.arraycopy(this.offsets, 0, newOffs, 0, oldNumFields);</span>
+<span class="fc" id="L179">            this.offsets = newOffs;</span>
+        }
+
+<span class="fc bfc" id="L182" title="All 2 branches covered.">        if (this.lengths == null) {</span>
+<span class="fc" id="L183">            this.lengths = new int[numFields];</span>
+<span class="fc bfc" id="L184" title="All 2 branches covered.">        } else if (this.lengths.length &lt; numFields) {</span>
+<span class="fc" id="L185">            int[] newLens = new int[Math.max(numFields + 1, oldNumFields &lt;&lt; 1)];</span>
+<span class="fc" id="L186">            System.arraycopy(this.lengths, 0, newLens, 0, oldNumFields);</span>
+<span class="fc" id="L187">            this.lengths = newLens;</span>
+        }
+
+<span class="fc bfc" id="L190" title="All 2 branches covered.">        if (this.readFields == null) {</span>
+<span class="fc" id="L191">            this.readFields = new Value[numFields];</span>
+<span class="fc bfc" id="L192" title="All 2 branches covered.">        } else if (this.readFields.length &lt; numFields) {</span>
+<span class="fc" id="L193">            Value[] newFields = new Value[Math.max(numFields + 1, oldNumFields &lt;&lt; 1)];</span>
+<span class="fc" id="L194">            System.arraycopy(this.readFields, 0, newFields, 0, oldNumFields);</span>
+<span class="fc" id="L195">            this.readFields = newFields;</span>
+        }
+
+<span class="fc bfc" id="L198" title="All 2 branches covered.">        if (this.writeFields == null) {</span>
+<span class="fc" id="L199">            this.writeFields = new Value[numFields];</span>
+<span class="fc bfc" id="L200" title="All 2 branches covered.">        } else if (this.writeFields.length &lt; numFields) {</span>
+<span class="fc" id="L201">            Value[] newFields = new Value[Math.max(numFields + 1, oldNumFields &lt;&lt; 1)];</span>
+<span class="fc" id="L202">            System.arraycopy(this.writeFields, 0, newFields, 0, oldNumFields);</span>
+<span class="fc" id="L203">            this.writeFields = newFields;</span>
+        }
+<span class="fc" id="L205">    }</span>
+
+    /**
+     * Gets the field at the given position from the record. This method checks internally, if this
+     * instance of the record has previously returned a value for this field. If so, it reuses the
+     * object, if not, it creates one from the supplied class.
+     *
+     * @param &lt;T&gt; The type of the field.
+     * @param fieldNum The logical position of the field.
+     * @param type The type of the field as a class. This class is used to instantiate a value
+     *     object, if none had previously been instantiated.
+     * @return The field at the given position, or null, if the field was null.
+     * @throws IndexOutOfBoundsException Thrown, if the field number is negative or larger or equal
+     *     to the number of fields in this record.
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public &lt;T extends Value&gt; T getField(final int fieldNum, final Class&lt;T&gt; type) {
+        // range check
+<span class="pc bpc" id="L223" title="2 of 4 branches missed.">        if (fieldNum &lt; 0 || fieldNum &gt;= this.numFields) {</span>
+<span class="nc" id="L224">            throw new IndexOutOfBoundsException(</span>
+                    fieldNum + &quot; for range [0..&quot; + (this.numFields - 1) + &quot;]&quot;);
+        }
+
+        // get offset and check for null
+<span class="fc" id="L229">        final int offset = this.offsets[fieldNum];</span>
+<span class="fc bfc" id="L230" title="All 2 branches covered.">        if (offset == NULL_INDICATOR_OFFSET) {</span>
+<span class="fc" id="L231">            return null;</span>
+<span class="fc bfc" id="L232" title="All 2 branches covered.">        } else if (offset == MODIFIED_INDICATOR_OFFSET) {</span>
+            // value that has been set is new or modified
+<span class="fc" id="L234">            return (T) this.writeFields[fieldNum];</span>
+        }
+
+<span class="fc" id="L237">        final int limit = offset + this.lengths[fieldNum];</span>
+
+        // get an instance, either from the instance cache or create a new one
+<span class="fc" id="L240">        final Value oldField = this.readFields[fieldNum];</span>
+        final T field;
+<span class="pc bpc" id="L242" title="1 of 4 branches missed.">        if (oldField != null &amp;&amp; oldField.getClass() == type) {</span>
+<span class="fc" id="L243">            field = (T) oldField;</span>
+        } else {
+<span class="fc" id="L245">            field = InstantiationUtil.instantiate(type, Value.class);</span>
+<span class="fc" id="L246">            this.readFields[fieldNum] = field;</span>
+        }
+
+        // deserialize
+<span class="fc" id="L250">        deserialize(field, offset, limit, fieldNum);</span>
+<span class="fc" id="L251">        return field;</span>
+    }
+
+    /**
+     * Gets the field at the given position. The method tries to deserialize the fields into the
+     * given target value. If the fields has been changed since the last (de)serialization, or is
+     * null, them the target value is left unchanged and the changed value (or null) is returned.
+     *
+     * &lt;p&gt;In all cases, the returned value contains the correct data (or is correctly null).
+     *
+     * @param fieldNum The position of the field.
+     * @param target The value to deserialize the field into.
+     * @return The value with the contents of the requested field, or null, if the field is null.
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public &lt;T extends Value&gt; T getField(int fieldNum, T target) {
+        // range check
+<span class="pc bpc" id="L268" title="2 of 4 branches missed.">        if (fieldNum &lt; 0 || fieldNum &gt;= this.numFields) {</span>
+<span class="nc" id="L269">            throw new IndexOutOfBoundsException();</span>
+        }
+<span class="pc bpc" id="L271" title="1 of 2 branches missed.">        if (target == null) {</span>
+<span class="nc" id="L272">            throw new NullPointerException(&quot;The target object may not be null&quot;);</span>
+        }
+
+        // get offset and check for null
+<span class="fc" id="L276">        final int offset = this.offsets[fieldNum];</span>
+<span class="fc bfc" id="L277" title="All 2 branches covered.">        if (offset == NULL_INDICATOR_OFFSET) {</span>
+<span class="fc" id="L278">            return null;</span>
+<span class="fc bfc" id="L279" title="All 2 branches covered.">        } else if (offset == MODIFIED_INDICATOR_OFFSET) {</span>
+            // value that has been set is new or modified
+            // bring the binary in sync so that the deserialization gives the correct result
+<span class="fc" id="L282">            return (T) this.writeFields[fieldNum];</span>
+        }
+
+<span class="fc" id="L285">        final int limit = offset + this.lengths[fieldNum];</span>
+<span class="fc" id="L286">        deserialize(target, offset, limit, fieldNum);</span>
+<span class="fc" id="L287">        return target;</span>
+    }
+
+    /**
+     * Gets the field at the given position. If the field at that position is null, then this method
+     * leaves the target field unchanged and returns false.
+     *
+     * @param fieldNum The position of the field.
+     * @param target The value to deserialize the field into.
+     * @return True, if the field was deserialized properly, false, if the field was null.
+     */
+    public boolean getFieldInto(int fieldNum, Value target) {
+        // range check
+<span class="pc bpc" id="L300" title="2 of 4 branches missed.">        if (fieldNum &lt; 0 || fieldNum &gt;= this.numFields) {</span>
+<span class="nc" id="L301">            throw new IndexOutOfBoundsException();</span>
+        }
+
+        // get offset and check for null
+<span class="fc" id="L305">        int offset = this.offsets[fieldNum];</span>
+<span class="fc bfc" id="L306" title="All 2 branches covered.">        if (offset == NULL_INDICATOR_OFFSET) {</span>
+<span class="fc" id="L307">            return false;</span>
+<span class="fc bfc" id="L308" title="All 2 branches covered.">        } else if (offset == MODIFIED_INDICATOR_OFFSET) {</span>
+            // value that has been set is new or modified
+            // bring the binary in sync so that the deserialization gives the correct result
+<span class="fc" id="L311">            updateBinaryRepresenation();</span>
+<span class="fc" id="L312">            offset = this.offsets[fieldNum];</span>
+        }
+
+<span class="fc" id="L315">        final int limit = offset + this.lengths[fieldNum];</span>
+<span class="fc" id="L316">        deserialize(target, offset, limit, fieldNum);</span>
+<span class="fc" id="L317">        return true;</span>
+    }
+
+    /**
+     * Gets the fields at the given positions into an array. If at any position a field is null,
+     * then this method returns false. All fields that have been successfully read until the failing
+     * read are correctly contained in the record. All other fields are not set.
+     *
+     * @param positions The positions of the fields to get.
+     * @param targets The values into which the content of the fields is put.
+     * @return True if all fields were successfully read, false if some read failed.
+     */
+    public boolean getFieldsInto(int[] positions, Value[] targets) {
+<span class="nc bnc" id="L330" title="All 2 branches missed.">        for (int i = 0; i &lt; positions.length; i++) {</span>
+<span class="nc bnc" id="L331" title="All 2 branches missed.">            if (!getFieldInto(positions[i], targets[i])) {</span>
+<span class="nc" id="L332">                return false;</span>
+            }
+        }
+<span class="nc" id="L335">        return true;</span>
+    }
+
+    /**
+     * Gets the fields at the given positions into an array. If at any position a field is null,
+     * then this method throws a @link NullKeyFieldException. All fields that have been successfully
+     * read until the failing read are correctly contained in the record. All other fields are not
+     * set.
+     *
+     * @param positions The positions of the fields to get.
+     * @param targets The values into which the content of the fields is put.
+     * @throws NullKeyFieldException in case of a failing field read.
+     */
+    public void getFieldsIntoCheckingNull(int[] positions, Value[] targets) {
+<span class="nc bnc" id="L349" title="All 2 branches missed.">        for (int i = 0; i &lt; positions.length; i++) {</span>
+<span class="nc bnc" id="L350" title="All 2 branches missed.">            if (!getFieldInto(positions[i], targets[i])) {</span>
+<span class="nc" id="L351">                throw new NullKeyFieldException(i);</span>
+            }
+        }
+<span class="nc" id="L354">    }</span>
+
+    /**
+     * Deserializes the given object from the binary string, starting at the given position. If the
+     * deserialization asks for more that &lt;code&gt;limit - offset&lt;/code&gt; bytes, than an exception is
+     * thrown.
+     *
+     * @param &lt;T&gt; The generic type of the value to be deserialized.
+     * @param target The object to deserialize the data into.
+     * @param offset The offset in the binary string.
+     * @param limit The limit in the binary string.
+     */
+    private &lt;T extends Value&gt; void deserialize(T target, int offset, int limit, int fieldNumber) {
+<span class="fc" id="L367">        final InternalDeSerializer serializer = this.serializer;</span>
+<span class="fc" id="L368">        serializer.memory = this.binaryData;</span>
+<span class="fc" id="L369">        serializer.position = offset;</span>
+<span class="fc" id="L370">        serializer.end = limit;</span>
+        try {
+<span class="fc" id="L372">            target.read(serializer);</span>
+<span class="nc" id="L373">        } catch (Exception e) {</span>
+<span class="nc" id="L374">            throw new DeserializationException(</span>
+<span class="nc" id="L375">                    &quot;Error reading field &quot; + fieldNumber + &quot; as &quot; + target.getClass().getName(), e);</span>
+<span class="fc" id="L376">        }</span>
+<span class="fc" id="L377">    }</span>
+
+    /**
+     * Sets the field at the given position to the given value. If the field position is larger or
+     * equal than the current number of fields in the record, than the record is expanded to host as
+     * many columns.
+     *
+     * &lt;p&gt;The value is kept as a reference in the record until the binary representation is
+     * synchronized. Until that point, all modifications to the value's object will change the value
+     * inside the record.
+     *
+     * &lt;p&gt;The binary representation is synchronized the latest when the record is emitted. It may be
+     * triggered manually at an earlier point, but it is generally not necessary and advisable.
+     * Because the synchronization triggers the serialization on all modified values, it may be an
+     * expensive operation.
+     *
+     * @param fieldNum The position of the field, starting at zero.
+     * @param value The new value.
+     */
+    public void setField(int fieldNum, Value value) {
+        // range check
+<span class="pc bpc" id="L398" title="1 of 2 branches missed.">        if (fieldNum &lt; 0) {</span>
+<span class="nc" id="L399">            throw new IndexOutOfBoundsException();</span>
+        }
+
+        // if the field number is beyond the size, the tuple is expanded
+<span class="fc bfc" id="L403" title="All 2 branches covered.">        if (fieldNum &gt;= this.numFields) {</span>
+<span class="fc" id="L404">            setNumFields(fieldNum + 1);</span>
+        }
+<span class="fc" id="L406">        internallySetField(fieldNum, value);</span>
+<span class="fc" id="L407">    }</span>
+
+    /** @param value */
+    public void addField(Value value) {
+<span class="fc" id="L411">        final int num = this.numFields;</span>
+<span class="fc" id="L412">        setNumFields(num + 1);</span>
+<span class="fc" id="L413">        internallySetField(num, value);</span>
+<span class="fc" id="L414">    }</span>
+
+    private void internallySetField(int fieldNum, Value value) {
+        // check if we modify an existing field
+<span class="fc bfc" id="L418" title="All 2 branches covered.">        this.offsets[fieldNum] = value != null ? MODIFIED_INDICATOR_OFFSET : NULL_INDICATOR_OFFSET;</span>
+<span class="fc" id="L419">        this.writeFields[fieldNum] = value;</span>
+<span class="fc" id="L420">        markModified(fieldNum);</span>
+<span class="fc" id="L421">    }</span>
+
+    private void markModified(int field) {
+<span class="fc bfc" id="L424" title="All 2 branches covered.">        if (this.firstModifiedPos &gt; field) {</span>
+<span class="fc" id="L425">            this.firstModifiedPos = field;</span>
+        }
+<span class="fc" id="L427">    }</span>
+
+    private boolean isModified() {
+<span class="fc bfc" id="L430" title="All 2 branches covered.">        return this.firstModifiedPos != Integer.MAX_VALUE;</span>
+    }
+
+    /**
+     * Removes the field at the given position.
+     *
+     * &lt;p&gt;This method should be used carefully. Be aware that as the field is actually removed from
+     * the record, the total number of fields is modified, and all fields to the right of the field
+     * removed shift one position to the left.
+     *
+     * @param fieldNum The position of the field to be removed, starting at zero.
+     * @throws IndexOutOfBoundsException Thrown, when the position is not between 0 (inclusive) and
+     *     the number of fields (exclusive).
+     */
+    public void removeField(int fieldNum) {
+        // range check
+<span class="pc bpc" id="L446" title="2 of 4 branches missed.">        if (fieldNum &lt; 0 || fieldNum &gt;= this.numFields) {</span>
+<span class="nc" id="L447">            throw new IndexOutOfBoundsException();</span>
+        }
+<span class="fc" id="L449">        int lastIndex = this.numFields - 1;</span>
+
+<span class="fc bfc" id="L451" title="All 2 branches covered.">        if (fieldNum &lt; lastIndex) {</span>
+<span class="fc" id="L452">            int len = lastIndex - fieldNum;</span>
+<span class="fc" id="L453">            System.arraycopy(this.offsets, fieldNum + 1, this.offsets, fieldNum, len);</span>
+<span class="fc" id="L454">            System.arraycopy(this.lengths, fieldNum + 1, this.lengths, fieldNum, len);</span>
+<span class="fc" id="L455">            System.arraycopy(this.readFields, fieldNum + 1, this.readFields, fieldNum, len);</span>
+<span class="fc" id="L456">            System.arraycopy(this.writeFields, fieldNum + 1, this.writeFields, fieldNum, len);</span>
+<span class="fc" id="L457">            markModified(fieldNum);</span>
+        }
+<span class="fc" id="L459">        this.offsets[lastIndex] = NULL_INDICATOR_OFFSET;</span>
+<span class="fc" id="L460">        this.lengths[lastIndex] = 0;</span>
+<span class="fc" id="L461">        this.writeFields[lastIndex] = null;</span>
+
+<span class="fc" id="L463">        setNumFields(lastIndex);</span>
+<span class="fc" id="L464">    }</span>
+
+    public final boolean isNull(int fieldNum) {
+        // range check
+<span class="nc bnc" id="L468" title="All 4 branches missed.">        if (fieldNum &lt; 0 || fieldNum &gt;= this.numFields) {</span>
+<span class="nc" id="L469">            throw new IndexOutOfBoundsException();</span>
+        }
+
+        // get offset and check for null
+<span class="nc" id="L473">        final int offset = this.offsets[fieldNum];</span>
+<span class="nc bnc" id="L474" title="All 2 branches missed.">        return offset == NULL_INDICATOR_OFFSET;</span>
+    }
+
+    /**
+     * Sets the field at the given position to &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @param field The field index.
+     * @throws IndexOutOfBoundsException Thrown, when the position is not between 0 (inclusive) and
+     *     the number of fields (exclusive).
+     */
+    public void setNull(int field) {
+        // range check
+<span class="pc bpc" id="L486" title="2 of 4 branches missed.">        if (field &lt; 0 || field &gt;= this.numFields) {</span>
+<span class="nc" id="L487">            throw new IndexOutOfBoundsException();</span>
+        }
+
+<span class="fc" id="L490">        internallySetField(field, null);</span>
+<span class="fc" id="L491">    }</span>
+
+    /**
+     * Sets the fields to &lt;code&gt;null&lt;/code&gt; using the given bit mask. The bits correspond to the
+     * individual columns: &lt;code&gt;(1 == nullify, 0 == keep)&lt;/code&gt;.
+     *
+     * @param mask Bit mask, where the i-th least significant bit represents the i-th field in the
+     *     record.
+     */
+    public void setNull(long mask) {
+<span class="fc bfc" id="L501" title="All 2 branches covered.">        for (int i = 0; i &lt; this.numFields; i++, mask &gt;&gt;&gt;= 1) {</span>
+<span class="fc bfc" id="L502" title="All 2 branches covered.">            if ((mask &amp; 0x1) != 0) {</span>
+<span class="fc" id="L503">                internallySetField(i, null);</span>
+            }
+        }
+<span class="fc" id="L506">    }</span>
+
+    /**
+     * Sets the fields to &lt;code&gt;null&lt;/code&gt; using the given bit mask. The bits correspond to the
+     * individual columns: &lt;code&gt;(1 == nullify, 0 == keep)&lt;/code&gt;.
+     *
+     * @param mask Bit mask, where the i-th least significant bit in the n-th bit mask represents
+     *     the &lt;code&gt;(n*64) + i&lt;/code&gt;-th field in the record.
+     */
+    public void setNull(long[] mask) {
+<span class="fc bfc" id="L516" title="All 2 branches covered.">        for (int maskPos = 0, i = 0; i &lt; this.numFields; ) {</span>
+<span class="fc" id="L517">            long currMask = mask[maskPos];</span>
+<span class="fc bfc" id="L518" title="All 4 branches covered.">            for (int k = 64; i &lt; this.numFields &amp;&amp; k &gt; 0; --k, i++, currMask &gt;&gt;&gt;= 1) {</span>
+<span class="fc bfc" id="L519" title="All 2 branches covered.">                if ((currMask &amp; 0x1) != 0) {</span>
+<span class="fc" id="L520">                    internallySetField(i, null);</span>
+                }
+            }
+<span class="fc" id="L523">        }</span>
+<span class="fc" id="L524">    }</span>
+
+    /** Clears the record. After this operation, the record will have zero fields. */
+    public void clear() {
+<span class="pc bpc" id="L528" title="1 of 2 branches missed.">        if (this.numFields &gt; 0) {</span>
+<span class="fc" id="L529">            this.numFields = 0;</span>
+<span class="fc" id="L530">            this.firstModifiedPos = 0;</span>
+        }
+<span class="fc" id="L532">    }</span>
+
+    public void concatenate(Record record) {
+<span class="nc" id="L535">        throw new UnsupportedOperationException();</span>
+    }
+
+    /**
+     * Unions the other record's fields with this records fields. After the method invocation with
+     * record &lt;code&gt;B&lt;/code&gt; as the parameter, this record &lt;code&gt;A&lt;/code&gt; will contain at field
+     * &lt;code&gt;i&lt;/code&gt;:
+     *
+     * &lt;ul&gt;
+     *   &lt;li&gt;Field &lt;code&gt;i&lt;/code&gt; from record &lt;code&gt;A&lt;/code&gt;, if that field is within record &lt;code&gt;A
+     *       &lt;/code&gt;'s number of fields and is not &lt;i&gt;null&lt;/i&gt;.
+     *   &lt;li&gt;Field &lt;code&gt;i&lt;/code&gt; from record &lt;code&gt;B&lt;/code&gt;, if that field is within record &lt;code&gt;B
+     *       &lt;/code&gt;'s number of fields.
+     * &lt;/ul&gt;
+     *
+     * It is not necessary that both records have the same number of fields. This record will have
+     * the number of fields of the larger of the two records. Naturally, if both &lt;code&gt;A&lt;/code&gt; and
+     * &lt;code&gt;B&lt;/code&gt; have field &lt;code&gt;i&lt;/code&gt; set to &lt;i&gt;null&lt;/i&gt;, this record will have
+     * &lt;i&gt;null&lt;/i&gt; at that position.
+     *
+     * @param other The records whose fields to union with this record's fields.
+     */
+    public void unionFields(Record other) {
+<span class="fc" id="L558">        final int minFields = Math.min(this.numFields, other.numFields);</span>
+<span class="fc" id="L559">        final int maxFields = Math.max(this.numFields, other.numFields);</span>
+
+<span class="fc bfc" id="L561" title="All 2 branches covered.">        final int[] offsets = this.offsets.length &gt;= maxFields ? this.offsets : new int[maxFields];</span>
+<span class="fc bfc" id="L562" title="All 2 branches covered.">        final int[] lengths = this.lengths.length &gt;= maxFields ? this.lengths : new int[maxFields];</span>
+
+<span class="fc bfc" id="L564" title="All 4 branches covered.">        if (!(this.isModified() || other.isModified())) {</span>
+            // handle the special (but common) case where both records have a valid binary
+            // representation differently
+            // allocate space for the switchBuffer first
+<span class="fc" id="L568">            final int estimatedLength = this.binaryLen + other.binaryLen;</span>
+<span class="pc bpc" id="L569" title="3 of 4 branches missed.">            this.serializer.memory =</span>
+                    (this.switchBuffer != null &amp;&amp; this.switchBuffer.length &gt;= estimatedLength)
+                            ? this.switchBuffer
+                            : new byte[estimatedLength];
+<span class="fc" id="L573">            this.serializer.position = 0;</span>
+
+            try {
+                // common loop for both records
+<span class="fc bfc" id="L577" title="All 2 branches covered.">                for (int i = 0; i &lt; minFields; i++) {</span>
+<span class="fc" id="L578">                    final int thisOff = this.offsets[i];</span>
+<span class="fc bfc" id="L579" title="All 2 branches covered.">                    if (thisOff == NULL_INDICATOR_OFFSET) {</span>
+<span class="fc" id="L580">                        final int otherOff = other.offsets[i];</span>
+<span class="fc bfc" id="L581" title="All 2 branches covered.">                        if (otherOff == NULL_INDICATOR_OFFSET) {</span>
+<span class="fc" id="L582">                            offsets[i] = NULL_INDICATOR_OFFSET;</span>
+                        } else {
+                            // take field from other record
+<span class="fc" id="L585">                            offsets[i] = this.serializer.position;</span>
+<span class="fc" id="L586">                            this.serializer.write(other.binaryData, otherOff, other.lengths[i]);</span>
+<span class="fc" id="L587">                            lengths[i] = other.lengths[i];</span>
+                        }
+<span class="fc" id="L589">                    } else {</span>
+                        // copy field from this one
+<span class="fc" id="L591">                        offsets[i] = this.serializer.position;</span>
+<span class="fc" id="L592">                        this.serializer.write(this.binaryData, thisOff, this.lengths[i]);</span>
+<span class="fc" id="L593">                        lengths[i] = this.lengths[i];</span>
+                    }
+                }
+
+                // add the trailing fields from one record
+<span class="fc bfc" id="L598" title="All 2 branches covered.">                if (minFields != maxFields) {</span>
+<span class="fc bfc" id="L599" title="All 2 branches covered.">                    final Record sourceForRemainder = this.numFields &gt; minFields ? this : other;</span>
+<span class="fc" id="L600">                    int begin = -1;</span>
+<span class="fc" id="L601">                    int end = -1;</span>
+<span class="fc" id="L602">                    int offsetDelta = 0;</span>
+
+                    // go through the offsets, find the non-null fields to account for the remaining
+                    // data
+<span class="fc bfc" id="L606" title="All 2 branches covered.">                    for (int k = minFields; k &lt; maxFields; k++) {</span>
+<span class="fc" id="L607">                        final int off = sourceForRemainder.offsets[k];</span>
+<span class="pc bpc" id="L608" title="1 of 2 branches missed.">                        if (off == NULL_INDICATOR_OFFSET) {</span>
+<span class="fc" id="L609">                            offsets[k] = NULL_INDICATOR_OFFSET;</span>
+                        } else {
+<span class="nc" id="L611">                            end = sourceForRemainder.offsets[k] + sourceForRemainder.lengths[k];</span>
+<span class="nc bnc" id="L612" title="All 2 branches missed.">                            if (begin == -1) {</span>
+                                // first non null column in the remainder
+<span class="nc" id="L614">                                begin = sourceForRemainder.offsets[k];</span>
+<span class="nc" id="L615">                                offsetDelta = this.serializer.position - begin;</span>
+                            }
+<span class="nc" id="L617">                            offsets[k] = sourceForRemainder.offsets[k] + offsetDelta;</span>
+                        }
+                    }
+
+                    // copy the remaining fields directly as binary
+<span class="pc bpc" id="L622" title="1 of 2 branches missed.">                    if (begin != -1) {</span>
+<span class="nc" id="L623">                        this.serializer.write(sourceForRemainder.binaryData, begin, end - begin);</span>
+                    }
+
+                    // the lengths can be copied directly
+<span class="fc bfc" id="L627" title="All 2 branches covered.">                    if (lengths != sourceForRemainder.lengths) {</span>
+<span class="fc" id="L628">                        System.arraycopy(</span>
+                                sourceForRemainder.lengths,
+                                minFields,
+                                lengths,
+                                minFields,
+                                maxFields - minFields);
+                    }
+                }
+<span class="nc" id="L636">            } catch (Exception ioex) {</span>
+<span class="nc" id="L637">                throw new RuntimeException(</span>
+<span class="nc bnc" id="L638" title="All 2 branches missed.">                        &quot;Error creating field union of record data&quot; + ioex.getMessage() == null</span>
+                                ? &quot;.&quot;
+<span class="nc" id="L640">                                : &quot;: &quot; + ioex.getMessage(),</span>
+                        ioex);
+<span class="fc" id="L642">            }</span>
+<span class="fc" id="L643">        } else {</span>
+            // the general case, where at least one of the two records has a binary representation
+            // that is not in sync.
+<span class="fc bfc" id="L646" title="All 4 branches covered.">            final int estimatedLength =</span>
+                    (this.binaryLen &gt; 0
+                                    ? this.binaryLen
+                                    : this.numFields * DEFAULT_FIELD_LEN_ESTIMATE)
+                            + (other.binaryLen &gt; 0
+                                    ? other.binaryLen
+                                    : other.numFields * DEFAULT_FIELD_LEN_ESTIMATE);
+<span class="pc bpc" id="L653" title="3 of 4 branches missed.">            this.serializer.memory =</span>
+                    (this.switchBuffer != null &amp;&amp; this.switchBuffer.length &gt;= estimatedLength)
+                            ? this.switchBuffer
+                            : new byte[estimatedLength];
+<span class="fc" id="L657">            this.serializer.position = 0;</span>
+
+            try {
+                // common loop for both records
+<span class="fc bfc" id="L661" title="All 2 branches covered.">                for (int i = 0; i &lt; minFields; i++) {</span>
+<span class="fc" id="L662">                    final int thisOff = this.offsets[i];</span>
+<span class="fc bfc" id="L663" title="All 2 branches covered.">                    if (thisOff == NULL_INDICATOR_OFFSET) {</span>
+<span class="fc" id="L664">                        final int otherOff = other.offsets[i];</span>
+<span class="fc bfc" id="L665" title="All 2 branches covered.">                        if (otherOff == NULL_INDICATOR_OFFSET) {</span>
+<span class="fc" id="L666">                            offsets[i] = NULL_INDICATOR_OFFSET;</span>
+<span class="fc bfc" id="L667" title="All 2 branches covered.">                        } else if (otherOff == MODIFIED_INDICATOR_OFFSET) {</span>
+                            // serialize modified field from other record
+<span class="fc" id="L669">                            offsets[i] = this.serializer.position;</span>
+<span class="fc" id="L670">                            other.writeFields[i].write(this.serializer);</span>
+<span class="fc" id="L671">                            lengths[i] = this.serializer.position - offsets[i];</span>
+                        } else {
+                            // take field from other record binary
+<span class="fc" id="L674">                            offsets[i] = this.serializer.position;</span>
+<span class="fc" id="L675">                            this.serializer.write(other.binaryData, otherOff, other.lengths[i]);</span>
+<span class="fc" id="L676">                            lengths[i] = other.lengths[i];</span>
+                        }
+<span class="fc bfc" id="L678" title="All 2 branches covered.">                    } else if (thisOff == MODIFIED_INDICATOR_OFFSET) {</span>
+                        // serialize modified field from this record
+<span class="fc" id="L680">                        offsets[i] = this.serializer.position;</span>
+<span class="fc" id="L681">                        this.writeFields[i].write(this.serializer);</span>
+<span class="fc" id="L682">                        lengths[i] = this.serializer.position - offsets[i];</span>
+                    } else {
+                        // copy field from this one
+<span class="fc" id="L685">                        offsets[i] = this.serializer.position;</span>
+<span class="fc" id="L686">                        this.serializer.write(this.binaryData, thisOff, this.lengths[i]);</span>
+<span class="fc" id="L687">                        lengths[i] = this.lengths[i];</span>
+                    }
+                }
+
+                // add the trailing fields from one record
+<span class="fc bfc" id="L692" title="All 2 branches covered.">                if (minFields != maxFields) {</span>
+<span class="fc bfc" id="L693" title="All 2 branches covered.">                    final Record sourceForRemainder = this.numFields &gt; minFields ? this : other;</span>
+
+                    // go through the offsets, find the non-null fields
+<span class="fc bfc" id="L696" title="All 2 branches covered.">                    for (int k = minFields; k &lt; maxFields; k++) {</span>
+<span class="fc" id="L697">                        final int off = sourceForRemainder.offsets[k];</span>
+<span class="pc bpc" id="L698" title="1 of 2 branches missed.">                        if (off == NULL_INDICATOR_OFFSET) {</span>
+<span class="fc" id="L699">                            offsets[k] = NULL_INDICATOR_OFFSET;</span>
+<span class="nc bnc" id="L700" title="All 2 branches missed.">                        } else if (off == MODIFIED_INDICATOR_OFFSET) {</span>
+                            // serialize modified field from the source record
+<span class="nc" id="L702">                            offsets[k] = this.serializer.position;</span>
+<span class="nc" id="L703">                            sourceForRemainder.writeFields[k].write(this.serializer);</span>
+<span class="nc" id="L704">                            lengths[k] = this.serializer.position - offsets[k];</span>
+                        } else {
+                            // copy field from the source record binary
+<span class="nc" id="L707">                            offsets[k] = this.serializer.position;</span>
+<span class="nc" id="L708">                            final int len = sourceForRemainder.lengths[k];</span>
+<span class="nc" id="L709">                            this.serializer.write(sourceForRemainder.binaryData, off, len);</span>
+<span class="nc" id="L710">                            lengths[k] = len;</span>
+                        }
+                    }
+                }
+<span class="nc" id="L714">            } catch (Exception ioex) {</span>
+<span class="nc" id="L715">                throw new RuntimeException(</span>
+<span class="nc bnc" id="L716" title="All 2 branches missed.">                        &quot;Error creating field union of record data&quot; + ioex.getMessage() == null</span>
+                                ? &quot;.&quot;
+<span class="nc" id="L718">                                : &quot;: &quot; + ioex.getMessage(),</span>
+                        ioex);
+<span class="fc" id="L720">            }</span>
+        }
+
+<span class="fc" id="L723">        serializeHeader(this.serializer, offsets, maxFields);</span>
+
+        // set the fields
+<span class="fc" id="L726">        this.switchBuffer = this.binaryData;</span>
+<span class="fc" id="L727">        this.binaryData = serializer.memory;</span>
+<span class="fc" id="L728">        this.binaryLen = serializer.position;</span>
+
+<span class="fc" id="L730">        this.numFields = maxFields;</span>
+<span class="fc" id="L731">        this.offsets = offsets;</span>
+<span class="fc" id="L732">        this.lengths = lengths;</span>
+
+<span class="fc" id="L734">        this.firstModifiedPos = Integer.MAX_VALUE;</span>
+
+        // make sure that the object arrays reflect the size as well
+<span class="pc bpc" id="L737" title="1 of 4 branches missed.">        if (this.readFields == null || this.readFields.length &lt; maxFields) {</span>
+<span class="fc" id="L738">            final Value[] na = new Value[maxFields];</span>
+<span class="fc" id="L739">            System.arraycopy(this.readFields, 0, na, 0, this.readFields.length);</span>
+<span class="fc" id="L740">            this.readFields = na;</span>
+        }
+<span class="pc bpc" id="L742" title="1 of 4 branches missed.">        this.writeFields =</span>
+                (this.writeFields == null || this.writeFields.length &lt; maxFields)
+                        ? new Value[maxFields]
+                        : this.writeFields;
+<span class="fc" id="L746">    }</span>
+
+    /** @param target */
+    public void copyTo(Record target) {
+<span class="nc" id="L750">        updateBinaryRepresenation();</span>
+
+<span class="nc bnc" id="L752" title="All 4 branches missed.">        if (target.binaryData == null || target.binaryData.length &lt; this.binaryLen) {</span>
+<span class="nc" id="L753">            target.binaryData = new byte[this.binaryLen];</span>
+        }
+<span class="nc bnc" id="L755" title="All 4 branches missed.">        if (target.offsets == null || target.offsets.length &lt; this.numFields) {</span>
+<span class="nc" id="L756">            target.offsets = new int[this.numFields];</span>
+        }
+<span class="nc bnc" id="L758" title="All 4 branches missed.">        if (target.lengths == null || target.lengths.length &lt; this.numFields) {</span>
+<span class="nc" id="L759">            target.lengths = new int[this.numFields];</span>
+        }
+<span class="nc bnc" id="L761" title="All 4 branches missed.">        if (target.readFields == null || target.readFields.length &lt; this.numFields) {</span>
+<span class="nc" id="L762">            target.readFields = new Value[this.numFields];</span>
+        }
+<span class="nc bnc" id="L764" title="All 4 branches missed.">        if (target.writeFields == null || target.writeFields.length &lt; this.numFields) {</span>
+<span class="nc" id="L765">            target.writeFields = new Value[this.numFields];</span>
+        }
+
+<span class="nc" id="L768">        System.arraycopy(this.binaryData, 0, target.binaryData, 0, this.binaryLen);</span>
+<span class="nc" id="L769">        System.arraycopy(this.offsets, 0, target.offsets, 0, this.numFields);</span>
+<span class="nc" id="L770">        System.arraycopy(this.lengths, 0, target.lengths, 0, this.numFields);</span>
+
+<span class="nc" id="L772">        target.binaryLen = this.binaryLen;</span>
+<span class="nc" id="L773">        target.numFields = this.numFields;</span>
+<span class="nc" id="L774">        target.firstModifiedPos = Integer.MAX_VALUE;</span>
+<span class="nc" id="L775">    }</span>
+
+    @Override
+    public int getBinaryLength() {
+<span class="nc" id="L779">        return -1;</span>
+    }
+
+    @Override
+    public Record copy() {
+<span class="nc" id="L784">        return createCopy();</span>
+    }
+
+    @Override
+    public void copy(DataInputView source, DataOutputView target) throws IOException {
+<span class="nc" id="L789">        int val = source.readUnsignedByte();</span>
+<span class="nc" id="L790">        target.writeByte(val);</span>
+
+<span class="nc bnc" id="L792" title="All 2 branches missed.">        if (val &gt;= MAX_BIT) {</span>
+<span class="nc" id="L793">            int shift = 7;</span>
+            int curr;
+<span class="nc" id="L795">            val = val &amp; 0x7f;</span>
+<span class="nc bnc" id="L796" title="All 2 branches missed.">            while ((curr = source.readUnsignedByte()) &gt;= MAX_BIT) {</span>
+<span class="nc" id="L797">                target.writeByte(curr);</span>
+<span class="nc" id="L798">                val |= (curr &amp; 0x7f) &lt;&lt; shift;</span>
+<span class="nc" id="L799">                shift += 7;</span>
+            }
+<span class="nc" id="L801">            target.writeByte(curr);</span>
+<span class="nc" id="L802">            val |= curr &lt;&lt; shift;</span>
+        }
+
+<span class="nc" id="L805">        target.write(source, val);</span>
+<span class="nc" id="L806">    };</span>
+
+    /**
+     * Creates an exact copy of this record.
+     *
+     * @return An exact copy of this record.
+     */
+    public Record createCopy() {
+<span class="nc" id="L814">        final Record rec = new Record();</span>
+<span class="nc" id="L815">        copyTo(rec);</span>
+<span class="nc" id="L816">        return rec;</span>
+    }
+
+    /**
+     * Bin-copies fields from a source record to this record. The following caveats apply:
+     *
+     * &lt;p&gt;If the source field is in a modified state, no binary representation will exist yet. In
+     * that case, this method is equivalent to {@code setField(..., source.getField(..., &lt;class&gt;))}.
+     * In particular, if setValue is called on the source field Value instance, that change will
+     * propagate to this record.
+     *
+     * &lt;p&gt;If the source field has already been serialized, then the binary representation will be
+     * copied. Further modifications to the source field will not be observable via this record, but
+     * attempting to read the field from this record will cause it to be deserialized.
+     *
+     * &lt;p&gt;Finally, bin-copying a source field requires calling updateBinaryRepresentation on this
+     * instance in order to reserve space in the binaryData array. If none of the source fields are
+     * actually bin-copied, then updateBinaryRepresentation won't be called.
+     *
+     * @param source
+     * @param sourcePositions
+     * @param targetPositions
+     */
+    public void copyFrom(
+            final Record source, final int[] sourcePositions, final int[] targetPositions) {
+
+<span class="nc" id="L842">        final int[] sourceOffsets = source.offsets;</span>
+<span class="nc" id="L843">        final int[] sourceLengths = source.lengths;</span>
+<span class="nc" id="L844">        final byte[] sourceBuffer = source.binaryData;</span>
+<span class="nc" id="L845">        final Value[] sourceFields = source.writeFields;</span>
+
+<span class="nc" id="L847">        boolean anyFieldIsBinary = false;</span>
+<span class="nc" id="L848">        int maxFieldNum = 0;</span>
+
+<span class="nc bnc" id="L850" title="All 2 branches missed.">        for (int i = 0; i &lt; sourcePositions.length; i++) {</span>
+
+<span class="nc" id="L852">            final int sourceFieldNum = sourcePositions[i];</span>
+<span class="nc" id="L853">            final int sourceOffset = sourceOffsets[sourceFieldNum];</span>
+<span class="nc" id="L854">            final int targetFieldNum = targetPositions[i];</span>
+
+<span class="nc" id="L856">            maxFieldNum = Math.max(targetFieldNum, maxFieldNum);</span>
+
+<span class="nc bnc" id="L858" title="All 2 branches missed.">            if (sourceOffset == NULL_INDICATOR_OFFSET) {</span>
+                // set null on existing field (new fields are null by default)
+<span class="nc bnc" id="L860" title="All 2 branches missed.">                if (targetFieldNum &lt; numFields) {</span>
+<span class="nc" id="L861">                    internallySetField(targetFieldNum, null);</span>
+                }
+<span class="nc bnc" id="L863" title="All 2 branches missed.">            } else if (sourceOffset != MODIFIED_INDICATOR_OFFSET) {</span>
+<span class="nc" id="L864">                anyFieldIsBinary = true;</span>
+            }
+        }
+
+<span class="nc bnc" id="L868" title="All 2 branches missed.">        if (numFields &lt; maxFieldNum + 1) {</span>
+<span class="nc" id="L869">            setNumFields(maxFieldNum + 1);</span>
+        }
+
+<span class="nc" id="L872">        final int[] targetLengths = this.lengths;</span>
+<span class="nc" id="L873">        final int[] targetOffsets = this.offsets;</span>
+
+        // reserve space in binaryData for the binary source fields
+<span class="nc bnc" id="L876" title="All 2 branches missed.">        if (anyFieldIsBinary) {</span>
+
+<span class="nc bnc" id="L878" title="All 2 branches missed.">            for (int i = 0; i &lt; sourcePositions.length; i++) {</span>
+<span class="nc" id="L879">                final int sourceFieldNum = sourcePositions[i];</span>
+<span class="nc" id="L880">                final int sourceOffset = sourceOffsets[sourceFieldNum];</span>
+
+<span class="nc bnc" id="L882" title="All 4 branches missed.">                if (sourceOffset != MODIFIED_INDICATOR_OFFSET</span>
+                        &amp;&amp; sourceOffset != NULL_INDICATOR_OFFSET) {
+<span class="nc" id="L884">                    final int targetFieldNum = targetPositions[i];</span>
+<span class="nc" id="L885">                    targetLengths[targetFieldNum] = sourceLengths[sourceFieldNum];</span>
+<span class="nc" id="L886">                    internallySetField(targetFieldNum, RESERVE_SPACE);</span>
+                }
+            }
+
+<span class="nc" id="L890">            updateBinaryRepresenation();</span>
+        }
+
+<span class="nc" id="L893">        final byte[] targetBuffer = this.binaryData;</span>
+
+<span class="nc bnc" id="L895" title="All 2 branches missed.">        for (int i = 0; i &lt; sourcePositions.length; i++) {</span>
+<span class="nc" id="L896">            final int sourceFieldNum = sourcePositions[i];</span>
+<span class="nc" id="L897">            final int sourceOffset = sourceOffsets[sourceFieldNum];</span>
+<span class="nc" id="L898">            final int targetFieldNum = targetPositions[i];</span>
+
+<span class="nc bnc" id="L900" title="All 2 branches missed.">            if (sourceOffset == MODIFIED_INDICATOR_OFFSET) {</span>
+<span class="nc" id="L901">                internallySetField(targetFieldNum, sourceFields[sourceFieldNum]);</span>
+<span class="nc bnc" id="L902" title="All 2 branches missed.">            } else if (sourceOffset != NULL_INDICATOR_OFFSET) {</span>
+                // bin-copy
+<span class="nc" id="L904">                final int targetOffset = targetOffsets[targetFieldNum];</span>
+<span class="nc" id="L905">                final int length = targetLengths[targetFieldNum];</span>
+<span class="nc" id="L906">                System.arraycopy(sourceBuffer, sourceOffset, targetBuffer, targetOffset, length);</span>
+            }
+        }
+<span class="nc" id="L909">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Checks the values of this record and a given list of values at specified positions for
+     * equality. The values of this record are deserialized and compared against the corresponding
+     * search value. The position specify which values are compared. The method returns true if the
+     * values on all positions are equal and false otherwise.
+     *
+     * @param positions The positions of the values to check for equality.
+     * @param searchValues The values against which the values of this record are compared.
+     * @param deserializationHolders An array to hold the deserialized values of this record.
+     * @return True if all the values on all positions are equal, false otherwise.
+     */
+    public final boolean equalsFields(
+            int[] positions, Value[] searchValues, Value[] deserializationHolders) {
+<span class="nc bnc" id="L926" title="All 2 branches missed.">        for (int i = 0; i &lt; positions.length; i++) {</span>
+<span class="nc" id="L927">            final Value v = getField(positions[i], deserializationHolders[i]);</span>
+<span class="nc bnc" id="L928" title="All 4 branches missed.">            if (v == null || (!v.equals(searchValues[i]))) {</span>
+<span class="nc" id="L929">                return false;</span>
+            }
+        }
+<span class="nc" id="L932">        return true;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Updates the binary representation of the data, such that it reflects the state of the
+     * currently stored fields. If the binary representation is already up to date, nothing happens.
+     * Otherwise, this function triggers the modified fields to serialize themselves into the
+     * records buffer and afterwards updates the offset table.
+     */
+    public void updateBinaryRepresenation() {
+        // check whether the binary state is in sync
+<span class="fc" id="L945">        final int firstModified = this.firstModifiedPos;</span>
+<span class="fc bfc" id="L946" title="All 2 branches covered.">        if (firstModified == Integer.MAX_VALUE) {</span>
+<span class="fc" id="L947">            return;</span>
+        }
+
+<span class="fc" id="L950">        final InternalDeSerializer serializer = this.serializer;</span>
+<span class="fc" id="L951">        final int[] offsets = this.offsets;</span>
+<span class="fc" id="L952">        final int numFields = this.numFields;</span>
+
+<span class="pc bpc" id="L954" title="1 of 4 branches missed.">        serializer.memory =</span>
+                this.switchBuffer != null
+                        ? this.switchBuffer
+                        : (this.binaryLen &gt; 0
+                                ? new byte[this.binaryLen]
+                                : new byte[numFields * DEFAULT_FIELD_LEN_ESTIMATE + 1]);
+<span class="fc" id="L960">        serializer.position = 0;</span>
+
+<span class="fc bfc" id="L962" title="All 2 branches covered.">        if (numFields &gt; 0) {</span>
+<span class="fc" id="L963">            int offset = 0;</span>
+
+            // search backwards to find the latest preceding non-null field
+<span class="fc bfc" id="L966" title="All 2 branches covered.">            if (firstModified &gt; 0) {</span>
+<span class="fc bfc" id="L967" title="All 2 branches covered.">                for (int i = firstModified - 1; i &gt;= 0; i--) {</span>
+<span class="fc bfc" id="L968" title="All 2 branches covered.">                    if (this.offsets[i] != NULL_INDICATOR_OFFSET) {</span>
+<span class="fc" id="L969">                        offset = this.offsets[i] + this.lengths[i];</span>
+<span class="fc" id="L970">                        break;</span>
+                    }
+                }
+            }
+
+            // we assume that changed and unchanged fields are interleaved and serialize into
+            // another array
+            try {
+<span class="fc bfc" id="L978" title="All 2 branches covered.">                if (offset &gt; 0) {</span>
+                    // copy the first unchanged portion as one
+<span class="fc" id="L980">                    serializer.write(this.binaryData, 0, offset);</span>
+                }
+                // copy field by field
+<span class="fc bfc" id="L983" title="All 2 branches covered.">                for (int i = firstModified; i &lt; numFields; i++) {</span>
+<span class="fc" id="L984">                    final int co = offsets[i];</span>
+                    /// skip null fields
+<span class="fc bfc" id="L986" title="All 2 branches covered.">                    if (co == NULL_INDICATOR_OFFSET) {</span>
+<span class="fc" id="L987">                        continue;</span>
+                    }
+
+<span class="fc" id="L990">                    offsets[i] = offset;</span>
+<span class="fc bfc" id="L991" title="All 2 branches covered.">                    if (co == MODIFIED_INDICATOR_OFFSET) {</span>
+
+<span class="fc" id="L993">                        final Value writeField = this.writeFields[i];</span>
+
+<span class="pc bpc" id="L995" title="1 of 2 branches missed.">                        if (writeField == RESERVE_SPACE) {</span>
+                            // RESERVE_SPACE is a placeholder indicating lengths[i] bytes should be
+                            // reserved
+<span class="nc" id="L998">                            final int length = this.lengths[i];</span>
+
+<span class="nc bnc" id="L1000" title="All 2 branches missed.">                            if (serializer.position &gt;= serializer.memory.length - length - 1) {</span>
+<span class="nc" id="L1001">                                serializer.resize(length);</span>
+                            }
+<span class="nc" id="L1003">                            serializer.position += length;</span>
+
+<span class="nc" id="L1005">                        } else {</span>
+                            // serialize modified fields
+<span class="fc" id="L1007">                            this.writeFields[i].write(serializer);</span>
+                        }
+<span class="fc" id="L1009">                    } else {</span>
+                        // bin-copy unmodified fields
+<span class="fc" id="L1011">                        serializer.write(this.binaryData, co, this.lengths[i]);</span>
+                    }
+
+<span class="fc" id="L1014">                    this.lengths[i] = serializer.position - offset;</span>
+<span class="fc" id="L1015">                    offset = serializer.position;</span>
+                }
+<span class="nc" id="L1017">            } catch (Exception e) {</span>
+<span class="nc" id="L1018">                throw new RuntimeException(</span>
+<span class="nc" id="L1019">                        &quot;Error in data type serialization: &quot; + e.getMessage(), e);</span>
+<span class="fc" id="L1020">            }</span>
+        }
+
+<span class="fc" id="L1023">        serializeHeader(serializer, offsets, numFields);</span>
+
+        // set the fields
+<span class="fc" id="L1026">        this.switchBuffer = this.binaryData;</span>
+<span class="fc" id="L1027">        this.binaryData = serializer.memory;</span>
+<span class="fc" id="L1028">        this.binaryLen = serializer.position;</span>
+<span class="fc" id="L1029">        this.firstModifiedPos = Integer.MAX_VALUE;</span>
+<span class="fc" id="L1030">    }</span>
+
+    private void serializeHeader(
+            final InternalDeSerializer serializer, final int[] offsets, final int numFields) {
+        try {
+<span class="fc bfc" id="L1035" title="All 2 branches covered.">            if (numFields &gt; 0) {</span>
+<span class="fc" id="L1036">                int slp = serializer.position; // track the last position of the serializer</span>
+
+                // now, serialize the lengths, the sparsity mask and the number of fields
+<span class="fc bfc" id="L1039" title="All 2 branches covered.">                if (numFields &lt;= 8) {</span>
+                    // efficient handling of common case with up to eight fields
+<span class="fc" id="L1041">                    int mask = 0;</span>
+<span class="fc bfc" id="L1042" title="All 2 branches covered.">                    for (int i = numFields - 1; i &gt; 0; i--) {</span>
+<span class="fc bfc" id="L1043" title="All 2 branches covered.">                        if (offsets[i] != NULL_INDICATOR_OFFSET) {</span>
+<span class="fc" id="L1044">                            slp = serializer.position;</span>
+<span class="fc" id="L1045">                            serializer.writeValLenIntBackwards(offsets[i]);</span>
+<span class="fc" id="L1046">                            mask |= 0x1;</span>
+                        }
+<span class="fc" id="L1048">                        mask &lt;&lt;= 1;</span>
+                    }
+
+<span class="fc bfc" id="L1051" title="All 2 branches covered.">                    if (offsets[0] != NULL_INDICATOR_OFFSET) {</span>
+<span class="fc" id="L1052">                        mask |= 0x1; // add the non-null bit to the mask</span>
+                    } else {
+                        // the first field is null, so some previous field was the first non-null
+                        // field
+<span class="fc" id="L1056">                        serializer.position = slp;</span>
+                    }
+<span class="fc" id="L1058">                    serializer.writeByte(mask);</span>
+<span class="fc" id="L1059">                } else {</span>
+                    // general case. offsets first (in backward order)
+<span class="fc bfc" id="L1061" title="All 2 branches covered.">                    for (int i = numFields - 1; i &gt; 0; i--) {</span>
+<span class="fc bfc" id="L1062" title="All 2 branches covered.">                        if (offsets[i] != NULL_INDICATOR_OFFSET) {</span>
+<span class="fc" id="L1063">                            slp = serializer.position;</span>
+<span class="fc" id="L1064">                            serializer.writeValLenIntBackwards(offsets[i]);</span>
+                        }
+                    }
+<span class="fc bfc" id="L1067" title="All 2 branches covered.">                    if (offsets[0] == NULL_INDICATOR_OFFSET) {</span>
+<span class="fc" id="L1068">                        serializer.position = slp;</span>
+                    }
+
+                    // now the mask. we write it in chucks of 8 bit.
+                    // the remainder %8 comes first
+<span class="fc" id="L1073">                    int col = numFields - 1;</span>
+<span class="fc" id="L1074">                    int mask = 0;</span>
+<span class="fc" id="L1075">                    int i = numFields &amp; 0x7;</span>
+
+<span class="fc bfc" id="L1077" title="All 2 branches covered.">                    if (i &gt; 0) {</span>
+<span class="fc bfc" id="L1078" title="All 2 branches covered.">                        for (; i &gt; 0; i--, col--) {</span>
+<span class="fc" id="L1079">                            mask &lt;&lt;= 1;</span>
+<span class="fc bfc" id="L1080" title="All 2 branches covered.">                            mask |= (offsets[col] != NULL_INDICATOR_OFFSET) ? 0x1 : 0x0;</span>
+                        }
+<span class="fc" id="L1082">                        serializer.writeByte(mask);</span>
+                    }
+
+                    // now the eight-bit chunks
+<span class="fc bfc" id="L1086" title="All 2 branches covered.">                    for (i = numFields &gt;&gt;&gt; 3; i &gt; 0; i--) {</span>
+<span class="fc" id="L1087">                        mask = 0;</span>
+<span class="fc bfc" id="L1088" title="All 2 branches covered.">                        for (int k = 0; k &lt; 8; k++, col--) {</span>
+<span class="fc" id="L1089">                            mask &lt;&lt;= 1;</span>
+<span class="fc bfc" id="L1090" title="All 2 branches covered.">                            mask |= (offsets[col] != NULL_INDICATOR_OFFSET) ? 0x1 : 0x0;</span>
+                        }
+<span class="fc" id="L1092">                        serializer.writeByte(mask);</span>
+                    }
+                }
+            }
+<span class="fc" id="L1096">            serializer.writeValLenIntBackwards(numFields);</span>
+<span class="nc" id="L1097">        } catch (Exception e) {</span>
+<span class="nc" id="L1098">            throw new RuntimeException(&quot;Error serializing Record header: &quot; + e.getMessage(), e);</span>
+<span class="fc" id="L1099">        }</span>
+<span class="fc" id="L1100">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+    //                             Serialization
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public void write(DataOutputView out) throws IOException {
+        // make sure everything is in a valid binary representation
+<span class="fc" id="L1109">        updateBinaryRepresenation();</span>
+
+        // write the length first, variably encoded, then the contents of the binary array
+<span class="fc" id="L1112">        writeVarLengthInt(out, this.binaryLen);</span>
+<span class="fc" id="L1113">        out.write(this.binaryData, 0, this.binaryLen);</span>
+<span class="fc" id="L1114">    }</span>
+
+    @Override
+    public void read(DataInputView in) throws IOException {
+<span class="fc" id="L1118">        final int len = readVarLengthInt(in);</span>
+<span class="fc" id="L1119">        this.binaryLen = len;</span>
+
+        // ensure out byte array is large enough
+<span class="fc" id="L1122">        byte[] data = this.binaryData;</span>
+<span class="pc bpc" id="L1123" title="1 of 4 branches missed.">        if (data == null || data.length &lt; len) {</span>
+<span class="fc" id="L1124">            data = new byte[len];</span>
+<span class="fc" id="L1125">            this.binaryData = data;</span>
+        }
+
+        // read the binary data
+<span class="fc" id="L1129">        in.readFully(data, 0, len);</span>
+<span class="fc" id="L1130">        initFields(data, 0, len);</span>
+<span class="fc" id="L1131">    }</span>
+
+    private void initFields(final byte[] data, final int begin, final int len) {
+        try {
+            // read number of fields, variable length encoded reverse at the back
+<span class="fc" id="L1136">            int pos = begin + len - 2;</span>
+<span class="fc" id="L1137">            int numFields = data[begin + len - 1] &amp; 0xFF;</span>
+<span class="fc bfc" id="L1138" title="All 2 branches covered.">            if (numFields &gt;= MAX_BIT) {</span>
+<span class="fc" id="L1139">                int shift = 7;</span>
+                int curr;
+<span class="fc" id="L1141">                numFields = numFields &amp; 0x7f;</span>
+<span class="pc bpc" id="L1142" title="1 of 2 branches missed.">                while ((curr = data[pos--] &amp; 0xff) &gt;= MAX_BIT) {</span>
+<span class="nc" id="L1143">                    numFields |= (curr &amp; 0x7f) &lt;&lt; shift;</span>
+<span class="nc" id="L1144">                    shift += 7;</span>
+                }
+<span class="fc" id="L1146">                numFields |= curr &lt;&lt; shift;</span>
+            }
+<span class="fc" id="L1148">            this.numFields = numFields;</span>
+
+            // ensure that all arrays are there and of sufficient size
+<span class="pc bpc" id="L1151" title="1 of 4 branches missed.">            if (this.offsets == null || this.offsets.length &lt; numFields) {</span>
+<span class="fc" id="L1152">                this.offsets = new int[numFields];</span>
+            }
+<span class="pc bpc" id="L1154" title="1 of 4 branches missed.">            if (this.lengths == null || this.lengths.length &lt; numFields) {</span>
+<span class="fc" id="L1155">                this.lengths = new int[numFields];</span>
+            }
+<span class="pc bpc" id="L1157" title="1 of 4 branches missed.">            if (this.readFields == null || this.readFields.length &lt; numFields) {</span>
+<span class="fc" id="L1158">                this.readFields = new Value[numFields];</span>
+            }
+<span class="pc bpc" id="L1160" title="1 of 4 branches missed.">            if (this.writeFields == null || this.writeFields.length &lt; numFields) {</span>
+<span class="fc" id="L1161">                this.writeFields = new Value[numFields];</span>
+            }
+
+<span class="fc" id="L1164">            final int beginMasks = pos; // beginning of bitmap for null fields</span>
+<span class="fc bfc" id="L1165" title="All 2 branches covered.">            final int fieldsBy8 = (numFields &gt;&gt;&gt; 3) + ((numFields &amp; 0x7) == 0 ? 0 : 1);</span>
+
+<span class="fc" id="L1167">            pos = beginMasks - fieldsBy8;</span>
+<span class="fc" id="L1168">            int lastNonNullField = -1;</span>
+
+<span class="fc bfc" id="L1170" title="All 2 branches covered.">            for (int field = 0, chunk = 0; chunk &lt; fieldsBy8; chunk++) {</span>
+<span class="fc" id="L1171">                int mask = data[beginMasks - chunk];</span>
+<span class="fc bfc" id="L1172" title="All 4 branches covered.">                for (int i = 0; i &lt; 8 &amp;&amp; field &lt; numFields; i++, field++) {</span>
+<span class="fc bfc" id="L1173" title="All 2 branches covered.">                    if ((mask &amp; 0x1) == 0x1) {</span>
+                        // not null, so read the offset value, if we are not the first non-null
+                        // fields
+<span class="fc bfc" id="L1176" title="All 2 branches covered.">                        if (lastNonNullField &gt;= 0) {</span>
+                            // offset value is variable length encoded
+<span class="fc" id="L1178">                            int start = data[pos--] &amp; 0xff;</span>
+<span class="fc bfc" id="L1179" title="All 2 branches covered.">                            if (start &gt;= MAX_BIT) {</span>
+<span class="fc" id="L1180">                                int shift = 7;</span>
+                                int curr;
+<span class="fc" id="L1182">                                start = start &amp; 0x7f;</span>
+<span class="pc bpc" id="L1183" title="1 of 2 branches missed.">                                while ((curr = data[pos--] &amp; 0xff) &gt;= MAX_BIT) {</span>
+<span class="nc" id="L1184">                                    start |= (curr &amp; 0x7f) &lt;&lt; shift;</span>
+<span class="nc" id="L1185">                                    shift += 7;</span>
+                                }
+<span class="fc" id="L1187">                                start |= curr &lt;&lt; shift;</span>
+                            }
+<span class="fc" id="L1189">                            this.offsets[field] = start + begin;</span>
+<span class="fc" id="L1190">                            this.lengths[lastNonNullField] =</span>
+                                    start + begin - this.offsets[lastNonNullField];
+<span class="fc" id="L1192">                        } else {</span>
+<span class="fc" id="L1193">                            this.offsets[field] = begin;</span>
+                        }
+<span class="fc" id="L1195">                        lastNonNullField = field;</span>
+                    } else {
+                        // field is null
+<span class="fc" id="L1198">                        this.offsets[field] = NULL_INDICATOR_OFFSET;</span>
+                    }
+<span class="fc" id="L1200">                    mask &gt;&gt;= 1;</span>
+                }
+            }
+<span class="fc bfc" id="L1203" title="All 2 branches covered.">            if (lastNonNullField &gt;= 0) {</span>
+<span class="fc" id="L1204">                this.lengths[lastNonNullField] = pos - this.offsets[lastNonNullField] + 1;</span>
+            }
+<span class="fc" id="L1206">            this.firstModifiedPos = Integer.MAX_VALUE;</span>
+<span class="nc" id="L1207">        } catch (ArrayIndexOutOfBoundsException aioobex) {</span>
+<span class="nc" id="L1208">            StringBuilder bld = new StringBuilder(len * 4 + 64);</span>
+<span class="nc" id="L1209">            bld.append(&quot;Record deserialization error: Record byte signature: &quot;);</span>
+
+<span class="nc bnc" id="L1211" title="All 2 branches missed.">            for (int i = 0; i &lt; len; i++) {</span>
+<span class="nc" id="L1212">                int num = data[i + begin] &amp; 0xff;</span>
+<span class="nc" id="L1213">                bld.append(num);</span>
+<span class="nc bnc" id="L1214" title="All 2 branches missed.">                if (i &lt; len - 1) {</span>
+<span class="nc" id="L1215">                    bld.append(',');</span>
+                }
+            }
+<span class="nc" id="L1218">            throw new RuntimeException(bld.toString(), aioobex);</span>
+<span class="fc" id="L1219">        }</span>
+<span class="fc" id="L1220">    }</span>
+
+    /**
+     * Writes this record to the given output view. This method is similar to {@link
+     * org.apache.flink.core.io.IOReadableWritable#write(org.apache.flink.core.memory.DataOutputView)},
+     * but it returns the number of bytes written.
+     *
+     * @param target The view to write the record to.
+     * @return The number of bytes written.
+     * @throws IOException Thrown, if an error occurred in the view during writing.
+     */
+    public long serialize(DataOutputView target) throws IOException {
+<span class="nc" id="L1232">        updateBinaryRepresenation();</span>
+
+<span class="nc" id="L1234">        long bytesForLen = 1;</span>
+<span class="nc" id="L1235">        int len = this.binaryLen;</span>
+<span class="nc bnc" id="L1236" title="All 2 branches missed.">        while (len &gt;= MAX_BIT) {</span>
+<span class="nc" id="L1237">            target.write(len | MAX_BIT);</span>
+<span class="nc" id="L1238">            len &gt;&gt;= 7;</span>
+<span class="nc" id="L1239">            bytesForLen++;</span>
+        }
+<span class="nc" id="L1241">        target.write(len);</span>
+<span class="nc" id="L1242">        target.write(this.binaryData, 0, this.binaryLen);</span>
+
+<span class="nc" id="L1244">        return bytesForLen + this.binaryLen;</span>
+    }
+
+    /**
+     * @param source
+     * @throws IOException
+     */
+    public void deserialize(DataInputView source) throws IOException {
+<span class="nc" id="L1252">        read(source);</span>
+<span class="nc" id="L1253">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+    //                                     Utilities
+    // --------------------------------------------------------------------------------------------
+
+    private static final void writeVarLengthInt(DataOutput out, int value) throws IOException {
+<span class="fc bfc" id="L1260" title="All 2 branches covered.">        while (value &gt;= MAX_BIT) {</span>
+<span class="fc" id="L1261">            out.write(value | MAX_BIT);</span>
+<span class="fc" id="L1262">            value &gt;&gt;= 7;</span>
+        }
+<span class="fc" id="L1264">        out.write(value);</span>
+<span class="fc" id="L1265">    }</span>
+
+    private static final int readVarLengthInt(DataInput in) throws IOException {
+        // read first byte
+<span class="fc" id="L1269">        int val = in.readUnsignedByte();</span>
+<span class="fc bfc" id="L1270" title="All 2 branches covered.">        if (val &gt;= MAX_BIT) {</span>
+<span class="fc" id="L1271">            int shift = 7;</span>
+            int curr;
+<span class="fc" id="L1273">            val = val &amp; 0x7f;</span>
+<span class="pc bpc" id="L1274" title="1 of 2 branches missed.">            while ((curr = in.readUnsignedByte()) &gt;= MAX_BIT) {</span>
+<span class="nc" id="L1275">                val |= (curr &amp; 0x7f) &lt;&lt; shift;</span>
+<span class="nc" id="L1276">                shift += 7;</span>
+            }
+<span class="fc" id="L1278">            val |= curr &lt;&lt; shift;</span>
+        }
+<span class="fc" id="L1280">        return val;</span>
+    }
+
+    private static final int MAX_BIT = 0x1 &lt;&lt; 7;
+
+    // ------------------------------------------------------------------------
+    //                Utility class for internal (de)serialization
+    // ------------------------------------------------------------------------
+
+    /**
+     * A special Value instance that doesn't actually (de)serialize anything, but instead indicates
+     * that space should be reserved in the buffer.
+     */
+<span class="fc" id="L1293">    private static final Value RESERVE_SPACE =</span>
+<span class="fc" id="L1294">            new Value() {</span>
+                private static final long serialVersionUID = 1L;
+
+                @Override
+                public void write(DataOutputView out) throws IOException {
+<span class="nc" id="L1299">                    throw new UnsupportedOperationException();</span>
+                }
+
+                @Override
+                public void read(DataInputView in) throws IOException {
+<span class="nc" id="L1304">                    throw new UnsupportedOperationException();</span>
+                }
+            };
+
+    /** Internal interface class to provide serialization for the data types. */
+    private static final class InternalDeSerializer
+            implements DataInputView, DataOutputView, Serializable {
+
+        private static final long serialVersionUID = 1L;
+
+        private byte[] memory;
+        private int position;
+        private int end;
+
+        // ----------------------------------------------------------------------------------------
+        //                               Data Input
+        // ----------------------------------------------------------------------------------------
+
+        @Override
+        public boolean readBoolean() throws IOException {
+<span class="pc bpc" id="L1324" title="1 of 2 branches missed.">            if (this.position &lt; this.end) {</span>
+<span class="pc bpc" id="L1325" title="1 of 2 branches missed.">                return this.memory[this.position++] != 0;</span>
+            } else {
+<span class="nc" id="L1327">                throw new EOFException();</span>
+            }
+        }
+
+        @Override
+        public byte readByte() throws IOException {
+<span class="nc bnc" id="L1333" title="All 2 branches missed.">            if (this.position &lt; this.end) {</span>
+<span class="nc" id="L1334">                return this.memory[this.position++];</span>
+            } else {
+<span class="nc" id="L1336">                throw new EOFException();</span>
+            }
+        }
+
+        @Override
+        public char readChar() throws IOException {
+<span class="nc bnc" id="L1342" title="All 2 branches missed.">            if (this.position &lt; this.end - 1) {</span>
+<span class="nc" id="L1343">                return (char)</span>
+                        (((this.memory[this.position++] &amp; 0xff) &lt;&lt; 8)
+                                | ((this.memory[this.position++] &amp; 0xff) &lt;&lt; 0));
+            } else {
+<span class="nc" id="L1347">                throw new EOFException();</span>
+            }
+        }
+
+        @Override
+        public double readDouble() throws IOException {
+<span class="fc" id="L1353">            return Double.longBitsToDouble(readLong());</span>
+        }
+
+        @Override
+        public float readFloat() throws IOException {
+<span class="nc" id="L1358">            return Float.intBitsToFloat(readInt());</span>
+        }
+
+        @Override
+        public void readFully(byte[] b) throws IOException {
+<span class="nc" id="L1363">            readFully(b, 0, b.length);</span>
+<span class="nc" id="L1364">        }</span>
+
+        @Override
+        public void readFully(byte[] b, int off, int len) throws IOException {
+<span class="nc bnc" id="L1368" title="All 2 branches missed.">            if (len &gt;= 0) {</span>
+<span class="nc bnc" id="L1369" title="All 2 branches missed.">                if (off &lt;= b.length - len) {</span>
+<span class="nc bnc" id="L1370" title="All 2 branches missed.">                    if (this.position &lt;= this.end - len) {</span>
+<span class="nc" id="L1371">                        System.arraycopy(this.memory, position, b, off, len);</span>
+<span class="nc" id="L1372">                        position += len;</span>
+                    } else {
+<span class="nc" id="L1374">                        throw new EOFException();</span>
+                    }
+                } else {
+<span class="nc" id="L1377">                    throw new ArrayIndexOutOfBoundsException();</span>
+                }
+<span class="nc bnc" id="L1379" title="All 2 branches missed.">            } else if (len &lt; 0) {</span>
+<span class="nc" id="L1380">                throw new IllegalArgumentException(&quot;Length may not be negative.&quot;);</span>
+            }
+<span class="nc" id="L1382">        }</span>
+
+        @Override
+        public int readInt() throws IOException {
+<span class="pc bpc" id="L1386" title="2 of 4 branches missed.">            if (this.position &gt;= 0 &amp;&amp; this.position &lt; this.end - 3) {</span>
+                @SuppressWarnings(&quot;restriction&quot;)
+<span class="fc" id="L1388">                int value = UNSAFE.getInt(this.memory, BASE_OFFSET + this.position);</span>
+<span class="pc bpc" id="L1389" title="1 of 2 branches missed.">                if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L1390">                    value = Integer.reverseBytes(value);</span>
+                }
+
+<span class="fc" id="L1393">                this.position += 4;</span>
+<span class="fc" id="L1394">                return value;</span>
+            } else {
+<span class="nc" id="L1396">                throw new EOFException();</span>
+            }
+        }
+
+        @Override
+        public String readLine() throws IOException {
+<span class="nc bnc" id="L1402" title="All 2 branches missed.">            if (this.position &lt; this.end) {</span>
+                // read until a newline is found
+<span class="nc" id="L1404">                StringBuilder bld = new StringBuilder();</span>
+<span class="nc" id="L1405">                char curr = (char) readUnsignedByte();</span>
+<span class="nc bnc" id="L1406" title="All 4 branches missed.">                while (position &lt; this.end &amp;&amp; curr != '\n') {</span>
+<span class="nc" id="L1407">                    bld.append(curr);</span>
+<span class="nc" id="L1408">                    curr = (char) readUnsignedByte();</span>
+                }
+                // trim a trailing carriage return
+<span class="nc" id="L1411">                int len = bld.length();</span>
+<span class="nc bnc" id="L1412" title="All 4 branches missed.">                if (len &gt; 0 &amp;&amp; bld.charAt(len - 1) == '\r') {</span>
+<span class="nc" id="L1413">                    bld.setLength(len - 1);</span>
+                }
+<span class="nc" id="L1415">                String s = bld.toString();</span>
+<span class="nc" id="L1416">                bld.setLength(0);</span>
+<span class="nc" id="L1417">                return s;</span>
+            } else {
+<span class="nc" id="L1419">                return null;</span>
+            }
+        }
+
+        @Override
+        public long readLong() throws IOException {
+<span class="pc bpc" id="L1425" title="2 of 4 branches missed.">            if (position &gt;= 0 &amp;&amp; position &lt; this.end - 7) {</span>
+                @SuppressWarnings(&quot;restriction&quot;)
+<span class="fc" id="L1427">                long value = UNSAFE.getLong(this.memory, BASE_OFFSET + this.position);</span>
+<span class="pc bpc" id="L1428" title="1 of 2 branches missed.">                if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L1429">                    value = Long.reverseBytes(value);</span>
+                }
+<span class="fc" id="L1431">                this.position += 8;</span>
+<span class="fc" id="L1432">                return value;</span>
+            } else {
+<span class="nc" id="L1434">                throw new EOFException();</span>
+            }
+        }
+
+        @Override
+        public short readShort() throws IOException {
+<span class="nc bnc" id="L1440" title="All 4 branches missed.">            if (position &gt;= 0 &amp;&amp; position &lt; this.end - 1) {</span>
+<span class="nc" id="L1441">                return (short)</span>
+                        ((((this.memory[position++]) &amp; 0xff) &lt;&lt; 8)
+                                | (((this.memory[position++]) &amp; 0xff) &lt;&lt; 0));
+            } else {
+<span class="nc" id="L1445">                throw new EOFException();</span>
+            }
+        }
+
+        @Override
+        public String readUTF() throws IOException {
+<span class="nc" id="L1451">            int utflen = readUnsignedShort();</span>
+<span class="nc" id="L1452">            byte[] bytearr = new byte[utflen];</span>
+<span class="nc" id="L1453">            char[] chararr = new char[utflen];</span>
+
+            int c, char2, char3;
+<span class="nc" id="L1456">            int count = 0;</span>
+<span class="nc" id="L1457">            int chararr_count = 0;</span>
+
+<span class="nc" id="L1459">            readFully(bytearr, 0, utflen);</span>
+
+<span class="nc bnc" id="L1461" title="All 2 branches missed.">            while (count &lt; utflen) {</span>
+<span class="nc" id="L1462">                c = (int) bytearr[count] &amp; 0xff;</span>
+<span class="nc bnc" id="L1463" title="All 2 branches missed.">                if (c &gt; 127) {</span>
+<span class="nc" id="L1464">                    break;</span>
+                }
+<span class="nc" id="L1466">                count++;</span>
+<span class="nc" id="L1467">                chararr[chararr_count++] = (char) c;</span>
+            }
+
+<span class="nc bnc" id="L1470" title="All 2 branches missed.">            while (count &lt; utflen) {</span>
+<span class="nc" id="L1471">                c = (int) bytearr[count] &amp; 0xff;</span>
+<span class="nc bnc" id="L1472" title="All 4 branches missed.">                switch (c &gt;&gt; 4) {</span>
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                    case 7:
+                        /* 0xxxxxxx */
+<span class="nc" id="L1482">                        count++;</span>
+<span class="nc" id="L1483">                        chararr[chararr_count++] = (char) c;</span>
+<span class="nc" id="L1484">                        break;</span>
+                    case 12:
+                    case 13:
+                        /* 110x xxxx 10xx xxxx */
+<span class="nc" id="L1488">                        count += 2;</span>
+<span class="nc bnc" id="L1489" title="All 2 branches missed.">                        if (count &gt; utflen) {</span>
+<span class="nc" id="L1490">                            throw new UTFDataFormatException(</span>
+                                    &quot;malformed input: partial character at end&quot;);
+                        }
+<span class="nc" id="L1493">                        char2 = (int) bytearr[count - 1];</span>
+<span class="nc bnc" id="L1494" title="All 2 branches missed.">                        if ((char2 &amp; 0xC0) != 0x80) {</span>
+<span class="nc" id="L1495">                            throw new UTFDataFormatException(</span>
+                                    &quot;malformed input around byte &quot; + count);
+                        }
+<span class="nc" id="L1498">                        chararr[chararr_count++] = (char) (((c &amp; 0x1F) &lt;&lt; 6) | (char2 &amp; 0x3F));</span>
+<span class="nc" id="L1499">                        break;</span>
+                    case 14:
+                        /* 1110 xxxx 10xx xxxx 10xx xxxx */
+<span class="nc" id="L1502">                        count += 3;</span>
+<span class="nc bnc" id="L1503" title="All 2 branches missed.">                        if (count &gt; utflen) {</span>
+<span class="nc" id="L1504">                            throw new UTFDataFormatException(</span>
+                                    &quot;malformed input: partial character at end&quot;);
+                        }
+<span class="nc" id="L1507">                        char2 = (int) bytearr[count - 2];</span>
+<span class="nc" id="L1508">                        char3 = (int) bytearr[count - 1];</span>
+<span class="nc bnc" id="L1509" title="All 4 branches missed.">                        if (((char2 &amp; 0xC0) != 0x80) || ((char3 &amp; 0xC0) != 0x80)) {</span>
+<span class="nc" id="L1510">                            throw new UTFDataFormatException(</span>
+                                    &quot;malformed input around byte &quot; + (count - 1));
+                        }
+<span class="nc" id="L1513">                        chararr[chararr_count++] =</span>
+                                (char)
+                                        (((c &amp; 0x0F) &lt;&lt; 12)
+                                                | ((char2 &amp; 0x3F) &lt;&lt; 6)
+                                                | ((char3 &amp; 0x3F) &lt;&lt; 0));
+<span class="nc" id="L1518">                        break;</span>
+                    default:
+                        /* 10xx xxxx, 1111 xxxx */
+<span class="nc" id="L1521">                        throw new UTFDataFormatException(&quot;malformed input around byte &quot; + count);</span>
+                }
+            }
+            // The number of chars produced may be less than utflen
+<span class="nc" id="L1525">            return new String(chararr, 0, chararr_count);</span>
+        }
+
+        @Override
+        public int readUnsignedByte() throws IOException {
+<span class="pc bpc" id="L1530" title="1 of 2 branches missed.">            if (this.position &lt; this.end) {</span>
+<span class="fc" id="L1531">                return (this.memory[this.position++] &amp; 0xff);</span>
+            } else {
+<span class="nc" id="L1533">                throw new EOFException();</span>
+            }
+        }
+
+        @Override
+        public int readUnsignedShort() throws IOException {
+<span class="nc bnc" id="L1539" title="All 2 branches missed.">            if (this.position &lt; this.end - 1) {</span>
+<span class="nc" id="L1540">                return ((this.memory[this.position++] &amp; 0xff) &lt;&lt; 8)</span>
+                        | ((this.memory[this.position++] &amp; 0xff) &lt;&lt; 0);
+            } else {
+<span class="nc" id="L1543">                throw new EOFException();</span>
+            }
+        }
+
+        @Override
+        public int skipBytes(int n) throws IOException {
+<span class="nc bnc" id="L1549" title="All 2 branches missed.">            if (this.position &lt;= this.end - n) {</span>
+<span class="nc" id="L1550">                this.position += n;</span>
+<span class="nc" id="L1551">                return n;</span>
+            } else {
+<span class="nc" id="L1553">                n = this.end - this.position;</span>
+<span class="nc" id="L1554">                this.position = this.end;</span>
+<span class="nc" id="L1555">                return n;</span>
+            }
+        }
+
+        @Override
+        public void skipBytesToRead(int numBytes) throws IOException {
+<span class="nc bnc" id="L1561" title="All 2 branches missed.">            if (this.end - this.position &lt; numBytes) {</span>
+<span class="nc" id="L1562">                throw new EOFException(&quot;Could not skip &quot; + numBytes + &quot;.&quot;);</span>
+            }
+<span class="nc" id="L1564">            skipBytes(numBytes);</span>
+<span class="nc" id="L1565">        }</span>
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+<span class="nc bnc" id="L1569" title="All 2 branches missed.">            if (b == null) {</span>
+<span class="nc" id="L1570">                throw new NullPointerException(&quot;Byte array b cannot be null.&quot;);</span>
+            }
+
+<span class="nc bnc" id="L1573" title="All 2 branches missed.">            if (off &lt; 0) {</span>
+<span class="nc" id="L1574">                throw new IndexOutOfBoundsException(&quot;Offset cannot be negative.&quot;);</span>
+            }
+
+<span class="nc bnc" id="L1577" title="All 2 branches missed.">            if (len &lt; 0) {</span>
+<span class="nc" id="L1578">                throw new IndexOutOfBoundsException(&quot;Length cannot be negative.&quot;);</span>
+            }
+
+<span class="nc bnc" id="L1581" title="All 2 branches missed.">            if (b.length - off &lt; len) {</span>
+<span class="nc" id="L1582">                throw new IndexOutOfBoundsException(</span>
+                        &quot;Byte array does not provide enough space to store requested data&quot; + &quot;.&quot;);
+            }
+
+<span class="nc bnc" id="L1586" title="All 2 branches missed.">            if (this.position &gt;= this.end) {</span>
+<span class="nc" id="L1587">                return -1;</span>
+            } else {
+<span class="nc" id="L1589">                int toRead = Math.min(this.end - this.position, len);</span>
+<span class="nc" id="L1590">                System.arraycopy(this.memory, this.position, b, off, toRead);</span>
+<span class="nc" id="L1591">                this.position += toRead;</span>
+
+<span class="nc" id="L1593">                return toRead;</span>
+            }
+        }
+
+        @Override
+        public int read(byte[] b) throws IOException {
+<span class="nc" id="L1599">            return read(b, 0, b.length);</span>
+        }
+
+        // ----------------------------------------------------------------------------------------
+        //                               Data Output
+        // ----------------------------------------------------------------------------------------
+
+        @Override
+        public void write(int b) throws IOException {
+<span class="fc bfc" id="L1608" title="All 2 branches covered.">            if (this.position &gt;= this.memory.length) {</span>
+<span class="fc" id="L1609">                resize(1);</span>
+            }
+<span class="fc" id="L1611">            this.memory[this.position++] = (byte) (b &amp; 0xff);</span>
+<span class="fc" id="L1612">        }</span>
+
+        @Override
+        public void write(byte[] b) throws IOException {
+<span class="nc" id="L1616">            write(b, 0, b.length);</span>
+<span class="nc" id="L1617">        }</span>
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+<span class="pc bpc" id="L1621" title="2 of 4 branches missed.">            if (len &lt; 0 || off &gt; b.length - len) {</span>
+<span class="nc" id="L1622">                throw new ArrayIndexOutOfBoundsException();</span>
+            }
+<span class="fc bfc" id="L1624" title="All 2 branches covered.">            if (this.position &gt; this.memory.length - len) {</span>
+<span class="fc" id="L1625">                resize(len);</span>
+            }
+<span class="fc" id="L1627">            System.arraycopy(b, off, this.memory, this.position, len);</span>
+<span class="fc" id="L1628">            this.position += len;</span>
+<span class="fc" id="L1629">        }</span>
+
+        @Override
+        public void writeBoolean(boolean v) throws IOException {
+<span class="pc bpc" id="L1633" title="1 of 2 branches missed.">            write(v ? 1 : 0);</span>
+<span class="fc" id="L1634">        }</span>
+
+        @Override
+        public void writeByte(int v) throws IOException {
+<span class="fc" id="L1638">            write(v);</span>
+<span class="fc" id="L1639">        }</span>
+
+        @Override
+        public void writeBytes(String s) throws IOException {
+<span class="nc" id="L1643">            final int sLen = s.length();</span>
+<span class="nc bnc" id="L1644" title="All 2 branches missed.">            if (this.position &gt;= this.memory.length - sLen) {</span>
+<span class="nc" id="L1645">                resize(sLen);</span>
+            }
+
+<span class="nc bnc" id="L1648" title="All 2 branches missed.">            for (int i = 0; i &lt; sLen; i++) {</span>
+<span class="nc" id="L1649">                writeByte(s.charAt(i));</span>
+            }
+<span class="nc" id="L1651">            this.position += sLen;</span>
+<span class="nc" id="L1652">        }</span>
+
+        @Override
+        public void writeChar(int v) throws IOException {
+<span class="nc bnc" id="L1656" title="All 2 branches missed.">            if (this.position &gt;= this.memory.length - 1) {</span>
+<span class="nc" id="L1657">                resize(2);</span>
+            }
+<span class="nc" id="L1659">            this.memory[this.position++] = (byte) (v &gt;&gt; 8);</span>
+<span class="nc" id="L1660">            this.memory[this.position++] = (byte) v;</span>
+<span class="nc" id="L1661">        }</span>
+
+        @Override
+        public void writeChars(String s) throws IOException {
+<span class="nc" id="L1665">            final int sLen = s.length();</span>
+<span class="nc bnc" id="L1666" title="All 2 branches missed.">            if (this.position &gt;= this.memory.length - 2 * sLen) {</span>
+<span class="nc" id="L1667">                resize(2 * sLen);</span>
+            }
+<span class="nc bnc" id="L1669" title="All 2 branches missed.">            for (int i = 0; i &lt; sLen; i++) {</span>
+<span class="nc" id="L1670">                writeChar(s.charAt(i));</span>
+            }
+<span class="nc" id="L1672">        }</span>
+
+        @Override
+        public void writeDouble(double v) throws IOException {
+<span class="fc" id="L1676">            writeLong(Double.doubleToLongBits(v));</span>
+<span class="fc" id="L1677">        }</span>
+
+        @Override
+        public void writeFloat(float v) throws IOException {
+<span class="nc" id="L1681">            writeInt(Float.floatToIntBits(v));</span>
+<span class="nc" id="L1682">        }</span>
+
+        @SuppressWarnings(&quot;restriction&quot;)
+        @Override
+        public void writeInt(int v) throws IOException {
+<span class="fc bfc" id="L1687" title="All 2 branches covered.">            if (this.position &gt;= this.memory.length - 3) {</span>
+<span class="fc" id="L1688">                resize(4);</span>
+            }
+<span class="pc bpc" id="L1690" title="1 of 2 branches missed.">            if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L1691">                v = Integer.reverseBytes(v);</span>
+            }
+<span class="fc" id="L1693">            UNSAFE.putInt(this.memory, BASE_OFFSET + this.position, v);</span>
+<span class="fc" id="L1694">            this.position += 4;</span>
+<span class="fc" id="L1695">        }</span>
+
+        @SuppressWarnings(&quot;restriction&quot;)
+        @Override
+        public void writeLong(long v) throws IOException {
+<span class="fc bfc" id="L1700" title="All 2 branches covered.">            if (this.position &gt;= this.memory.length - 7) {</span>
+<span class="fc" id="L1701">                resize(8);</span>
+            }
+<span class="pc bpc" id="L1703" title="1 of 2 branches missed.">            if (LITTLE_ENDIAN) {</span>
+<span class="fc" id="L1704">                v = Long.reverseBytes(v);</span>
+            }
+<span class="fc" id="L1706">            UNSAFE.putLong(this.memory, BASE_OFFSET + this.position, v);</span>
+<span class="fc" id="L1707">            this.position += 8;</span>
+<span class="fc" id="L1708">        }</span>
+
+        @Override
+        public void writeShort(int v) throws IOException {
+<span class="nc bnc" id="L1712" title="All 2 branches missed.">            if (this.position &gt;= this.memory.length - 1) {</span>
+<span class="nc" id="L1713">                resize(2);</span>
+            }
+<span class="nc" id="L1715">            this.memory[this.position++] = (byte) ((v &gt;&gt;&gt; 8) &amp; 0xff);</span>
+<span class="nc" id="L1716">            this.memory[this.position++] = (byte) ((v &gt;&gt;&gt; 0) &amp; 0xff);</span>
+<span class="nc" id="L1717">        }</span>
+
+        @Override
+        public void writeUTF(String str) throws IOException {
+<span class="nc" id="L1721">            int strlen = str.length();</span>
+<span class="nc" id="L1722">            int utflen = 0;</span>
+            int c;
+
+            /* use charAt instead of copying String to char array */
+<span class="nc bnc" id="L1726" title="All 2 branches missed.">            for (int i = 0; i &lt; strlen; i++) {</span>
+<span class="nc" id="L1727">                c = str.charAt(i);</span>
+<span class="nc bnc" id="L1728" title="All 4 branches missed.">                if ((c &gt;= 0x0001) &amp;&amp; (c &lt;= 0x007F)) {</span>
+<span class="nc" id="L1729">                    utflen++;</span>
+<span class="nc bnc" id="L1730" title="All 2 branches missed.">                } else if (c &gt; 0x07FF) {</span>
+<span class="nc" id="L1731">                    utflen += 3;</span>
+                } else {
+<span class="nc" id="L1733">                    utflen += 2;</span>
+                }
+            }
+
+<span class="nc bnc" id="L1737" title="All 2 branches missed.">            if (utflen &gt; 65535) {</span>
+<span class="nc" id="L1738">                throw new UTFDataFormatException(&quot;Encoded string is too long: &quot; + utflen);</span>
+<span class="nc bnc" id="L1739" title="All 2 branches missed.">            } else if (this.position &gt; this.memory.length - utflen - 2) {</span>
+<span class="nc" id="L1740">                resize(utflen + 2);</span>
+            }
+
+<span class="nc" id="L1743">            byte[] bytearr = this.memory;</span>
+<span class="nc" id="L1744">            int count = this.position;</span>
+
+<span class="nc" id="L1746">            bytearr[count++] = (byte) ((utflen &gt;&gt;&gt; 8) &amp; 0xFF);</span>
+<span class="nc" id="L1747">            bytearr[count++] = (byte) ((utflen &gt;&gt;&gt; 0) &amp; 0xFF);</span>
+
+<span class="nc" id="L1749">            int i = 0;</span>
+<span class="nc bnc" id="L1750" title="All 2 branches missed.">            for (i = 0; i &lt; strlen; i++) {</span>
+<span class="nc" id="L1751">                c = str.charAt(i);</span>
+<span class="nc bnc" id="L1752" title="All 4 branches missed.">                if (!((c &gt;= 0x0001) &amp;&amp; (c &lt;= 0x007F))) {</span>
+<span class="nc" id="L1753">                    break;</span>
+                }
+<span class="nc" id="L1755">                bytearr[count++] = (byte) c;</span>
+            }
+
+<span class="nc bnc" id="L1758" title="All 2 branches missed.">            for (; i &lt; strlen; i++) {</span>
+<span class="nc" id="L1759">                c = str.charAt(i);</span>
+<span class="nc bnc" id="L1760" title="All 4 branches missed.">                if ((c &gt;= 0x0001) &amp;&amp; (c &lt;= 0x007F)) {</span>
+<span class="nc" id="L1761">                    bytearr[count++] = (byte) c;</span>
+
+<span class="nc bnc" id="L1763" title="All 2 branches missed.">                } else if (c &gt; 0x07FF) {</span>
+<span class="nc" id="L1764">                    bytearr[count++] = (byte) (0xE0 | ((c &gt;&gt; 12) &amp; 0x0F));</span>
+<span class="nc" id="L1765">                    bytearr[count++] = (byte) (0x80 | ((c &gt;&gt; 6) &amp; 0x3F));</span>
+<span class="nc" id="L1766">                    bytearr[count++] = (byte) (0x80 | ((c &gt;&gt; 0) &amp; 0x3F));</span>
+                } else {
+<span class="nc" id="L1768">                    bytearr[count++] = (byte) (0xC0 | ((c &gt;&gt; 6) &amp; 0x1F));</span>
+<span class="nc" id="L1769">                    bytearr[count++] = (byte) (0x80 | ((c &gt;&gt; 0) &amp; 0x3F));</span>
+                }
+            }
+
+<span class="nc" id="L1773">            this.position = count;</span>
+<span class="nc" id="L1774">        }</span>
+
+        private void writeValLenIntBackwards(int value) throws IOException {
+<span class="fc bfc" id="L1777" title="All 2 branches covered.">            if (this.position &gt; this.memory.length - 4) {</span>
+<span class="fc" id="L1778">                resize(4);</span>
+            }
+
+<span class="fc bfc" id="L1781" title="All 2 branches covered.">            if (value &lt;= 0x7f) {</span>
+<span class="fc" id="L1782">                this.memory[this.position++] = (byte) value;</span>
+<span class="pc bpc" id="L1783" title="1 of 2 branches missed.">            } else if (value &lt;= 0x3fff) {</span>
+<span class="fc" id="L1784">                this.memory[this.position++] = (byte) (value &gt;&gt;&gt; 7);</span>
+<span class="fc" id="L1785">                this.memory[this.position++] = (byte) (value | MAX_BIT);</span>
+<span class="nc bnc" id="L1786" title="All 2 branches missed.">            } else if (value &lt;= 0x1fffff) {</span>
+<span class="nc" id="L1787">                this.memory[this.position++] = (byte) (value &gt;&gt;&gt; 14);</span>
+<span class="nc" id="L1788">                this.memory[this.position++] = (byte) ((value &gt;&gt;&gt; 7) | MAX_BIT);</span>
+<span class="nc" id="L1789">                this.memory[this.position++] = (byte) (value | MAX_BIT);</span>
+<span class="nc bnc" id="L1790" title="All 2 branches missed.">            } else if (value &lt;= 0xfffffff) {</span>
+<span class="nc" id="L1791">                this.memory[this.position++] = (byte) (value &gt;&gt;&gt; 21);</span>
+<span class="nc" id="L1792">                this.memory[this.position++] = (byte) ((value &gt;&gt;&gt; 14) | MAX_BIT);</span>
+<span class="nc" id="L1793">                this.memory[this.position++] = (byte) ((value &gt;&gt;&gt; 7) | MAX_BIT);</span>
+<span class="nc" id="L1794">                this.memory[this.position++] = (byte) (value | MAX_BIT);</span>
+            } else {
+<span class="nc" id="L1796">                this.memory[this.position++] = (byte) (value &gt;&gt;&gt; 28);</span>
+<span class="nc" id="L1797">                this.memory[this.position++] = (byte) ((value &gt;&gt;&gt; 21) | MAX_BIT);</span>
+<span class="nc" id="L1798">                this.memory[this.position++] = (byte) ((value &gt;&gt;&gt; 14) | MAX_BIT);</span>
+<span class="nc" id="L1799">                this.memory[this.position++] = (byte) ((value &gt;&gt;&gt; 7) | MAX_BIT);</span>
+<span class="nc" id="L1800">                this.memory[this.position++] = (byte) (value | MAX_BIT);</span>
+            }
+<span class="fc" id="L1802">        }</span>
+
+        private void resize(int minCapacityAdd) throws IOException {
+            try {
+<span class="fc" id="L1806">                final int newLen =</span>
+<span class="fc" id="L1807">                        Math.max(this.memory.length * 2, this.memory.length + minCapacityAdd);</span>
+<span class="fc" id="L1808">                final byte[] nb = new byte[newLen];</span>
+<span class="fc" id="L1809">                System.arraycopy(this.memory, 0, nb, 0, this.position);</span>
+<span class="fc" id="L1810">                this.memory = nb;</span>
+<span class="nc" id="L1811">            } catch (NegativeArraySizeException nasex) {</span>
+<span class="nc" id="L1812">                throw new IOException(</span>
+                        &quot;Serialization failed because the record length would exceed 2GB.&quot;);
+<span class="fc" id="L1814">            }</span>
+<span class="fc" id="L1815">        }</span>
+
+        @SuppressWarnings(&quot;restriction&quot;)
+<span class="fc" id="L1818">        private static final sun.misc.Unsafe UNSAFE = MemoryUtils.UNSAFE;</span>
+
+        @SuppressWarnings(&quot;restriction&quot;)
+<span class="fc" id="L1821">        private static final long BASE_OFFSET = UNSAFE.arrayBaseOffset(byte[].class);</span>
+
+<span class="pc bpc" id="L1823" title="1 of 2 branches missed.">        private static final boolean LITTLE_ENDIAN =</span>
+                (MemoryUtils.NATIVE_BYTE_ORDER == ByteOrder.LITTLE_ENDIAN);
+
+        @Override
+        public void skipBytesToWrite(int numBytes) throws IOException {
+<span class="nc" id="L1828">            int skippedBytes = skipBytes(numBytes);</span>
+
+<span class="nc bnc" id="L1830" title="All 2 branches missed.">            if (skippedBytes != numBytes) {</span>
+<span class="nc" id="L1831">                throw new EOFException(&quot;Could not skip &quot; + numBytes + &quot; bytes.&quot;);</span>
+            }
+<span class="nc" id="L1833">        }</span>
+
+        @Override
+        public void write(DataInputView source, int numBytes) throws IOException {
+<span class="nc bnc" id="L1837" title="All 2 branches missed.">            if (numBytes &gt; this.end - this.position) {</span>
+<span class="nc" id="L1838">                throw new IOException(</span>
+                        &quot;Could not write &quot; + numBytes + &quot; bytes since the buffer is full.&quot;);
+            }
+
+<span class="nc" id="L1842">            source.readFully(this.memory, this.position, numBytes);</span>
+<span class="nc" id="L1843">            this.position += numBytes;</span>
+<span class="nc" id="L1844">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

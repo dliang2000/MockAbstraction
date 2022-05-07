@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AbstractRuntimeUDFContext.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.functions.util</a> &gt; <span class="el_source">AbstractRuntimeUDFContext.java</span></div><h1>AbstractRuntimeUDFContext.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.functions.util;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.TaskInfo;
+import org.apache.flink.api.common.accumulators.Accumulator;
+import org.apache.flink.api.common.accumulators.AccumulatorHelper;
+import org.apache.flink.api.common.accumulators.DoubleCounter;
+import org.apache.flink.api.common.accumulators.Histogram;
+import org.apache.flink.api.common.accumulators.IntCounter;
+import org.apache.flink.api.common.accumulators.LongCounter;
+import org.apache.flink.api.common.cache.DistributedCache;
+import org.apache.flink.api.common.functions.RuntimeContext;
+import org.apache.flink.api.common.state.AggregatingState;
+import org.apache.flink.api.common.state.AggregatingStateDescriptor;
+import org.apache.flink.api.common.state.ListState;
+import org.apache.flink.api.common.state.ListStateDescriptor;
+import org.apache.flink.api.common.state.MapState;
+import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.ReducingState;
+import org.apache.flink.api.common.state.ReducingStateDescriptor;
+import org.apache.flink.api.common.state.ValueState;
+import org.apache.flink.api.common.state.ValueStateDescriptor;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.util.UserCodeClassLoader;
+
+import java.io.Serializable;
+import java.util.Map;
+import java.util.concurrent.Future;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/** A standalone implementation of the {@link RuntimeContext}, created by runtime UDF operators. */
+@Internal
+public abstract class AbstractRuntimeUDFContext implements RuntimeContext {
+
+    private final TaskInfo taskInfo;
+
+    private final UserCodeClassLoader userCodeClassLoader;
+
+    private final ExecutionConfig executionConfig;
+
+    private final Map&lt;String, Accumulator&lt;?, ?&gt;&gt; accumulators;
+
+    private final DistributedCache distributedCache;
+
+    private final MetricGroup metrics;
+
+    public AbstractRuntimeUDFContext(
+            TaskInfo taskInfo,
+            UserCodeClassLoader userCodeClassLoader,
+            ExecutionConfig executionConfig,
+            Map&lt;String, Accumulator&lt;?, ?&gt;&gt; accumulators,
+            Map&lt;String, Future&lt;Path&gt;&gt; cpTasks,
+<span class="fc" id="L76">            MetricGroup metrics) {</span>
+<span class="fc" id="L77">        this.taskInfo = checkNotNull(taskInfo);</span>
+<span class="fc" id="L78">        this.userCodeClassLoader = userCodeClassLoader;</span>
+<span class="fc" id="L79">        this.executionConfig = executionConfig;</span>
+<span class="fc" id="L80">        this.distributedCache = new DistributedCache(checkNotNull(cpTasks));</span>
+<span class="fc" id="L81">        this.accumulators = checkNotNull(accumulators);</span>
+<span class="fc" id="L82">        this.metrics = metrics;</span>
+<span class="fc" id="L83">    }</span>
+
+    @Override
+    public ExecutionConfig getExecutionConfig() {
+<span class="nc" id="L87">        return executionConfig;</span>
+    }
+
+    @Override
+    public String getTaskName() {
+<span class="fc" id="L92">        return taskInfo.getTaskName();</span>
+    }
+
+    @Override
+    public int getNumberOfParallelSubtasks() {
+<span class="fc" id="L97">        return taskInfo.getNumberOfParallelSubtasks();</span>
+    }
+
+    @Override
+    public int getMaxNumberOfParallelSubtasks() {
+<span class="nc" id="L102">        return taskInfo.getMaxNumberOfParallelSubtasks();</span>
+    }
+
+    @Override
+    public int getIndexOfThisSubtask() {
+<span class="fc" id="L107">        return taskInfo.getIndexOfThisSubtask();</span>
+    }
+
+    @Override
+    public MetricGroup getMetricGroup() {
+<span class="nc" id="L112">        return metrics;</span>
+    }
+
+    @Override
+    public int getAttemptNumber() {
+<span class="nc" id="L117">        return taskInfo.getAttemptNumber();</span>
+    }
+
+    @Override
+    public String getTaskNameWithSubtasks() {
+<span class="nc" id="L122">        return taskInfo.getTaskNameWithSubtasks();</span>
+    }
+
+    @Override
+    public IntCounter getIntCounter(String name) {
+<span class="nc" id="L127">        return (IntCounter) getAccumulator(name, IntCounter.class);</span>
+    }
+
+    @Override
+    public LongCounter getLongCounter(String name) {
+<span class="nc" id="L132">        return (LongCounter) getAccumulator(name, LongCounter.class);</span>
+    }
+
+    @Override
+    public Histogram getHistogram(String name) {
+<span class="nc" id="L137">        return (Histogram) getAccumulator(name, Histogram.class);</span>
+    }
+
+    @Override
+    public DoubleCounter getDoubleCounter(String name) {
+<span class="nc" id="L142">        return (DoubleCounter) getAccumulator(name, DoubleCounter.class);</span>
+    }
+
+    @Override
+    public &lt;V, A extends Serializable&gt; void addAccumulator(
+            String name, Accumulator&lt;V, A&gt; accumulator) {
+<span class="nc bnc" id="L148" title="All 2 branches missed.">        if (accumulators.containsKey(name)) {</span>
+<span class="nc" id="L149">            throw new UnsupportedOperationException(</span>
+                    &quot;The accumulator '&quot; + name + &quot;' already exists and cannot be added.&quot;);
+        }
+<span class="nc" id="L152">        accumulators.put(name, accumulator);</span>
+<span class="nc" id="L153">    }</span>
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    @Override
+    public &lt;V, A extends Serializable&gt; Accumulator&lt;V, A&gt; getAccumulator(String name) {
+<span class="nc" id="L158">        return (Accumulator&lt;V, A&gt;) accumulators.get(name);</span>
+    }
+
+    @Override
+    public ClassLoader getUserCodeClassLoader() {
+<span class="nc" id="L163">        return this.userCodeClassLoader.asClassLoader();</span>
+    }
+
+    @Override
+    public void registerUserCodeClassLoaderReleaseHookIfAbsent(
+            String releaseHookName, Runnable releaseHook) {
+<span class="nc" id="L169">        userCodeClassLoader.registerReleaseHookIfAbsent(releaseHookName, releaseHook);</span>
+<span class="nc" id="L170">    }</span>
+
+    @Override
+    public DistributedCache getDistributedCache() {
+<span class="nc" id="L174">        return this.distributedCache;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private &lt;V, A extends Serializable&gt; Accumulator&lt;V, A&gt; getAccumulator(
+            String name, Class&lt;? extends Accumulator&lt;V, A&gt;&gt; accumulatorClass) {
+
+<span class="nc" id="L183">        Accumulator&lt;?, ?&gt; accumulator = accumulators.get(name);</span>
+
+<span class="nc bnc" id="L185" title="All 2 branches missed.">        if (accumulator != null) {</span>
+<span class="nc" id="L186">            AccumulatorHelper.compareAccumulatorTypes(</span>
+<span class="nc" id="L187">                    name, accumulator.getClass(), accumulatorClass);</span>
+        } else {
+            // Create new accumulator
+            try {
+<span class="nc" id="L191">                accumulator = accumulatorClass.newInstance();</span>
+<span class="nc" id="L192">            } catch (Exception e) {</span>
+<span class="nc" id="L193">                throw new RuntimeException(</span>
+<span class="nc" id="L194">                        &quot;Cannot create accumulator &quot; + accumulatorClass.getName());</span>
+<span class="nc" id="L195">            }</span>
+<span class="nc" id="L196">            accumulators.put(name, accumulator);</span>
+        }
+<span class="nc" id="L198">        return (Accumulator&lt;V, A&gt;) accumulator;</span>
+    }
+
+    @Override
+    @PublicEvolving
+    public &lt;T&gt; ValueState&lt;T&gt; getState(ValueStateDescriptor&lt;T&gt; stateProperties) {
+<span class="nc" id="L204">        throw new UnsupportedOperationException(</span>
+                &quot;This state is only accessible by functions executed on a KeyedStream&quot;);
+    }
+
+    @Override
+    @PublicEvolving
+    public &lt;T&gt; ListState&lt;T&gt; getListState(ListStateDescriptor&lt;T&gt; stateProperties) {
+<span class="nc" id="L211">        throw new UnsupportedOperationException(</span>
+                &quot;This state is only accessible by functions executed on a KeyedStream&quot;);
+    }
+
+    @Override
+    @PublicEvolving
+    public &lt;T&gt; ReducingState&lt;T&gt; getReducingState(ReducingStateDescriptor&lt;T&gt; stateProperties) {
+<span class="nc" id="L218">        throw new UnsupportedOperationException(</span>
+                &quot;This state is only accessible by functions executed on a KeyedStream&quot;);
+    }
+
+    @Override
+    @PublicEvolving
+    public &lt;IN, ACC, OUT&gt; AggregatingState&lt;IN, OUT&gt; getAggregatingState(
+            AggregatingStateDescriptor&lt;IN, ACC, OUT&gt; stateProperties) {
+<span class="nc" id="L226">        throw new UnsupportedOperationException(</span>
+                &quot;This state is only accessible by functions executed on a KeyedStream&quot;);
+    }
+
+    @Override
+    @PublicEvolving
+    public &lt;UK, UV&gt; MapState&lt;UK, UV&gt; getMapState(MapStateDescriptor&lt;UK, UV&gt; stateProperties) {
+<span class="nc" id="L233">        throw new UnsupportedOperationException(</span>
+                &quot;This state is only accessible by functions executed on a KeyedStream&quot;);
+    }
+
+    @Internal
+    @VisibleForTesting
+    public String getAllocationIDAsString() {
+<span class="nc" id="L240">        return taskInfo.getAllocationIDAsString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

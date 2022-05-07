@@ -1,0 +1,187 @@
+<!--
+
+       Copyright ${license.git.copyrightYears} the original author or authors.
+
+       Licensed under the Apache License, Version 2.0 (the "License");
+       you may not use this file except in compliance with the License.
+       You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+       Unless required by applicable law or agreed to in writing, software
+       distributed under the License is distributed on an "AS IS" BASIS,
+       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+       See the License for the specific language governing permissions and
+       limitations under the License.
+
+-->
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MapperProxy.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mybatis</a> &gt; <a href="index.source.html" class="el_package">org.apache.ibatis.binding</a> &gt; <span class="el_source">MapperProxy.java</span></div><h1>MapperProxy.java</h1><pre class="source lang-java linenums">/**
+ *    Copyright 2009-2021 the original author or authors.
+ *
+ *    Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+package org.apache.ibatis.binding;
+
+import java.io.Serializable;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Map;
+
+import org.apache.ibatis.reflection.ExceptionUtil;
+import org.apache.ibatis.session.SqlSession;
+
+/**
+ * @author Clinton Begin
+ * @author Eduardo Macarron
+ */
+public class MapperProxy&lt;T&gt; implements InvocationHandler, Serializable {
+
+  private static final long serialVersionUID = -4724728412955527868L;
+  private static final int ALLOWED_MODES = MethodHandles.Lookup.PRIVATE | MethodHandles.Lookup.PROTECTED
+      | MethodHandles.Lookup.PACKAGE | MethodHandles.Lookup.PUBLIC;
+  private static final Constructor&lt;Lookup&gt; lookupConstructor;
+  private static final Method privateLookupInMethod;
+  private final SqlSession sqlSession;
+  private final Class&lt;T&gt; mapperInterface;
+  private final Map&lt;Method, MapperMethodInvoker&gt; methodCache;
+
+<span class="fc" id="L47">  public MapperProxy(SqlSession sqlSession, Class&lt;T&gt; mapperInterface, Map&lt;Method, MapperMethodInvoker&gt; methodCache) {</span>
+<span class="fc" id="L48">    this.sqlSession = sqlSession;</span>
+<span class="fc" id="L49">    this.mapperInterface = mapperInterface;</span>
+<span class="fc" id="L50">    this.methodCache = methodCache;</span>
+<span class="fc" id="L51">  }</span>
+
+  static {
+    Method privateLookupIn;
+    try {
+<span class="nc" id="L56">      privateLookupIn = MethodHandles.class.getMethod(&quot;privateLookupIn&quot;, Class.class, MethodHandles.Lookup.class);</span>
+<span class="fc" id="L57">    } catch (NoSuchMethodException e) {</span>
+<span class="fc" id="L58">      privateLookupIn = null;</span>
+<span class="nc" id="L59">    }</span>
+<span class="fc" id="L60">    privateLookupInMethod = privateLookupIn;</span>
+
+<span class="fc" id="L62">    Constructor&lt;Lookup&gt; lookup = null;</span>
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">    if (privateLookupInMethod == null) {</span>
+      // JDK 1.8
+      try {
+<span class="fc" id="L66">        lookup = MethodHandles.Lookup.class.getDeclaredConstructor(Class.class, int.class);</span>
+<span class="fc" id="L67">        lookup.setAccessible(true);</span>
+<span class="nc" id="L68">      } catch (NoSuchMethodException e) {</span>
+<span class="nc" id="L69">        throw new IllegalStateException(</span>
+            &quot;There is neither 'privateLookupIn(Class, Lookup)' nor 'Lookup(Class, int)' method in java.lang.invoke.MethodHandles.&quot;,
+            e);
+<span class="nc" id="L72">      } catch (Exception e) {</span>
+<span class="nc" id="L73">        lookup = null;</span>
+<span class="fc" id="L74">      }</span>
+    }
+<span class="fc" id="L76">    lookupConstructor = lookup;</span>
+<span class="fc" id="L77">  }</span>
+
+  @Override
+  public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+    try {
+<span class="fc bfc" id="L82" title="All 2 branches covered.">      if (Object.class.equals(method.getDeclaringClass())) {</span>
+<span class="fc" id="L83">        return method.invoke(this, args);</span>
+      } else {
+<span class="fc" id="L85">        return cachedInvoker(method).invoke(proxy, method, args, sqlSession);</span>
+      }
+<span class="fc" id="L87">    } catch (Throwable t) {</span>
+<span class="fc" id="L88">      throw ExceptionUtil.unwrapThrowable(t);</span>
+    }
+  }
+
+  private MapperMethodInvoker cachedInvoker(Method method) throws Throwable {
+    try {
+      // A workaround for https://bugs.openjdk.java.net/browse/JDK-8161372
+      // It should be removed once the fix is backported to Java 8 or
+      // MyBatis drops Java 8 support. See gh-1929
+<span class="fc" id="L97">      MapperMethodInvoker invoker = methodCache.get(method);</span>
+<span class="fc bfc" id="L98" title="All 2 branches covered.">      if (invoker != null) {</span>
+<span class="fc" id="L99">        return invoker;</span>
+      }
+
+<span class="fc" id="L102">      return methodCache.computeIfAbsent(method, m -&gt; {</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">        if (m.isDefault()) {</span>
+          try {
+<span class="pc bpc" id="L105" title="1 of 2 branches missed.">            if (privateLookupInMethod == null) {</span>
+<span class="fc" id="L106">              return new DefaultMethodInvoker(getMethodHandleJava8(method));</span>
+            } else {
+<span class="nc" id="L108">              return new DefaultMethodInvoker(getMethodHandleJava9(method));</span>
+            }
+<span class="nc" id="L110">          } catch (IllegalAccessException | InstantiationException | InvocationTargetException</span>
+              | NoSuchMethodException e) {
+<span class="nc" id="L112">            throw new RuntimeException(e);</span>
+          }
+        } else {
+<span class="fc" id="L115">          return new PlainMethodInvoker(new MapperMethod(mapperInterface, method, sqlSession.getConfiguration()));</span>
+        }
+      });
+<span class="fc" id="L118">    } catch (RuntimeException re) {</span>
+<span class="fc" id="L119">      Throwable cause = re.getCause();</span>
+<span class="pc bpc" id="L120" title="1 of 2 branches missed.">      throw cause == null ? re : cause;</span>
+    }
+  }
+
+  private MethodHandle getMethodHandleJava9(Method method)
+      throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+<span class="nc" id="L126">    final Class&lt;?&gt; declaringClass = method.getDeclaringClass();</span>
+<span class="nc" id="L127">    return ((Lookup) privateLookupInMethod.invoke(null, declaringClass, MethodHandles.lookup())).findSpecial(</span>
+<span class="nc" id="L128">        declaringClass, method.getName(), MethodType.methodType(method.getReturnType(), method.getParameterTypes()),</span>
+        declaringClass);
+  }
+
+  private MethodHandle getMethodHandleJava8(Method method)
+      throws IllegalAccessException, InstantiationException, InvocationTargetException {
+<span class="fc" id="L134">    final Class&lt;?&gt; declaringClass = method.getDeclaringClass();</span>
+<span class="fc" id="L135">    return lookupConstructor.newInstance(declaringClass, ALLOWED_MODES).unreflectSpecial(method, declaringClass);</span>
+  }
+
+  interface MapperMethodInvoker {
+    Object invoke(Object proxy, Method method, Object[] args, SqlSession sqlSession) throws Throwable;
+  }
+
+  private static class PlainMethodInvoker implements MapperMethodInvoker {
+    private final MapperMethod mapperMethod;
+
+    public PlainMethodInvoker(MapperMethod mapperMethod) {
+<span class="fc" id="L146">      super();</span>
+<span class="fc" id="L147">      this.mapperMethod = mapperMethod;</span>
+<span class="fc" id="L148">    }</span>
+
+    @Override
+    public Object invoke(Object proxy, Method method, Object[] args, SqlSession sqlSession) throws Throwable {
+<span class="fc" id="L152">      return mapperMethod.execute(sqlSession, args);</span>
+    }
+  }
+
+  private static class DefaultMethodInvoker implements MapperMethodInvoker {
+    private final MethodHandle methodHandle;
+
+    public DefaultMethodInvoker(MethodHandle methodHandle) {
+<span class="fc" id="L160">      super();</span>
+<span class="fc" id="L161">      this.methodHandle = methodHandle;</span>
+<span class="fc" id="L162">    }</span>
+
+    @Override
+    public Object invoke(Object proxy, Method method, Object[] args, SqlSession sqlSession) throws Throwable {
+<span class="fc" id="L166">      return methodHandle.bindTo(proxy).invokeWithArguments(args);</span>
+    }
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

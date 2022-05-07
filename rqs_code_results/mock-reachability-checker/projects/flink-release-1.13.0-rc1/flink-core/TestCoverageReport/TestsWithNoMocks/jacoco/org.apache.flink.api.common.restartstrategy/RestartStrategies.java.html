@@ -1,0 +1,461 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RestartStrategies.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.restartstrategy</a> &gt; <span class="el_source">RestartStrategies.java</span></div><h1>RestartStrategies.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.restartstrategy;
+
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.configuration.RestartStrategyOptions;
+
+import java.io.Serializable;
+import java.time.Duration;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * This class defines methods to generate RestartStrategyConfigurations. These configurations are
+ * used to create RestartStrategies at runtime.
+ *
+ * &lt;p&gt;The RestartStrategyConfigurations are used to decouple the core module from the runtime
+ * module.
+ */
+@PublicEvolving
+<span class="nc" id="L40">public class RestartStrategies {</span>
+
+    /**
+     * Generates NoRestartStrategyConfiguration.
+     *
+     * @return NoRestartStrategyConfiguration
+     */
+    public static RestartStrategyConfiguration noRestart() {
+<span class="nc" id="L48">        return new NoRestartStrategyConfiguration();</span>
+    }
+
+    public static RestartStrategyConfiguration fallBackRestart() {
+<span class="nc" id="L52">        return new FallbackRestartStrategyConfiguration();</span>
+    }
+
+    /**
+     * Generates a FixedDelayRestartStrategyConfiguration.
+     *
+     * @param restartAttempts Number of restart attempts for the FixedDelayRestartStrategy
+     * @param delayBetweenAttempts Delay in-between restart attempts for the
+     *     FixedDelayRestartStrategy
+     * @return FixedDelayRestartStrategy
+     */
+    public static RestartStrategyConfiguration fixedDelayRestart(
+            int restartAttempts, long delayBetweenAttempts) {
+<span class="fc" id="L65">        return fixedDelayRestart(</span>
+<span class="fc" id="L66">                restartAttempts, Time.of(delayBetweenAttempts, TimeUnit.MILLISECONDS));</span>
+    }
+
+    /**
+     * Generates a FixedDelayRestartStrategyConfiguration.
+     *
+     * @param restartAttempts Number of restart attempts for the FixedDelayRestartStrategy
+     * @param delayInterval Delay in-between restart attempts for the FixedDelayRestartStrategy
+     * @return FixedDelayRestartStrategy
+     */
+    public static RestartStrategyConfiguration fixedDelayRestart(
+            int restartAttempts, Time delayInterval) {
+<span class="fc" id="L78">        return new FixedDelayRestartStrategyConfiguration(restartAttempts, delayInterval);</span>
+    }
+
+    /**
+     * Generates a FailureRateRestartStrategyConfiguration.
+     *
+     * @param failureRate Maximum number of restarts in given interval {@code failureInterval}
+     *     before failing a job
+     * @param failureInterval Time interval for failures
+     * @param delayInterval Delay in-between restart attempts
+     */
+    public static FailureRateRestartStrategyConfiguration failureRateRestart(
+            int failureRate, Time failureInterval, Time delayInterval) {
+<span class="nc" id="L91">        return new FailureRateRestartStrategyConfiguration(</span>
+                failureRate, failureInterval, delayInterval);
+    }
+
+    /**
+     * Generates a ExponentialDelayRestartStrategyConfiguration.
+     *
+     * @param initialBackoff Starting duration between restarts
+     * @param maxBackoff The highest possible duration between restarts
+     * @param backoffMultiplier Delay multiplier how many times is the delay longer than before
+     * @param resetBackoffThreshold How long the job must run smoothly to reset the time interval
+     * @param jitterFactor How much the delay may differ (in percentage)
+     */
+    public static ExponentialDelayRestartStrategyConfiguration exponentialDelayRestart(
+            Time initialBackoff,
+            Time maxBackoff,
+            double backoffMultiplier,
+            Time resetBackoffThreshold,
+            double jitterFactor) {
+<span class="nc" id="L110">        return new ExponentialDelayRestartStrategyConfiguration(</span>
+                initialBackoff, maxBackoff, backoffMultiplier, resetBackoffThreshold, jitterFactor);
+    }
+
+    /** Abstract configuration for restart strategies. */
+    public abstract static class RestartStrategyConfiguration implements Serializable {
+        private static final long serialVersionUID = 6285853591578313960L;
+
+        private RestartStrategyConfiguration() {}
+
+        /**
+         * Returns a description which is shown in the web interface.
+         *
+         * @return Description of the restart strategy
+         */
+        public abstract String getDescription();
+
+        @Override
+        public String toString() {
+<span class="nc" id="L129">            return getDescription();</span>
+        }
+    }
+
+    /** Configuration representing no restart strategy. */
+<span class="nc" id="L134">    public static final class NoRestartStrategyConfiguration extends RestartStrategyConfiguration {</span>
+        private static final long serialVersionUID = -5894362702943349962L;
+
+        @Override
+        public String getDescription() {
+<span class="nc" id="L139">            return &quot;Restart deactivated.&quot;;</span>
+        }
+
+        @Override
+        public boolean equals(Object o) {
+<span class="nc bnc" id="L144" title="All 2 branches missed.">            if (this == o) {</span>
+<span class="nc" id="L145">                return true;</span>
+            }
+<span class="nc" id="L147">            return o instanceof NoRestartStrategyConfiguration;</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="nc" id="L152">            return Objects.hash();</span>
+        }
+    }
+
+    /** Configuration representing a fixed delay restart strategy. */
+    public static final class FixedDelayRestartStrategyConfiguration
+            extends RestartStrategyConfiguration {
+        private static final long serialVersionUID = 4149870149673363190L;
+
+        private final int restartAttempts;
+        private final Time delayBetweenAttemptsInterval;
+
+        FixedDelayRestartStrategyConfiguration(
+<span class="fc" id="L165">                int restartAttempts, Time delayBetweenAttemptsInterval) {</span>
+<span class="fc" id="L166">            this.restartAttempts = restartAttempts;</span>
+<span class="fc" id="L167">            this.delayBetweenAttemptsInterval = delayBetweenAttemptsInterval;</span>
+<span class="fc" id="L168">        }</span>
+
+        public int getRestartAttempts() {
+<span class="nc" id="L171">            return restartAttempts;</span>
+        }
+
+        public Time getDelayBetweenAttemptsInterval() {
+<span class="nc" id="L175">            return delayBetweenAttemptsInterval;</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="nc" id="L180">            int result = restartAttempts;</span>
+<span class="nc bnc" id="L181" title="All 2 branches missed.">            result =</span>
+                    31 * result
+                            + (delayBetweenAttemptsInterval != null
+<span class="nc" id="L184">                                    ? delayBetweenAttemptsInterval.hashCode()</span>
+                                    : 0);
+<span class="nc" id="L186">            return result;</span>
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+<span class="pc bpc" id="L191" title="1 of 2 branches missed.">            if (obj instanceof FixedDelayRestartStrategyConfiguration) {</span>
+<span class="fc" id="L192">                FixedDelayRestartStrategyConfiguration other =</span>
+                        (FixedDelayRestartStrategyConfiguration) obj;
+
+<span class="pc bpc" id="L195" title="1 of 2 branches missed.">                return restartAttempts == other.restartAttempts</span>
+<span class="pc bpc" id="L196" title="1 of 2 branches missed.">                        &amp;&amp; delayBetweenAttemptsInterval.equals(other.delayBetweenAttemptsInterval);</span>
+            } else {
+<span class="nc" id="L198">                return false;</span>
+            }
+        }
+
+        @Override
+        public String getDescription() {
+<span class="nc" id="L204">            return String.format(</span>
+                    &quot;Restart with fixed delay (%s). #%d restart attempts.&quot;,
+<span class="nc" id="L206">                    delayBetweenAttemptsInterval, restartAttempts);</span>
+        }
+    }
+
+    /** Configuration representing an exponential delay restart strategy. */
+    public static final class ExponentialDelayRestartStrategyConfiguration
+            extends RestartStrategyConfiguration {
+        private static final long serialVersionUID = 1467941615941965194L;
+
+        private final Time initialBackoff;
+        private final Time maxBackoff;
+        private final double backoffMultiplier;
+        private final Time resetBackoffThreshold;
+        private final double jitterFactor;
+
+        public ExponentialDelayRestartStrategyConfiguration(
+                Time initialBackoff,
+                Time maxBackoff,
+                double backoffMultiplier,
+                Time resetBackoffThreshold,
+<span class="nc" id="L226">                double jitterFactor) {</span>
+<span class="nc" id="L227">            this.initialBackoff = initialBackoff;</span>
+<span class="nc" id="L228">            this.maxBackoff = maxBackoff;</span>
+<span class="nc" id="L229">            this.backoffMultiplier = backoffMultiplier;</span>
+<span class="nc" id="L230">            this.resetBackoffThreshold = resetBackoffThreshold;</span>
+<span class="nc" id="L231">            this.jitterFactor = jitterFactor;</span>
+<span class="nc" id="L232">        }</span>
+
+        public Time getInitialBackoff() {
+<span class="nc" id="L235">            return initialBackoff;</span>
+        }
+
+        public Time getMaxBackoff() {
+<span class="nc" id="L239">            return maxBackoff;</span>
+        }
+
+        public double getBackoffMultiplier() {
+<span class="nc" id="L243">            return backoffMultiplier;</span>
+        }
+
+        public Time getResetBackoffThreshold() {
+<span class="nc" id="L247">            return resetBackoffThreshold;</span>
+        }
+
+        public double getJitterFactor() {
+<span class="nc" id="L251">            return jitterFactor;</span>
+        }
+
+        @Override
+        public String getDescription() {
+<span class="nc" id="L256">            return String.format(</span>
+                    &quot;Restart with exponential delay: starting at %s, increasing by %f, with maximum %s. &quot;
+                            + &quot;Delay resets after %s with jitter %f&quot;,
+                    initialBackoff,
+<span class="nc" id="L260">                    backoffMultiplier,</span>
+                    maxBackoff,
+                    resetBackoffThreshold,
+<span class="nc" id="L263">                    jitterFactor);</span>
+        }
+
+        @Override
+        public boolean equals(Object o) {
+<span class="nc bnc" id="L268" title="All 2 branches missed.">            if (this == o) {</span>
+<span class="nc" id="L269">                return true;</span>
+            }
+<span class="nc bnc" id="L271" title="All 4 branches missed.">            if (o == null || getClass() != o.getClass()) {</span>
+<span class="nc" id="L272">                return false;</span>
+            }
+<span class="nc" id="L274">            ExponentialDelayRestartStrategyConfiguration that =</span>
+                    (ExponentialDelayRestartStrategyConfiguration) o;
+<span class="nc bnc" id="L276" title="All 2 branches missed.">            return Double.compare(that.backoffMultiplier, backoffMultiplier) == 0</span>
+<span class="nc bnc" id="L277" title="All 2 branches missed.">                    &amp;&amp; Double.compare(that.jitterFactor, jitterFactor) == 0</span>
+<span class="nc bnc" id="L278" title="All 2 branches missed.">                    &amp;&amp; Objects.equals(initialBackoff, that.initialBackoff)</span>
+<span class="nc bnc" id="L279" title="All 2 branches missed.">                    &amp;&amp; Objects.equals(maxBackoff, that.maxBackoff)</span>
+<span class="nc bnc" id="L280" title="All 2 branches missed.">                    &amp;&amp; Objects.equals(resetBackoffThreshold, that.resetBackoffThreshold);</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="nc" id="L285">            int result = initialBackoff.hashCode();</span>
+<span class="nc" id="L286">            result = 31 * result + maxBackoff.hashCode();</span>
+<span class="nc" id="L287">            result = 31 * result + (int) backoffMultiplier;</span>
+<span class="nc" id="L288">            result = 31 * result + resetBackoffThreshold.hashCode();</span>
+<span class="nc" id="L289">            result = 31 * result + (int) jitterFactor;</span>
+<span class="nc" id="L290">            return result;</span>
+        }
+    }
+
+    /** Configuration representing a failure rate restart strategy. */
+    public static final class FailureRateRestartStrategyConfiguration
+            extends RestartStrategyConfiguration {
+        private static final long serialVersionUID = 1195028697539661739L;
+        private final int maxFailureRate;
+
+        private final Time failureInterval;
+        private final Time delayBetweenAttemptsInterval;
+
+        public FailureRateRestartStrategyConfiguration(
+<span class="nc" id="L304">                int maxFailureRate, Time failureInterval, Time delayBetweenAttemptsInterval) {</span>
+<span class="nc" id="L305">            this.maxFailureRate = maxFailureRate;</span>
+<span class="nc" id="L306">            this.failureInterval = failureInterval;</span>
+<span class="nc" id="L307">            this.delayBetweenAttemptsInterval = delayBetweenAttemptsInterval;</span>
+<span class="nc" id="L308">        }</span>
+
+        public int getMaxFailureRate() {
+<span class="nc" id="L311">            return maxFailureRate;</span>
+        }
+
+        public Time getFailureInterval() {
+<span class="nc" id="L315">            return failureInterval;</span>
+        }
+
+        public Time getDelayBetweenAttemptsInterval() {
+<span class="nc" id="L319">            return delayBetweenAttemptsInterval;</span>
+        }
+
+        @Override
+        public String getDescription() {
+<span class="nc" id="L324">            return String.format(</span>
+                    &quot;Failure rate restart with maximum of %d failures within interval %s and fixed delay %s.&quot;,
+<span class="nc" id="L326">                    maxFailureRate,</span>
+<span class="nc" id="L327">                    failureInterval.toString(),</span>
+<span class="nc" id="L328">                    delayBetweenAttemptsInterval.toString());</span>
+        }
+
+        @Override
+        public boolean equals(Object o) {
+<span class="nc bnc" id="L333" title="All 2 branches missed.">            if (this == o) {</span>
+<span class="nc" id="L334">                return true;</span>
+            }
+<span class="nc bnc" id="L336" title="All 4 branches missed.">            if (o == null || getClass() != o.getClass()) {</span>
+<span class="nc" id="L337">                return false;</span>
+            }
+<span class="nc" id="L339">            FailureRateRestartStrategyConfiguration that =</span>
+                    (FailureRateRestartStrategyConfiguration) o;
+<span class="nc bnc" id="L341" title="All 2 branches missed.">            return maxFailureRate == that.maxFailureRate</span>
+<span class="nc bnc" id="L342" title="All 2 branches missed.">                    &amp;&amp; Objects.equals(failureInterval, that.failureInterval)</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">                    &amp;&amp; Objects.equals(</span>
+                            delayBetweenAttemptsInterval, that.delayBetweenAttemptsInterval);
+        }
+
+        @Override
+        public int hashCode() {
+<span class="nc" id="L349">            return Objects.hash(maxFailureRate, failureInterval, delayBetweenAttemptsInterval);</span>
+        }
+    }
+
+    /**
+     * Restart strategy configuration that could be used by jobs to use cluster level restart
+     * strategy. Useful especially when one has a custom implementation of restart strategy set via
+     * flink-conf.yaml.
+     */
+<span class="fc" id="L358">    public static final class FallbackRestartStrategyConfiguration</span>
+            extends RestartStrategyConfiguration {
+        private static final long serialVersionUID = -4441787204284085544L;
+
+        @Override
+        public String getDescription() {
+<span class="nc" id="L364">            return &quot;Cluster level default restart strategy&quot;;</span>
+        }
+
+        @Override
+        public boolean equals(Object o) {
+<span class="pc bpc" id="L369" title="1 of 2 branches missed.">            if (this == o) {</span>
+<span class="nc" id="L370">                return true;</span>
+            }
+<span class="fc" id="L372">            return o instanceof FallbackRestartStrategyConfiguration;</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="nc" id="L377">            return Objects.hash();</span>
+        }
+    }
+
+    /**
+     * Reads a {@link RestartStrategyConfiguration} from a given {@link ReadableConfig}.
+     *
+     * @param configuration configuration object to retrieve parameters from
+     * @return {@link Optional#empty()} when no restart strategy parameters provided
+     */
+    public static Optional&lt;RestartStrategyConfiguration&gt; fromConfiguration(
+            ReadableConfig configuration) {
+<span class="fc" id="L389">        return configuration</span>
+<span class="fc" id="L390">                .getOptional(RestartStrategyOptions.RESTART_STRATEGY)</span>
+<span class="fc" id="L391">                .map(confName -&gt; parseConfiguration(confName, configuration));</span>
+    }
+
+    private static RestartStrategyConfiguration parseConfiguration(
+            String restartstrategyKind, ReadableConfig configuration) {
+<span class="pc bpc" id="L396" title="4 of 5 branches missed.">        switch (restartstrategyKind.toLowerCase()) {</span>
+            case &quot;none&quot;:
+            case &quot;off&quot;:
+            case &quot;disable&quot;:
+<span class="nc" id="L400">                return noRestart();</span>
+            case &quot;fixeddelay&quot;:
+            case &quot;fixed-delay&quot;:
+<span class="fc" id="L403">                int attempts =</span>
+<span class="fc" id="L404">                        configuration.get(</span>
+                                RestartStrategyOptions.RESTART_STRATEGY_FIXED_DELAY_ATTEMPTS);
+<span class="fc" id="L406">                Duration delay =</span>
+<span class="fc" id="L407">                        configuration.get(</span>
+                                RestartStrategyOptions.RESTART_STRATEGY_FIXED_DELAY_DELAY);
+<span class="fc" id="L409">                return fixedDelayRestart(attempts, delay.toMillis());</span>
+            case &quot;exponentialdelay&quot;:
+            case &quot;exponential-delay&quot;:
+<span class="nc" id="L412">                Duration initialBackoff =</span>
+<span class="nc" id="L413">                        configuration.get(</span>
+                                RestartStrategyOptions
+                                        .RESTART_STRATEGY_EXPONENTIAL_DELAY_INITIAL_BACKOFF);
+<span class="nc" id="L416">                Duration maxBackoff =</span>
+<span class="nc" id="L417">                        configuration.get(</span>
+                                RestartStrategyOptions
+                                        .RESTART_STRATEGY_EXPONENTIAL_DELAY_MAX_BACKOFF);
+<span class="nc" id="L420">                double backoffMultiplier =</span>
+<span class="nc" id="L421">                        configuration.get(</span>
+                                RestartStrategyOptions
+                                        .RESTART_STRATEGY_EXPONENTIAL_DELAY_BACKOFF_MULTIPLIER);
+<span class="nc" id="L424">                Duration resetBackoffThreshold =</span>
+<span class="nc" id="L425">                        configuration.get(</span>
+                                RestartStrategyOptions
+                                        .RESTART_STRATEGY_EXPONENTIAL_DELAY_RESET_BACKOFF_THRESHOLD);
+<span class="nc" id="L428">                double jitter =</span>
+<span class="nc" id="L429">                        configuration.get(</span>
+                                RestartStrategyOptions
+                                        .RESTART_STRATEGY_EXPONENTIAL_DELAY_JITTER_FACTOR);
+<span class="nc" id="L432">                return exponentialDelayRestart(</span>
+<span class="nc" id="L433">                        Time.milliseconds(initialBackoff.toMillis()),</span>
+<span class="nc" id="L434">                        Time.milliseconds(maxBackoff.toMillis()),</span>
+                        backoffMultiplier,
+<span class="nc" id="L436">                        Time.milliseconds(resetBackoffThreshold.toMillis()),</span>
+                        jitter);
+            case &quot;failurerate&quot;:
+            case &quot;failure-rate&quot;:
+<span class="nc" id="L440">                int maxFailures =</span>
+<span class="nc" id="L441">                        configuration.get(</span>
+                                RestartStrategyOptions
+                                        .RESTART_STRATEGY_FAILURE_RATE_MAX_FAILURES_PER_INTERVAL);
+<span class="nc" id="L444">                Duration failureRateInterval =</span>
+<span class="nc" id="L445">                        configuration.get(</span>
+                                RestartStrategyOptions
+                                        .RESTART_STRATEGY_FAILURE_RATE_FAILURE_RATE_INTERVAL);
+<span class="nc" id="L448">                Duration failureRateDelay =</span>
+<span class="nc" id="L449">                        configuration.get(</span>
+                                RestartStrategyOptions.RESTART_STRATEGY_FAILURE_RATE_DELAY);
+<span class="nc" id="L451">                return failureRateRestart(</span>
+                        maxFailures,
+<span class="nc" id="L453">                        Time.milliseconds(failureRateInterval.toMillis()),</span>
+<span class="nc" id="L454">                        Time.milliseconds(failureRateDelay.toMillis()));</span>
+            default:
+<span class="nc" id="L456">                throw new IllegalArgumentException(</span>
+                        &quot;Unknown restart strategy &quot; + restartstrategyKind + &quot;.&quot;);
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

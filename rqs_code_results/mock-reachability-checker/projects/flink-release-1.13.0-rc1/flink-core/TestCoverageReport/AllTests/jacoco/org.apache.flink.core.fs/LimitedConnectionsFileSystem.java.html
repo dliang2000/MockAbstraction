@@ -1,0 +1,1098 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LimitedConnectionsFileSystem.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.core.fs</a> &gt; <span class="el_source">LimitedConnectionsFileSystem.java</span></div><h1>LimitedConnectionsFileSystem.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.core.fs;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.configuration.IllegalConfigurationException;
+import org.apache.flink.util.function.SupplierWithException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.net.URI;
+import java.util.HashSet;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
+
+import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
+
+/**
+ * A file system that limits the number of concurrently open input streams, output streams, and
+ * total streams for a target file system.
+ *
+ * &lt;p&gt;This file system can wrap another existing file system in cases where the target file system
+ * cannot handle certain connection spikes and connections would fail in that case. This happens,
+ * for example, for very small HDFS clusters with few RPC handlers, when a large Flink job tries to
+ * build up many connections during a checkpoint.
+ *
+ * &lt;p&gt;The filesystem may track the progress of streams and close streams that have been inactive for
+ * too long, to avoid locked streams of taking up the complete pool. Rather than having a dedicated
+ * reaper thread, the calls that try to open a new stream periodically check the currently open
+ * streams once the limit of open streams is reached.
+ */
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">@Internal</span>
+public class LimitedConnectionsFileSystem extends FileSystem {
+
+<span class="fc" id="L64">    private static final Logger LOG = LoggerFactory.getLogger(LimitedConnectionsFileSystem.class);</span>
+
+    /** The original file system to which connections are limited. */
+    private final FileSystem originalFs;
+
+    /** The lock that synchronizes connection bookkeeping. */
+    private final ReentrantLock lock;
+
+    /** Condition for threads that are blocking on the availability of new connections. */
+    private final Condition available;
+
+    /** The maximum number of concurrently open output streams. */
+    private final int maxNumOpenOutputStreams;
+
+    /** The maximum number of concurrently open input streams. */
+    private final int maxNumOpenInputStreams;
+
+    /** The maximum number of concurrently open streams (input + output). */
+    private final int maxNumOpenStreamsTotal;
+
+    /** The nanoseconds that a opening a stream may wait for availability. */
+    private final long streamOpenTimeoutNanos;
+
+    /**
+     * The nanoseconds that a stream may spend not writing any bytes before it is closed as
+     * inactive.
+     */
+    private final long streamInactivityTimeoutNanos;
+
+    /** The set of currently open output streams. */
+    @GuardedBy(&quot;lock&quot;)
+    private final HashSet&lt;OutStream&gt; openOutputStreams;
+
+    /** The set of currently open input streams. */
+    @GuardedBy(&quot;lock&quot;)
+    private final HashSet&lt;InStream&gt; openInputStreams;
+
+    /** The number of output streams reserved to be opened. */
+    @GuardedBy(&quot;lock&quot;)
+    private int numReservedOutputStreams;
+
+    /** The number of input streams reserved to be opened. */
+    @GuardedBy(&quot;lock&quot;)
+    private int numReservedInputStreams;
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * Creates a new output connection limiting file system.
+     *
+     * &lt;p&gt;If streams are inactive (meaning not writing bytes) for longer than the given timeout,
+     * then they are terminated as &quot;inactive&quot;, to prevent that the limited number of connections
+     * gets stuck on only blocked threads.
+     *
+     * @param originalFs The original file system to which connections are limited.
+     * @param maxNumOpenStreamsTotal The maximum number of concurrent open streams (0 means no
+     *     limit).
+     */
+    public LimitedConnectionsFileSystem(FileSystem originalFs, int maxNumOpenStreamsTotal) {
+<span class="fc" id="L123">        this(originalFs, maxNumOpenStreamsTotal, 0, 0);</span>
+<span class="fc" id="L124">    }</span>
+
+    /**
+     * Creates a new output connection limiting file system.
+     *
+     * &lt;p&gt;If streams are inactive (meaning not writing bytes) for longer than the given timeout,
+     * then they are terminated as &quot;inactive&quot;, to prevent that the limited number of connections
+     * gets stuck on only blocked threads.
+     *
+     * @param originalFs The original file system to which connections are limited.
+     * @param maxNumOpenStreamsTotal The maximum number of concurrent open streams (0 means no
+     *     limit).
+     * @param streamOpenTimeout The maximum number of milliseconds that the file system will wait
+     *     when no more connections are currently permitted.
+     * @param streamInactivityTimeout The milliseconds that a stream may spend not writing any bytes
+     *     before it is closed as inactive.
+     */
+    public LimitedConnectionsFileSystem(
+            FileSystem originalFs,
+            int maxNumOpenStreamsTotal,
+            long streamOpenTimeout,
+            long streamInactivityTimeout) {
+<span class="fc" id="L146">        this(originalFs, maxNumOpenStreamsTotal, 0, 0, streamOpenTimeout, streamInactivityTimeout);</span>
+<span class="fc" id="L147">    }</span>
+
+    /**
+     * Creates a new output connection limiting file system, limiting input and output streams with
+     * potentially different quotas.
+     *
+     * &lt;p&gt;If streams are inactive (meaning not writing bytes) for longer than the given timeout,
+     * then they are terminated as &quot;inactive&quot;, to prevent that the limited number of connections
+     * gets stuck on only blocked threads.
+     *
+     * @param originalFs The original file system to which connections are limited.
+     * @param maxNumOpenStreamsTotal The maximum number of concurrent open streams (0 means no
+     *     limit).
+     * @param maxNumOpenOutputStreams The maximum number of concurrent open output streams (0 means
+     *     no limit).
+     * @param maxNumOpenInputStreams The maximum number of concurrent open input streams (0 means no
+     *     limit).
+     * @param streamOpenTimeout The maximum number of milliseconds that the file system will wait
+     *     when no more connections are currently permitted.
+     * @param streamInactivityTimeout The milliseconds that a stream may spend not writing any bytes
+     *     before it is closed as inactive.
+     */
+    public LimitedConnectionsFileSystem(
+            FileSystem originalFs,
+            int maxNumOpenStreamsTotal,
+            int maxNumOpenOutputStreams,
+            int maxNumOpenInputStreams,
+            long streamOpenTimeout,
+<span class="fc" id="L175">            long streamInactivityTimeout) {</span>
+
+<span class="pc bpc" id="L177" title="1 of 2 branches missed.">        checkArgument(maxNumOpenStreamsTotal &gt;= 0, &quot;maxNumOpenStreamsTotal must be &gt;= 0&quot;);</span>
+<span class="pc bpc" id="L178" title="1 of 2 branches missed.">        checkArgument(maxNumOpenOutputStreams &gt;= 0, &quot;maxNumOpenOutputStreams must be &gt;= 0&quot;);</span>
+<span class="pc bpc" id="L179" title="1 of 2 branches missed.">        checkArgument(maxNumOpenInputStreams &gt;= 0, &quot;maxNumOpenInputStreams must be &gt;= 0&quot;);</span>
+<span class="pc bpc" id="L180" title="1 of 2 branches missed.">        checkArgument(</span>
+                streamOpenTimeout &gt;= 0,
+                &quot;stream opening timeout must be &gt;= 0 (0 means infinite timeout)&quot;);
+<span class="pc bpc" id="L183" title="1 of 2 branches missed.">        checkArgument(</span>
+                streamInactivityTimeout &gt;= 0,
+                &quot;stream inactivity timeout must be &gt;= 0 (0 means infinite timeout)&quot;);
+
+<span class="fc" id="L187">        this.originalFs = checkNotNull(originalFs, &quot;originalFs&quot;);</span>
+<span class="fc" id="L188">        this.lock = new ReentrantLock(true);</span>
+<span class="fc" id="L189">        this.available = lock.newCondition();</span>
+<span class="fc" id="L190">        this.openOutputStreams = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L191">        this.openInputStreams = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L192">        this.maxNumOpenStreamsTotal = maxNumOpenStreamsTotal;</span>
+<span class="fc" id="L193">        this.maxNumOpenOutputStreams = maxNumOpenOutputStreams;</span>
+<span class="fc" id="L194">        this.maxNumOpenInputStreams = maxNumOpenInputStreams;</span>
+
+        // assign nanos overflow aware
+<span class="fc" id="L197">        final long openTimeoutNanos = streamOpenTimeout * 1_000_000;</span>
+<span class="fc" id="L198">        final long inactivityTimeoutNanos = streamInactivityTimeout * 1_000_000;</span>
+
+<span class="fc bfc" id="L200" title="All 2 branches covered.">        this.streamOpenTimeoutNanos =</span>
+                openTimeoutNanos &gt;= streamOpenTimeout ? openTimeoutNanos : Long.MAX_VALUE;
+
+<span class="fc bfc" id="L203" title="All 2 branches covered.">        this.streamInactivityTimeoutNanos =</span>
+                inactivityTimeoutNanos &gt;= streamInactivityTimeout
+                        ? inactivityTimeoutNanos
+                        : Long.MAX_VALUE;
+<span class="fc" id="L207">    }</span>
+
+    // ------------------------------------------------------------------------
+
+    /** Gets the maximum number of concurrently open output streams. */
+    public int getMaxNumOpenOutputStreams() {
+<span class="fc" id="L213">        return maxNumOpenOutputStreams;</span>
+    }
+
+    /** Gets the maximum number of concurrently open input streams. */
+    public int getMaxNumOpenInputStreams() {
+<span class="fc" id="L218">        return maxNumOpenInputStreams;</span>
+    }
+
+    /** Gets the maximum number of concurrently open streams (input + output). */
+    public int getMaxNumOpenStreamsTotal() {
+<span class="fc" id="L223">        return maxNumOpenStreamsTotal;</span>
+    }
+
+    /**
+     * Gets the number of milliseconds that a opening a stream may wait for availability in the
+     * connection pool.
+     */
+    public long getStreamOpenTimeout() {
+<span class="fc" id="L231">        return streamOpenTimeoutNanos / 1_000_000;</span>
+    }
+
+    /**
+     * Gets the milliseconds that a stream may spend not writing any bytes before it is closed as
+     * inactive.
+     */
+    public long getStreamInactivityTimeout() {
+<span class="fc" id="L239">        return streamInactivityTimeoutNanos / 1_000_000;</span>
+    }
+
+    /** Gets the total number of open streams (input plus output). */
+    public int getTotalNumberOfOpenStreams() {
+<span class="fc" id="L244">        lock.lock();</span>
+        try {
+<span class="fc" id="L246">            return numReservedOutputStreams + numReservedInputStreams;</span>
+        } finally {
+<span class="fc" id="L248">            lock.unlock();</span>
+        }
+    }
+
+    /** Gets the number of currently open output streams. */
+    public int getNumberOfOpenOutputStreams() {
+<span class="fc" id="L254">        lock.lock();</span>
+        try {
+<span class="fc" id="L256">            return numReservedOutputStreams;</span>
+        } finally {
+<span class="fc" id="L258">            lock.unlock();</span>
+        }
+    }
+
+    /** Gets the number of currently open input streams. */
+    public int getNumberOfOpenInputStreams() {
+<span class="fc" id="L264">        return numReservedInputStreams;</span>
+    }
+
+    // ------------------------------------------------------------------------
+    //  input &amp; output stream opening methods
+    // ------------------------------------------------------------------------
+
+    @Override
+    public FSDataOutputStream create(Path f, WriteMode overwriteMode) throws IOException {
+<span class="fc" id="L273">        return createOutputStream(() -&gt; originalFs.create(f, overwriteMode));</span>
+    }
+
+    @Override
+    @Deprecated
+    @SuppressWarnings(&quot;deprecation&quot;)
+    public FSDataOutputStream create(
+            Path f, boolean overwrite, int bufferSize, short replication, long blockSize)
+            throws IOException {
+
+<span class="fc" id="L283">        return createOutputStream(</span>
+<span class="fc" id="L284">                () -&gt; originalFs.create(f, overwrite, bufferSize, replication, blockSize));</span>
+    }
+
+    @Override
+    public FSDataInputStream open(Path f, int bufferSize) throws IOException {
+<span class="fc" id="L289">        return createInputStream(() -&gt; originalFs.open(f, bufferSize));</span>
+    }
+
+    @Override
+    public FSDataInputStream open(Path f) throws IOException {
+<span class="fc" id="L294">        return createInputStream(() -&gt; originalFs.open(f));</span>
+    }
+
+    private FSDataOutputStream createOutputStream(
+            final SupplierWithException&lt;FSDataOutputStream, IOException&gt; streamOpener)
+            throws IOException {
+
+<span class="fc" id="L301">        final SupplierWithException&lt;OutStream, IOException&gt; wrappedStreamOpener =</span>
+<span class="fc" id="L302">                () -&gt; new OutStream(streamOpener.get(), this);</span>
+
+<span class="fc" id="L304">        return createStream(wrappedStreamOpener, openOutputStreams, true);</span>
+    }
+
+    private FSDataInputStream createInputStream(
+            final SupplierWithException&lt;FSDataInputStream, IOException&gt; streamOpener)
+            throws IOException {
+
+<span class="fc" id="L311">        final SupplierWithException&lt;InStream, IOException&gt; wrappedStreamOpener =</span>
+<span class="fc" id="L312">                () -&gt; new InStream(streamOpener.get(), this);</span>
+
+<span class="fc" id="L314">        return createStream(wrappedStreamOpener, openInputStreams, false);</span>
+    }
+
+    // ------------------------------------------------------------------------
+    //  other delegating file system methods
+    // ------------------------------------------------------------------------
+
+    @Override
+    public FileSystemKind getKind() {
+<span class="fc" id="L323">        return originalFs.getKind();</span>
+    }
+
+    @Override
+    public boolean isDistributedFS() {
+<span class="fc" id="L328">        return originalFs.isDistributedFS();</span>
+    }
+
+    @Override
+    public Path getWorkingDirectory() {
+<span class="fc" id="L333">        return originalFs.getWorkingDirectory();</span>
+    }
+
+    @Override
+    public Path getHomeDirectory() {
+<span class="fc" id="L338">        return originalFs.getHomeDirectory();</span>
+    }
+
+    @Override
+    public URI getUri() {
+<span class="fc" id="L343">        return originalFs.getUri();</span>
+    }
+
+    @Override
+    public FileStatus getFileStatus(Path f) throws IOException {
+<span class="fc" id="L348">        return originalFs.getFileStatus(f);</span>
+    }
+
+    @Override
+    public BlockLocation[] getFileBlockLocations(FileStatus file, long start, long len)
+            throws IOException {
+<span class="fc" id="L354">        return originalFs.getFileBlockLocations(file, start, len);</span>
+    }
+
+    @Override
+    public FileStatus[] listStatus(Path f) throws IOException {
+<span class="fc" id="L359">        return originalFs.listStatus(f);</span>
+    }
+
+    @Override
+    public boolean delete(Path f, boolean recursive) throws IOException {
+<span class="fc" id="L364">        return originalFs.delete(f, recursive);</span>
+    }
+
+    @Override
+    public boolean mkdirs(Path f) throws IOException {
+<span class="fc" id="L369">        return originalFs.mkdirs(f);</span>
+    }
+
+    @Override
+    public boolean rename(Path src, Path dst) throws IOException {
+<span class="fc" id="L374">        return originalFs.rename(src, dst);</span>
+    }
+
+    @Override
+    public boolean exists(Path f) throws IOException {
+<span class="fc" id="L379">        return originalFs.exists(f);</span>
+    }
+
+    @Override
+    @Deprecated
+    @SuppressWarnings(&quot;deprecation&quot;)
+    public long getDefaultBlockSize() {
+<span class="fc" id="L386">        return originalFs.getDefaultBlockSize();</span>
+    }
+
+    // ------------------------------------------------------------------------
+
+    private &lt;T extends StreamWithTimeout&gt; T createStream(
+            final SupplierWithException&lt;T, IOException&gt; streamOpener,
+            final HashSet&lt;T&gt; openStreams,
+            final boolean output)
+            throws IOException {
+
+<span class="fc bfc" id="L397" title="All 4 branches covered.">        final int outputLimit =</span>
+                output &amp;&amp; maxNumOpenOutputStreams &gt; 0 ? maxNumOpenOutputStreams : Integer.MAX_VALUE;
+<span class="fc bfc" id="L399" title="All 4 branches covered.">        final int inputLimit =</span>
+                !output &amp;&amp; maxNumOpenInputStreams &gt; 0 ? maxNumOpenInputStreams : Integer.MAX_VALUE;
+<span class="pc bpc" id="L401" title="1 of 2 branches missed.">        final int totalLimit =</span>
+                maxNumOpenStreamsTotal &gt; 0 ? maxNumOpenStreamsTotal : Integer.MAX_VALUE;
+<span class="fc bfc" id="L403" title="All 2 branches covered.">        final int outputCredit = output ? 1 : 0;</span>
+<span class="fc bfc" id="L404" title="All 2 branches covered.">        final int inputCredit = output ? 0 : 1;</span>
+
+        // because waiting for availability may take long, we need to be interruptible here
+        // and handle interrupted exceptions as I/O errors
+        // even though the code is written to make sure the lock is held for a short time only,
+        // making the lock acquisition interruptible helps to guard against the cases where
+        // a supposedly fast operation (like 'getPos()' on a stream) actually takes long.
+        try {
+<span class="fc" id="L412">            lock.lockInterruptibly();</span>
+            try {
+                // some integrity checks
+<span class="pc bpc" id="L415" title="2 of 4 branches missed.">                assert openOutputStreams.size() &lt;= numReservedOutputStreams;</span>
+<span class="pc bpc" id="L416" title="2 of 4 branches missed.">                assert openInputStreams.size() &lt;= numReservedInputStreams;</span>
+
+                // wait until there are few enough streams so we can open another
+<span class="fc" id="L419">                waitForAvailability(totalLimit, outputLimit, inputLimit);</span>
+
+                // We do not open the stream here in the locked scope because opening a stream
+                // could take a while. Holding the lock during that operation would block all
+                // concurrent
+                // attempts to try and open a stream, effectively serializing all calls to open the
+                // streams.
+<span class="fc" id="L426">                numReservedOutputStreams += outputCredit;</span>
+<span class="fc" id="L427">                numReservedInputStreams += inputCredit;</span>
+            } finally {
+<span class="fc" id="L429">                lock.unlock();</span>
+            }
+<span class="nc" id="L431">        } catch (InterruptedException e) {</span>
+            // restore interruption flag
+<span class="nc" id="L433">            Thread.currentThread().interrupt();</span>
+<span class="nc" id="L434">            throw new IOException(&quot;interrupted before opening stream&quot;);</span>
+<span class="fc" id="L435">        }</span>
+
+        // open the stream outside the lock.
+<span class="fc" id="L438">        boolean success = false;</span>
+        try {
+<span class="fc" id="L440">            final T out = streamOpener.get();</span>
+
+            // add the stream to the set, need to re-acquire the lock
+<span class="fc" id="L443">            lock.lock();</span>
+            try {
+<span class="fc" id="L445">                openStreams.add(out);</span>
+            } finally {
+<span class="fc" id="L447">                lock.unlock();</span>
+            }
+
+            // good, can now return cleanly
+<span class="fc" id="L451">            success = true;</span>
+<span class="fc" id="L452">            return out;</span>
+        } finally {
+<span class="fc bfc" id="L454" title="All 2 branches covered.">            if (!success) {</span>
+                // remove the reserved credit
+                // we must open this non-interruptibly, because this must succeed!
+<span class="fc" id="L457">                lock.lock();</span>
+                try {
+<span class="fc" id="L459">                    numReservedOutputStreams -= outputCredit;</span>
+<span class="fc" id="L460">                    numReservedInputStreams -= inputCredit;</span>
+<span class="fc" id="L461">                    available.signalAll();</span>
+                } finally {
+<span class="fc" id="L463">                    lock.unlock();</span>
+                }
+            }
+        }
+    }
+
+    @GuardedBy(&quot;lock&quot;)
+    private void waitForAvailability(int totalLimit, int outputLimit, int inputLimit)
+            throws InterruptedException, IOException {
+
+<span class="fc" id="L473">        checkState(lock.isHeldByCurrentThread());</span>
+
+        // compute the deadline of this operations
+        final long deadline;
+<span class="fc bfc" id="L477" title="All 2 branches covered.">        if (streamOpenTimeoutNanos == 0) {</span>
+<span class="fc" id="L478">            deadline = Long.MAX_VALUE;</span>
+        } else {
+<span class="fc" id="L480">            long deadlineNanos = System.nanoTime() + streamOpenTimeoutNanos;</span>
+            // check for overflow
+<span class="pc bpc" id="L482" title="1 of 2 branches missed.">            deadline = deadlineNanos &gt; 0 ? deadlineNanos : Long.MAX_VALUE;</span>
+        }
+
+        // wait for available connections
+        long timeLeft;
+
+<span class="fc bfc" id="L488" title="All 2 branches covered.">        if (streamInactivityTimeoutNanos == 0) {</span>
+            // simple case: just wait
+<span class="fc bfc" id="L490" title="All 2 branches covered.">            while ((timeLeft = (deadline - System.nanoTime())) &gt; 0</span>
+<span class="fc bfc" id="L491" title="All 2 branches covered.">                    &amp;&amp; !hasAvailability(totalLimit, outputLimit, inputLimit)) {</span>
+
+<span class="fc" id="L493">                available.await(timeLeft, TimeUnit.NANOSECONDS);</span>
+            }
+        } else {
+            // complex case: chase down inactive streams
+<span class="fc" id="L497">            final long checkIntervalNanos = (streamInactivityTimeoutNanos &gt;&gt;&gt; 1) + 1;</span>
+
+            long now;
+<span class="pc bpc" id="L500" title="1 of 2 branches missed.">            while ((timeLeft = (deadline - (now = System.nanoTime()))) &gt; 0</span>
+                    &amp;&amp; // while still within timeout
+<span class="fc bfc" id="L502" title="All 2 branches covered.">                    !hasAvailability(totalLimit, outputLimit, inputLimit)) {</span>
+
+                // check all streams whether there in one that has been inactive for too long
+<span class="fc bfc" id="L505" title="All 2 branches covered.">                if (!(closeInactiveStream(openOutputStreams, now)</span>
+<span class="fc bfc" id="L506" title="All 2 branches covered.">                        || closeInactiveStream(openInputStreams, now))) {</span>
+                    // only wait if we did not manage to close any stream.
+                    // otherwise eagerly check again if we have availability now (we should have!)
+<span class="fc" id="L509">                    long timeToWait = Math.min(checkIntervalNanos, timeLeft);</span>
+<span class="fc" id="L510">                    available.await(timeToWait, TimeUnit.NANOSECONDS);</span>
+<span class="fc" id="L511">                }</span>
+            }
+        }
+
+        // check for timeout
+        // we check availability again to catch cases where the timeout expired while waiting
+        // to re-acquire the lock
+<span class="pc bpc" id="L518" title="1 of 4 branches missed.">        if (timeLeft &lt;= 0 &amp;&amp; !hasAvailability(totalLimit, outputLimit, inputLimit)) {</span>
+<span class="fc" id="L519">            throw new IOException(</span>
+<span class="fc" id="L520">                    String.format(</span>
+                            &quot;Timeout while waiting for an available stream/connection. &quot;
+                                    + &quot;limits: total=%d, input=%d, output=%d ; Open: input=%d, output=%d ; timeout: %d ms&quot;,
+<span class="fc" id="L523">                            maxNumOpenStreamsTotal,</span>
+<span class="fc" id="L524">                            maxNumOpenInputStreams,</span>
+<span class="fc" id="L525">                            maxNumOpenOutputStreams,</span>
+<span class="fc" id="L526">                            numReservedInputStreams,</span>
+<span class="fc" id="L527">                            numReservedOutputStreams,</span>
+<span class="fc" id="L528">                            getStreamOpenTimeout()));</span>
+        }
+<span class="fc" id="L530">    }</span>
+
+    @GuardedBy(&quot;lock&quot;)
+    private boolean hasAvailability(int totalLimit, int outputLimit, int inputLimit) {
+<span class="fc bfc" id="L534" title="All 6 branches covered.">        return numReservedOutputStreams &lt; outputLimit</span>
+                &amp;&amp; numReservedInputStreams &lt; inputLimit
+                &amp;&amp; numReservedOutputStreams + numReservedInputStreams &lt; totalLimit;
+    }
+
+    @GuardedBy(&quot;lock&quot;)
+    private boolean closeInactiveStream(
+            HashSet&lt;? extends StreamWithTimeout&gt; streams, long nowNanos) {
+<span class="fc bfc" id="L542" title="All 2 branches covered.">        for (StreamWithTimeout stream : streams) {</span>
+            try {
+<span class="fc" id="L544">                final StreamProgressTracker tracker = stream.getProgressTracker();</span>
+
+                // If the stream is closed already, it will be removed anyways, so we
+                // do not classify it as inactive. We also skip the check if another check happened
+                // too recently.
+<span class="fc bfc" id="L549" title="All 2 branches covered.">                if (stream.isClosed()</span>
+                        || nowNanos
+<span class="fc bfc" id="L551" title="All 2 branches covered.">                                &lt; tracker.getLastCheckTimestampNanos()</span>
+                                        + streamInactivityTimeoutNanos) {
+                    // interval since last check not yet over
+<span class="fc" id="L554">                    return false;</span>
+<span class="fc bfc" id="L555" title="All 2 branches covered.">                } else if (!tracker.checkNewBytesAndMark(nowNanos)) {</span>
+<span class="fc" id="L556">                    stream.closeDueToTimeout();</span>
+<span class="fc" id="L557">                    return true;</span>
+                }
+<span class="nc" id="L559">            } catch (StreamTimeoutException ignored) {</span>
+                // may happen due to races
+<span class="nc" id="L561">            } catch (IOException e) {</span>
+                // only log on debug level here, to avoid log spamming
+<span class="nc" id="L563">                LOG.debug(&quot;Could not check for stream progress to determine inactivity&quot;, e);</span>
+<span class="pc" id="L564">            }</span>
+<span class="fc" id="L565">        }</span>
+
+<span class="fc" id="L567">        return false;</span>
+    }
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * Atomically removes the given output stream from the set of currently open output streams, and
+     * signals that new stream can now be opened.
+     */
+    void unregisterOutputStream(OutStream stream) {
+<span class="fc" id="L577">        lock.lock();</span>
+        try {
+            // only decrement if we actually remove the stream
+<span class="pc bpc" id="L580" title="1 of 2 branches missed.">            if (openOutputStreams.remove(stream)) {</span>
+<span class="fc" id="L581">                numReservedOutputStreams--;</span>
+<span class="fc" id="L582">                available.signalAll();</span>
+            }
+        } finally {
+<span class="fc" id="L585">            lock.unlock();</span>
+        }
+<span class="fc" id="L587">    }</span>
+
+    /**
+     * Atomically removes the given input stream from the set of currently open input streams, and
+     * signals that new stream can now be opened.
+     */
+    void unregisterInputStream(InStream stream) {
+<span class="fc" id="L594">        lock.lock();</span>
+        try {
+            // only decrement if we actually remove the stream
+<span class="pc bpc" id="L597" title="1 of 2 branches missed.">            if (openInputStreams.remove(stream)) {</span>
+<span class="fc" id="L598">                numReservedInputStreams--;</span>
+<span class="fc" id="L599">                available.signalAll();</span>
+            }
+        } finally {
+<span class="fc" id="L602">            lock.unlock();</span>
+        }
+<span class="fc" id="L604">    }</span>
+
+    // ------------------------------------------------------------------------
+
+    /** A special IOException, indicating a timeout in the data output stream. */
+    public static final class StreamTimeoutException extends IOException {
+
+        private static final long serialVersionUID = -8790922066795901928L;
+
+        public StreamTimeoutException() {
+<span class="fc" id="L614">            super(</span>
+                    &quot;Stream closed due to inactivity timeout. &quot;
+                            + &quot;This is done to prevent inactive streams from blocking the full &quot;
+                            + &quot;pool of limited connections&quot;);
+<span class="fc" id="L618">        }</span>
+
+        public StreamTimeoutException(StreamTimeoutException other) {
+<span class="fc" id="L621">            super(other.getMessage(), other);</span>
+<span class="fc" id="L622">        }</span>
+    }
+
+    // ------------------------------------------------------------------------
+
+    /** Interface for streams that can be checked for inactivity. */
+    private interface StreamWithTimeout extends Closeable {
+
+        /** Gets the progress tracker for this stream. */
+        StreamProgressTracker getProgressTracker();
+
+        /** Gets the current position in the stream, as in number of bytes read or written. */
+        long getPos() throws IOException;
+
+        /**
+         * Closes the stream asynchronously with a special exception that indicates closing due to
+         * lack of progress.
+         */
+        void closeDueToTimeout() throws IOException;
+
+        /** Checks whether the stream was closed already. */
+        boolean isClosed();
+    }
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * A tracker for stream progress. This records the number of bytes read / written together with
+     * a timestamp when the last check happened.
+     */
+    private static final class StreamProgressTracker {
+
+        /** The tracked stream. */
+        private final StreamWithTimeout stream;
+
+        /**
+         * The number of bytes written the last time that the {@link #checkNewBytesAndMark(long)}
+         * method was called. It is important to initialize this with {@code -1} so that the first
+         * check (0 bytes) always appears to have made progress.
+         */
+<span class="fc" id="L662">        private volatile long lastCheckBytes = -1;</span>
+
+        /** The timestamp when the last inactivity evaluation was made. */
+        private volatile long lastCheckTimestampNanos;
+
+<span class="fc" id="L667">        StreamProgressTracker(StreamWithTimeout stream) {</span>
+<span class="fc" id="L668">            this.stream = stream;</span>
+<span class="fc" id="L669">        }</span>
+
+        /** Gets the timestamp when the last inactivity evaluation was made. */
+        public long getLastCheckTimestampNanos() {
+<span class="fc" id="L673">            return lastCheckTimestampNanos;</span>
+        }
+
+        /**
+         * Checks whether there were new bytes since the last time this method was invoked. This
+         * also sets the given timestamp, to be read via {@link #getLastCheckTimestampNanos()}.
+         *
+         * @return True, if there were new bytes, false if not.
+         */
+        public boolean checkNewBytesAndMark(long timestamp) throws IOException {
+            // remember the time when checked
+<span class="fc" id="L684">            lastCheckTimestampNanos = timestamp;</span>
+
+<span class="fc" id="L686">            final long bytesNow = stream.getPos();</span>
+<span class="fc bfc" id="L687" title="All 2 branches covered.">            if (bytesNow &gt; lastCheckBytes) {</span>
+<span class="fc" id="L688">                lastCheckBytes = bytesNow;</span>
+<span class="fc" id="L689">                return true;</span>
+            } else {
+<span class="fc" id="L691">                return false;</span>
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * A data output stream that wraps a given data output stream and un-registers from a given
+     * connection-limiting file system (via {@link
+     * LimitedConnectionsFileSystem#unregisterOutputStream(OutStream)} upon closing.
+     */
+    private static final class OutStream extends FSDataOutputStream implements StreamWithTimeout {
+
+        /** The original data output stream to write to. */
+        private final FSDataOutputStream originalStream;
+
+        /** The connection-limiting file system to un-register from. */
+        private final LimitedConnectionsFileSystem fs;
+
+        /** The progress tracker for this stream. */
+        private final StreamProgressTracker progressTracker;
+
+        /** An exception with which the stream has been externally closed. */
+        private volatile StreamTimeoutException timeoutException;
+
+        /** Flag tracking whether the stream was already closed, for proper inactivity tracking. */
+<span class="fc" id="L718">        private final AtomicBoolean closed = new AtomicBoolean();</span>
+
+<span class="fc" id="L720">        OutStream(FSDataOutputStream originalStream, LimitedConnectionsFileSystem fs) {</span>
+<span class="fc" id="L721">            this.originalStream = checkNotNull(originalStream);</span>
+<span class="fc" id="L722">            this.fs = checkNotNull(fs);</span>
+<span class="fc" id="L723">            this.progressTracker = new StreamProgressTracker(this);</span>
+<span class="fc" id="L724">        }</span>
+
+        // --- FSDataOutputStream API implementation
+
+        @Override
+        public void write(int b) throws IOException {
+            try {
+<span class="fc" id="L731">                originalStream.write(b);</span>
+<span class="fc" id="L732">            } catch (IOException e) {</span>
+<span class="nc" id="L733">                handleIOException(e);</span>
+<span class="fc" id="L734">            }</span>
+<span class="fc" id="L735">        }</span>
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            try {
+<span class="fc" id="L740">                originalStream.write(b, off, len);</span>
+<span class="nc" id="L741">            } catch (IOException e) {</span>
+<span class="nc" id="L742">                handleIOException(e);</span>
+<span class="fc" id="L743">            }</span>
+<span class="fc" id="L744">        }</span>
+
+        @Override
+        public long getPos() throws IOException {
+            try {
+<span class="fc" id="L749">                return originalStream.getPos();</span>
+<span class="nc" id="L750">            } catch (IOException e) {</span>
+<span class="nc" id="L751">                handleIOException(e);</span>
+<span class="nc" id="L752">                return -1; // silence the compiler</span>
+            }
+        }
+
+        @Override
+        public void flush() throws IOException {
+            try {
+<span class="fc" id="L759">                originalStream.flush();</span>
+<span class="nc" id="L760">            } catch (IOException e) {</span>
+<span class="nc" id="L761">                handleIOException(e);</span>
+<span class="fc" id="L762">            }</span>
+<span class="fc" id="L763">        }</span>
+
+        @Override
+        public void sync() throws IOException {
+            try {
+<span class="fc" id="L768">                originalStream.sync();</span>
+<span class="nc" id="L769">            } catch (IOException e) {</span>
+<span class="nc" id="L770">                handleIOException(e);</span>
+<span class="fc" id="L771">            }</span>
+<span class="fc" id="L772">        }</span>
+
+        @Override
+        public void close() throws IOException {
+<span class="fc bfc" id="L776" title="All 2 branches covered.">            if (closed.compareAndSet(false, true)) {</span>
+                try {
+<span class="fc" id="L778">                    originalStream.close();</span>
+<span class="nc" id="L779">                } catch (IOException e) {</span>
+<span class="nc" id="L780">                    handleIOException(e);</span>
+                } finally {
+<span class="fc" id="L782">                    fs.unregisterOutputStream(this);</span>
+                }
+            }
+<span class="fc" id="L785">        }</span>
+
+        @Override
+        public void closeDueToTimeout() throws IOException {
+<span class="fc" id="L789">            this.timeoutException = new StreamTimeoutException();</span>
+<span class="fc" id="L790">            close();</span>
+<span class="fc" id="L791">        }</span>
+
+        @Override
+        public boolean isClosed() {
+<span class="fc" id="L795">            return closed.get();</span>
+        }
+
+        @Override
+        public StreamProgressTracker getProgressTracker() {
+<span class="fc" id="L800">            return progressTracker;</span>
+        }
+
+        private void handleIOException(IOException exception) throws IOException {
+<span class="pc bpc" id="L804" title="1 of 2 branches missed.">            if (timeoutException == null) {</span>
+<span class="nc" id="L805">                throw exception;</span>
+            } else {
+                // throw a new exception to capture this call's stack trace
+                // the new exception is forwarded as a suppressed exception
+<span class="fc" id="L809">                StreamTimeoutException te = new StreamTimeoutException(timeoutException);</span>
+<span class="fc" id="L810">                te.addSuppressed(exception);</span>
+<span class="fc" id="L811">                throw te;</span>
+            }
+        }
+    }
+
+    /**
+     * A data input stream that wraps a given data input stream and un-registers from a given
+     * connection-limiting file system (via {@link
+     * LimitedConnectionsFileSystem#unregisterInputStream(InStream)} upon closing.
+     */
+    private static final class InStream extends FSDataInputStream implements StreamWithTimeout {
+
+        /** The original data input stream to read from. */
+        private final FSDataInputStream originalStream;
+
+        /** The connection-limiting file system to un-register from. */
+        private final LimitedConnectionsFileSystem fs;
+
+        /** An exception with which the stream has been externally closed. */
+        private volatile StreamTimeoutException timeoutException;
+
+        /** The progress tracker for this stream. */
+        private final StreamProgressTracker progressTracker;
+
+        /** Flag tracking whether the stream was already closed, for proper inactivity tracking. */
+<span class="fc" id="L836">        private final AtomicBoolean closed = new AtomicBoolean();</span>
+
+<span class="fc" id="L838">        InStream(FSDataInputStream originalStream, LimitedConnectionsFileSystem fs) {</span>
+<span class="fc" id="L839">            this.originalStream = checkNotNull(originalStream);</span>
+<span class="fc" id="L840">            this.fs = checkNotNull(fs);</span>
+<span class="fc" id="L841">            this.progressTracker = new StreamProgressTracker(this);</span>
+<span class="fc" id="L842">        }</span>
+
+        // --- FSDataOutputStream API implementation
+
+        @Override
+        public int read() throws IOException {
+            try {
+<span class="fc" id="L849">                return originalStream.read();</span>
+<span class="fc" id="L850">            } catch (IOException e) {</span>
+<span class="nc" id="L851">                handleIOException(e);</span>
+<span class="nc" id="L852">                return 0; // silence the compiler</span>
+            }
+        }
+
+        @Override
+        public int read(byte[] b) throws IOException {
+            try {
+<span class="fc" id="L859">                return originalStream.read(b);</span>
+<span class="fc" id="L860">            } catch (IOException e) {</span>
+<span class="nc" id="L861">                handleIOException(e);</span>
+<span class="nc" id="L862">                return 0; // silence the compiler</span>
+            }
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            try {
+<span class="fc" id="L869">                return originalStream.read(b, off, len);</span>
+<span class="nc" id="L870">            } catch (IOException e) {</span>
+<span class="nc" id="L871">                handleIOException(e);</span>
+<span class="nc" id="L872">                return 0; // silence the compiler</span>
+            }
+        }
+
+        @Override
+        public long skip(long n) throws IOException {
+            try {
+<span class="nc" id="L879">                return originalStream.skip(n);</span>
+<span class="nc" id="L880">            } catch (IOException e) {</span>
+<span class="nc" id="L881">                handleIOException(e);</span>
+<span class="nc" id="L882">                return 0L; // silence the compiler</span>
+            }
+        }
+
+        @Override
+        public int available() throws IOException {
+            try {
+<span class="fc" id="L889">                return originalStream.available();</span>
+<span class="nc" id="L890">            } catch (IOException e) {</span>
+<span class="nc" id="L891">                handleIOException(e);</span>
+<span class="nc" id="L892">                return 0; // silence the compiler</span>
+            }
+        }
+
+        @Override
+        public void mark(int readlimit) {
+<span class="fc" id="L898">            originalStream.mark(readlimit);</span>
+<span class="fc" id="L899">        }</span>
+
+        @Override
+        public void reset() throws IOException {
+            try {
+<span class="nc" id="L904">                originalStream.reset();</span>
+<span class="nc" id="L905">            } catch (IOException e) {</span>
+<span class="nc" id="L906">                handleIOException(e);</span>
+<span class="nc" id="L907">            }</span>
+<span class="nc" id="L908">        }</span>
+
+        @Override
+        public boolean markSupported() {
+<span class="fc" id="L912">            return originalStream.markSupported();</span>
+        }
+
+        @Override
+        public void seek(long desired) throws IOException {
+            try {
+<span class="fc" id="L918">                originalStream.seek(desired);</span>
+<span class="nc" id="L919">            } catch (IOException e) {</span>
+<span class="nc" id="L920">                handleIOException(e);</span>
+<span class="fc" id="L921">            }</span>
+<span class="fc" id="L922">        }</span>
+
+        @Override
+        public long getPos() throws IOException {
+            try {
+<span class="fc" id="L927">                return originalStream.getPos();</span>
+<span class="nc" id="L928">            } catch (IOException e) {</span>
+<span class="nc" id="L929">                handleIOException(e);</span>
+<span class="nc" id="L930">                return 0; // silence the compiler</span>
+            }
+        }
+
+        @Override
+        public void close() throws IOException {
+<span class="fc bfc" id="L936" title="All 2 branches covered.">            if (closed.compareAndSet(false, true)) {</span>
+                try {
+<span class="fc" id="L938">                    originalStream.close();</span>
+<span class="nc" id="L939">                } catch (IOException e) {</span>
+<span class="nc" id="L940">                    handleIOException(e);</span>
+                } finally {
+<span class="fc" id="L942">                    fs.unregisterInputStream(this);</span>
+                }
+            }
+<span class="fc" id="L945">        }</span>
+
+        @Override
+        public void closeDueToTimeout() throws IOException {
+<span class="fc" id="L949">            this.timeoutException = new StreamTimeoutException();</span>
+<span class="fc" id="L950">            close();</span>
+<span class="fc" id="L951">        }</span>
+
+        @Override
+        public boolean isClosed() {
+<span class="fc" id="L955">            return closed.get();</span>
+        }
+
+        @Override
+        public StreamProgressTracker getProgressTracker() {
+<span class="fc" id="L960">            return progressTracker;</span>
+        }
+
+        private void handleIOException(IOException exception) throws IOException {
+<span class="pc bpc" id="L964" title="1 of 2 branches missed.">            if (timeoutException == null) {</span>
+<span class="nc" id="L965">                throw exception;</span>
+            } else {
+                // throw a new exception to capture this call's stack trace
+                // the new exception is forwarded as a suppressed exception
+<span class="fc" id="L969">                StreamTimeoutException te = new StreamTimeoutException(timeoutException);</span>
+<span class="fc" id="L970">                te.addSuppressed(exception);</span>
+<span class="fc" id="L971">                throw te;</span>
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------------
+
+    /** A simple configuration data object capturing the settings for limited connections. */
+    public static class ConnectionLimitingSettings {
+
+        /** The limit for the total number of connections, or 0, if no limit. */
+        public final int limitTotal;
+
+        /** The limit for the number of input stream connections, or 0, if no limit. */
+        public final int limitInput;
+
+        /** The limit for the number of output stream connections, or 0, if no limit. */
+        public final int limitOutput;
+
+        /** The stream opening timeout for a stream, in milliseconds. */
+        public final long streamOpenTimeout;
+
+        /** The inactivity timeout for a stream, in milliseconds. */
+        public final long streamInactivityTimeout;
+
+        /**
+         * Creates a new ConnectionLimitingSettings with the given parameters.
+         *
+         * @param limitTotal The limit for the total number of connections, or 0, if no limit.
+         * @param limitInput The limit for the number of input stream connections, or 0, if no
+         *     limit.
+         * @param limitOutput The limit for the number of output stream connections, or 0, if no
+         *     limit.
+         * @param streamOpenTimeout The maximum number of milliseconds that the file system will
+         *     wait when no more connections are currently permitted.
+         * @param streamInactivityTimeout The milliseconds that a stream may spend not writing any
+         *     bytes before it is closed as inactive.
+         */
+        public ConnectionLimitingSettings(
+                int limitTotal,
+                int limitInput,
+                int limitOutput,
+                long streamOpenTimeout,
+<span class="fc" id="L1014">                long streamInactivityTimeout) {</span>
+<span class="pc bpc" id="L1015" title="1 of 2 branches missed.">            checkArgument(limitTotal &gt;= 0);</span>
+<span class="pc bpc" id="L1016" title="1 of 2 branches missed.">            checkArgument(limitInput &gt;= 0);</span>
+<span class="pc bpc" id="L1017" title="1 of 2 branches missed.">            checkArgument(limitOutput &gt;= 0);</span>
+<span class="pc bpc" id="L1018" title="1 of 2 branches missed.">            checkArgument(streamOpenTimeout &gt;= 0);</span>
+<span class="pc bpc" id="L1019" title="1 of 2 branches missed.">            checkArgument(streamInactivityTimeout &gt;= 0);</span>
+
+<span class="fc" id="L1021">            this.limitTotal = limitTotal;</span>
+<span class="fc" id="L1022">            this.limitInput = limitInput;</span>
+<span class="fc" id="L1023">            this.limitOutput = limitOutput;</span>
+<span class="fc" id="L1024">            this.streamOpenTimeout = streamOpenTimeout;</span>
+<span class="fc" id="L1025">            this.streamInactivityTimeout = streamInactivityTimeout;</span>
+<span class="fc" id="L1026">        }</span>
+
+        // --------------------------------------------------------------------
+
+        /**
+         * Parses and returns the settings for connection limiting, for the file system with the
+         * given file system scheme.
+         *
+         * @param config The configuration to check.
+         * @param fsScheme The file system scheme.
+         * @return The parsed configuration, or null, if no connection limiting is configured.
+         */
+        @Nullable
+        public static ConnectionLimitingSettings fromConfig(Configuration config, String fsScheme) {
+<span class="fc" id="L1040">            checkNotNull(fsScheme, &quot;fsScheme&quot;);</span>
+<span class="fc" id="L1041">            checkNotNull(config, &quot;config&quot;);</span>
+
+<span class="fc" id="L1043">            final ConfigOption&lt;Integer&gt; totalLimitOption =</span>
+<span class="fc" id="L1044">                    CoreOptions.fileSystemConnectionLimit(fsScheme);</span>
+<span class="fc" id="L1045">            final ConfigOption&lt;Integer&gt; limitInOption =</span>
+<span class="fc" id="L1046">                    CoreOptions.fileSystemConnectionLimitIn(fsScheme);</span>
+<span class="fc" id="L1047">            final ConfigOption&lt;Integer&gt; limitOutOption =</span>
+<span class="fc" id="L1048">                    CoreOptions.fileSystemConnectionLimitOut(fsScheme);</span>
+
+<span class="fc" id="L1050">            final int totalLimit = config.getInteger(totalLimitOption);</span>
+<span class="fc" id="L1051">            final int limitIn = config.getInteger(limitInOption);</span>
+<span class="fc" id="L1052">            final int limitOut = config.getInteger(limitOutOption);</span>
+
+<span class="fc" id="L1054">            checkLimit(totalLimit, totalLimitOption);</span>
+<span class="fc" id="L1055">            checkLimit(limitIn, limitInOption);</span>
+<span class="fc" id="L1056">            checkLimit(limitOut, limitOutOption);</span>
+
+            // create the settings only, if at least one limit is configured
+<span class="fc bfc" id="L1059" title="All 6 branches covered.">            if (totalLimit &lt;= 0 &amp;&amp; limitIn &lt;= 0 &amp;&amp; limitOut &lt;= 0) {</span>
+                // no limit configured
+<span class="fc" id="L1061">                return null;</span>
+            } else {
+<span class="fc" id="L1063">                final ConfigOption&lt;Long&gt; openTimeoutOption =</span>
+<span class="fc" id="L1064">                        CoreOptions.fileSystemConnectionLimitTimeout(fsScheme);</span>
+<span class="fc" id="L1065">                final ConfigOption&lt;Long&gt; inactivityTimeoutOption =</span>
+<span class="fc" id="L1066">                        CoreOptions.fileSystemConnectionLimitStreamInactivityTimeout(fsScheme);</span>
+
+<span class="fc" id="L1068">                final long openTimeout = config.getLong(openTimeoutOption);</span>
+<span class="fc" id="L1069">                final long inactivityTimeout = config.getLong(inactivityTimeoutOption);</span>
+
+<span class="fc" id="L1071">                checkTimeout(openTimeout, openTimeoutOption);</span>
+<span class="fc" id="L1072">                checkTimeout(inactivityTimeout, inactivityTimeoutOption);</span>
+
+<span class="fc bfc" id="L1074" title="All 6 branches covered.">                return new ConnectionLimitingSettings(</span>
+                        totalLimit == -1 ? 0 : totalLimit,
+                        limitIn == -1 ? 0 : limitIn,
+                        limitOut == -1 ? 0 : limitOut,
+                        openTimeout,
+                        inactivityTimeout);
+            }
+        }
+
+        private static void checkLimit(int value, ConfigOption&lt;Integer&gt; option) {
+<span class="pc bpc" id="L1084" title="1 of 2 branches missed.">            if (value &lt; -1) {</span>
+<span class="nc" id="L1085">                throw new IllegalConfigurationException(</span>
+<span class="nc" id="L1086">                        &quot;Invalid value for '&quot; + option.key() + &quot;': &quot; + value);</span>
+            }
+<span class="fc" id="L1088">        }</span>
+
+        private static void checkTimeout(long timeout, ConfigOption&lt;Long&gt; option) {
+<span class="pc bpc" id="L1091" title="1 of 2 branches missed.">            if (timeout &lt; 0) {</span>
+<span class="nc" id="L1092">                throw new IllegalConfigurationException(</span>
+<span class="nc" id="L1093">                        &quot;Invalid value for '&quot; + option.key() + &quot;': &quot; + timeout);</span>
+            }
+<span class="fc" id="L1095">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

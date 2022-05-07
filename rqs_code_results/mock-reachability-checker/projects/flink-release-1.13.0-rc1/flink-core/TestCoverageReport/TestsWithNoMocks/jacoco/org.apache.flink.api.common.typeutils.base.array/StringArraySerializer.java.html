@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StringArraySerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeutils.base.array</a> &gt; <span class="el_source">StringArraySerializer.java</span></div><h1>StringArraySerializer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeutils.base.array;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.SimpleTypeSerializerSnapshot;
+import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
+import org.apache.flink.api.common.typeutils.base.TypeSerializerSingleton;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.types.StringValue;
+
+import java.io.IOException;
+
+/** A serializer for String arrays. Specialized for efficiency. */
+@Internal
+<span class="fc" id="L33">public final class StringArraySerializer extends TypeSerializerSingleton&lt;String[]&gt; {</span>
+
+    private static final long serialVersionUID = 1L;
+
+<span class="fc" id="L37">    private static final String[] EMPTY = new String[0];</span>
+
+<span class="fc" id="L39">    public static final StringArraySerializer INSTANCE = new StringArraySerializer();</span>
+
+    @Override
+    public boolean isImmutableType() {
+<span class="fc" id="L43">        return false;</span>
+    }
+
+    @Override
+    public String[] createInstance() {
+<span class="fc" id="L48">        return EMPTY;</span>
+    }
+
+    @Override
+    public String[] copy(String[] from) {
+<span class="fc" id="L53">        String[] target = new String[from.length];</span>
+<span class="fc" id="L54">        System.arraycopy(from, 0, target, 0, from.length);</span>
+<span class="fc" id="L55">        return target;</span>
+    }
+
+    @Override
+    public String[] copy(String[] from, String[] reuse) {
+<span class="fc" id="L60">        return copy(from);</span>
+    }
+
+    @Override
+    public int getLength() {
+<span class="fc" id="L65">        return -1;</span>
+    }
+
+    @Override
+    public void serialize(String[] record, DataOutputView target) throws IOException {
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">        if (record == null) {</span>
+<span class="nc" id="L71">            throw new IllegalArgumentException(&quot;The record must not be null.&quot;);</span>
+        }
+
+<span class="fc" id="L74">        final int len = record.length;</span>
+<span class="fc" id="L75">        target.writeInt(len);</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        for (int i = 0; i &lt; len; i++) {</span>
+<span class="fc" id="L77">            StringValue.writeString(record[i], target);</span>
+        }
+<span class="fc" id="L79">    }</span>
+
+    @Override
+    public String[] deserialize(DataInputView source) throws IOException {
+<span class="fc" id="L83">        final int len = source.readInt();</span>
+<span class="fc" id="L84">        String[] array = new String[len];</span>
+
+<span class="fc bfc" id="L86" title="All 2 branches covered.">        for (int i = 0; i &lt; len; i++) {</span>
+<span class="fc" id="L87">            array[i] = StringValue.readString(source);</span>
+        }
+
+<span class="fc" id="L90">        return array;</span>
+    }
+
+    @Override
+    public String[] deserialize(String[] reuse, DataInputView source) throws IOException {
+<span class="fc" id="L95">        return deserialize(source);</span>
+    }
+
+    @Override
+    public void copy(DataInputView source, DataOutputView target) throws IOException {
+<span class="fc" id="L100">        final int len = source.readInt();</span>
+<span class="fc" id="L101">        target.writeInt(len);</span>
+
+<span class="fc bfc" id="L103" title="All 2 branches covered.">        for (int i = 0; i &lt; len; i++) {</span>
+<span class="fc" id="L104">            StringValue.copyString(source, target);</span>
+        }
+<span class="fc" id="L106">    }</span>
+
+    @Override
+    public TypeSerializerSnapshot&lt;String[]&gt; snapshotConfiguration() {
+<span class="fc" id="L110">        return new StringArraySerializerSnapshot();</span>
+    }
+
+    // ------------------------------------------------------------------------
+
+    /** Serializer configuration snapshot for compatibility and format evolution. */
+    @SuppressWarnings(&quot;WeakerAccess&quot;)
+    public static final class StringArraySerializerSnapshot
+            extends SimpleTypeSerializerSnapshot&lt;String[]&gt; {
+        public StringArraySerializerSnapshot() {
+<span class="fc" id="L120">            super(() -&gt; INSTANCE);</span>
+<span class="fc" id="L121">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

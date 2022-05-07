@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WatermarkOutputMultiplexer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.eventtime</a> &gt; <span class="el_source">WatermarkOutputMultiplexer.java</span></div><h1>WatermarkOutputMultiplexer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.eventtime;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.util.Preconditions;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.apache.flink.util.Preconditions.checkState;
+
+/**
+ * A {@link WatermarkOutputMultiplexer} combines the watermark (and idleness) updates of multiple
+ * partitions/shards/splits into one combined watermark update and forwards it to an underlying
+ * {@link WatermarkOutput}.
+ *
+ * &lt;p&gt;A multiplexed output can either be immediate or deferred. Watermark updates on an immediate
+ * output will potentially directly affect the combined watermark state, which will be forwarded to
+ * the underlying output immediately. Watermark updates on a deferred output will only update an
+ * internal state but not directly update the combined watermark state. Only when {@link
+ * #onPeriodicEmit()} is called will the deferred updates be combined and forwarded to the
+ * underlying output.
+ *
+ * &lt;p&gt;For registering a new multiplexed output, you must first call {@link
+ * #registerNewOutput(String)} and then call {@link #getImmediateOutput(String)} or {@link
+ * #getDeferredOutput(String)} with the output ID you get from that. You can get both an immediate
+ * and deferred output for a given output ID, you can also call the getters multiple times.
+ *
+ * &lt;p&gt;&lt;b&gt;WARNING:&lt;/b&gt;This class is not thread safe.
+ */
+@Internal
+public class WatermarkOutputMultiplexer {
+
+    /**
+     * The {@link WatermarkOutput} that we use to emit our multiplexed watermark updates. We assume
+     * that outside code holds a coordinating lock so we don't lock in this class when accessing
+     * this {@link WatermarkOutput}.
+     */
+    private final WatermarkOutput underlyingOutput;
+
+    /** The combined watermark over the per-output watermarks. */
+<span class="fc" id="L61">    private long combinedWatermark = Long.MIN_VALUE;</span>
+
+    /**
+     * Map view, to allow finding them when requesting the {@link WatermarkOutput} for a given id.
+     */
+    private final Map&lt;String, OutputState&gt; watermarkPerOutputId;
+
+    /** List of all watermark outputs, for efficient access. */
+    private final List&lt;OutputState&gt; watermarkOutputs;
+
+    /**
+     * Creates a new {@link WatermarkOutputMultiplexer} that emits combined updates to the given
+     * {@link WatermarkOutput}.
+     */
+<span class="fc" id="L75">    public WatermarkOutputMultiplexer(WatermarkOutput underlyingOutput) {</span>
+<span class="fc" id="L76">        this.underlyingOutput = underlyingOutput;</span>
+<span class="fc" id="L77">        this.watermarkPerOutputId = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L78">        this.watermarkOutputs = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L79">    }</span>
+
+    /**
+     * Registers a new multiplexed output, which creates internal states for that output and returns
+     * an output ID that can be used to get a deferred or immediate {@link WatermarkOutput} for that
+     * output.
+     */
+    public void registerNewOutput(String id) {
+<span class="fc" id="L87">        final OutputState outputState = new OutputState();</span>
+
+<span class="fc" id="L89">        final OutputState previouslyRegistered = watermarkPerOutputId.putIfAbsent(id, outputState);</span>
+<span class="pc bpc" id="L90" title="1 of 2 branches missed.">        checkState(previouslyRegistered == null, &quot;Already contains an output for ID %s&quot;, id);</span>
+
+<span class="fc" id="L92">        watermarkOutputs.add(outputState);</span>
+<span class="fc" id="L93">    }</span>
+
+    public boolean unregisterOutput(String id) {
+<span class="fc" id="L96">        final OutputState output = watermarkPerOutputId.remove(id);</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">        if (output != null) {</span>
+<span class="fc" id="L98">            watermarkOutputs.remove(output);</span>
+<span class="fc" id="L99">            return true;</span>
+        } else {
+<span class="fc" id="L101">            return false;</span>
+        }
+    }
+
+    /**
+     * Returns an immediate {@link WatermarkOutput} for the given output ID.
+     *
+     * &lt;p&gt;&gt;See {@link WatermarkOutputMultiplexer} for a description of immediate and deferred
+     * outputs.
+     */
+    public WatermarkOutput getImmediateOutput(String outputId) {
+<span class="fc" id="L112">        final OutputState outputState = watermarkPerOutputId.get(outputId);</span>
+<span class="pc bpc" id="L113" title="1 of 2 branches missed.">        Preconditions.checkArgument(</span>
+                outputState != null, &quot;no output registered under id %s&quot;, outputId);
+<span class="fc" id="L115">        return new ImmediateOutput(outputState);</span>
+    }
+
+    /**
+     * Returns a deferred {@link WatermarkOutput} for the given output ID.
+     *
+     * &lt;p&gt;&gt;See {@link WatermarkOutputMultiplexer} for a description of immediate and deferred
+     * outputs.
+     */
+    public WatermarkOutput getDeferredOutput(String outputId) {
+<span class="fc" id="L125">        final OutputState outputState = watermarkPerOutputId.get(outputId);</span>
+<span class="pc bpc" id="L126" title="1 of 2 branches missed.">        Preconditions.checkArgument(</span>
+                outputState != null, &quot;no output registered under id %s&quot;, outputId);
+<span class="fc" id="L128">        return new DeferredOutput(outputState);</span>
+    }
+
+    /**
+     * Tells the {@link WatermarkOutputMultiplexer} to combine all outstanding deferred watermark
+     * updates and possibly emit a new update to the underlying {@link WatermarkOutput}.
+     */
+    public void onPeriodicEmit() {
+<span class="fc" id="L136">        updateCombinedWatermark();</span>
+<span class="fc" id="L137">    }</span>
+
+    /**
+     * Checks whether we need to update the combined watermark. Should be called when a newly
+     * emitted per-output watermark is higher than the max so far or if we need to combined the
+     * deferred per-output updates.
+     */
+    private void updateCombinedWatermark() {
+<span class="fc" id="L145">        long minimumOverAllOutputs = Long.MAX_VALUE;</span>
+
+<span class="fc" id="L147">        boolean hasOutputs = false;</span>
+<span class="fc" id="L148">        boolean allIdle = true;</span>
+<span class="fc bfc" id="L149" title="All 2 branches covered.">        for (OutputState outputState : watermarkOutputs) {</span>
+<span class="fc bfc" id="L150" title="All 2 branches covered.">            if (!outputState.isIdle()) {</span>
+<span class="fc" id="L151">                minimumOverAllOutputs = Math.min(minimumOverAllOutputs, outputState.getWatermark());</span>
+<span class="fc" id="L152">                allIdle = false;</span>
+            }
+<span class="fc" id="L154">            hasOutputs = true;</span>
+<span class="fc" id="L155">        }</span>
+
+        // if we don't have any outputs minimumOverAllOutputs is not valid, it's still
+        // at its initial Long.MAX_VALUE state and we must not emit that
+<span class="fc bfc" id="L159" title="All 2 branches covered.">        if (!hasOutputs) {</span>
+<span class="fc" id="L160">            return;</span>
+        }
+
+<span class="fc bfc" id="L163" title="All 2 branches covered.">        if (allIdle) {</span>
+<span class="fc" id="L164">            underlyingOutput.markIdle();</span>
+<span class="fc bfc" id="L165" title="All 2 branches covered.">        } else if (minimumOverAllOutputs &gt; combinedWatermark) {</span>
+<span class="fc" id="L166">            combinedWatermark = minimumOverAllOutputs;</span>
+<span class="fc" id="L167">            underlyingOutput.emitWatermark(new Watermark(minimumOverAllOutputs));</span>
+        }
+<span class="fc" id="L169">    }</span>
+
+    /** Per-output watermark state. */
+<span class="fc" id="L172">    private static class OutputState {</span>
+<span class="fc" id="L173">        private long watermark = Long.MIN_VALUE;</span>
+<span class="fc" id="L174">        private boolean idle = false;</span>
+
+        /**
+         * Returns the current watermark timestamp. This will throw {@link IllegalStateException} if
+         * the output is currently idle.
+         */
+        public long getWatermark() {
+<span class="pc bpc" id="L181" title="1 of 2 branches missed.">            checkState(!idle, &quot;Output is idle.&quot;);</span>
+<span class="fc" id="L182">            return watermark;</span>
+        }
+
+        /**
+         * Returns true if the watermark was advanced, that is if the new watermark is larger than
+         * the previous one.
+         *
+         * &lt;p&gt;Setting a watermark will clear the idleness flag.
+         */
+        public boolean setWatermark(long watermark) {
+<span class="fc" id="L192">            this.idle = false;</span>
+<span class="fc bfc" id="L193" title="All 2 branches covered.">            final boolean updated = watermark &gt; this.watermark;</span>
+<span class="fc" id="L194">            this.watermark = Math.max(watermark, this.watermark);</span>
+<span class="fc" id="L195">            return updated;</span>
+        }
+
+        public boolean isIdle() {
+<span class="fc" id="L199">            return idle;</span>
+        }
+
+        public void setIdle(boolean idle) {
+<span class="fc" id="L203">            this.idle = idle;</span>
+<span class="fc" id="L204">        }</span>
+    }
+
+    /**
+     * Updating the state of an immediate output can possible lead to a combined watermark update to
+     * the underlying {@link WatermarkOutput}.
+     */
+    private class ImmediateOutput implements WatermarkOutput {
+
+        private final OutputState state;
+
+<span class="fc" id="L215">        public ImmediateOutput(OutputState state) {</span>
+<span class="fc" id="L216">            this.state = state;</span>
+<span class="fc" id="L217">        }</span>
+
+        @Override
+        public void emitWatermark(Watermark watermark) {
+<span class="fc" id="L221">            long timestamp = watermark.getTimestamp();</span>
+<span class="fc" id="L222">            boolean wasUpdated = state.setWatermark(timestamp);</span>
+
+            // if it's higher than the max watermark so far we might have to update the
+            // combined watermark
+<span class="fc bfc" id="L226" title="All 4 branches covered.">            if (wasUpdated &amp;&amp; timestamp &gt; combinedWatermark) {</span>
+<span class="fc" id="L227">                updateCombinedWatermark();</span>
+            }
+<span class="fc" id="L229">        }</span>
+
+        @Override
+        public void markIdle() {
+<span class="fc" id="L233">            state.setIdle(true);</span>
+
+            // this can always lead to an advancing watermark. We don't know if this output
+            // was holding back the watermark or not.
+<span class="fc" id="L237">            updateCombinedWatermark();</span>
+<span class="fc" id="L238">        }</span>
+    }
+
+    /**
+     * Updating the state of a deferred output will never lead to a combined watermark update. Only
+     * when {@link WatermarkOutputMultiplexer#onPeriodicEmit()} is called will the deferred updates
+     * be combined into a potential combined update of the underlying {@link WatermarkOutput}.
+     */
+    private static class DeferredOutput implements WatermarkOutput {
+
+        private final OutputState state;
+
+<span class="fc" id="L250">        public DeferredOutput(OutputState state) {</span>
+<span class="fc" id="L251">            this.state = state;</span>
+<span class="fc" id="L252">        }</span>
+
+        @Override
+        public void emitWatermark(Watermark watermark) {
+<span class="fc" id="L256">            state.setWatermark(watermark.getTimestamp());</span>
+<span class="fc" id="L257">        }</span>
+
+        @Override
+        public void markIdle() {
+<span class="fc" id="L261">            state.setIdle(true);</span>
+<span class="fc" id="L262">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

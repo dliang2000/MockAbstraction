@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GenericArraySerializerSnapshot.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeutils.base</a> &gt; <span class="el_source">GenericArraySerializerSnapshot.java</span></div><h1>GenericArraySerializerSnapshot.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeutils.base;
+
+import org.apache.flink.api.common.typeutils.CompositeTypeSerializerSnapshot;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.util.InstantiationUtil;
+
+import java.io.IOException;
+
+/**
+ * Point-in-time configuration of a {@link GenericArraySerializer}.
+ *
+ * @param &lt;C&gt; The component type.
+ */
+public final class GenericArraySerializerSnapshot&lt;C&gt;
+        extends CompositeTypeSerializerSnapshot&lt;C[], GenericArraySerializer&lt;C&gt;&gt; {
+
+    private static final int CURRENT_VERSION = 1;
+
+    private Class&lt;C&gt; componentClass;
+
+    /** Constructor to be used for read instantiation. */
+    public GenericArraySerializerSnapshot() {
+<span class="fc" id="L43">        super(GenericArraySerializer.class);</span>
+<span class="fc" id="L44">    }</span>
+
+    /** Constructor to be used for writing the snapshot. */
+    public GenericArraySerializerSnapshot(GenericArraySerializer&lt;C&gt; genericArraySerializer) {
+<span class="fc" id="L48">        super(genericArraySerializer);</span>
+<span class="fc" id="L49">        this.componentClass = genericArraySerializer.getComponentClass();</span>
+<span class="fc" id="L50">    }</span>
+
+    /**
+     * Constructor that the legacy {@link GenericArraySerializerConfigSnapshot} uses to delegate
+     * compatibility checks to this class.
+     */
+    @SuppressWarnings(&quot;deprecation&quot;)
+    GenericArraySerializerSnapshot(Class&lt;C&gt; componentClass) {
+<span class="nc" id="L58">        super(GenericArraySerializer.class);</span>
+<span class="nc" id="L59">        this.componentClass = componentClass;</span>
+<span class="nc" id="L60">    }</span>
+
+    @Override
+    protected int getCurrentOuterSnapshotVersion() {
+<span class="fc" id="L64">        return CURRENT_VERSION;</span>
+    }
+
+    @Override
+    protected void writeOuterSnapshot(DataOutputView out) throws IOException {
+<span class="fc" id="L69">        out.writeUTF(componentClass.getName());</span>
+<span class="fc" id="L70">    }</span>
+
+    @Override
+    protected void readOuterSnapshot(
+            int readOuterSnapshotVersion, DataInputView in, ClassLoader userCodeClassLoader)
+            throws IOException {
+<span class="fc" id="L76">        this.componentClass = InstantiationUtil.resolveClassByName(in, userCodeClassLoader);</span>
+<span class="fc" id="L77">    }</span>
+
+    @Override
+    protected OuterSchemaCompatibility resolveOuterSchemaCompatibility(
+            GenericArraySerializer&lt;C&gt; newSerializer) {
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">        return (this.componentClass == newSerializer.getComponentClass())</span>
+                ? OuterSchemaCompatibility.COMPATIBLE_AS_IS
+                : OuterSchemaCompatibility.INCOMPATIBLE;
+    }
+
+    @Override
+    protected GenericArraySerializer&lt;C&gt; createOuterSerializerWithNestedSerializers(
+            TypeSerializer&lt;?&gt;[] nestedSerializers) {
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L91">        TypeSerializer&lt;C&gt; componentSerializer = (TypeSerializer&lt;C&gt;) nestedSerializers[0];</span>
+<span class="fc" id="L92">        return new GenericArraySerializer&lt;&gt;(componentClass, componentSerializer);</span>
+    }
+
+    @Override
+    protected TypeSerializer&lt;?&gt;[] getNestedSerializers(GenericArraySerializer&lt;C&gt; outerSerializer) {
+<span class="fc" id="L97">        return new TypeSerializer&lt;?&gt;[] {outerSerializer.getComponentSerializer()};</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

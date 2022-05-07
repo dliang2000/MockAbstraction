@@ -1,0 +1,2635 @@
+public class org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream extends org.apache.commons.compress.compressors.CompressorInputStream implements org.apache.commons.compress.compressors.bzip2.BZip2Constants, org.apache.commons.compress.utils.InputStreamStatistics
+{
+    private int last;
+    private int origPtr;
+    private int blockSize100k;
+    private boolean blockRandomised;
+    private final org.apache.commons.compress.compressors.bzip2.CRC crc;
+    private int nInUse;
+    private org.apache.commons.compress.utils.BitInputStream bin;
+    private final boolean decompressConcatenated;
+    private static final int EOF;
+    private static final int START_BLOCK_STATE;
+    private static final int RAND_PART_A_STATE;
+    private static final int RAND_PART_B_STATE;
+    private static final int RAND_PART_C_STATE;
+    private static final int NO_RAND_PART_A_STATE;
+    private static final int NO_RAND_PART_B_STATE;
+    private static final int NO_RAND_PART_C_STATE;
+    private int currentState;
+    private int storedBlockCRC;
+    private int storedCombinedCRC;
+    private int computedBlockCRC;
+    private int computedCombinedCRC;
+    private int su_count;
+    private int su_ch2;
+    private int su_chPrev;
+    private int su_i2;
+    private int su_j2;
+    private int su_rNToGo;
+    private int su_rTPos;
+    private int su_tPos;
+    private char su_z;
+    private org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data;
+
+    public void <init>(java.io.InputStream) throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        java.io.InputStream r1;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        r1 := @parameter0: java.io.InputStream;
+
+        specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void <init>(java.io.InputStream,boolean)>(r1, 0);
+
+        return;
+    }
+
+    public void <init>(java.io.InputStream, boolean) throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        java.io.InputStream r1, $r4, $r7;
+        boolean z0;
+        java.nio.ByteOrder $r5;
+        org.apache.commons.compress.compressors.bzip2.CRC r8;
+        org.apache.commons.compress.utils.CloseShieldFilterInputStream r9;
+        org.apache.commons.compress.utils.BitInputStream r10;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        r1 := @parameter0: java.io.InputStream;
+
+        z0 := @parameter1: boolean;
+
+        specialinvoke r0.<org.apache.commons.compress.compressors.CompressorInputStream: void <init>()>();
+
+        r8 = new org.apache.commons.compress.compressors.bzip2.CRC;
+
+        specialinvoke r8.<org.apache.commons.compress.compressors.bzip2.CRC: void <init>()>();
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.CRC crc> = r8;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int currentState> = 1;
+
+        r10 = new org.apache.commons.compress.utils.BitInputStream;
+
+        $r4 = <java.lang.System: java.io.InputStream in>;
+
+        if r1 != $r4 goto label1;
+
+        r9 = new org.apache.commons.compress.utils.CloseShieldFilterInputStream;
+
+        $r7 = r9;
+
+        specialinvoke r9.<org.apache.commons.compress.utils.CloseShieldFilterInputStream: void <init>(java.io.InputStream)>(r1);
+
+        goto label2;
+
+     label1:
+        $r7 = r1;
+
+     label2:
+        $r5 = <java.nio.ByteOrder: java.nio.ByteOrder BIG_ENDIAN>;
+
+        specialinvoke r10.<org.apache.commons.compress.utils.BitInputStream: void <init>(java.io.InputStream,java.nio.ByteOrder)>($r7, $r5);
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin> = r10;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: boolean decompressConcatenated> = z0;
+
+        specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: boolean init(boolean)>(1);
+
+        specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void initBlock()>();
+
+        return;
+    }
+
+    public int read() throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        int i0;
+        org.apache.commons.compress.utils.BitInputStream $r1;
+        java.io.IOException $r2;
+        byte $b1;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        $r1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin>;
+
+        if $r1 == null goto label3;
+
+        i0 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int read0()>();
+
+        if i0 >= 0 goto label1;
+
+        $b1 = -1;
+
+        goto label2;
+
+     label1:
+        $b1 = 1;
+
+     label2:
+        virtualinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void count(int)>($b1);
+
+        return i0;
+
+     label3:
+        $r2 = new java.io.IOException;
+
+        specialinvoke $r2.<java.io.IOException: void <init>(java.lang.String)>("Stream closed");
+
+        throw $r2;
+    }
+
+    public int read(byte[], int, int) throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        byte[] r1;
+        int i0, i1, i2, $i4, $i5, $i6, $i7, $i9, i10, $i11;
+        org.apache.commons.compress.utils.BitInputStream $r2;
+        byte $b8;
+        java.io.IOException $r3;
+        java.lang.IndexOutOfBoundsException $r4, $r14, $r20;
+        java.lang.StringBuilder $r5, $r6, $r7, $r8, $r9, $r10, $r11, $r12, $r15, $r16, $r17, $r18, $r21, $r22, $r23, $r24;
+        java.lang.String $r13, $r19, $r25;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        r1 := @parameter0: byte[];
+
+        i0 := @parameter1: int;
+
+        i1 := @parameter2: int;
+
+        if i0 >= 0 goto label1;
+
+        $r20 = new java.lang.IndexOutOfBoundsException;
+
+        $r21 = new java.lang.StringBuilder;
+
+        specialinvoke $r21.<java.lang.StringBuilder: void <init>()>();
+
+        $r22 = virtualinvoke $r21.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("offs(");
+
+        $r23 = virtualinvoke $r22.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i0);
+
+        $r24 = virtualinvoke $r23.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(") < 0.");
+
+        $r25 = virtualinvoke $r24.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r20.<java.lang.IndexOutOfBoundsException: void <init>(java.lang.String)>($r25);
+
+        throw $r20;
+
+     label1:
+        if i1 >= 0 goto label2;
+
+        $r14 = new java.lang.IndexOutOfBoundsException;
+
+        $r15 = new java.lang.StringBuilder;
+
+        specialinvoke $r15.<java.lang.StringBuilder: void <init>()>();
+
+        $r16 = virtualinvoke $r15.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("len(");
+
+        $r17 = virtualinvoke $r16.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i1);
+
+        $r18 = virtualinvoke $r17.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(") < 0.");
+
+        $r19 = virtualinvoke $r18.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r14.<java.lang.IndexOutOfBoundsException: void <init>(java.lang.String)>($r19);
+
+        throw $r14;
+
+     label2:
+        $i5 = i0 + i1;
+
+        $i4 = lengthof r1;
+
+        if $i5 <= $i4 goto label3;
+
+        $r4 = new java.lang.IndexOutOfBoundsException;
+
+        $r5 = new java.lang.StringBuilder;
+
+        specialinvoke $r5.<java.lang.StringBuilder: void <init>()>();
+
+        $r6 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("offs(");
+
+        $r7 = virtualinvoke $r6.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i0);
+
+        $r8 = virtualinvoke $r7.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(") + len(");
+
+        $r9 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i1);
+
+        $r10 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(") > dest.length(");
+
+        $i9 = lengthof r1;
+
+        $r11 = virtualinvoke $r10.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>($i9);
+
+        $r12 = virtualinvoke $r11.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(").");
+
+        $r13 = virtualinvoke $r12.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r4.<java.lang.IndexOutOfBoundsException: void <init>(java.lang.String)>($r13);
+
+        throw $r4;
+
+     label3:
+        $r2 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin>;
+
+        if $r2 != null goto label4;
+
+        $r3 = new java.io.IOException;
+
+        specialinvoke $r3.<java.io.IOException: void <init>(java.lang.String)>("Stream closed");
+
+        throw $r3;
+
+     label4:
+        if i1 != 0 goto label5;
+
+        return 0;
+
+     label5:
+        i2 = i0 + i1;
+
+        i10 = i0;
+
+     label6:
+        if i10 >= i2 goto label7;
+
+        $i6 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int read0()>();
+
+        if $i6 < 0 goto label7;
+
+        $i7 = i10;
+
+        i10 = i10 + 1;
+
+        $b8 = (byte) $i6;
+
+        r1[$i7] = $b8;
+
+        virtualinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void count(int)>(1);
+
+        goto label6;
+
+     label7:
+        if i10 != i0 goto label8;
+
+        $i11 = -1;
+
+        goto label9;
+
+     label8:
+        $i11 = i10 - i0;
+
+     label9:
+        return $i11;
+    }
+
+    public long getCompressedCount()
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        org.apache.commons.compress.utils.BitInputStream $r1;
+        long $l0;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        $r1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin>;
+
+        $l0 = virtualinvoke $r1.<org.apache.commons.compress.utils.BitInputStream: long getBytesRead()>();
+
+        return $l0;
+    }
+
+    private void makeMaps()
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        boolean[] r1;
+        byte[] r2;
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data $r3, $r4;
+        boolean $z0;
+        int $i0, i2, i3;
+        byte $b1;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        $r3 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        r1 = $r3.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: boolean[] inUse>;
+
+        $r4 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        r2 = $r4.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: byte[] seqToUnseq>;
+
+        i2 = 0;
+
+        i3 = 0;
+
+     label1:
+        if i3 >= 256 goto label3;
+
+        $z0 = r1[i3];
+
+        if $z0 == 0 goto label2;
+
+        $i0 = i2;
+
+        i2 = i2 + 1;
+
+        $b1 = (byte) i3;
+
+        r2[$i0] = $b1;
+
+     label2:
+        i3 = i3 + 1;
+
+        goto label1;
+
+     label3:
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int nInUse> = i2;
+
+        return;
+    }
+
+    private int read0() throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        int $i0, $i1, $i2, $i3, $i4, $i5;
+        java.lang.IllegalStateException $r1, $r2, $r3;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        $i0 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int currentState>;
+
+        tableswitch($i0)
+        {
+            case 0: goto label1;
+            case 1: goto label2;
+            case 2: goto label3;
+            case 3: goto label4;
+            case 4: goto label5;
+            case 5: goto label6;
+            case 6: goto label7;
+            case 7: goto label8;
+            default: goto label9;
+        };
+
+     label1:
+        return -1;
+
+     label2:
+        $i5 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int setupBlock()>();
+
+        return $i5;
+
+     label3:
+        $r2 = new java.lang.IllegalStateException;
+
+        specialinvoke $r2.<java.lang.IllegalStateException: void <init>()>();
+
+        throw $r2;
+
+     label4:
+        $i4 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int setupRandPartB()>();
+
+        return $i4;
+
+     label5:
+        $i3 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int setupRandPartC()>();
+
+        return $i3;
+
+     label6:
+        $r1 = new java.lang.IllegalStateException;
+
+        specialinvoke $r1.<java.lang.IllegalStateException: void <init>()>();
+
+        throw $r1;
+
+     label7:
+        $i2 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int setupNoRandPartB()>();
+
+        return $i2;
+
+     label8:
+        $i1 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int setupNoRandPartC()>();
+
+        return $i1;
+
+     label9:
+        $r3 = new java.lang.IllegalStateException;
+
+        specialinvoke $r3.<java.lang.IllegalStateException: void <init>()>();
+
+        throw $r3;
+    }
+
+    private int readNextByte(org.apache.commons.compress.utils.BitInputStream) throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        org.apache.commons.compress.utils.BitInputStream r1;
+        long l0;
+        int $i1;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        r1 := @parameter0: org.apache.commons.compress.utils.BitInputStream;
+
+        l0 = virtualinvoke r1.<org.apache.commons.compress.utils.BitInputStream: long readBits(int)>(8);
+
+        $i1 = (int) l0;
+
+        return $i1;
+    }
+
+    private boolean init(boolean) throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        boolean z0;
+        int i0, i1, i2, i3, $i4;
+        org.apache.commons.compress.utils.BitInputStream $r1, $r2, $r3, $r4, $r6, $r8;
+        java.io.IOException $r5, $r7, $r9;
+        java.lang.String $r10;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        z0 := @parameter0: boolean;
+
+        $r1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin>;
+
+        if null != $r1 goto label1;
+
+        $r9 = new java.io.IOException;
+
+        specialinvoke $r9.<java.io.IOException: void <init>(java.lang.String)>("No InputStream");
+
+        throw $r9;
+
+     label1:
+        if z0 != 0 goto label2;
+
+        $r8 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin>;
+
+        virtualinvoke $r8.<org.apache.commons.compress.utils.BitInputStream: void clearBitCache()>();
+
+     label2:
+        $r2 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin>;
+
+        i0 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int readNextByte(org.apache.commons.compress.utils.BitInputStream)>($r2);
+
+        if i0 != -1 goto label3;
+
+        if z0 != 0 goto label3;
+
+        return 0;
+
+     label3:
+        $r3 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin>;
+
+        i1 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int readNextByte(org.apache.commons.compress.utils.BitInputStream)>($r3);
+
+        $r4 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin>;
+
+        i2 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int readNextByte(org.apache.commons.compress.utils.BitInputStream)>($r4);
+
+        if i0 != 66 goto label4;
+
+        if i1 != 90 goto label4;
+
+        if i2 == 104 goto label7;
+
+     label4:
+        $r5 = new java.io.IOException;
+
+        if z0 == 0 goto label5;
+
+        $r10 = "Stream is not in the BZip2 format";
+
+        goto label6;
+
+     label5:
+        $r10 = "Garbage after a valid BZip2 stream";
+
+     label6:
+        specialinvoke $r5.<java.io.IOException: void <init>(java.lang.String)>($r10);
+
+        throw $r5;
+
+     label7:
+        $r6 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin>;
+
+        i3 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int readNextByte(org.apache.commons.compress.utils.BitInputStream)>($r6);
+
+        if i3 < 49 goto label8;
+
+        if i3 <= 57 goto label9;
+
+     label8:
+        $r7 = new java.io.IOException;
+
+        specialinvoke $r7.<java.io.IOException: void <init>(java.lang.String)>("BZip2 block size is invalid");
+
+        throw $r7;
+
+     label9:
+        $i4 = i3 - 48;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int blockSize100k> = $i4;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int computedCombinedCRC> = 0;
+
+        return 1;
+    }
+
+    private void initBlock() throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        org.apache.commons.compress.utils.BitInputStream r1;
+        char c0, c1, c2, c3, c4, c5;
+        int $i6, $i7, $i8;
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data $r2, $r4;
+        org.apache.commons.compress.compressors.bzip2.CRC $r3;
+        boolean $z0, $z1;
+        java.io.IOException $r6;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        r1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin>;
+
+     label1:
+        c0 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: char bsGetUByte(org.apache.commons.compress.utils.BitInputStream)>(r1);
+
+        c1 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: char bsGetUByte(org.apache.commons.compress.utils.BitInputStream)>(r1);
+
+        c2 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: char bsGetUByte(org.apache.commons.compress.utils.BitInputStream)>(r1);
+
+        c3 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: char bsGetUByte(org.apache.commons.compress.utils.BitInputStream)>(r1);
+
+        c4 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: char bsGetUByte(org.apache.commons.compress.utils.BitInputStream)>(r1);
+
+        c5 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: char bsGetUByte(org.apache.commons.compress.utils.BitInputStream)>(r1);
+
+        if c0 != 23 goto label3;
+
+        if c1 != 114 goto label3;
+
+        if c2 != 69 goto label3;
+
+        if c3 != 56 goto label3;
+
+        if c4 != 80 goto label3;
+
+        if c5 == 144 goto label2;
+
+        goto label3;
+
+     label2:
+        $z0 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: boolean complete()>();
+
+        if $z0 == 0 goto label1;
+
+        return;
+
+     label3:
+        if c0 != 49 goto label4;
+
+        if c1 != 65 goto label4;
+
+        if c2 != 89 goto label4;
+
+        if c3 != 38 goto label4;
+
+        if c4 != 83 goto label4;
+
+        if c5 == 89 goto label5;
+
+     label4:
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int currentState> = 0;
+
+        $r6 = new java.io.IOException;
+
+        specialinvoke $r6.<java.io.IOException: void <init>(java.lang.String)>("Bad block header");
+
+        throw $r6;
+
+     label5:
+        $i6 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int bsGetInt(org.apache.commons.compress.utils.BitInputStream)>(r1);
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int storedBlockCRC> = $i6;
+
+        $i7 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int bsR(org.apache.commons.compress.utils.BitInputStream,int)>(r1, 1);
+
+        if $i7 != 1 goto label6;
+
+        $z1 = 1;
+
+        goto label7;
+
+     label6:
+        $z1 = 0;
+
+     label7:
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: boolean blockRandomised> = $z1;
+
+        $r2 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        if $r2 != null goto label8;
+
+        $r4 = new org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data;
+
+        $i8 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int blockSize100k>;
+
+        specialinvoke $r4.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: void <init>(int)>($i8);
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data> = $r4;
+
+     label8:
+        specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void getAndMoveToFrontDecode()>();
+
+        $r3 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.CRC crc>;
+
+        virtualinvoke $r3.<org.apache.commons.compress.compressors.bzip2.CRC: void initialiseCRC()>();
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int currentState> = 1;
+
+        return;
+    }
+
+    private void endBlock() throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        org.apache.commons.compress.compressors.bzip2.CRC $r1;
+        int $i0, $i1, $i2, $i3, $i4, $i5, $i6, $i7, $i8, $i9, $i10, $i11, $i12, $i13, $i14, $i15, $i16, $i17, $i18;
+        java.io.IOException $r2;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        $r1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.CRC crc>;
+
+        $i0 = virtualinvoke $r1.<org.apache.commons.compress.compressors.bzip2.CRC: int getFinalCRC()>();
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int computedBlockCRC> = $i0;
+
+        $i2 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int storedBlockCRC>;
+
+        $i1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int computedBlockCRC>;
+
+        if $i2 == $i1 goto label1;
+
+        $i11 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int storedCombinedCRC>;
+
+        $i14 = $i11 << 1;
+
+        $i12 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int storedCombinedCRC>;
+
+        $i13 = $i12 >>> 31;
+
+        $i15 = $i14 | $i13;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int computedCombinedCRC> = $i15;
+
+        $i17 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int computedCombinedCRC>;
+
+        $i16 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int storedBlockCRC>;
+
+        $i18 = $i17 ^ $i16;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int computedCombinedCRC> = $i18;
+
+        $r2 = new java.io.IOException;
+
+        specialinvoke $r2.<java.io.IOException: void <init>(java.lang.String)>("BZip2 CRC error");
+
+        throw $r2;
+
+     label1:
+        $i3 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int computedCombinedCRC>;
+
+        $i6 = $i3 << 1;
+
+        $i4 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int computedCombinedCRC>;
+
+        $i5 = $i4 >>> 31;
+
+        $i7 = $i6 | $i5;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int computedCombinedCRC> = $i7;
+
+        $i9 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int computedCombinedCRC>;
+
+        $i8 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int computedBlockCRC>;
+
+        $i10 = $i9 ^ $i8;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int computedCombinedCRC> = $i10;
+
+        return;
+    }
+
+    private boolean complete() throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        org.apache.commons.compress.utils.BitInputStream $r1;
+        int $i0, $i1, $i2;
+        boolean $z0, $z1, $z2;
+        java.io.IOException $r2;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        $r1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin>;
+
+        $i0 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int bsGetInt(org.apache.commons.compress.utils.BitInputStream)>($r1);
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int storedCombinedCRC> = $i0;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int currentState> = 0;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data> = null;
+
+        $i2 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int storedCombinedCRC>;
+
+        $i1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int computedCombinedCRC>;
+
+        if $i2 == $i1 goto label1;
+
+        $r2 = new java.io.IOException;
+
+        specialinvoke $r2.<java.io.IOException: void <init>(java.lang.String)>("BZip2 CRC error");
+
+        throw $r2;
+
+     label1:
+        $z0 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: boolean decompressConcatenated>;
+
+        if $z0 == 0 goto label2;
+
+        $z1 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: boolean init(boolean)>(0);
+
+        if $z1 != 0 goto label3;
+
+     label2:
+        $z2 = 1;
+
+        goto label4;
+
+     label3:
+        $z2 = 0;
+
+     label4:
+        return $z2;
+    }
+
+    public void close() throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        org.apache.commons.compress.utils.BitInputStream r1;
+        java.lang.Throwable $r3;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        r1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin>;
+
+        if r1 == null goto label4;
+
+     label1:
+        virtualinvoke r1.<org.apache.commons.compress.utils.BitInputStream: void close()>();
+
+     label2:
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data> = null;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin> = null;
+
+        goto label4;
+
+     label3:
+        $r3 := @caughtexception;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data> = null;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin> = null;
+
+        throw $r3;
+
+     label4:
+        return;
+
+        catch java.lang.Throwable from label1 to label2 with label3;
+    }
+
+    private static int bsR(org.apache.commons.compress.utils.BitInputStream, int) throws java.io.IOException
+    {
+        org.apache.commons.compress.utils.BitInputStream r0;
+        int i0, $i3;
+        long l1;
+        byte $b2;
+        java.io.IOException $r1;
+
+        r0 := @parameter0: org.apache.commons.compress.utils.BitInputStream;
+
+        i0 := @parameter1: int;
+
+        l1 = virtualinvoke r0.<org.apache.commons.compress.utils.BitInputStream: long readBits(int)>(i0);
+
+        $b2 = l1 cmp 0L;
+
+        if $b2 >= 0 goto label1;
+
+        $r1 = new java.io.IOException;
+
+        specialinvoke $r1.<java.io.IOException: void <init>(java.lang.String)>("Unexpected end of stream");
+
+        throw $r1;
+
+     label1:
+        $i3 = (int) l1;
+
+        return $i3;
+    }
+
+    private static boolean bsGetBit(org.apache.commons.compress.utils.BitInputStream) throws java.io.IOException
+    {
+        org.apache.commons.compress.utils.BitInputStream r0;
+        int $i0;
+        boolean $z0;
+
+        r0 := @parameter0: org.apache.commons.compress.utils.BitInputStream;
+
+        $i0 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int bsR(org.apache.commons.compress.utils.BitInputStream,int)>(r0, 1);
+
+        if $i0 == 0 goto label1;
+
+        $z0 = 1;
+
+        goto label2;
+
+     label1:
+        $z0 = 0;
+
+     label2:
+        return $z0;
+    }
+
+    private static char bsGetUByte(org.apache.commons.compress.utils.BitInputStream) throws java.io.IOException
+    {
+        org.apache.commons.compress.utils.BitInputStream r0;
+        int $i0;
+        char $c1;
+
+        r0 := @parameter0: org.apache.commons.compress.utils.BitInputStream;
+
+        $i0 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int bsR(org.apache.commons.compress.utils.BitInputStream,int)>(r0, 8);
+
+        $c1 = (char) $i0;
+
+        return $c1;
+    }
+
+    private static int bsGetInt(org.apache.commons.compress.utils.BitInputStream) throws java.io.IOException
+    {
+        org.apache.commons.compress.utils.BitInputStream r0;
+        int $i0;
+
+        r0 := @parameter0: org.apache.commons.compress.utils.BitInputStream;
+
+        $i0 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int bsR(org.apache.commons.compress.utils.BitInputStream,int)>(r0, 32);
+
+        return $i0;
+    }
+
+    private static void checkBounds(int, int, java.lang.String) throws java.io.IOException
+    {
+        int i0, i1;
+        java.lang.String r0, $r6, $r12;
+        java.io.IOException $r1, $r7;
+        java.lang.StringBuilder $r2, $r3, $r4, $r5, $r8, $r9, $r10, $r11;
+
+        i0 := @parameter0: int;
+
+        i1 := @parameter1: int;
+
+        r0 := @parameter2: java.lang.String;
+
+        if i0 >= 0 goto label1;
+
+        $r7 = new java.io.IOException;
+
+        $r8 = new java.lang.StringBuilder;
+
+        specialinvoke $r8.<java.lang.StringBuilder: void <init>()>();
+
+        $r9 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Corrupted input, ");
+
+        $r10 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r0);
+
+        $r11 = virtualinvoke $r10.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" value negative");
+
+        $r12 = virtualinvoke $r11.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r7.<java.io.IOException: void <init>(java.lang.String)>($r12);
+
+        throw $r7;
+
+     label1:
+        if i0 < i1 goto label2;
+
+        $r1 = new java.io.IOException;
+
+        $r2 = new java.lang.StringBuilder;
+
+        specialinvoke $r2.<java.lang.StringBuilder: void <init>()>();
+
+        $r3 = virtualinvoke $r2.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Corrupted input, ");
+
+        $r4 = virtualinvoke $r3.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r0);
+
+        $r5 = virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" value too big");
+
+        $r6 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r1.<java.io.IOException: void <init>(java.lang.String)>($r6);
+
+        throw $r1;
+
+     label2:
+        return;
+    }
+
+    private static void hbCreateDecodeTables(int[], int[], int[], char[], int, int, int) throws java.io.IOException
+    {
+        int[] r0, r1, r2;
+        char[] r3;
+        int i0, i1, i2, i3, $i4, $i5, $i6, $i7, $i8, $i9, $i10, $i11, $i12, $i13, $i14, $i15, $i16, $i18, i19, i20, i21, i22, i23, i25, i26, i27, i28, i29, i30, i31;
+        char $c17, c24;
+
+        r0 := @parameter0: int[];
+
+        r1 := @parameter1: int[];
+
+        r2 := @parameter2: int[];
+
+        r3 := @parameter3: char[];
+
+        i0 := @parameter4: int;
+
+        i1 := @parameter5: int;
+
+        i2 := @parameter6: int;
+
+        i19 = i0;
+
+        i20 = 0;
+
+     label01:
+        if i19 > i1 goto label05;
+
+        i21 = 0;
+
+     label02:
+        if i21 >= i2 goto label04;
+
+        $c17 = r3[i21];
+
+        if $c17 != i19 goto label03;
+
+        $i18 = i20;
+
+        i20 = i20 + 1;
+
+        r2[$i18] = i21;
+
+     label03:
+        i21 = i21 + 1;
+
+        goto label02;
+
+     label04:
+        i19 = i19 + 1;
+
+        goto label01;
+
+     label05:
+        i22 = 23;
+
+     label06:
+        i22 = i22 + -1;
+
+        if i22 <= 0 goto label07;
+
+        r1[i22] = 0;
+
+        r0[i22] = 0;
+
+        goto label06;
+
+     label07:
+        i23 = 0;
+
+     label08:
+        if i23 >= i2 goto label09;
+
+        c24 = r3[i23];
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(c24, 258, "length");
+
+        $i14 = c24 + 1;
+
+        $i15 = r1[$i14];
+
+        $i16 = $i15 + 1;
+
+        r1[$i14] = $i16;
+
+        i23 = i23 + 1;
+
+        goto label08;
+
+     label09:
+        i25 = 1;
+
+        i26 = r1[0];
+
+     label10:
+        if i25 >= 23 goto label11;
+
+        $i13 = r1[i25];
+
+        i26 = i26 + $i13;
+
+        r1[i25] = i26;
+
+        i25 = i25 + 1;
+
+        goto label10;
+
+     label11:
+        i27 = i0;
+
+        i28 = 0;
+
+        i29 = r1[i0];
+
+     label12:
+        if i27 > i1 goto label13;
+
+        $i10 = i27 + 1;
+
+        i3 = r1[$i10];
+
+        $i11 = i3 - i29;
+
+        i30 = i28 + $i11;
+
+        i29 = i3;
+
+        $i12 = i30 - 1;
+
+        r0[i27] = $i12;
+
+        i28 = i30 << 1;
+
+        i27 = i27 + 1;
+
+        goto label12;
+
+     label13:
+        i31 = i0 + 1;
+
+     label14:
+        if i31 > i1 goto label15;
+
+        $i4 = i31 - 1;
+
+        $i5 = r0[$i4];
+
+        $i6 = $i5 + 1;
+
+        $i8 = $i6 << 1;
+
+        $i7 = r1[i31];
+
+        $i9 = $i8 - $i7;
+
+        r1[i31] = $i9;
+
+        i31 = i31 + 1;
+
+        goto label14;
+
+     label15:
+        return;
+    }
+
+    private void recvDecodingTables() throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        org.apache.commons.compress.utils.BitInputStream r1;
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data r2;
+        boolean[] r3;
+        byte[] r4, r5, r6;
+        char[] r7;
+        int $i0, $i2, $i4, $i8, $i9, $i10, $i11, i12, i13, i14, i15, i16, i17, i18, i19, i20, i21, $i22, i23, i24, i25, i26, i28, i29, i30;
+        boolean $z0, $z1, $z2, $z3, $z4;
+        char $c1;
+        byte $b3, $b5, $b6, $b7, b27, $b31;
+        java.io.IOException $r8;
+        char[][] r9;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        r1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin>;
+
+        r2 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        r3 = r2.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: boolean[] inUse>;
+
+        r4 = r2.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: byte[] recvDecodingTables_pos>;
+
+        r5 = r2.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: byte[] selector>;
+
+        r6 = r2.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: byte[] selectorMtf>;
+
+        i12 = 0;
+
+        i13 = 0;
+
+     label01:
+        if i13 >= 16 goto label03;
+
+        $z4 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: boolean bsGetBit(org.apache.commons.compress.utils.BitInputStream)>(r1);
+
+        if $z4 == 0 goto label02;
+
+        $i11 = 1 << i13;
+
+        i12 = i12 | $i11;
+
+     label02:
+        i13 = i13 + 1;
+
+        goto label01;
+
+     label03:
+        staticinvoke <java.util.Arrays: void fill(boolean[],boolean)>(r3, 0);
+
+        i14 = 0;
+
+     label04:
+        if i14 >= 16 goto label08;
+
+        $i8 = 1 << i14;
+
+        $i9 = i12 & $i8;
+
+        if $i9 == 0 goto label07;
+
+        i15 = i14 << 4;
+
+        i16 = 0;
+
+     label05:
+        if i16 >= 16 goto label07;
+
+        $z3 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: boolean bsGetBit(org.apache.commons.compress.utils.BitInputStream)>(r1);
+
+        if $z3 == 0 goto label06;
+
+        $i10 = i15 + i16;
+
+        r3[$i10] = 1;
+
+     label06:
+        i16 = i16 + 1;
+
+        goto label05;
+
+     label07:
+        i14 = i14 + 1;
+
+        goto label04;
+
+     label08:
+        specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void makeMaps()>();
+
+        $i0 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int nInUse>;
+
+        i17 = $i0 + 2;
+
+        i18 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int bsR(org.apache.commons.compress.utils.BitInputStream,int)>(r1, 3);
+
+        i19 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int bsR(org.apache.commons.compress.utils.BitInputStream,int)>(r1, 15);
+
+        if i19 >= 0 goto label09;
+
+        $r8 = new java.io.IOException;
+
+        specialinvoke $r8.<java.io.IOException: void <init>(java.lang.String)>("Corrupted input, nSelectors value negative");
+
+        throw $r8;
+
+     label09:
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(i17, 259, "alphaSize");
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(i18, 7, "nGroups");
+
+        i20 = 0;
+
+     label10:
+        if i20 >= i19 goto label14;
+
+        i21 = 0;
+
+     label11:
+        $z2 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: boolean bsGetBit(org.apache.commons.compress.utils.BitInputStream)>(r1);
+
+        if $z2 == 0 goto label12;
+
+        i21 = i21 + 1;
+
+        goto label11;
+
+     label12:
+        if i20 >= 18002 goto label13;
+
+        $b7 = (byte) i21;
+
+        r6[i20] = $b7;
+
+     label13:
+        i20 = i20 + 1;
+
+        goto label10;
+
+     label14:
+        if i19 <= 18002 goto label15;
+
+        $i22 = 18002;
+
+        goto label16;
+
+     label15:
+        $i22 = i19;
+
+     label16:
+        i23 = $i22;
+
+        i24 = i18;
+
+     label17:
+        i24 = i24 + -1;
+
+        if i24 < 0 goto label18;
+
+        $b6 = (byte) i24;
+
+        r4[i24] = $b6;
+
+        goto label17;
+
+     label18:
+        i25 = 0;
+
+     label19:
+        if i25 >= i23 goto label22;
+
+        $b3 = r6[i25];
+
+        i26 = $b3 & 255;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(i26, 6, "selectorMtf");
+
+        b27 = r4[i26];
+
+     label20:
+        if i26 <= 0 goto label21;
+
+        $i4 = i26 - 1;
+
+        $b5 = r4[$i4];
+
+        r4[i26] = $b5;
+
+        i26 = i26 + -1;
+
+        goto label20;
+
+     label21:
+        r4[0] = b27;
+
+        r5[i25] = b27;
+
+        i25 = i25 + 1;
+
+        goto label19;
+
+     label22:
+        r9 = r2.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: char[][] temp_charArray2d>;
+
+        i28 = 0;
+
+     label23:
+        if i28 >= i18 goto label30;
+
+        i29 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int bsR(org.apache.commons.compress.utils.BitInputStream,int)>(r1, 5);
+
+        r7 = r9[i28];
+
+        i30 = 0;
+
+     label24:
+        if i30 >= i17 goto label29;
+
+     label25:
+        $z0 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: boolean bsGetBit(org.apache.commons.compress.utils.BitInputStream)>(r1);
+
+        if $z0 == 0 goto label28;
+
+        $i2 = i29;
+
+        $z1 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: boolean bsGetBit(org.apache.commons.compress.utils.BitInputStream)>(r1);
+
+        if $z1 == 0 goto label26;
+
+        $b31 = -1;
+
+        goto label27;
+
+     label26:
+        $b31 = 1;
+
+     label27:
+        i29 = $i2 + $b31;
+
+        goto label25;
+
+     label28:
+        $c1 = (char) i29;
+
+        r7[i30] = $c1;
+
+        i30 = i30 + 1;
+
+        goto label24;
+
+     label29:
+        i28 = i28 + 1;
+
+        goto label23;
+
+     label30:
+        specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void createHuffmanDecodingTables(int,int)>(i17, i18);
+
+        return;
+    }
+
+    private void createHuffmanDecodingTables(int, int) throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        int i0, i1, i3, i6;
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data r1;
+        char[][] r2;
+        int[] r3, $r9, $r10, $r11;
+        int[][] r4, r5, r6;
+        char[] r7, $r8;
+        char c2, c4, c5;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        i0 := @parameter0: int;
+
+        i1 := @parameter1: int;
+
+        r1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        r2 = r1.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: char[][] temp_charArray2d>;
+
+        r3 = r1.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[] minLens>;
+
+        r4 = r1.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[][] limit>;
+
+        r5 = r1.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[][] base>;
+
+        r6 = r1.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[][] perm>;
+
+        i3 = 0;
+
+     label1:
+        if i3 >= i1 goto label6;
+
+        c4 = 32;
+
+        c5 = 0;
+
+        r7 = r2[i3];
+
+        i6 = i0;
+
+     label2:
+        i6 = i6 + -1;
+
+        if i6 < 0 goto label5;
+
+        c2 = r7[i6];
+
+        if c2 <= c5 goto label3;
+
+        c5 = c2;
+
+     label3:
+        if c2 >= c4 goto label4;
+
+        c4 = c2;
+
+     label4:
+        goto label2;
+
+     label5:
+        $r11 = r4[i3];
+
+        $r10 = r5[i3];
+
+        $r9 = r6[i3];
+
+        $r8 = r2[i3];
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void hbCreateDecodeTables(int[],int[],int[],char[],int,int,int)>($r11, $r10, $r9, $r8, c4, c5, i0);
+
+        r3[i3] = c4;
+
+        i3 = i3 + 1;
+
+        goto label1;
+
+     label6:
+        return;
+    }
+
+    private void getAndMoveToFrontDecode() throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        org.apache.commons.compress.utils.BitInputStream r1;
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data r2;
+        byte[] r3, r5, r6;
+        int[] r4, r8, r26, r27, r28;
+        char[] r7;
+        int[][] r9, r10, r11;
+        int i0, i1, i2, $i3, $i4, $i5, $i8, $i9, $i10, $i11, $i12, $i13, $i14, $i15, $i17, $i20, $i21, $i23, $i24, $i25, $i26, $i28, i31, i32, i33, i34, i35, i37, i38, i39, i41, i42, $i43, i46, i49, i51, i52, $i53, i54;
+        byte $b6, $b16, $b18, $b22, $b27, b45;
+        short $s7, $s19, s36, s40, s50;
+        java.io.IOException $r12, $r19;
+        java.lang.StringBuilder $r13, $r14, $r15, $r16, $r17, $r20, $r21, $r22, $r23, $r24;
+        java.lang.String $r18, $r25;
+        char $c29, $c30, c44, c48;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        r1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin>;
+
+        $i3 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int bsR(org.apache.commons.compress.utils.BitInputStream,int)>(r1, 24);
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int origPtr> = $i3;
+
+        specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void recvDecodingTables()>();
+
+        r2 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        r3 = r2.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: byte[] ll8>;
+
+        r4 = r2.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[] unzftab>;
+
+        r5 = r2.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: byte[] selector>;
+
+        r6 = r2.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: byte[] seqToUnseq>;
+
+        r7 = r2.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: char[] getAndMoveToFrontDecode_yy>;
+
+        r8 = r2.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[] minLens>;
+
+        r9 = r2.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[][] limit>;
+
+        r10 = r2.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[][] base>;
+
+        r11 = r2.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[][] perm>;
+
+        $i4 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int blockSize100k>;
+
+        i0 = $i4 * 100000;
+
+        i31 = 256;
+
+     label01:
+        i31 = i31 + -1;
+
+        if i31 < 0 goto label02;
+
+        $c30 = (char) i31;
+
+        r7[i31] = $c30;
+
+        r4[i31] = 0;
+
+        goto label01;
+
+     label02:
+        i32 = 0;
+
+        i33 = 49;
+
+        $i5 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int nInUse>;
+
+        i1 = $i5 + 1;
+
+        i34 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int getAndMoveToFrontDecode0()>();
+
+        i35 = -1;
+
+        $b6 = r5[0];
+
+        s36 = $b6 & 255;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(s36, 6, "zt");
+
+        r26 = r10[s36];
+
+        r27 = r9[s36];
+
+        r28 = r11[s36];
+
+        i37 = r8[s36];
+
+     label03:
+        if i34 == i1 goto label24;
+
+        if i34 == 0 goto label04;
+
+        if i34 != 1 goto label14;
+
+     label04:
+        i38 = -1;
+
+        i39 = 1;
+
+     label05:
+        if i34 != 0 goto label06;
+
+        i38 = i38 + i39;
+
+        goto label07;
+
+     label06:
+        if i34 != 1 goto label12;
+
+        $i12 = i39 << 1;
+
+        i38 = i38 + $i12;
+
+     label07:
+        if i33 != 0 goto label08;
+
+        i33 = 49;
+
+        i32 = i32 + 1;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(i32, 18002, "groupNo");
+
+        $b16 = r5[i32];
+
+        s40 = $b16 & 255;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(s40, 6, "zt");
+
+        r26 = r10[s40];
+
+        r27 = r9[s40];
+
+        r28 = r11[s40];
+
+        i37 = r8[s40];
+
+        goto label09;
+
+     label08:
+        i33 = i33 + -1;
+
+     label09:
+        i41 = i37;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(i37, 258, "zn");
+
+        i42 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int bsR(org.apache.commons.compress.utils.BitInputStream,int)>(r1, i37);
+
+     label10:
+        $i43 = r27[i41];
+
+        if i42 <= $i43 goto label11;
+
+        i41 = i41 + 1;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(i41, 258, "zn");
+
+        $i14 = i42 << 1;
+
+        $i15 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int bsR(org.apache.commons.compress.utils.BitInputStream,int)>(r1, 1);
+
+        i42 = $i14 | $i15;
+
+        goto label10;
+
+     label11:
+        $i13 = r26[i41];
+
+        i2 = i42 - $i13;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(i2, 258, "zvec");
+
+        i34 = r28[i2];
+
+        i39 = i39 << 1;
+
+        goto label05;
+
+     label12:
+        c44 = r7[0];
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(c44, 256, "yy");
+
+        b45 = r6[c44];
+
+        $s7 = b45 & 255;
+
+        $i9 = r4[$s7];
+
+        $i8 = i38 + 1;
+
+        $i10 = $i9 + $i8;
+
+        r4[$s7] = $i10;
+
+        i46 = i35 + 1;
+
+        i35 = i46 + i38;
+
+        $i11 = i35 + 1;
+
+        staticinvoke <java.util.Arrays: void fill(byte[],int,int,byte)>(r3, i46, $i11, b45);
+
+        if i35 < i0 goto label13;
+
+        $r12 = new java.io.IOException;
+
+        $r13 = new java.lang.StringBuilder;
+
+        specialinvoke $r13.<java.lang.StringBuilder: void <init>()>();
+
+        $r14 = virtualinvoke $r13.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Block overrun while expanding RLE in MTF, ");
+
+        $r15 = virtualinvoke $r14.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i35);
+
+        $r16 = virtualinvoke $r15.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" exceeds ");
+
+        $r17 = virtualinvoke $r16.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i0);
+
+        $r18 = virtualinvoke $r17.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r12.<java.io.IOException: void <init>(java.lang.String)>($r18);
+
+        throw $r12;
+
+     label13:
+        goto label03;
+
+     label14:
+        i35 = i35 + 1;
+
+        if i35 < i0 goto label15;
+
+        $r19 = new java.io.IOException;
+
+        $r20 = new java.lang.StringBuilder;
+
+        specialinvoke $r20.<java.lang.StringBuilder: void <init>()>();
+
+        $r21 = virtualinvoke $r20.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Block overrun in MTF, ");
+
+        $r22 = virtualinvoke $r21.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i35);
+
+        $r23 = virtualinvoke $r22.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" exceeds ");
+
+        $r24 = virtualinvoke $r23.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i0);
+
+        $r25 = virtualinvoke $r24.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r19.<java.io.IOException: void <init>(java.lang.String)>($r25);
+
+        throw $r19;
+
+     label15:
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(i34, 257, "nextSym");
+
+        $i17 = i34 - 1;
+
+        c48 = r7[$i17];
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(c48, 256, "yy");
+
+        $b18 = r6[c48];
+
+        $s19 = $b18 & 255;
+
+        $i20 = r4[$s19];
+
+        $i21 = $i20 + 1;
+
+        r4[$s19] = $i21;
+
+        $b22 = r6[c48];
+
+        r3[i35] = $b22;
+
+        if i34 > 16 goto label18;
+
+        i49 = i34 - 1;
+
+     label16:
+        if i49 <= 0 goto label17;
+
+        $i28 = i49;
+
+        i49 = i49 + -1;
+
+        $c29 = r7[i49];
+
+        r7[$i28] = $c29;
+
+        goto label16;
+
+     label17:
+        goto label19;
+
+     label18:
+        $i23 = i34 - 1;
+
+        staticinvoke <java.lang.System: void arraycopy(java.lang.Object,int,java.lang.Object,int,int)>(r7, 0, r7, 1, $i23);
+
+     label19:
+        r7[0] = c48;
+
+        if i33 != 0 goto label20;
+
+        i33 = 49;
+
+        i32 = i32 + 1;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(i32, 18002, "groupNo");
+
+        $b27 = r5[i32];
+
+        s50 = $b27 & 255;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(s50, 6, "zt");
+
+        r26 = r10[s50];
+
+        r27 = r9[s50];
+
+        r28 = r11[s50];
+
+        i37 = r8[s50];
+
+        goto label21;
+
+     label20:
+        i33 = i33 + -1;
+
+     label21:
+        i51 = i37;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(i37, 258, "zn");
+
+        i52 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int bsR(org.apache.commons.compress.utils.BitInputStream,int)>(r1, i37);
+
+     label22:
+        $i53 = r27[i51];
+
+        if i52 <= $i53 goto label23;
+
+        i51 = i51 + 1;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(i51, 258, "zn");
+
+        $i25 = i52 << 1;
+
+        $i26 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int bsR(org.apache.commons.compress.utils.BitInputStream,int)>(r1, 1);
+
+        i52 = $i25 | $i26;
+
+        goto label22;
+
+     label23:
+        $i24 = r26[i51];
+
+        i54 = i52 - $i24;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(i54, 258, "zvec");
+
+        i34 = r28[i54];
+
+        goto label03;
+
+     label24:
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int last> = i35;
+
+        return;
+    }
+
+    private int getAndMoveToFrontDecode0() throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data r1;
+        short s0;
+        int[] r2, $r5, $r8, $r10;
+        int i1, $i3, $i4, $i5, $i6, $i7, i8, i9;
+        byte[] $r3;
+        byte $b2;
+        int[][] $r4, $r7, $r9;
+        org.apache.commons.compress.utils.BitInputStream $r6, $r11;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        r1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        $r3 = r1.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: byte[] selector>;
+
+        $b2 = $r3[0];
+
+        s0 = $b2 & 255;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(s0, 6, "zt");
+
+        $r4 = r1.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[][] limit>;
+
+        r2 = $r4[s0];
+
+        $r5 = r1.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[] minLens>;
+
+        i8 = $r5[s0];
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(i8, 258, "zn");
+
+        $r6 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin>;
+
+        i9 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int bsR(org.apache.commons.compress.utils.BitInputStream,int)>($r6, i8);
+
+     label1:
+        $i3 = r2[i8];
+
+        if i9 <= $i3 goto label2;
+
+        i8 = i8 + 1;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(i8, 258, "zn");
+
+        $i6 = i9 << 1;
+
+        $r11 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.utils.BitInputStream bin>;
+
+        $i7 = staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int bsR(org.apache.commons.compress.utils.BitInputStream,int)>($r11, 1);
+
+        i9 = $i6 | $i7;
+
+        goto label1;
+
+     label2:
+        $r7 = r1.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[][] base>;
+
+        $r8 = $r7[s0];
+
+        $i4 = $r8[i8];
+
+        i1 = i9 - $i4;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>(i1, 258, "zvec");
+
+        $r9 = r1.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[][] perm>;
+
+        $r10 = $r9[s0];
+
+        $i5 = $r10[i1];
+
+        return $i5;
+    }
+
+    private int setupBlock() throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        int[] r1, r2, $r9;
+        int i0, $i2, $i3, $i4, $i5, $i6, $i7, $i8, $i9, $i10, $i13, $i14, $i15, i16, i17, i18, i19;
+        byte[] r3;
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data $r4, $r5, $r6, $r7, $r8;
+        java.io.IOException $r10;
+        boolean $z0;
+        byte $b11;
+        short $s12;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        $i2 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int currentState>;
+
+        if $i2 == 0 goto label1;
+
+        $r4 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        if $r4 != null goto label2;
+
+     label1:
+        return -1;
+
+     label2:
+        $r5 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        r1 = $r5.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[] cftab>;
+
+        $i3 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int last>;
+
+        i0 = $i3 + 1;
+
+        $r6 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        r2 = virtualinvoke $r6.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[] initTT(int)>(i0);
+
+        $r7 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        r3 = $r7.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: byte[] ll8>;
+
+        r1[0] = 0;
+
+        $r8 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        $r9 = $r8.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[] unzftab>;
+
+        staticinvoke <java.lang.System: void arraycopy(java.lang.Object,int,java.lang.Object,int,int)>($r9, 0, r1, 1, 256);
+
+        i16 = 1;
+
+        i17 = r1[0];
+
+     label3:
+        if i16 > 256 goto label4;
+
+        $i15 = r1[i16];
+
+        i17 = i17 + $i15;
+
+        r1[i16] = i17;
+
+        i16 = i16 + 1;
+
+        goto label3;
+
+     label4:
+        i18 = 0;
+
+        i19 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int last>;
+
+     label5:
+        if i18 > i19 goto label6;
+
+        $b11 = r3[i18];
+
+        $s12 = $b11 & 255;
+
+        $i13 = r1[$s12];
+
+        $i14 = $i13 + 1;
+
+        r1[$s12] = $i14;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>($i13, i0, "tt index");
+
+        r2[$i13] = i18;
+
+        i18 = i18 + 1;
+
+        goto label5;
+
+     label6:
+        $i4 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int origPtr>;
+
+        if $i4 < 0 goto label7;
+
+        $i6 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int origPtr>;
+
+        $i5 = lengthof r2;
+
+        if $i6 < $i5 goto label8;
+
+     label7:
+        $r10 = new java.io.IOException;
+
+        specialinvoke $r10.<java.io.IOException: void <init>(java.lang.String)>("Stream corrupted");
+
+        throw $r10;
+
+     label8:
+        $i7 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int origPtr>;
+
+        $i8 = r2[$i7];
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_tPos> = $i8;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_count> = 0;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_i2> = 0;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_ch2> = 256;
+
+        $z0 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: boolean blockRandomised>;
+
+        if $z0 == 0 goto label9;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rNToGo> = 0;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rTPos> = 0;
+
+        $i10 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int setupRandPartA()>();
+
+        return $i10;
+
+     label9:
+        $i9 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int setupNoRandPartA()>();
+
+        return $i9;
+    }
+
+    private int setupRandPartA() throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        int $i0, $i1, $i2, $i3, $i4, $i6, $i7, $i8, $i9, $i10, $i11, $i12, $i14, $i15, $i17, $i18, $i19, $i20, $i21, $i23;
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data $r1, $r3, $r5;
+        byte[] $r2;
+        byte $b5, $b24;
+        int[] $r4, $r6;
+        short $s13, s22;
+        org.apache.commons.compress.compressors.bzip2.CRC $r7;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        $i1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_i2>;
+
+        $i0 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int last>;
+
+        if $i1 > $i0 goto label5;
+
+        $i3 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_ch2>;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_chPrev> = $i3;
+
+        $r1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        $r2 = $r1.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: byte[] ll8>;
+
+        $i4 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_tPos>;
+
+        $b5 = $r2[$i4];
+
+        s22 = $b5 & 255;
+
+        $i7 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_tPos>;
+
+        $r3 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        $r4 = $r3.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[] tt>;
+
+        $i6 = lengthof $r4;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>($i7, $i6, "su_tPos");
+
+        $r5 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        $r6 = $r5.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[] tt>;
+
+        $i8 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_tPos>;
+
+        $i9 = $r6[$i8];
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_tPos> = $i9;
+
+        $i10 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rNToGo>;
+
+        if $i10 != 0 goto label1;
+
+        $i17 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rTPos>;
+
+        $i18 = staticinvoke <org.apache.commons.compress.compressors.bzip2.Rand: int rNums(int)>($i17);
+
+        $i19 = $i18 - 1;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rNToGo> = $i19;
+
+        $i20 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rTPos>;
+
+        $i21 = $i20 + 1;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rTPos> = $i21;
+
+        if $i21 != 512 goto label2;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rTPos> = 0;
+
+        goto label2;
+
+     label1:
+        $i11 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rNToGo>;
+
+        $i12 = $i11 - 1;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rNToGo> = $i12;
+
+     label2:
+        $i23 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rNToGo>;
+
+        if $i23 != 1 goto label3;
+
+        $b24 = 1;
+
+        goto label4;
+
+     label3:
+        $b24 = 0;
+
+     label4:
+        $s13 = s22 ^ $b24;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_ch2> = $s13;
+
+        $i14 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_i2>;
+
+        $i15 = $i14 + 1;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_i2> = $i15;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int currentState> = 3;
+
+        $r7 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.CRC crc>;
+
+        virtualinvoke $r7.<org.apache.commons.compress.compressors.bzip2.CRC: void updateCRC(int)>($s13);
+
+        return $s13;
+
+     label5:
+        specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void endBlock()>();
+
+        specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void initBlock()>();
+
+        $i2 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int setupBlock()>();
+
+        return $i2;
+    }
+
+    private int setupNoRandPartA() throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        short s0;
+        int $i1, $i2, $i3, $i4, $i5, $i7, $i8, $i9, $i10, $i11, $i12;
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data $r1, $r3, $r5;
+        byte[] $r2;
+        byte $b6;
+        int[] $r4, $r6;
+        org.apache.commons.compress.compressors.bzip2.CRC $r7;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        $i2 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_i2>;
+
+        $i1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int last>;
+
+        if $i2 > $i1 goto label1;
+
+        $i4 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_ch2>;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_chPrev> = $i4;
+
+        $r1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        $r2 = $r1.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: byte[] ll8>;
+
+        $i5 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_tPos>;
+
+        $b6 = $r2[$i5];
+
+        s0 = $b6 & 255;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_ch2> = s0;
+
+        $i8 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_tPos>;
+
+        $r3 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        $r4 = $r3.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[] tt>;
+
+        $i7 = lengthof $r4;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>($i8, $i7, "su_tPos");
+
+        $r5 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        $r6 = $r5.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[] tt>;
+
+        $i9 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_tPos>;
+
+        $i10 = $r6[$i9];
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_tPos> = $i10;
+
+        $i11 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_i2>;
+
+        $i12 = $i11 + 1;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_i2> = $i12;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int currentState> = 6;
+
+        $r7 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.CRC crc>;
+
+        virtualinvoke $r7.<org.apache.commons.compress.compressors.bzip2.CRC: void updateCRC(int)>(s0);
+
+        return s0;
+
+     label1:
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int currentState> = 5;
+
+        specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void endBlock()>();
+
+        specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void initBlock()>();
+
+        $i3 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int setupBlock()>();
+
+        return $i3;
+    }
+
+    private int setupRandPartB() throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        int $i0, $i1, $i2, $i3, $i4, $i5, $i9, $i10, $i11, $i12, $i13, $i14, $i15, $i16, $i20, $i21, $i22, $i23, $i24, $i25, $i26;
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data $r1, $r3, $r5;
+        byte[] $r2;
+        byte $b6;
+        short $s7;
+        char $c8, $c17, $c18, $c19;
+        int[] $r4, $r6;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        $i1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_ch2>;
+
+        $i0 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_chPrev>;
+
+        if $i1 == $i0 goto label1;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int currentState> = 2;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_count> = 1;
+
+        $i25 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int setupRandPartA()>();
+
+        return $i25;
+
+     label1:
+        $i2 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_count>;
+
+        $i3 = $i2 + 1;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_count> = $i3;
+
+        if $i3 < 4 goto label5;
+
+        $r1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        $r2 = $r1.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: byte[] ll8>;
+
+        $i5 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_tPos>;
+
+        $b6 = $r2[$i5];
+
+        $s7 = $b6 & 255;
+
+        $c8 = (char) $s7;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: char su_z> = $c8;
+
+        $i10 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_tPos>;
+
+        $r3 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        $r4 = $r3.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[] tt>;
+
+        $i9 = lengthof $r4;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>($i10, $i9, "su_tPos");
+
+        $r5 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        $r6 = $r5.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[] tt>;
+
+        $i11 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_tPos>;
+
+        $i12 = $r6[$i11];
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_tPos> = $i12;
+
+        $i13 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rNToGo>;
+
+        if $i13 != 0 goto label2;
+
+        $i20 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rTPos>;
+
+        $i21 = staticinvoke <org.apache.commons.compress.compressors.bzip2.Rand: int rNums(int)>($i20);
+
+        $i22 = $i21 - 1;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rNToGo> = $i22;
+
+        $i23 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rTPos>;
+
+        $i24 = $i23 + 1;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rTPos> = $i24;
+
+        if $i24 != 512 goto label3;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rTPos> = 0;
+
+        goto label3;
+
+     label2:
+        $i14 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rNToGo>;
+
+        $i15 = $i14 - 1;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rNToGo> = $i15;
+
+     label3:
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_j2> = 0;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int currentState> = 4;
+
+        $i26 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_rNToGo>;
+
+        if $i26 != 1 goto label4;
+
+        $c17 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: char su_z>;
+
+        $c18 = $c17 ^ 1;
+
+        $c19 = (char) $c18;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: char su_z> = $c19;
+
+     label4:
+        $i16 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int setupRandPartC()>();
+
+        return $i16;
+
+     label5:
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int currentState> = 2;
+
+        $i4 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int setupRandPartA()>();
+
+        return $i4;
+    }
+
+    private int setupRandPartC() throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        char $c0;
+        int $i1, $i2, $i3, $i4, $i5, $i6, $i7, $i8;
+        org.apache.commons.compress.compressors.bzip2.CRC $r1;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        $i1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_j2>;
+
+        $c0 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: char su_z>;
+
+        if $i1 >= $c0 goto label1;
+
+        $r1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.CRC crc>;
+
+        $i5 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_ch2>;
+
+        virtualinvoke $r1.<org.apache.commons.compress.compressors.bzip2.CRC: void updateCRC(int)>($i5);
+
+        $i6 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_j2>;
+
+        $i7 = $i6 + 1;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_j2> = $i7;
+
+        $i8 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_ch2>;
+
+        return $i8;
+
+     label1:
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int currentState> = 2;
+
+        $i2 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_i2>;
+
+        $i3 = $i2 + 1;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_i2> = $i3;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_count> = 0;
+
+        $i4 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int setupRandPartA()>();
+
+        return $i4;
+    }
+
+    private int setupNoRandPartB() throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        int $i0, $i1, $i2, $i3, $i4, $i5, $i6, $i7, $i11, $i12, $i13, $i14;
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data $r1, $r3, $r5;
+        byte[] $r2, $r4;
+        byte $b8;
+        short $s9;
+        char $c10;
+        int[] $r6;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        $i1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_ch2>;
+
+        $i0 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_chPrev>;
+
+        if $i1 == $i0 goto label1;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_count> = 1;
+
+        $i14 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int setupNoRandPartA()>();
+
+        return $i14;
+
+     label1:
+        $i2 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_count>;
+
+        $i3 = $i2 + 1;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_count> = $i3;
+
+        if $i3 < 4 goto label2;
+
+        $i6 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_tPos>;
+
+        $r1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        $r2 = $r1.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: byte[] ll8>;
+
+        $i5 = lengthof $r2;
+
+        staticinvoke <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: void checkBounds(int,int,java.lang.String)>($i6, $i5, "su_tPos");
+
+        $r3 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        $r4 = $r3.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: byte[] ll8>;
+
+        $i7 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_tPos>;
+
+        $b8 = $r4[$i7];
+
+        $s9 = $b8 & 255;
+
+        $c10 = (char) $s9;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: char su_z> = $c10;
+
+        $r5 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data data>;
+
+        $r6 = $r5.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream$Data: int[] tt>;
+
+        $i11 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_tPos>;
+
+        $i12 = $r6[$i11];
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_tPos> = $i12;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_j2> = 0;
+
+        $i13 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int setupNoRandPartC()>();
+
+        return $i13;
+
+     label2:
+        $i4 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int setupNoRandPartA()>();
+
+        return $i4;
+    }
+
+    private int setupNoRandPartC() throws java.io.IOException
+    {
+        org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream r0;
+        int i0, $i2, $i3, $i4, $i5, $i6, $i7;
+        char $c1;
+        org.apache.commons.compress.compressors.bzip2.CRC $r1;
+
+        r0 := @this: org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+
+        $i2 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_j2>;
+
+        $c1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: char su_z>;
+
+        if $i2 >= $c1 goto label1;
+
+        i0 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_ch2>;
+
+        $r1 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: org.apache.commons.compress.compressors.bzip2.CRC crc>;
+
+        virtualinvoke $r1.<org.apache.commons.compress.compressors.bzip2.CRC: void updateCRC(int)>(i0);
+
+        $i6 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_j2>;
+
+        $i7 = $i6 + 1;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_j2> = $i7;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int currentState> = 7;
+
+        return i0;
+
+     label1:
+        $i3 = r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_i2>;
+
+        $i4 = $i3 + 1;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_i2> = $i4;
+
+        r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int su_count> = 0;
+
+        $i5 = specialinvoke r0.<org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int setupNoRandPartA()>();
+
+        return $i5;
+    }
+
+    public static boolean matches(byte[], int)
+    {
+        byte[] r0;
+        int i0;
+        byte $b1, $b2, $b3;
+        boolean $z0;
+
+        r0 := @parameter0: byte[];
+
+        i0 := @parameter1: int;
+
+        if i0 < 3 goto label1;
+
+        $b1 = r0[0];
+
+        if $b1 != 66 goto label1;
+
+        $b2 = r0[1];
+
+        if $b2 != 90 goto label1;
+
+        $b3 = r0[2];
+
+        if $b3 != 104 goto label1;
+
+        $z0 = 1;
+
+        goto label2;
+
+     label1:
+        $z0 = 0;
+
+     label2:
+        return $z0;
+    }
+
+    public static void <clinit>()
+    {
+        <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int NO_RAND_PART_C_STATE> = 7;
+
+        <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int NO_RAND_PART_B_STATE> = 6;
+
+        <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int NO_RAND_PART_A_STATE> = 5;
+
+        <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int RAND_PART_C_STATE> = 4;
+
+        <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int RAND_PART_B_STATE> = 3;
+
+        <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int RAND_PART_A_STATE> = 2;
+
+        <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int START_BLOCK_STATE> = 1;
+
+        <org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream: int EOF> = 0;
+
+        return;
+    }
+}

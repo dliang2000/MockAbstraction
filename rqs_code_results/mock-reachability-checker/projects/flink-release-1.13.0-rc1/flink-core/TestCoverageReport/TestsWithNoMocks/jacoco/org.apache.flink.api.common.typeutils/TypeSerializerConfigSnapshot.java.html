@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TypeSerializerConfigSnapshot.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeutils</a> &gt; <span class="el_source">TypeSerializerConfigSnapshot.java</span></div><h1>TypeSerializerConfigSnapshot.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeutils;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.core.io.VersionedIOReadableWritable;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.util.Preconditions;
+
+import java.io.IOException;
+
+import static org.apache.flink.util.Preconditions.checkState;
+
+/**
+ * This class bridges between the old serializer config snapshot interface (this class) and the new
+ * serializer config snapshot interface ({@link TypeSerializerSnapshot}).
+ *
+ * &lt;p&gt;Serializers that create snapshots and compatibility checks with the old interfaces extends
+ * this class and should migrate to extend {@code TypeSerializerSnapshot} to properly support state
+ * evolution/migration and be future-proof.
+ */
+@PublicEvolving
+@Deprecated
+<span class="fc" id="L42">public abstract class TypeSerializerConfigSnapshot&lt;T&gt; extends VersionedIOReadableWritable</span>
+        implements TypeSerializerSnapshot&lt;T&gt; {
+
+    /** Version / Magic number for the format that bridges between the old and new interface. */
+    static final int ADAPTER_VERSION = 0x7a53c4f0;
+
+    /**
+     * The user code class loader; only relevant if this configuration instance was deserialized
+     * from binary form.
+     */
+    private ClassLoader userCodeClassLoader;
+
+    /** The originating serializer of this configuration snapshot. */
+    private TypeSerializer&lt;T&gt; serializer;
+
+    /** Set the originating serializer of this configuration snapshot. */
+    @Internal
+    public final void setPriorSerializer(TypeSerializer&lt;T&gt; serializer) {
+<span class="fc" id="L60">        this.serializer = Preconditions.checkNotNull(serializer);</span>
+<span class="fc" id="L61">    }</span>
+
+    /**
+     * Set the user code class loader. Only relevant if this configuration instance was deserialized
+     * from binary form.
+     *
+     * &lt;p&gt;This method is not part of the public user-facing API, and cannot be overridden.
+     *
+     * @param userCodeClassLoader user code class loader.
+     */
+    @Internal
+    public final void setUserCodeClassLoader(ClassLoader userCodeClassLoader) {
+<span class="fc" id="L73">        this.userCodeClassLoader = Preconditions.checkNotNull(userCodeClassLoader);</span>
+<span class="fc" id="L74">    }</span>
+
+    /**
+     * Returns the user code class loader. Only relevant if this configuration instance was
+     * deserialized from binary form.
+     *
+     * @return the user code class loader
+     */
+    @Internal
+    public final ClassLoader getUserCodeClassLoader() {
+<span class="fc" id="L84">        return userCodeClassLoader;</span>
+    }
+
+    // ----------------------------------------------------------------------------
+    //  Implementation of the TypeSerializerSnapshot interface
+    // ----------------------------------------------------------------------------
+
+    @Override
+    public final int getCurrentVersion() {
+<span class="fc" id="L93">        return ADAPTER_VERSION;</span>
+    }
+
+    @Override
+    public final void writeSnapshot(DataOutputView out) throws IOException {
+<span class="fc bfc" id="L98" title="All 2 branches covered.">        checkState(serializer != null, &quot;the prior serializer has not been set on this&quot;);</span>
+
+        // write the snapshot for a non-updated serializer.
+        // this mimics the previous behavior where the TypeSerializer was
+        // Java-serialized, for backwards compatibility
+<span class="fc" id="L103">        TypeSerializerSerializationUtil.writeSerializer(out, serializer);</span>
+
+        // now delegate to the snapshots own writing code
+<span class="fc" id="L106">        write(out);</span>
+<span class="fc" id="L107">    }</span>
+
+    @Override
+    public final void readSnapshot(
+            int readVersion, DataInputView in, ClassLoader userCodeClassLoader) throws IOException {
+<span class="pc bpc" id="L112" title="1 of 2 branches missed.">        if (readVersion != ADAPTER_VERSION) {</span>
+<span class="nc" id="L113">            throw new IOException(</span>
+                    &quot;Wrong/unexpected version for the TypeSerializerConfigSnapshot: &quot;
+                            + readVersion);
+        }
+
+<span class="fc" id="L118">        serializer =</span>
+<span class="fc" id="L119">                TypeSerializerSerializationUtil.tryReadSerializer(in, userCodeClassLoader, true);</span>
+
+        // now delegate to the snapshots own reading code
+<span class="fc" id="L122">        setUserCodeClassLoader(userCodeClassLoader);</span>
+<span class="fc" id="L123">        read(in);</span>
+<span class="fc" id="L124">    }</span>
+
+    /**
+     * Creates a serializer using this configuration, that is capable of reading data written by the
+     * serializer described by this configuration.
+     *
+     * @return the restored serializer.
+     */
+    @Override
+    public final TypeSerializer&lt;T&gt; restoreSerializer() {
+<span class="pc bpc" id="L134" title="1 of 2 branches missed.">        if (serializer == null) {</span>
+<span class="nc" id="L135">            throw new IllegalStateException(</span>
+                    &quot;Trying to restore the prior serializer via TypeSerializerConfigSnapshot, &quot;
+                            + &quot;but the prior serializer has not been set.&quot;);
+<span class="fc bfc" id="L138" title="All 2 branches covered.">        } else if (serializer instanceof UnloadableDummyTypeSerializer) {</span>
+<span class="fc" id="L139">            Throwable originalError =</span>
+<span class="fc" id="L140">                    ((UnloadableDummyTypeSerializer&lt;?&gt;) serializer).getOriginalError();</span>
+
+<span class="fc" id="L142">            throw new IllegalStateException(</span>
+                    &quot;Could not Java-deserialize TypeSerializer while restoring checkpoint metadata for serializer &quot;
+                            + &quot;snapshot '&quot;
+<span class="fc" id="L145">                            + getClass().getName()</span>
+                            + &quot;'. &quot;
+                            + &quot;Please update to the TypeSerializerSnapshot interface that removes Java Serialization to avoid &quot;
+                            + &quot;this problem in the future.&quot;,
+                    originalError);
+        } else {
+<span class="fc" id="L151">            return this.serializer;</span>
+        }
+    }
+
+    @Override
+    public TypeSerializerSchemaCompatibility&lt;T&gt; resolveSchemaCompatibility(
+            TypeSerializer&lt;T&gt; newSerializer) {
+<span class="nc bnc" id="L158" title="All 2 branches missed.">        if (newSerializer instanceof TypeSerializerConfigSnapshot.SelfResolvingTypeSerializer&lt;?&gt;) {</span>
+            @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L160">            SelfResolvingTypeSerializer&lt;T&gt; selfResolvingTypeSerializer =</span>
+                    (SelfResolvingTypeSerializer&lt;T&gt;) newSerializer;
+<span class="nc" id="L162">            return selfResolvingTypeSerializer</span>
+<span class="nc" id="L163">                    .resolveSchemaCompatibilityViaRedirectingToNewSnapshotClass(this);</span>
+        }
+
+        // we reach here if:
+        // - this legacy config snapshot did not override #resolveSchemaCompatibility to redirect
+        //   the compatibility check to a new TypeSerializerSnapshot
+        // - the corresponding newSerializer does not make use of the SelfResolvingTypeSerializer
+        //   to assist with the redirection
+<span class="nc" id="L171">        throw new UnsupportedOperationException(</span>
+                &quot;Serializer snapshot &quot;
+<span class="nc" id="L173">                        + getClass().getName()</span>
+                        + &quot; is still implementing the deprecated TypeSerializerConfigSnapshot class.\n&quot;
+                        + &quot;Please update it to implement the TypeSerializerSnapshot interface, to enable state evolution as well as being future-proof.\n\n&quot;
+                        + &quot;- If possible, you should try to perform the update in-place, i.e. use the same snapshot class under the same name, but change it to implement TypeSerializerSnapshot instead.\n\n&quot;
+                        + &quot;- Otherwise, if the above isn't possible (perhaps because the new snapshot is intended to have completely\n&quot;
+                        + &quot;  different written contents or intended to have a different class name),\n&quot;
+                        + &quot;  retain the old serializer snapshot class (extending TypeSerializerConfigSnapshot) under the same name\n&quot;
+                        + &quot;  and give the updated serializer snapshot class (the one extending TypeSerializerSnapshot) a new name.\n&quot;
+                        + &quot;  Afterwards, override the TypeSerializerConfigSnapshot#resolveSchemaCompatibility(TypeSerializer)\n&quot;
+                        + &quot;  method on the old snapshot to perform the compatibility check based on configuration written by&quot;
+                        + &quot;  the old serializer snapshot class.&quot;);
+    }
+
+    /**
+     * This interface assists with the migration path to the new serialization abstraction.
+     *
+     * &lt;p&gt;This interface can be used for cases where the `ensureCompatibility` method cannot be
+     * removed. Implementing this interface by your {@link TypeSerializer} would allow it to
+     * &quot;redirect&quot; the compatibility check to the corresponding {code TypeSerializerSnapshot} class.
+     *
+     * &lt;p&gt;Please note that if it is possible to directly override {@link
+     * TypeSerializerConfigSnapshot#resolveSchemaCompatibility} and preform the redirection logic
+     * there, then that is the preferred way. This interface is useful for cases where there is not
+     * enough information, and the new serializer should assist with the redirection.
+     */
+    @Internal
+    public interface SelfResolvingTypeSerializer&lt;E&gt; {
+
+        /**
+         * Resolve Schema Compatibility.
+         *
+         * &lt;p&gt;Given an instance of a {@code TypeSerializerConfigSnapshot} this method should
+         * redirect the compatibility check to the new {@code TypeSerializerSnapshot} class along
+         * with the relevant information as present in the given {@code deprecatedConfigSnapshot}.
+         *
+         * @param deprecatedConfigSnapshot the not yet migrated config snapshot class.
+         * @return the compatibility result of the {@code deprecatedConfigSnapshot} with {@code
+         *     this} serializer.
+         */
+        TypeSerializerSchemaCompatibility&lt;E&gt;
+                resolveSchemaCompatibilityViaRedirectingToNewSnapshotClass(
+                        TypeSerializerConfigSnapshot&lt;E&gt; deprecatedConfigSnapshot);
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

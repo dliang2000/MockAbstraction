@@ -1,0 +1,439 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BinaryInputFormat.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.io</a> &gt; <span class="el_source">BinaryInputFormat.java</span></div><h1>BinaryInputFormat.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.io;
+
+import org.apache.flink.annotation.Public;
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.io.statistics.BaseStatistics;
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.core.fs.BlockLocation;
+import org.apache.flink.core.fs.FSDataInputStream;
+import org.apache.flink.core.fs.FileInputSplit;
+import org.apache.flink.core.fs.FileStatus;
+import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataInputViewStreamWrapper;
+import org.apache.flink.util.Preconditions;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.FilterInputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+/**
+ * Base class for all input formats that use blocks of fixed size. The input splits are aligned to
+ * these blocks, meaning that each split will consist of one block. Without configuration, these
+ * block sizes equal the native block sizes of the HDFS.
+ *
+ * &lt;p&gt;A block will contain a {@link BlockInfo} at the end of the block. There, the reader can find
+ * some statistics about the split currently being read, that will help correctly parse the contents
+ * of the block.
+ */
+@Public
+<span class="fc" id="L55">public abstract class BinaryInputFormat&lt;T&gt; extends FileInputFormat&lt;T&gt;</span>
+        implements CheckpointableInputFormat&lt;FileInputSplit, Tuple2&lt;Long, Long&gt;&gt; {
+
+    private static final long serialVersionUID = 1L;
+
+    /** The log. */
+<span class="fc" id="L61">    private static final Logger LOG = LoggerFactory.getLogger(BinaryInputFormat.class);</span>
+
+    /** The config parameter which defines the fixed length of a record. */
+    public static final String BLOCK_SIZE_PARAMETER_KEY = &quot;input.block_size&quot;;
+
+    public static final long NATIVE_BLOCK_SIZE = Long.MIN_VALUE;
+
+    /** The block size to use. */
+<span class="fc" id="L69">    private long blockSize = NATIVE_BLOCK_SIZE;</span>
+
+    private transient DataInputViewStreamWrapper dataInputStream;
+
+    /** The BlockInfo for the Block corresponding to the split currently being read. */
+    private transient BlockInfo blockInfo;
+
+    /** A wrapper around the block currently being read. */
+<span class="fc" id="L77">    private transient BlockBasedInput blockBasedInput = null;</span>
+
+    /**
+     * The number of records already read from the block. This is used to decide if the end of the
+     * block has been reached.
+     */
+<span class="fc" id="L83">    private long readRecords = 0;</span>
+
+    @Override
+    public void configure(Configuration parameters) {
+<span class="fc" id="L87">        super.configure(parameters);</span>
+
+        // the if is to prevent the configure() method from
+        // overwriting the value set by the setter
+
+<span class="fc bfc" id="L92" title="All 2 branches covered.">        if (this.blockSize == NATIVE_BLOCK_SIZE) {</span>
+<span class="fc" id="L93">            long blockSize = parameters.getLong(BLOCK_SIZE_PARAMETER_KEY, NATIVE_BLOCK_SIZE);</span>
+<span class="fc" id="L94">            setBlockSize(blockSize);</span>
+        }
+<span class="fc" id="L96">    }</span>
+
+    public void setBlockSize(long blockSize) {
+<span class="pc bpc" id="L99" title="1 of 4 branches missed.">        if (blockSize &lt; 1 &amp;&amp; blockSize != NATIVE_BLOCK_SIZE) {</span>
+<span class="nc" id="L100">            throw new IllegalArgumentException(</span>
+                    &quot;The block size parameter must be set and larger than 0.&quot;);
+        }
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">        if (blockSize &gt; Integer.MAX_VALUE) {</span>
+<span class="nc" id="L104">            throw new UnsupportedOperationException(</span>
+                    &quot;Currently only block sizes up to Integer.MAX_VALUE are supported&quot;);
+        }
+<span class="fc" id="L107">        this.blockSize = blockSize;</span>
+<span class="fc" id="L108">    }</span>
+
+    public long getBlockSize() {
+<span class="nc" id="L111">        return this.blockSize;</span>
+    }
+
+    @Override
+    public FileInputSplit[] createInputSplits(int minNumSplits) throws IOException {
+<span class="fc" id="L116">        final List&lt;FileStatus&gt; files = this.getFiles();</span>
+
+<span class="fc" id="L118">        final List&lt;FileInputSplit&gt; inputSplits = new ArrayList&lt;FileInputSplit&gt;(minNumSplits);</span>
+<span class="fc bfc" id="L119" title="All 2 branches covered.">        for (FileStatus file : files) {</span>
+<span class="fc" id="L120">            final FileSystem fs = file.getPath().getFileSystem();</span>
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">            final long blockSize =</span>
+<span class="pc" id="L122">                    this.blockSize == NATIVE_BLOCK_SIZE ? fs.getDefaultBlockSize() : this.blockSize;</span>
+
+<span class="fc bfc" id="L124" title="All 2 branches covered.">            for (long pos = 0, length = file.getLen(); pos &lt; length; pos += blockSize) {</span>
+<span class="fc" id="L125">                long remainingLength = Math.min(pos + blockSize, length) - pos;</span>
+
+                // get the block locations and make sure they are in order with respect to their
+                // offset
+<span class="fc" id="L129">                final BlockLocation[] blocks = fs.getFileBlockLocations(file, pos, remainingLength);</span>
+<span class="fc" id="L130">                Arrays.sort(blocks);</span>
+
+<span class="fc" id="L132">                inputSplits.add(</span>
+                        new FileInputSplit(
+<span class="fc" id="L134">                                inputSplits.size(),</span>
+<span class="fc" id="L135">                                file.getPath(),</span>
+                                pos,
+                                remainingLength,
+<span class="fc" id="L138">                                blocks[0].getHosts()));</span>
+            }
+<span class="fc" id="L140">        }</span>
+
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">        if (inputSplits.size() &lt; minNumSplits) {</span>
+<span class="nc" id="L143">            LOG.warn(</span>
+<span class="nc" id="L144">                    String.format(</span>
+                            &quot;With the given block size %d, the files %s cannot be split into %d blocks. Filling up with empty splits...&quot;,
+<span class="nc" id="L146">                            blockSize, Arrays.toString(getFilePaths()), minNumSplits));</span>
+<span class="nc" id="L147">            FileStatus last = files.get(files.size() - 1);</span>
+<span class="nc" id="L148">            final BlockLocation[] blocks =</span>
+<span class="nc" id="L149">                    last.getPath().getFileSystem().getFileBlockLocations(last, 0, last.getLen());</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">            for (int index = files.size(); index &lt; minNumSplits; index++) {</span>
+<span class="nc" id="L151">                inputSplits.add(</span>
+                        new FileInputSplit(
+<span class="nc" id="L153">                                index, last.getPath(), last.getLen(), 0, blocks[0].getHosts()));</span>
+            }
+        }
+
+<span class="fc" id="L157">        return inputSplits.toArray(new FileInputSplit[inputSplits.size()]);</span>
+    }
+
+    protected List&lt;FileStatus&gt; getFiles() throws IOException {
+        // get all the files that are involved in the splits
+<span class="fc" id="L162">        List&lt;FileStatus&gt; files = new ArrayList&lt;&gt;();</span>
+
+<span class="fc bfc" id="L164" title="All 2 branches covered.">        for (Path filePath : getFilePaths()) {</span>
+<span class="fc" id="L165">            final FileSystem fs = filePath.getFileSystem();</span>
+<span class="fc" id="L166">            final FileStatus pathFile = fs.getFileStatus(filePath);</span>
+
+<span class="pc bpc" id="L168" title="1 of 2 branches missed.">            if (pathFile.isDir()) {</span>
+                // input is directory. list all contained files
+<span class="nc" id="L170">                final FileStatus[] partials = fs.listStatus(filePath);</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">                for (FileStatus partial : partials) {</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">                    if (!partial.isDir()) {</span>
+<span class="nc" id="L173">                        files.add(partial);</span>
+                    }
+                }
+<span class="nc" id="L176">            } else {</span>
+<span class="fc" id="L177">                files.add(pathFile);</span>
+            }
+        }
+<span class="fc" id="L180">        return files;</span>
+    }
+
+    @Override
+    public SequentialStatistics getStatistics(BaseStatistics cachedStats) {
+
+<span class="pc bpc" id="L186" title="1 of 2 branches missed.">        final FileBaseStatistics cachedFileStats =</span>
+                cachedStats instanceof FileBaseStatistics ? (FileBaseStatistics) cachedStats : null;
+
+        try {
+<span class="fc" id="L190">            final ArrayList&lt;FileStatus&gt; allFiles = new ArrayList&lt;FileStatus&gt;(1);</span>
+<span class="fc" id="L191">            final FileBaseStatistics stats =</span>
+<span class="fc" id="L192">                    getFileStats(cachedFileStats, getFilePaths(), allFiles);</span>
+<span class="pc bpc" id="L193" title="1 of 2 branches missed.">            if (stats == null) {</span>
+<span class="nc" id="L194">                return null;</span>
+            }
+            // check whether the file stats are still sequential stats (in that case they are still
+            // valid)
+<span class="pc bpc" id="L198" title="1 of 2 branches missed.">            if (stats instanceof SequentialStatistics) {</span>
+<span class="nc" id="L199">                return (SequentialStatistics) stats;</span>
+            }
+<span class="fc" id="L201">            return createStatistics(allFiles, stats);</span>
+<span class="fc" id="L202">        } catch (IOException ioex) {</span>
+<span class="pc bpc" id="L203" title="1 of 2 branches missed.">            if (LOG.isWarnEnabled()) {</span>
+<span class="nc" id="L204">                LOG.warn(</span>
+<span class="nc" id="L205">                        String.format(</span>
+                                &quot;Could not determine complete statistics for files '%s' due to an I/O error&quot;,
+<span class="nc" id="L207">                                Arrays.toString(getFilePaths())),</span>
+                        ioex);
+            }
+<span class="nc" id="L210">        } catch (Throwable t) {</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">            if (LOG.isErrorEnabled()) {</span>
+<span class="nc" id="L212">                LOG.error(</span>
+<span class="nc" id="L213">                        String.format(</span>
+                                &quot;Unexpected problem while getting the file statistics for files '%s'&quot;,
+<span class="nc" id="L215">                                Arrays.toString(getFilePaths())),</span>
+                        t);
+            }
+<span class="fc" id="L218">        }</span>
+        // no stats available
+<span class="fc" id="L220">        return null;</span>
+    }
+
+    protected FileInputSplit[] getInputSplits() throws IOException {
+<span class="nc" id="L224">        return this.createInputSplits(0);</span>
+    }
+
+    public BlockInfo createBlockInfo() {
+<span class="nc" id="L228">        return new BlockInfo();</span>
+    }
+
+    private BlockInfo createAndReadBlockInfo() throws IOException {
+<span class="nc" id="L232">        BlockInfo blockInfo = new BlockInfo();</span>
+<span class="nc bnc" id="L233" title="All 2 branches missed.">        if (this.splitLength &gt; blockInfo.getInfoSize()) {</span>
+            // At first we go and read  the block info containing the recordCount, the
+            // accumulatedRecordCount
+            // and the firstRecordStart offset in the current block. This is written at the end of
+            // the block and
+            // is of fixed size, currently 3 * Long.SIZE.
+
+            // TODO: seek not supported by compressed streams. Will throw exception
+<span class="nc" id="L241">            this.stream.seek(this.splitStart + this.splitLength - blockInfo.getInfoSize());</span>
+<span class="nc" id="L242">            blockInfo.read(new DataInputViewStreamWrapper(this.stream));</span>
+        }
+<span class="nc" id="L244">        return blockInfo;</span>
+    }
+
+    /**
+     * Fill in the statistics. The last modification time and the total input size are prefilled.
+     *
+     * @param files The files that are associated with this block input format.
+     * @param stats The pre-filled statistics.
+     */
+    protected SequentialStatistics createStatistics(
+            List&lt;FileStatus&gt; files, FileBaseStatistics stats) throws IOException {
+<span class="pc bpc" id="L255" title="1 of 2 branches missed.">        if (files.isEmpty()) {</span>
+<span class="nc" id="L256">            return null;</span>
+        }
+
+<span class="fc" id="L259">        BlockInfo blockInfo = new BlockInfo();</span>
+<span class="fc" id="L260">        long totalCount = 0;</span>
+<span class="fc bfc" id="L261" title="All 2 branches covered.">        for (FileStatus file : files) {</span>
+            // invalid file
+<span class="pc bpc" id="L263" title="1 of 2 branches missed.">            if (file.getLen() &lt; blockInfo.getInfoSize()) {</span>
+<span class="nc" id="L264">                continue;</span>
+            }
+
+<span class="fc" id="L267">            FileSystem fs = file.getPath().getFileSystem();</span>
+<span class="fc" id="L268">            try (FSDataInputStream fdis = fs.open(file.getPath(), blockInfo.getInfoSize())) {</span>
+<span class="fc" id="L269">                fdis.seek(file.getLen() - blockInfo.getInfoSize());</span>
+
+<span class="fc" id="L271">                blockInfo.read(new DataInputViewStreamWrapper(fdis));</span>
+<span class="fc" id="L272">                totalCount += blockInfo.getAccumulatedRecordCount();</span>
+            }
+<span class="fc" id="L274">        }</span>
+
+<span class="pc bpc" id="L276" title="1 of 2 branches missed.">        final float avgWidth =</span>
+<span class="fc" id="L277">                totalCount == 0 ? 0 : ((float) stats.getTotalInputSize() / totalCount);</span>
+<span class="fc" id="L278">        return new SequentialStatistics(</span>
+<span class="fc" id="L279">                stats.getLastModificationTime(), stats.getTotalInputSize(), avgWidth, totalCount);</span>
+    }
+
+    private static class SequentialStatistics extends FileBaseStatistics {
+
+        private final long numberOfRecords;
+
+        public SequentialStatistics(
+                long fileModTime, long fileSize, float avgBytesPerRecord, long numberOfRecords) {
+<span class="fc" id="L288">            super(fileModTime, fileSize, avgBytesPerRecord);</span>
+<span class="fc" id="L289">            this.numberOfRecords = numberOfRecords;</span>
+<span class="fc" id="L290">        }</span>
+
+        @Override
+        public long getNumberOfRecords() {
+<span class="nc" id="L294">            return this.numberOfRecords;</span>
+        }
+    }
+
+    @Override
+    public void open(FileInputSplit split) throws IOException {
+<span class="nc" id="L300">        super.open(split);</span>
+
+<span class="nc" id="L302">        this.blockInfo = this.createAndReadBlockInfo();</span>
+
+        // We set the size of the BlockBasedInput to splitLength as each split contains one block.
+        // After reading the block info, we seek in the file to the correct position.
+
+<span class="nc" id="L307">        this.readRecords = 0;</span>
+<span class="nc" id="L308">        this.stream.seek(this.splitStart + this.blockInfo.getFirstRecordStart());</span>
+<span class="nc" id="L309">        this.blockBasedInput =</span>
+                new BlockBasedInput(
+<span class="nc" id="L311">                        this.stream, (int) blockInfo.getFirstRecordStart(), this.splitLength);</span>
+<span class="nc" id="L312">        this.dataInputStream = new DataInputViewStreamWrapper(blockBasedInput);</span>
+<span class="nc" id="L313">    }</span>
+
+    @Override
+    public boolean reachedEnd() throws IOException {
+<span class="nc bnc" id="L317" title="All 2 branches missed.">        return this.readRecords &gt;= this.blockInfo.getRecordCount();</span>
+    }
+
+    @Override
+    public T nextRecord(T record) throws IOException {
+<span class="nc bnc" id="L322" title="All 2 branches missed.">        if (this.reachedEnd()) {</span>
+<span class="nc" id="L323">            return null;</span>
+        }
+<span class="nc" id="L325">        record = this.deserialize(record, this.dataInputStream);</span>
+<span class="nc" id="L326">        this.readRecords++;</span>
+<span class="nc" id="L327">        return record;</span>
+    }
+
+    protected abstract T deserialize(T reuse, DataInputView dataInput) throws IOException;
+
+    /**
+     * Reads the content of a block of data. The block contains its {@link BlockInfo} at the end,
+     * and this method takes this into account when reading the data.
+     */
+    protected class BlockBasedInput extends FilterInputStream {
+        private final int maxPayloadSize;
+
+        private int blockPos;
+
+<span class="nc" id="L341">        public BlockBasedInput(FSDataInputStream in, int blockSize) {</span>
+<span class="nc" id="L342">            super(in);</span>
+<span class="nc" id="L343">            this.blockPos = (int) BinaryInputFormat.this.blockInfo.getFirstRecordStart();</span>
+<span class="nc" id="L344">            this.maxPayloadSize = blockSize - BinaryInputFormat.this.blockInfo.getInfoSize();</span>
+<span class="nc" id="L345">        }</span>
+
+<span class="nc" id="L347">        public BlockBasedInput(FSDataInputStream in, int startPos, long length) {</span>
+<span class="nc" id="L348">            super(in);</span>
+<span class="nc" id="L349">            this.blockPos = startPos;</span>
+<span class="nc" id="L350">            this.maxPayloadSize = (int) (length - BinaryInputFormat.this.blockInfo.getInfoSize());</span>
+<span class="nc" id="L351">        }</span>
+
+        @Override
+        public int read() throws IOException {
+<span class="nc bnc" id="L355" title="All 2 branches missed.">            if (this.blockPos++ &gt;= this.maxPayloadSize) {</span>
+<span class="nc" id="L356">                this.skipHeader();</span>
+            }
+<span class="nc" id="L358">            return this.in.read();</span>
+        }
+
+        private long getCurrBlockPos() {
+<span class="nc" id="L362">            return this.blockPos;</span>
+        }
+
+        private void skipHeader() throws IOException {
+<span class="nc" id="L366">            byte[] dummy = new byte[BinaryInputFormat.this.blockInfo.getInfoSize()];</span>
+<span class="nc" id="L367">            this.in.read(dummy, 0, dummy.length);</span>
+
+            // the blockPos is set to 0 for the case of remote reads,
+            // these are the cases where the last record of a block spills on the next block
+<span class="nc" id="L371">            this.blockPos = 0;</span>
+<span class="nc" id="L372">        }</span>
+
+        @Override
+        public int read(byte[] b) throws IOException {
+<span class="nc" id="L376">            return this.read(b, 0, b.length);</span>
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+<span class="nc" id="L381">            int totalRead = 0;</span>
+<span class="nc bnc" id="L382" title="All 2 branches missed.">            for (int remainingLength = len, offset = off; remainingLength &gt; 0; ) {</span>
+<span class="nc" id="L383">                int blockLen = Math.min(remainingLength, this.maxPayloadSize - this.blockPos);</span>
+<span class="nc" id="L384">                int read = this.in.read(b, offset, blockLen);</span>
+<span class="nc bnc" id="L385" title="All 2 branches missed.">                if (read &lt; 0) {</span>
+<span class="nc" id="L386">                    return read;</span>
+                }
+<span class="nc" id="L388">                totalRead += read;</span>
+<span class="nc" id="L389">                this.blockPos += read;</span>
+<span class="nc" id="L390">                offset += read;</span>
+<span class="nc bnc" id="L391" title="All 2 branches missed.">                if (this.blockPos &gt;= this.maxPayloadSize) {</span>
+<span class="nc" id="L392">                    this.skipHeader();</span>
+                }
+<span class="nc" id="L394">                remainingLength -= read;</span>
+<span class="nc" id="L395">            }</span>
+<span class="nc" id="L396">            return totalRead;</span>
+        }
+    }
+
+    // --------------------------------------------------------------------------------------------
+    //  Checkpointing
+    // --------------------------------------------------------------------------------------------
+
+    @PublicEvolving
+    @Override
+    public Tuple2&lt;Long, Long&gt; getCurrentState() throws IOException {
+<span class="nc bnc" id="L407" title="All 2 branches missed.">        if (this.blockBasedInput == null) {</span>
+<span class="nc" id="L408">            throw new RuntimeException(</span>
+                    &quot;You must have forgotten to call open() on your input format.&quot;);
+        }
+
+<span class="nc" id="L412">        return new Tuple2&lt;&gt;(</span>
+<span class="nc" id="L413">                this.blockBasedInput.getCurrBlockPos(), // the last read index in the block</span>
+<span class="nc" id="L414">                this.readRecords // the number of records read</span>
+                );
+    }
+
+    @PublicEvolving
+    @Override
+    public void reopen(FileInputSplit split, Tuple2&lt;Long, Long&gt; state) throws IOException {
+<span class="nc" id="L421">        Preconditions.checkNotNull(split, &quot;reopen() cannot be called on a null split.&quot;);</span>
+<span class="nc" id="L422">        Preconditions.checkNotNull(state, &quot;reopen() cannot be called with a null initial state.&quot;);</span>
+
+        try {
+<span class="nc" id="L425">            this.open(split);</span>
+        } finally {
+<span class="nc" id="L427">            this.blockInfo = this.createAndReadBlockInfo();</span>
+
+<span class="nc" id="L429">            long blockPos = state.f0;</span>
+<span class="nc" id="L430">            this.readRecords = state.f1;</span>
+
+<span class="nc" id="L432">            this.stream.seek(this.splitStart + blockPos);</span>
+<span class="nc" id="L433">            this.blockBasedInput =</span>
+                    new BlockBasedInput(this.stream, (int) blockPos, this.splitLength);
+<span class="nc" id="L435">            this.dataInputStream = new DataInputViewStreamWrapper(blockBasedInput);</span>
+        }
+<span class="nc" id="L437">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

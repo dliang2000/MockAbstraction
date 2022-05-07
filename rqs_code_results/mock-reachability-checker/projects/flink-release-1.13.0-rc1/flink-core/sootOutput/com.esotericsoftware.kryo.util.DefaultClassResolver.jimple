@@ -1,0 +1,831 @@
+public class com.esotericsoftware.kryo.util.DefaultClassResolver extends java.lang.Object implements com.esotericsoftware.kryo.ClassResolver
+{
+    public static final byte NAME;
+    protected com.esotericsoftware.kryo.Kryo kryo;
+    protected final com.esotericsoftware.kryo.util.IntMap idToRegistration;
+    protected final com.esotericsoftware.kryo.util.ObjectMap classToRegistration;
+    protected com.esotericsoftware.kryo.util.IdentityObjectIntMap classToNameId;
+    protected com.esotericsoftware.kryo.util.IntMap nameIdToClass;
+    protected com.esotericsoftware.kryo.util.ObjectMap nameToClass;
+    protected int nextNameId;
+    private int memoizedClassId;
+    private com.esotericsoftware.kryo.Registration memoizedClassIdValue;
+    private java.lang.Class memoizedClass;
+    private com.esotericsoftware.kryo.Registration memoizedClassValue;
+
+    public void <init>()
+    {
+        com.esotericsoftware.kryo.util.DefaultClassResolver r0;
+        com.esotericsoftware.kryo.util.IntMap $r1;
+        com.esotericsoftware.kryo.util.ObjectMap $r2;
+
+        r0 := @this: com.esotericsoftware.kryo.util.DefaultClassResolver;
+
+        specialinvoke r0.<java.lang.Object: void <init>()>();
+
+        $r1 = new com.esotericsoftware.kryo.util.IntMap;
+
+        specialinvoke $r1.<com.esotericsoftware.kryo.util.IntMap: void <init>()>();
+
+        r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.IntMap idToRegistration> = $r1;
+
+        $r2 = new com.esotericsoftware.kryo.util.ObjectMap;
+
+        specialinvoke $r2.<com.esotericsoftware.kryo.util.ObjectMap: void <init>()>();
+
+        r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.ObjectMap classToRegistration> = $r2;
+
+        r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: int memoizedClassId> = -1;
+
+        return;
+    }
+
+    public void setKryo(com.esotericsoftware.kryo.Kryo)
+    {
+        com.esotericsoftware.kryo.util.DefaultClassResolver r0;
+        com.esotericsoftware.kryo.Kryo r1;
+
+        r0 := @this: com.esotericsoftware.kryo.util.DefaultClassResolver;
+
+        r1 := @parameter0: com.esotericsoftware.kryo.Kryo;
+
+        r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.Kryo kryo> = r1;
+
+        return;
+    }
+
+    public com.esotericsoftware.kryo.Registration register(com.esotericsoftware.kryo.Registration)
+    {
+        com.esotericsoftware.kryo.util.DefaultClassResolver r0;
+        com.esotericsoftware.kryo.Registration r1;
+        int $i0, $i1, $i2;
+        boolean $z0, $z1, $z2;
+        com.esotericsoftware.kryo.util.ObjectMap $r3, $r36;
+        java.lang.Class $r4, $r5, $r9, $r14, $r25, $r30, $r37, $r38;
+        java.lang.StringBuilder $r7, $r8, $r11, $r12, $r16, $r17, $r21, $r22, $r23, $r24, $r27, $r28, $r32, $r33;
+        java.lang.String $r10, $r15, $r18, $r26, $r31, $r34;
+        com.esotericsoftware.kryo.Serializer $r13, $r29;
+        com.esotericsoftware.kryo.util.IntMap $r19;
+        java.lang.IllegalArgumentException $r35;
+
+        r0 := @this: com.esotericsoftware.kryo.util.DefaultClassResolver;
+
+        r1 := @parameter0: com.esotericsoftware.kryo.Registration;
+
+        if r1 != null goto label1;
+
+        $r35 = new java.lang.IllegalArgumentException;
+
+        specialinvoke $r35.<java.lang.IllegalArgumentException: void <init>(java.lang.String)>("registration cannot be null.");
+
+        throw $r35;
+
+     label1:
+        $i0 = virtualinvoke r1.<com.esotericsoftware.kryo.Registration: int getId()>();
+
+        if $i0 == -1 goto label3;
+
+        $z1 = <com.esotericsoftware.minlog.Log: boolean TRACE>;
+
+        if $z1 == 0 goto label2;
+
+        $r21 = new java.lang.StringBuilder;
+
+        specialinvoke $r21.<java.lang.StringBuilder: void <init>()>();
+
+        $r22 = virtualinvoke $r21.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Register class ID ");
+
+        $i2 = virtualinvoke r1.<com.esotericsoftware.kryo.Registration: int getId()>();
+
+        $r23 = virtualinvoke $r22.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>($i2);
+
+        $r24 = virtualinvoke $r23.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(": ");
+
+        $r25 = virtualinvoke r1.<com.esotericsoftware.kryo.Registration: java.lang.Class getType()>();
+
+        $r26 = staticinvoke <com.esotericsoftware.kryo.util.Util: java.lang.String className(java.lang.Class)>($r25);
+
+        $r27 = virtualinvoke $r24.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r26);
+
+        $r28 = virtualinvoke $r27.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" (");
+
+        $r29 = virtualinvoke r1.<com.esotericsoftware.kryo.Registration: com.esotericsoftware.kryo.Serializer getSerializer()>();
+
+        $r30 = virtualinvoke $r29.<java.lang.Object: java.lang.Class getClass()>();
+
+        $r31 = virtualinvoke $r30.<java.lang.Class: java.lang.String getName()>();
+
+        $r32 = virtualinvoke $r28.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r31);
+
+        $r33 = virtualinvoke $r32.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(")");
+
+        $r34 = virtualinvoke $r33.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        staticinvoke <com.esotericsoftware.minlog.Log: void trace(java.lang.String,java.lang.String)>("kryo", $r34);
+
+     label2:
+        $r19 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.IntMap idToRegistration>;
+
+        $i1 = virtualinvoke r1.<com.esotericsoftware.kryo.Registration: int getId()>();
+
+        virtualinvoke $r19.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object put(int,java.lang.Object)>($i1, r1);
+
+        goto label4;
+
+     label3:
+        $z0 = <com.esotericsoftware.minlog.Log: boolean TRACE>;
+
+        if $z0 == 0 goto label4;
+
+        $r7 = new java.lang.StringBuilder;
+
+        specialinvoke $r7.<java.lang.StringBuilder: void <init>()>();
+
+        $r8 = virtualinvoke $r7.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Register class name: ");
+
+        $r9 = virtualinvoke r1.<com.esotericsoftware.kryo.Registration: java.lang.Class getType()>();
+
+        $r10 = staticinvoke <com.esotericsoftware.kryo.util.Util: java.lang.String className(java.lang.Class)>($r9);
+
+        $r11 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r10);
+
+        $r12 = virtualinvoke $r11.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(" (");
+
+        $r13 = virtualinvoke r1.<com.esotericsoftware.kryo.Registration: com.esotericsoftware.kryo.Serializer getSerializer()>();
+
+        $r14 = virtualinvoke $r13.<java.lang.Object: java.lang.Class getClass()>();
+
+        $r15 = virtualinvoke $r14.<java.lang.Class: java.lang.String getName()>();
+
+        $r16 = virtualinvoke $r12.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r15);
+
+        $r17 = virtualinvoke $r16.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(")");
+
+        $r18 = virtualinvoke $r17.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        staticinvoke <com.esotericsoftware.minlog.Log: void trace(java.lang.String,java.lang.String)>("kryo", $r18);
+
+     label4:
+        $r36 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.ObjectMap classToRegistration>;
+
+        $r37 = virtualinvoke r1.<com.esotericsoftware.kryo.Registration: java.lang.Class getType()>();
+
+        virtualinvoke $r36.<com.esotericsoftware.kryo.util.ObjectMap: java.lang.Object put(java.lang.Object,java.lang.Object)>($r37, r1);
+
+        $r38 = virtualinvoke r1.<com.esotericsoftware.kryo.Registration: java.lang.Class getType()>();
+
+        $z2 = virtualinvoke $r38.<java.lang.Class: boolean isPrimitive()>();
+
+        if $z2 == 0 goto label5;
+
+        $r3 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.ObjectMap classToRegistration>;
+
+        $r4 = virtualinvoke r1.<com.esotericsoftware.kryo.Registration: java.lang.Class getType()>();
+
+        $r5 = staticinvoke <com.esotericsoftware.kryo.util.Util: java.lang.Class getWrapperClass(java.lang.Class)>($r4);
+
+        virtualinvoke $r3.<com.esotericsoftware.kryo.util.ObjectMap: java.lang.Object put(java.lang.Object,java.lang.Object)>($r5, r1);
+
+     label5:
+        return r1;
+    }
+
+    public com.esotericsoftware.kryo.Registration registerImplicit(java.lang.Class)
+    {
+        com.esotericsoftware.kryo.util.DefaultClassResolver r0;
+        java.lang.Class r1;
+        com.esotericsoftware.kryo.Registration $r2, $r5;
+        com.esotericsoftware.kryo.Kryo $r3;
+        com.esotericsoftware.kryo.Serializer $r4;
+
+        r0 := @this: com.esotericsoftware.kryo.util.DefaultClassResolver;
+
+        r1 := @parameter0: java.lang.Class;
+
+        $r2 = new com.esotericsoftware.kryo.Registration;
+
+        $r3 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.Kryo kryo>;
+
+        $r4 = virtualinvoke $r3.<com.esotericsoftware.kryo.Kryo: com.esotericsoftware.kryo.Serializer getDefaultSerializer(java.lang.Class)>(r1);
+
+        specialinvoke $r2.<com.esotericsoftware.kryo.Registration: void <init>(java.lang.Class,com.esotericsoftware.kryo.Serializer,int)>(r1, $r4, -1);
+
+        $r5 = virtualinvoke r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.Registration register(com.esotericsoftware.kryo.Registration)>($r2);
+
+        return $r5;
+    }
+
+    public com.esotericsoftware.kryo.Registration getRegistration(java.lang.Class)
+    {
+        com.esotericsoftware.kryo.util.DefaultClassResolver r0;
+        java.lang.Class r1, $r3;
+        com.esotericsoftware.kryo.Registration r2, $r6;
+        com.esotericsoftware.kryo.util.ObjectMap $r4;
+        java.lang.Object $r5;
+
+        r0 := @this: com.esotericsoftware.kryo.util.DefaultClassResolver;
+
+        r1 := @parameter0: java.lang.Class;
+
+        $r3 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: java.lang.Class memoizedClass>;
+
+        if r1 != $r3 goto label1;
+
+        $r6 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.Registration memoizedClassValue>;
+
+        return $r6;
+
+     label1:
+        $r4 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.ObjectMap classToRegistration>;
+
+        $r5 = virtualinvoke $r4.<com.esotericsoftware.kryo.util.ObjectMap: java.lang.Object get(java.lang.Object)>(r1);
+
+        r2 = (com.esotericsoftware.kryo.Registration) $r5;
+
+        if r2 == null goto label2;
+
+        r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: java.lang.Class memoizedClass> = r1;
+
+        r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.Registration memoizedClassValue> = r2;
+
+     label2:
+        return r2;
+    }
+
+    public com.esotericsoftware.kryo.Registration getRegistration(int)
+    {
+        com.esotericsoftware.kryo.util.DefaultClassResolver r0;
+        int i0;
+        com.esotericsoftware.kryo.util.IntMap $r1;
+        java.lang.Object $r2;
+        com.esotericsoftware.kryo.Registration $r3;
+
+        r0 := @this: com.esotericsoftware.kryo.util.DefaultClassResolver;
+
+        i0 := @parameter0: int;
+
+        $r1 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.IntMap idToRegistration>;
+
+        $r2 = virtualinvoke $r1.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object get(int)>(i0);
+
+        $r3 = (com.esotericsoftware.kryo.Registration) $r2;
+
+        return $r3;
+    }
+
+    public com.esotericsoftware.kryo.Registration writeClass(com.esotericsoftware.kryo.io.Output, java.lang.Class)
+    {
+        com.esotericsoftware.kryo.util.DefaultClassResolver r0;
+        com.esotericsoftware.kryo.io.Output r1;
+        java.lang.Class r2;
+        com.esotericsoftware.kryo.Registration r3;
+        com.esotericsoftware.kryo.Kryo $r4, $r12;
+        int $i0, $i1, $i2, $i4, $i6;
+        boolean $z0, $z1, $z2;
+        java.lang.StringBuilder $r5, $r6, $r7, $r8, $r10;
+        java.lang.String $r9, $r11;
+
+        r0 := @this: com.esotericsoftware.kryo.util.DefaultClassResolver;
+
+        r1 := @parameter0: com.esotericsoftware.kryo.io.Output;
+
+        r2 := @parameter1: java.lang.Class;
+
+        if r2 != null goto label3;
+
+        $z1 = <com.esotericsoftware.minlog.Log: boolean TRACE>;
+
+        if $z1 != 0 goto label1;
+
+        $z2 = <com.esotericsoftware.minlog.Log: boolean DEBUG>;
+
+        if $z2 == 0 goto label2;
+
+        $r12 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.Kryo kryo>;
+
+        $i6 = virtualinvoke $r12.<com.esotericsoftware.kryo.Kryo: int getDepth()>();
+
+        if $i6 != 1 goto label2;
+
+     label1:
+        staticinvoke <com.esotericsoftware.kryo.util.Util: void log(java.lang.String,java.lang.Object)>("Write", null);
+
+     label2:
+        virtualinvoke r1.<com.esotericsoftware.kryo.io.Output: int writeVarInt(int,boolean)>(0, 1);
+
+        return null;
+
+     label3:
+        $r4 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.Kryo kryo>;
+
+        r3 = virtualinvoke $r4.<com.esotericsoftware.kryo.Kryo: com.esotericsoftware.kryo.Registration getRegistration(java.lang.Class)>(r2);
+
+        $i0 = virtualinvoke r3.<com.esotericsoftware.kryo.Registration: int getId()>();
+
+        if $i0 != -1 goto label4;
+
+        virtualinvoke r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: void writeName(com.esotericsoftware.kryo.io.Output,java.lang.Class,com.esotericsoftware.kryo.Registration)>(r1, r2, r3);
+
+        goto label6;
+
+     label4:
+        $z0 = <com.esotericsoftware.minlog.Log: boolean TRACE>;
+
+        if $z0 == 0 goto label5;
+
+        $r5 = new java.lang.StringBuilder;
+
+        specialinvoke $r5.<java.lang.StringBuilder: void <init>()>();
+
+        $r6 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Write class ");
+
+        $i4 = virtualinvoke r3.<com.esotericsoftware.kryo.Registration: int getId()>();
+
+        $r7 = virtualinvoke $r6.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>($i4);
+
+        $r8 = virtualinvoke $r7.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(": ");
+
+        $r9 = staticinvoke <com.esotericsoftware.kryo.util.Util: java.lang.String className(java.lang.Class)>(r2);
+
+        $r10 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r9);
+
+        $r11 = virtualinvoke $r10.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        staticinvoke <com.esotericsoftware.minlog.Log: void trace(java.lang.String,java.lang.String)>("kryo", $r11);
+
+     label5:
+        $i1 = virtualinvoke r3.<com.esotericsoftware.kryo.Registration: int getId()>();
+
+        $i2 = $i1 + 2;
+
+        virtualinvoke r1.<com.esotericsoftware.kryo.io.Output: int writeVarInt(int,boolean)>($i2, 1);
+
+     label6:
+        return r3;
+    }
+
+    protected void writeName(com.esotericsoftware.kryo.io.Output, java.lang.Class, com.esotericsoftware.kryo.Registration)
+    {
+        com.esotericsoftware.kryo.util.DefaultClassResolver r0;
+        com.esotericsoftware.kryo.io.Output r1;
+        java.lang.Class r2;
+        com.esotericsoftware.kryo.Registration r3;
+        com.esotericsoftware.kryo.util.IdentityObjectIntMap $r4, $r5, $r6, $r8, $r15;
+        boolean $z0, $z1;
+        int $i1, $i2, i5;
+        java.lang.String $r7, $r11, $r13, $r20, $r22;
+        java.lang.StringBuilder $r9, $r10, $r12, $r16, $r17, $r18, $r19, $r21;
+
+        r0 := @this: com.esotericsoftware.kryo.util.DefaultClassResolver;
+
+        r1 := @parameter0: com.esotericsoftware.kryo.io.Output;
+
+        r2 := @parameter1: java.lang.Class;
+
+        r3 := @parameter2: com.esotericsoftware.kryo.Registration;
+
+        virtualinvoke r1.<com.esotericsoftware.kryo.io.Output: int writeVarInt(int,boolean)>(1, 1);
+
+        $r4 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.IdentityObjectIntMap classToNameId>;
+
+        if $r4 == null goto label2;
+
+        $r15 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.IdentityObjectIntMap classToNameId>;
+
+        i5 = virtualinvoke $r15.<com.esotericsoftware.kryo.util.IdentityObjectIntMap: int get(java.lang.Object,int)>(r2, -1);
+
+        if i5 == -1 goto label2;
+
+        $z1 = <com.esotericsoftware.minlog.Log: boolean TRACE>;
+
+        if $z1 == 0 goto label1;
+
+        $r16 = new java.lang.StringBuilder;
+
+        specialinvoke $r16.<java.lang.StringBuilder: void <init>()>();
+
+        $r17 = virtualinvoke $r16.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Write class name reference ");
+
+        $r18 = virtualinvoke $r17.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i5);
+
+        $r19 = virtualinvoke $r18.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(": ");
+
+        $r20 = staticinvoke <com.esotericsoftware.kryo.util.Util: java.lang.String className(java.lang.Class)>(r2);
+
+        $r21 = virtualinvoke $r19.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r20);
+
+        $r22 = virtualinvoke $r21.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        staticinvoke <com.esotericsoftware.minlog.Log: void trace(java.lang.String,java.lang.String)>("kryo", $r22);
+
+     label1:
+        virtualinvoke r1.<com.esotericsoftware.kryo.io.Output: int writeVarInt(int,boolean)>(i5, 1);
+
+        return;
+
+     label2:
+        $z0 = <com.esotericsoftware.minlog.Log: boolean TRACE>;
+
+        if $z0 == 0 goto label3;
+
+        $r9 = new java.lang.StringBuilder;
+
+        specialinvoke $r9.<java.lang.StringBuilder: void <init>()>();
+
+        $r10 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Write class name: ");
+
+        $r11 = staticinvoke <com.esotericsoftware.kryo.util.Util: java.lang.String className(java.lang.Class)>(r2);
+
+        $r12 = virtualinvoke $r10.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r11);
+
+        $r13 = virtualinvoke $r12.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        staticinvoke <com.esotericsoftware.minlog.Log: void trace(java.lang.String,java.lang.String)>("kryo", $r13);
+
+     label3:
+        $i1 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: int nextNameId>;
+
+        $i2 = $i1 + 1;
+
+        r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: int nextNameId> = $i2;
+
+        $r5 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.IdentityObjectIntMap classToNameId>;
+
+        if $r5 != null goto label4;
+
+        $r8 = new com.esotericsoftware.kryo.util.IdentityObjectIntMap;
+
+        specialinvoke $r8.<com.esotericsoftware.kryo.util.IdentityObjectIntMap: void <init>()>();
+
+        r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.IdentityObjectIntMap classToNameId> = $r8;
+
+     label4:
+        $r6 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.IdentityObjectIntMap classToNameId>;
+
+        virtualinvoke $r6.<com.esotericsoftware.kryo.util.IdentityObjectIntMap: void put(java.lang.Object,int)>(r2, $i1);
+
+        virtualinvoke r1.<com.esotericsoftware.kryo.io.Output: int writeVarInt(int,boolean)>($i1, 1);
+
+        $r7 = virtualinvoke r2.<java.lang.Class: java.lang.String getName()>();
+
+        virtualinvoke r1.<com.esotericsoftware.kryo.io.Output: void writeString(java.lang.String)>($r7);
+
+        return;
+    }
+
+    public com.esotericsoftware.kryo.Registration readClass(com.esotericsoftware.kryo.io.Input)
+    {
+        com.esotericsoftware.kryo.util.DefaultClassResolver r0;
+        com.esotericsoftware.kryo.io.Input r1;
+        int i0, $i1, $i2, $i3, $i4, $i5;
+        com.esotericsoftware.kryo.Registration r2, $r3, $r20;
+        boolean $z0, $z1, $z2;
+        com.esotericsoftware.kryo.Kryo $r4;
+        com.esotericsoftware.kryo.util.IntMap $r5;
+        java.lang.Object $r6;
+        java.lang.StringBuilder $r7, $r8, $r9, $r10, $r13, $r16, $r17, $r18;
+        java.lang.Class $r11;
+        java.lang.String $r12, $r14, $r19;
+        com.esotericsoftware.kryo.KryoException $r15;
+
+        r0 := @this: com.esotericsoftware.kryo.util.DefaultClassResolver;
+
+        r1 := @parameter0: com.esotericsoftware.kryo.io.Input;
+
+        i0 = virtualinvoke r1.<com.esotericsoftware.kryo.io.Input: int readVarInt(boolean)>(1);
+
+        lookupswitch(i0)
+        {
+            case 0: goto label1;
+            case 1: goto label4;
+            default: goto label5;
+        };
+
+     label1:
+        $z0 = <com.esotericsoftware.minlog.Log: boolean TRACE>;
+
+        if $z0 != 0 goto label2;
+
+        $z1 = <com.esotericsoftware.minlog.Log: boolean DEBUG>;
+
+        if $z1 == 0 goto label3;
+
+        $r4 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.Kryo kryo>;
+
+        $i1 = virtualinvoke $r4.<com.esotericsoftware.kryo.Kryo: int getDepth()>();
+
+        if $i1 != 1 goto label3;
+
+     label2:
+        staticinvoke <com.esotericsoftware.kryo.util.Util: void log(java.lang.String,java.lang.Object)>("Read", null);
+
+     label3:
+        return null;
+
+     label4:
+        $r3 = virtualinvoke r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.Registration readName(com.esotericsoftware.kryo.io.Input)>(r1);
+
+        return $r3;
+
+     label5:
+        $i2 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: int memoizedClassId>;
+
+        if i0 != $i2 goto label6;
+
+        $r20 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.Registration memoizedClassIdValue>;
+
+        return $r20;
+
+     label6:
+        $r5 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.IntMap idToRegistration>;
+
+        $i3 = i0 - 2;
+
+        $r6 = virtualinvoke $r5.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object get(int)>($i3);
+
+        r2 = (com.esotericsoftware.kryo.Registration) $r6;
+
+        if r2 != null goto label7;
+
+        $r15 = new com.esotericsoftware.kryo.KryoException;
+
+        $r16 = new java.lang.StringBuilder;
+
+        specialinvoke $r16.<java.lang.StringBuilder: void <init>()>();
+
+        $r17 = virtualinvoke $r16.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Encountered unregistered class ID: ");
+
+        $i5 = i0 - 2;
+
+        $r18 = virtualinvoke $r17.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>($i5);
+
+        $r19 = virtualinvoke $r18.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r15.<com.esotericsoftware.kryo.KryoException: void <init>(java.lang.String)>($r19);
+
+        throw $r15;
+
+     label7:
+        $z2 = <com.esotericsoftware.minlog.Log: boolean TRACE>;
+
+        if $z2 == 0 goto label8;
+
+        $r7 = new java.lang.StringBuilder;
+
+        specialinvoke $r7.<java.lang.StringBuilder: void <init>()>();
+
+        $r8 = virtualinvoke $r7.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Read class ");
+
+        $i4 = i0 - 2;
+
+        $r9 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>($i4);
+
+        $r10 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(": ");
+
+        $r11 = virtualinvoke r2.<com.esotericsoftware.kryo.Registration: java.lang.Class getType()>();
+
+        $r12 = staticinvoke <com.esotericsoftware.kryo.util.Util: java.lang.String className(java.lang.Class)>($r11);
+
+        $r13 = virtualinvoke $r10.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r12);
+
+        $r14 = virtualinvoke $r13.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        staticinvoke <com.esotericsoftware.minlog.Log: void trace(java.lang.String,java.lang.String)>("kryo", $r14);
+
+     label8:
+        r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: int memoizedClassId> = i0;
+
+        r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.Registration memoizedClassIdValue> = r2;
+
+        return r2;
+    }
+
+    protected com.esotericsoftware.kryo.Registration readName(com.esotericsoftware.kryo.io.Input)
+    {
+        com.esotericsoftware.kryo.util.DefaultClassResolver r0;
+        com.esotericsoftware.kryo.io.Input r1;
+        int i0;
+        java.lang.String r2, $r11, $r13, $r18, $r31;
+        com.esotericsoftware.kryo.util.IntMap $r4, $r5, $r25, $r33;
+        java.lang.Object $r6;
+        boolean $z0, $z1;
+        java.lang.StringBuilder $r7, $r8, $r9, $r10, $r12, $r15, $r16, $r17, $r28, $r29, $r30;
+        com.esotericsoftware.kryo.Kryo $r19, $r34;
+        java.lang.ClassLoader $r20;
+        com.esotericsoftware.kryo.util.ObjectMap $r21, $r22, $r24;
+        java.lang.ClassNotFoundException $r26;
+        com.esotericsoftware.kryo.KryoException $r27;
+        java.lang.Class r32;
+        com.esotericsoftware.kryo.Registration $r35;
+
+        r0 := @this: com.esotericsoftware.kryo.util.DefaultClassResolver;
+
+        r1 := @parameter0: com.esotericsoftware.kryo.io.Input;
+
+        i0 = virtualinvoke r1.<com.esotericsoftware.kryo.io.Input: int readVarInt(boolean)>(1);
+
+        $r4 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.IntMap nameIdToClass>;
+
+        if $r4 != null goto label01;
+
+        $r25 = new com.esotericsoftware.kryo.util.IntMap;
+
+        specialinvoke $r25.<com.esotericsoftware.kryo.util.IntMap: void <init>()>();
+
+        r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.IntMap nameIdToClass> = $r25;
+
+     label01:
+        $r5 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.IntMap nameIdToClass>;
+
+        $r6 = virtualinvoke $r5.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object get(int)>(i0);
+
+        r32 = (java.lang.Class) $r6;
+
+        if r32 != null goto label09;
+
+        r2 = virtualinvoke r1.<com.esotericsoftware.kryo.io.Input: java.lang.String readString()>();
+
+        r32 = virtualinvoke r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: java.lang.Class getTypeByName(java.lang.String)>(r2);
+
+        if r32 != null goto label07;
+
+     label02:
+        $r19 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.Kryo kryo>;
+
+        $r20 = virtualinvoke $r19.<com.esotericsoftware.kryo.Kryo: java.lang.ClassLoader getClassLoader()>();
+
+        r32 = staticinvoke <java.lang.Class: java.lang.Class forName(java.lang.String,boolean,java.lang.ClassLoader)>(r2, 0, $r20);
+
+     label03:
+        goto label05;
+
+     label04:
+        $r26 := @caughtexception;
+
+        $r27 = new com.esotericsoftware.kryo.KryoException;
+
+        $r28 = new java.lang.StringBuilder;
+
+        specialinvoke $r28.<java.lang.StringBuilder: void <init>()>();
+
+        $r29 = virtualinvoke $r28.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Unable to find class: ");
+
+        $r30 = virtualinvoke $r29.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r2);
+
+        $r31 = virtualinvoke $r30.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r27.<com.esotericsoftware.kryo.KryoException: void <init>(java.lang.String,java.lang.Throwable)>($r31, $r26);
+
+        throw $r27;
+
+     label05:
+        $r21 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.ObjectMap nameToClass>;
+
+        if $r21 != null goto label06;
+
+        $r24 = new com.esotericsoftware.kryo.util.ObjectMap;
+
+        specialinvoke $r24.<com.esotericsoftware.kryo.util.ObjectMap: void <init>()>();
+
+        r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.ObjectMap nameToClass> = $r24;
+
+     label06:
+        $r22 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.ObjectMap nameToClass>;
+
+        virtualinvoke $r22.<com.esotericsoftware.kryo.util.ObjectMap: java.lang.Object put(java.lang.Object,java.lang.Object)>(r2, r32);
+
+     label07:
+        $r33 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.IntMap nameIdToClass>;
+
+        virtualinvoke $r33.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object put(int,java.lang.Object)>(i0, r32);
+
+        $z1 = <com.esotericsoftware.minlog.Log: boolean TRACE>;
+
+        if $z1 == 0 goto label08;
+
+        $r15 = new java.lang.StringBuilder;
+
+        specialinvoke $r15.<java.lang.StringBuilder: void <init>()>();
+
+        $r16 = virtualinvoke $r15.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Read class name: ");
+
+        $r17 = virtualinvoke $r16.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(r2);
+
+        $r18 = virtualinvoke $r17.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        staticinvoke <com.esotericsoftware.minlog.Log: void trace(java.lang.String,java.lang.String)>("kryo", $r18);
+
+     label08:
+        goto label10;
+
+     label09:
+        $z0 = <com.esotericsoftware.minlog.Log: boolean TRACE>;
+
+        if $z0 == 0 goto label10;
+
+        $r7 = new java.lang.StringBuilder;
+
+        specialinvoke $r7.<java.lang.StringBuilder: void <init>()>();
+
+        $r8 = virtualinvoke $r7.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Read class name reference ");
+
+        $r9 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i0);
+
+        $r10 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(": ");
+
+        $r11 = staticinvoke <com.esotericsoftware.kryo.util.Util: java.lang.String className(java.lang.Class)>(r32);
+
+        $r12 = virtualinvoke $r10.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r11);
+
+        $r13 = virtualinvoke $r12.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        staticinvoke <com.esotericsoftware.minlog.Log: void trace(java.lang.String,java.lang.String)>("kryo", $r13);
+
+     label10:
+        $r34 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.Kryo kryo>;
+
+        $r35 = virtualinvoke $r34.<com.esotericsoftware.kryo.Kryo: com.esotericsoftware.kryo.Registration getRegistration(java.lang.Class)>(r32);
+
+        return $r35;
+
+        catch java.lang.ClassNotFoundException from label02 to label03 with label04;
+    }
+
+    protected java.lang.Class getTypeByName(java.lang.String)
+    {
+        com.esotericsoftware.kryo.util.DefaultClassResolver r0;
+        java.lang.String r1;
+        com.esotericsoftware.kryo.util.ObjectMap $r2, $r3;
+        java.lang.Object $r4;
+        java.lang.Class $r5;
+
+        r0 := @this: com.esotericsoftware.kryo.util.DefaultClassResolver;
+
+        r1 := @parameter0: java.lang.String;
+
+        $r2 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.ObjectMap nameToClass>;
+
+        if $r2 == null goto label1;
+
+        $r3 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.ObjectMap nameToClass>;
+
+        $r4 = virtualinvoke $r3.<com.esotericsoftware.kryo.util.ObjectMap: java.lang.Object get(java.lang.Object)>(r1);
+
+        $r5 = (java.lang.Class) $r4;
+
+        goto label2;
+
+     label1:
+        $r5 = null;
+
+     label2:
+        return $r5;
+    }
+
+    public void reset()
+    {
+        com.esotericsoftware.kryo.util.DefaultClassResolver r0;
+        com.esotericsoftware.kryo.Kryo $r1;
+        boolean $z0;
+        com.esotericsoftware.kryo.util.IdentityObjectIntMap $r2, $r5;
+        com.esotericsoftware.kryo.util.IntMap $r3, $r4;
+
+        r0 := @this: com.esotericsoftware.kryo.util.DefaultClassResolver;
+
+        $r1 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.Kryo kryo>;
+
+        $z0 = virtualinvoke $r1.<com.esotericsoftware.kryo.Kryo: boolean isRegistrationRequired()>();
+
+        if $z0 != 0 goto label3;
+
+        $r2 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.IdentityObjectIntMap classToNameId>;
+
+        if $r2 == null goto label1;
+
+        $r5 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.IdentityObjectIntMap classToNameId>;
+
+        virtualinvoke $r5.<com.esotericsoftware.kryo.util.IdentityObjectIntMap: void clear()>();
+
+     label1:
+        $r3 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.IntMap nameIdToClass>;
+
+        if $r3 == null goto label2;
+
+        $r4 = r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: com.esotericsoftware.kryo.util.IntMap nameIdToClass>;
+
+        virtualinvoke $r4.<com.esotericsoftware.kryo.util.IntMap: void clear()>();
+
+     label2:
+        r0.<com.esotericsoftware.kryo.util.DefaultClassResolver: int nextNameId> = 0;
+
+     label3:
+        return;
+    }
+
+    public static void <clinit>()
+    {
+        <com.esotericsoftware.kryo.util.DefaultClassResolver: byte NAME> = -1;
+
+        return;
+    }
+}

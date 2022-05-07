@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>IteratorSourceEnumerator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.connector.source.lib.util</a> &gt; <span class="el_source">IteratorSourceEnumerator.java</span></div><h1>IteratorSourceEnumerator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.connector.source.lib.util;
+
+import org.apache.flink.api.connector.source.SplitEnumerator;
+import org.apache.flink.api.connector.source.SplitEnumeratorContext;
+
+import javax.annotation.Nullable;
+
+import java.util.ArrayDeque;
+import java.util.Collection;
+import java.util.List;
+import java.util.Queue;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * A {@link SplitEnumerator} for iterator sources. Simply takes the pre-split set of splits and
+ * assigns it first-come-first-serve.
+ *
+ * @param &lt;SplitT&gt; The type of the splits used by the source.
+ */
+public class IteratorSourceEnumerator&lt;SplitT extends IteratorSourceSplit&lt;?, ?&gt;&gt;
+        implements SplitEnumerator&lt;SplitT, Collection&lt;SplitT&gt;&gt; {
+
+    private final SplitEnumeratorContext&lt;SplitT&gt; context;
+    private final Queue&lt;SplitT&gt; remainingSplits;
+
+    public IteratorSourceEnumerator(
+<span class="nc" id="L46">            SplitEnumeratorContext&lt;SplitT&gt; context, Collection&lt;SplitT&gt; splits) {</span>
+<span class="nc" id="L47">        this.context = checkNotNull(context);</span>
+<span class="nc" id="L48">        this.remainingSplits = new ArrayDeque&lt;&gt;(splits);</span>
+<span class="nc" id="L49">    }</span>
+
+    // ------------------------------------------------------------------------
+
+    @Override
+<span class="nc" id="L54">    public void start() {}</span>
+
+    @Override
+<span class="nc" id="L57">    public void close() {}</span>
+
+    @Override
+    public void handleSplitRequest(int subtaskId, @Nullable String requesterHostname) {
+<span class="nc" id="L61">        final SplitT nextSplit = remainingSplits.poll();</span>
+<span class="nc bnc" id="L62" title="All 2 branches missed.">        if (nextSplit != null) {</span>
+<span class="nc" id="L63">            context.assignSplit(nextSplit, subtaskId);</span>
+        } else {
+<span class="nc" id="L65">            context.signalNoMoreSplits(subtaskId);</span>
+        }
+<span class="nc" id="L67">    }</span>
+
+    @Override
+    public void addSplitsBack(List&lt;SplitT&gt; splits, int subtaskId) {
+<span class="nc" id="L71">        remainingSplits.addAll(splits);</span>
+<span class="nc" id="L72">    }</span>
+
+    @Override
+    public Collection&lt;SplitT&gt; snapshotState() throws Exception {
+<span class="nc" id="L76">        return remainingSplits;</span>
+    }
+
+    @Override
+    public void addReader(int subtaskId) {
+        // we don't assign any splits here, because this registration happens after fist startup
+        // and after each reader restart/recovery
+        // we only want to assign splits once, initially, which we get by reacting to the readers
+        // explicit
+        // split request
+<span class="nc" id="L86">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

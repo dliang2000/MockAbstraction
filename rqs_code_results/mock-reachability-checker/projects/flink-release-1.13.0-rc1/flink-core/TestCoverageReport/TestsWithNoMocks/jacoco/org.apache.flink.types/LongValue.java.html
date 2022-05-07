@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LongValue.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.types</a> &gt; <span class="el_source">LongValue.java</span></div><h1>LongValue.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.types;
+
+import org.apache.flink.annotation.Public;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.core.memory.MemorySegment;
+
+import java.io.IOException;
+
+/**
+ * Boxed serializable and comparable long integer type, representing the primitive type {@code
+ * long}.
+ */
+@Public
+public class LongValue
+        implements NormalizableKey&lt;LongValue&gt;,
+                ResettableValue&lt;LongValue&gt;,
+                CopyableValue&lt;LongValue&gt; {
+    private static final long serialVersionUID = 1L;
+
+    private long value;
+
+    /** Initializes the encapsulated long with 0. */
+<span class="fc" id="L42">    public LongValue() {</span>
+<span class="fc" id="L43">        this.value = 0;</span>
+<span class="fc" id="L44">    }</span>
+
+    /**
+     * Initializes the encapsulated long with the specified value.
+     *
+     * @param value Initial value of the encapsulated long.
+     */
+<span class="fc" id="L51">    public LongValue(final long value) {</span>
+<span class="fc" id="L52">        this.value = value;</span>
+<span class="fc" id="L53">    }</span>
+
+    /**
+     * Returns the value of the encapsulated long.
+     *
+     * @return The value of the encapsulated long.
+     */
+    public long getValue() {
+<span class="fc" id="L61">        return this.value;</span>
+    }
+
+    /**
+     * Sets the value of the encapsulated long to the specified value.
+     *
+     * @param value The new value of the encapsulated long.
+     */
+    public void setValue(final long value) {
+<span class="fc" id="L70">        this.value = value;</span>
+<span class="fc" id="L71">    }</span>
+
+    @Override
+    public void setValue(LongValue value) {
+<span class="nc" id="L75">        this.value = value.value;</span>
+<span class="nc" id="L76">    }</span>
+
+    /*
+     * (non-Javadoc)
+     * @see java.lang.Object#toString()
+     */
+    @Override
+    public String toString() {
+<span class="fc" id="L84">        return String.valueOf(this.value);</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public void read(final DataInputView in) throws IOException {
+<span class="fc" id="L91">        this.value = in.readLong();</span>
+<span class="fc" id="L92">    }</span>
+
+    @Override
+    public void write(final DataOutputView out) throws IOException {
+<span class="fc" id="L96">        out.writeLong(this.value);</span>
+<span class="fc" id="L97">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public int compareTo(LongValue o) {
+<span class="fc" id="L103">        final long other = o.value;</span>
+<span class="fc bfc" id="L104" title="All 4 branches covered.">        return this.value &lt; other ? -1 : this.value &gt; other ? 1 : 0;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L109">        return 43 + (int) (this.value ^ this.value &gt;&gt;&gt; 32);</span>
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see java.lang.Object#equals(java.lang.Object)
+     */
+    @Override
+    public boolean equals(final Object obj) {
+<span class="pc bpc" id="L118" title="1 of 2 branches missed.">        if (obj instanceof LongValue) {</span>
+<span class="pc bpc" id="L119" title="1 of 2 branches missed.">            return ((LongValue) obj).value == this.value;</span>
+        }
+<span class="nc" id="L121">        return false;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public int getMaxNormalizedKeyLen() {
+<span class="fc" id="L128">        return 8;</span>
+    }
+
+    @Override
+    public void copyNormalizedKey(MemorySegment target, int offset, int len) {
+        // see IntValue for an explanation of the logic
+<span class="fc bfc" id="L134" title="All 2 branches covered.">        if (len == 8) {</span>
+            // default case, full normalized key
+<span class="fc" id="L136">            target.putLongBigEndian(offset, value - Long.MIN_VALUE);</span>
+<span class="pc bpc" id="L137" title="1 of 2 branches missed.">        } else if (len &lt;= 0) {</span>
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">        } else if (len &lt; 8) {</span>
+<span class="fc" id="L139">            long value = this.value - Long.MIN_VALUE;</span>
+<span class="fc bfc" id="L140" title="All 2 branches covered.">            for (int i = 0; len &gt; 0; len--, i++) {</span>
+<span class="fc" id="L141">                target.put(offset + i, (byte) (value &gt;&gt;&gt; ((7 - i) &lt;&lt; 3)));</span>
+            }
+<span class="fc" id="L143">        } else {</span>
+<span class="nc" id="L144">            target.putLongBigEndian(offset, value - Long.MIN_VALUE);</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">            for (int i = 8; i &lt; len; i++) {</span>
+<span class="nc" id="L146">                target.put(offset + i, (byte) 0);</span>
+            }
+        }
+<span class="fc" id="L149">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public int getBinaryLength() {
+<span class="nc" id="L155">        return 8;</span>
+    }
+
+    @Override
+    public void copyTo(LongValue target) {
+<span class="fc" id="L160">        target.value = this.value;</span>
+<span class="fc" id="L161">    }</span>
+
+    @Override
+    public LongValue copy() {
+<span class="fc" id="L165">        return new LongValue(this.value);</span>
+    }
+
+    @Override
+    public void copy(DataInputView source, DataOutputView target) throws IOException {
+<span class="nc" id="L170">        target.write(source, 8);</span>
+<span class="nc" id="L171">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

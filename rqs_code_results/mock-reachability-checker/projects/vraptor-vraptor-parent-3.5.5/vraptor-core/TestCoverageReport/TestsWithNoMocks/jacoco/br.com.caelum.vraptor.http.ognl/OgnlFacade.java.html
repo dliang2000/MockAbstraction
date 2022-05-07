@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OgnlFacade.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.http.ognl</a> &gt; <span class="el_source">OgnlFacade.java</span></div><h1>OgnlFacade.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+package br.com.caelum.vraptor.http.ognl;
+
+import java.lang.reflect.Type;
+import java.util.List;
+import java.util.Map;
+import java.util.ResourceBundle;
+
+import ognl.MethodFailedException;
+import ognl.NoSuchPropertyException;
+import ognl.Ognl;
+import ognl.OgnlContext;
+import ognl.OgnlException;
+import ognl.OgnlRuntime;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import br.com.caelum.vraptor.converter.ConversionError;
+import br.com.caelum.vraptor.core.Converters;
+import br.com.caelum.vraptor.http.InvalidParameterException;
+import br.com.caelum.vraptor.ioc.RequestScoped;
+import br.com.caelum.vraptor.proxy.Proxifier;
+import br.com.caelum.vraptor.validator.annotation.ValidationException;
+
+import com.google.common.collect.Maps;
+
+/**
+ * Trying to hide all OGNL ugliness
+ *
+ * @author Lucas Cavalcanti
+ * @author Douglas Campos
+ * @since 3.4.0
+ *
+ */
+@RequestScoped
+public class OgnlFacade {
+
+<span class="nc" id="L53">	private static final Logger logger = LoggerFactory.getLogger(OgnlFacade.class);</span>
+
+	private final Proxifier proxifier;
+	private final Converters converters;
+	private final EmptyElementsRemoval removal;
+<span class="nc" id="L58">	private final Map&lt;Object, OgnlContext&gt; contexts = Maps.newHashMap();</span>
+
+<span class="nc" id="L60">	public OgnlFacade(Converters converters, EmptyElementsRemoval removal, Proxifier proxifier) {</span>
+<span class="nc" id="L61">		this.converters = converters;</span>
+<span class="nc" id="L62">		this.removal = removal;</span>
+<span class="nc" id="L63">		this.proxifier = proxifier;</span>
+<span class="nc" id="L64">		OgnlRuntime.setNullHandler(Object.class, new ReflectionBasedNullHandler(proxifier));</span>
+<span class="nc" id="L65">		OgnlRuntime.setPropertyAccessor(List.class, new ListAccessor(converters));</span>
+<span class="nc" id="L66">		OgnlRuntime.setPropertyAccessor(Object[].class, new ArrayAccessor());</span>
+<span class="nc" id="L67">	}</span>
+
+	public void startContext(String name, Type type, Object root, ResourceBundle bundle) {
+
+<span class="nc" id="L71">		OgnlContext context = createOgnlContext(root);</span>
+
+<span class="nc" id="L73">		context.setTraceEvaluations(true);</span>
+<span class="nc" id="L74">		context.put(&quot;rootType&quot;, type);</span>
+<span class="nc" id="L75">		context.put(&quot;removal&quot;, removal);</span>
+<span class="nc" id="L76">		context.put(&quot;nullHandler&quot;, nullHandler());</span>
+<span class="nc" id="L77">		context.put(ResourceBundle.class, bundle);</span>
+<span class="nc" id="L78">	context.put(&quot;proxifier&quot;, proxifier);</span>
+
+<span class="nc" id="L80">		Ognl.setTypeConverter(context, createAdapter(bundle));</span>
+
+<span class="nc" id="L82">		contexts.put(name, context);</span>
+<span class="nc" id="L83">	}</span>
+
+	protected VRaptorConvertersAdapter createAdapter(ResourceBundle bundle) {
+<span class="nc" id="L86">		return new VRaptorConvertersAdapter(converters, bundle);</span>
+	}
+
+	protected OgnlContext createOgnlContext(Object root) {
+<span class="nc" id="L90">		return (OgnlContext) Ognl.createDefaultContext(root);</span>
+	}
+
+	protected NullHandler nullHandler() {
+<span class="nc" id="L94">		return new GenericNullHandler(removal);</span>
+	}
+
+	public void setValue(String name, String key, String[] values) {
+		try {
+<span class="nc" id="L99">			OgnlContext ctx = contexts.get(name);</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">			Ognl.setValue(key, ctx, ctx.getRoot(), values.length == 1 ? values[0] : values);</span>
+<span class="nc" id="L101">			contexts.put(ctx.getRoot(), ctx);</span>
+<span class="nc" id="L102">		} catch (MethodFailedException e) { // setter threw an exception</span>
+
+<span class="nc" id="L104">			Throwable cause = e.getCause();</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">			if (cause.getClass().isAnnotationPresent(ValidationException.class)) {</span>
+<span class="nc" id="L106">				throw new ConversionError(cause.getLocalizedMessage());</span>
+			} else {
+<span class="nc" id="L108">				throw new InvalidParameterException(&quot;unable to parse expression '&quot; + key + &quot;'&quot;, e);</span>
+			}
+
+<span class="nc" id="L111">		} catch (NoSuchPropertyException ex) {</span>
+			// TODO optimization: be able to ignore or not
+<span class="nc" id="L113">			logger.debug(&quot;cant find property for expression {} ignoring&quot;, key);</span>
+<span class="nc" id="L114">			logger.trace(&quot;Reason:&quot;, ex);</span>
+<span class="nc" id="L115">		} catch (OgnlException e) {</span>
+			// TODO it fails when parameter name is not a valid java
+			// identifier... ignoring by now
+<span class="nc" id="L118">			logger.debug(&quot;unable to parse expression '{}'. Ignoring.&quot;, key);</span>
+<span class="nc" id="L119">			logger.trace(&quot;Reason:&quot;, e);</span>
+<span class="nc" id="L120">		}</span>
+<span class="nc" id="L121">	}</span>
+
+	public Object get(String name) {
+<span class="nc" id="L124">		Object root = contexts.remove(name).getRoot();</span>
+
+<span class="nc" id="L126">		removal.removeExtraElements();</span>
+
+<span class="nc bnc" id="L128" title="All 2 branches missed.">		if (root.getClass().isArray()) {</span>
+<span class="nc" id="L129">			return removal.removeNullsFromArray(root);</span>
+		}
+
+<span class="nc" id="L132">		return root;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

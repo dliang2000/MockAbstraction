@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GlobFilePathFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.io</a> &gt; <span class="el_source">GlobFilePathFilter.java</span></div><h1>GlobFilePathFilter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.io;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.util.Preconditions;
+
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.PathMatcher;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * Class for determining if a particular file should be included or excluded based on a set of
+ * include and exclude glob filters.
+ *
+ * &lt;p&gt;Glob filter support the following expressions:
+ *
+ * &lt;ul&gt;
+ *   &lt;li&gt;* - matches any number of any characters including none
+ *   &lt;li&gt;** - matches any file in all subdirectories
+ *   &lt;li&gt;? - matches any single character
+ *   &lt;li&gt;[abc] - matches one of the characters listed in a brackets
+ *   &lt;li&gt;[a-z] - matches one character from the range given in the brackets
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;If does not match an include pattern it is excluded. If it matches and include pattern but
+ * also matches an exclude pattern it is excluded.
+ *
+ * &lt;p&gt;If no patterns are provided all files are included
+ */
+@Internal
+public class GlobFilePathFilter extends FilePathFilter {
+
+    private static final long serialVersionUID = 1L;
+
+    private final List&lt;String&gt; includePatterns;
+    private final List&lt;String&gt; excludePatterns;
+
+    // Path matchers are not serializable so we are delaying their
+    // creation until they are used
+    private transient ArrayList&lt;PathMatcher&gt; includeMatchers;
+    private transient ArrayList&lt;PathMatcher&gt; excludeMatchers;
+
+    /** Constructor for GlobFilePathFilter that will match all files */
+    public GlobFilePathFilter() {
+<span class="fc" id="L67">        this(Collections.&lt;String&gt;emptyList(), Collections.&lt;String&gt;emptyList());</span>
+<span class="fc" id="L68">    }</span>
+
+    /**
+     * Constructor for GlobFilePathFilter
+     *
+     * @param includePatterns glob patterns for files to include
+     * @param excludePatterns glob patterns for files to exclude
+     */
+<span class="fc" id="L76">    public GlobFilePathFilter(List&lt;String&gt; includePatterns, List&lt;String&gt; excludePatterns) {</span>
+<span class="fc" id="L77">        this.includePatterns = Preconditions.checkNotNull(includePatterns);</span>
+<span class="fc" id="L78">        this.excludePatterns = Preconditions.checkNotNull(excludePatterns);</span>
+<span class="fc" id="L79">    }</span>
+
+    private ArrayList&lt;PathMatcher&gt; buildPatterns(List&lt;String&gt; patterns) {
+<span class="fc" id="L82">        FileSystem fileSystem = FileSystems.getDefault();</span>
+<span class="fc" id="L83">        ArrayList&lt;PathMatcher&gt; matchers = new ArrayList&lt;&gt;(patterns.size());</span>
+
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        for (String patternStr : patterns) {</span>
+<span class="fc" id="L86">            matchers.add(fileSystem.getPathMatcher(&quot;glob:&quot; + patternStr));</span>
+<span class="fc" id="L87">        }</span>
+
+<span class="fc" id="L89">        return matchers;</span>
+    }
+
+    @Override
+    public boolean filterPath(Path filePath) {
+<span class="pc bpc" id="L94" title="1 of 4 branches missed.">        if (getIncludeMatchers().isEmpty() &amp;&amp; getExcludeMatchers().isEmpty()) {</span>
+<span class="fc" id="L95">            return false;</span>
+        }
+
+        // compensate for the fact that Flink paths are slashed
+<span class="fc" id="L99">        final String path =</span>
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">                filePath.hasWindowsDrive() ? filePath.getPath().substring(1) : filePath.getPath();</span>
+
+<span class="fc" id="L102">        final java.nio.file.Path nioPath = Paths.get(path);</span>
+
+<span class="fc bfc" id="L104" title="All 2 branches covered.">        for (PathMatcher matcher : getIncludeMatchers()) {</span>
+<span class="fc bfc" id="L105" title="All 2 branches covered.">            if (matcher.matches(nioPath)) {</span>
+<span class="fc" id="L106">                return shouldExclude(nioPath);</span>
+            }
+<span class="fc" id="L108">        }</span>
+
+<span class="fc" id="L110">        return true;</span>
+    }
+
+    private ArrayList&lt;PathMatcher&gt; getIncludeMatchers() {
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        if (includeMatchers == null) {</span>
+<span class="fc" id="L115">            includeMatchers = buildPatterns(includePatterns);</span>
+        }
+<span class="fc" id="L117">        return includeMatchers;</span>
+    }
+
+    private ArrayList&lt;PathMatcher&gt; getExcludeMatchers() {
+<span class="fc bfc" id="L121" title="All 2 branches covered.">        if (excludeMatchers == null) {</span>
+<span class="fc" id="L122">            excludeMatchers = buildPatterns(excludePatterns);</span>
+        }
+<span class="fc" id="L124">        return excludeMatchers;</span>
+    }
+
+    private boolean shouldExclude(java.nio.file.Path nioPath) {
+<span class="fc bfc" id="L128" title="All 2 branches covered.">        for (PathMatcher matcher : getExcludeMatchers()) {</span>
+<span class="fc bfc" id="L129" title="All 2 branches covered.">            if (matcher.matches(nioPath)) {</span>
+<span class="fc" id="L130">                return true;</span>
+            }
+<span class="fc" id="L132">        }</span>
+<span class="fc" id="L133">        return false;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

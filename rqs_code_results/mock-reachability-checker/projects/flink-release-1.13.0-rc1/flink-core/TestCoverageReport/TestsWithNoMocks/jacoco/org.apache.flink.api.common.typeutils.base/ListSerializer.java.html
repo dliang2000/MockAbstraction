@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ListSerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeutils.base</a> &gt; <span class="el_source">ListSerializer.java</span></div><h1>ListSerializer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeutils.base;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * A serializer for {@link List Lists}. The serializer relies on an element serializer for the
+ * serialization of the list's elements.
+ *
+ * &lt;p&gt;The serialization format for the list is as follows: four bytes for the length of the lost,
+ * followed by the serialized representation of each element.
+ *
+ * @param &lt;T&gt; The type of element in the list.
+ */
+@Internal
+public final class ListSerializer&lt;T&gt; extends TypeSerializer&lt;List&lt;T&gt;&gt; {
+
+    private static final long serialVersionUID = 1119562170939152304L;
+
+    /** The serializer for the elements of the list. */
+    private final TypeSerializer&lt;T&gt; elementSerializer;
+
+    /**
+     * Creates a list serializer that uses the given serializer to serialize the list's elements.
+     *
+     * @param elementSerializer The serializer for the elements of the list
+     */
+<span class="fc" id="L55">    public ListSerializer(TypeSerializer&lt;T&gt; elementSerializer) {</span>
+<span class="fc" id="L56">        this.elementSerializer = checkNotNull(elementSerializer);</span>
+<span class="fc" id="L57">    }</span>
+
+    // ------------------------------------------------------------------------
+    //  ListSerializer specific properties
+    // ------------------------------------------------------------------------
+
+    /**
+     * Gets the serializer for the elements of the list.
+     *
+     * @return The serializer for the elements of the list
+     */
+    public TypeSerializer&lt;T&gt; getElementSerializer() {
+<span class="fc" id="L69">        return elementSerializer;</span>
+    }
+
+    // ------------------------------------------------------------------------
+    //  Type Serializer implementation
+    // ------------------------------------------------------------------------
+
+    @Override
+    public boolean isImmutableType() {
+<span class="nc" id="L78">        return false;</span>
+    }
+
+    @Override
+    public TypeSerializer&lt;List&lt;T&gt;&gt; duplicate() {
+<span class="fc" id="L83">        TypeSerializer&lt;T&gt; duplicateElement = elementSerializer.duplicate();</span>
+<span class="pc bpc" id="L84" title="1 of 2 branches missed.">        return duplicateElement == elementSerializer</span>
+                ? this
+                : new ListSerializer&lt;&gt;(duplicateElement);
+    }
+
+    @Override
+    public List&lt;T&gt; createInstance() {
+<span class="nc" id="L91">        return new ArrayList&lt;&gt;(0);</span>
+    }
+
+    @Override
+    public List&lt;T&gt; copy(List&lt;T&gt; from) {
+<span class="nc" id="L96">        List&lt;T&gt; newList = new ArrayList&lt;&gt;(from.size());</span>
+
+        // We iterate here rather than accessing by index, because we cannot be sure that
+        // the given list supports RandomAccess.
+        // The Iterator should be stack allocated on new JVMs (due to escape analysis)
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        for (T element : from) {</span>
+<span class="nc" id="L102">            newList.add(elementSerializer.copy(element));</span>
+<span class="nc" id="L103">        }</span>
+<span class="nc" id="L104">        return newList;</span>
+    }
+
+    @Override
+    public List&lt;T&gt; copy(List&lt;T&gt; from, List&lt;T&gt; reuse) {
+<span class="nc" id="L109">        return copy(from);</span>
+    }
+
+    @Override
+    public int getLength() {
+<span class="nc" id="L114">        return -1; // var length</span>
+    }
+
+    @Override
+    public void serialize(List&lt;T&gt; list, DataOutputView target) throws IOException {
+<span class="nc" id="L119">        final int size = list.size();</span>
+<span class="nc" id="L120">        target.writeInt(size);</span>
+
+        // We iterate here rather than accessing by index, because we cannot be sure that
+        // the given list supports RandomAccess.
+        // The Iterator should be stack allocated on new JVMs (due to escape analysis)
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        for (T element : list) {</span>
+<span class="nc" id="L126">            elementSerializer.serialize(element, target);</span>
+<span class="nc" id="L127">        }</span>
+<span class="nc" id="L128">    }</span>
+
+    @Override
+    public List&lt;T&gt; deserialize(DataInputView source) throws IOException {
+<span class="nc" id="L132">        final int size = source.readInt();</span>
+        // create new list with (size + 1) capacity to prevent expensive growth when a single
+        // element is added
+<span class="nc" id="L135">        final List&lt;T&gt; list = new ArrayList&lt;&gt;(size + 1);</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">        for (int i = 0; i &lt; size; i++) {</span>
+<span class="nc" id="L137">            list.add(elementSerializer.deserialize(source));</span>
+        }
+<span class="nc" id="L139">        return list;</span>
+    }
+
+    @Override
+    public List&lt;T&gt; deserialize(List&lt;T&gt; reuse, DataInputView source) throws IOException {
+<span class="nc" id="L144">        return deserialize(source);</span>
+    }
+
+    @Override
+    public void copy(DataInputView source, DataOutputView target) throws IOException {
+        // copy number of elements
+<span class="nc" id="L150">        final int num = source.readInt();</span>
+<span class="nc" id="L151">        target.writeInt(num);</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">        for (int i = 0; i &lt; num; i++) {</span>
+<span class="nc" id="L153">            elementSerializer.copy(source, target);</span>
+        }
+<span class="nc" id="L155">    }</span>
+
+    // --------------------------------------------------------------------
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="nc bnc" id="L161" title="All 4 branches missed.">        return obj == this</span>
+                || (obj != null
+<span class="nc bnc" id="L163" title="All 2 branches missed.">                        &amp;&amp; obj.getClass() == getClass()</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">                        &amp;&amp; elementSerializer.equals(((ListSerializer&lt;?&gt;) obj).elementSerializer));</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L169">        return elementSerializer.hashCode();</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // Serializer configuration snapshot &amp; compatibility
+    // --------------------------------------------------------------------------------------------
+
+    @Override
+    public TypeSerializerSnapshot&lt;List&lt;T&gt;&gt; snapshotConfiguration() {
+<span class="nc" id="L178">        return new ListSerializerSnapshot&lt;&gt;(this);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

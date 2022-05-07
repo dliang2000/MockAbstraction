@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NumberSequenceIterator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.util</a> &gt; <span class="el_source">NumberSequenceIterator.java</span></div><h1>NumberSequenceIterator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.util;
+
+import org.apache.flink.annotation.Public;
+
+import java.util.NoSuchElementException;
+
+/**
+ * The {@code NumberSequenceIterator} is an iterator that returns a sequence of numbers (as {@code
+ * Long})s. The iterator is splittable (as defined by {@link SplittableIterator}, i.e., it can be
+ * divided into multiple iterators that each return a subsequence of the number sequence.
+ */
+@Public
+public class NumberSequenceIterator extends SplittableIterator&lt;Long&gt; {
+
+    private static final long serialVersionUID = 1L;
+
+    /** The last number returned by the iterator. */
+    private final long to;
+
+    /** The next number to be returned. */
+    private long current;
+
+    /**
+     * Creates a new splittable iterator, returning the range [from, to]. Both boundaries of the
+     * interval are inclusive.
+     *
+     * @param from The first number returned by the iterator.
+     * @param to The last number returned by the iterator.
+     */
+<span class="fc" id="L48">    public NumberSequenceIterator(long from, long to) {</span>
+<span class="pc bpc" id="L49" title="1 of 2 branches missed.">        if (from &gt; to) {</span>
+<span class="nc" id="L50">            throw new IllegalArgumentException(</span>
+                    &quot;The 'to' value must not be smaller than the 'from' value.&quot;);
+        }
+
+<span class="fc" id="L54">        this.current = from;</span>
+<span class="fc" id="L55">        this.to = to;</span>
+<span class="fc" id="L56">    }</span>
+
+    /**
+     * Internal constructor to allow for empty iterators.
+     *
+     * @param from The first number returned by the iterator.
+     * @param to The last number returned by the iterator.
+     * @param unused A dummy parameter to disambiguate the constructor.
+     */
+<span class="fc" id="L65">    private NumberSequenceIterator(long from, long to, boolean unused) {</span>
+<span class="fc" id="L66">        this.current = from;</span>
+<span class="fc" id="L67">        this.to = to;</span>
+<span class="fc" id="L68">    }</span>
+
+    public long getCurrent() {
+<span class="fc" id="L71">        return this.current;</span>
+    }
+
+    public long getTo() {
+<span class="fc" id="L75">        return this.to;</span>
+    }
+
+    @Override
+    public boolean hasNext() {
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        return current &lt;= to;</span>
+    }
+
+    @Override
+    public Long next() {
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">        if (current &lt;= to) {</span>
+<span class="fc" id="L86">            return current++;</span>
+        } else {
+<span class="nc" id="L88">            throw new NoSuchElementException();</span>
+        }
+    }
+
+    @Override
+    public void remove() {
+<span class="nc" id="L94">        throw new UnsupportedOperationException();</span>
+    }
+
+    @Override
+    public NumberSequenceIterator[] split(int numPartitions) {
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">        if (numPartitions &lt; 1) {</span>
+<span class="nc" id="L100">            throw new IllegalArgumentException(&quot;The number of partitions must be at least 1.&quot;);</span>
+        }
+
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">        if (numPartitions == 1) {</span>
+<span class="nc" id="L104">            return new NumberSequenceIterator[] {new NumberSequenceIterator(current, to)};</span>
+        }
+
+        // here, numPartitions &gt;= 2 !!!
+
+        long elementsPerSplit;
+
+<span class="fc bfc" id="L111" title="All 2 branches covered.">        if (to - current + 1 &gt;= 0) {</span>
+<span class="fc" id="L112">            elementsPerSplit = (to - current + 1) / numPartitions;</span>
+        } else {
+            // long overflow of the range.
+            // we compute based on half the distance, to prevent the overflow.
+            // in most cases it holds that: current &lt; 0 and to &gt; 0, except for: to == 0 and current
+            // == Long.MIN_VALUE
+            // the later needs a special case
+            final long halfDiff; // must be positive
+
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">            if (current == Long.MIN_VALUE) {</span>
+                // this means to &gt;= 0
+<span class="nc" id="L123">                halfDiff = (Long.MAX_VALUE / 2 + 1) + to / 2;</span>
+            } else {
+<span class="fc" id="L125">                long posFrom = -current;</span>
+<span class="pc bpc" id="L126" title="1 of 2 branches missed.">                if (posFrom &gt; to) {</span>
+<span class="nc" id="L127">                    halfDiff = to + ((posFrom - to) / 2);</span>
+                } else {
+<span class="fc" id="L129">                    halfDiff = posFrom + ((to - posFrom) / 2);</span>
+                }
+            }
+<span class="fc" id="L132">            elementsPerSplit = halfDiff / numPartitions * 2;</span>
+        }
+
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">        if (elementsPerSplit &lt; Long.MAX_VALUE) {</span>
+            // figure out how many get one in addition
+<span class="fc" id="L137">            long numWithExtra = -(elementsPerSplit * numPartitions) + to - current + 1;</span>
+
+            // based on rounding errors, we may have lost one)
+<span class="fc bfc" id="L140" title="All 2 branches covered.">            if (numWithExtra &gt; numPartitions) {</span>
+<span class="fc" id="L141">                elementsPerSplit++;</span>
+<span class="fc" id="L142">                numWithExtra -= numPartitions;</span>
+
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">                if (numWithExtra &gt; numPartitions) {</span>
+<span class="nc" id="L145">                    throw new RuntimeException(&quot;Bug in splitting logic. To much rounding loss.&quot;);</span>
+                }
+            }
+
+<span class="fc" id="L149">            NumberSequenceIterator[] iters = new NumberSequenceIterator[numPartitions];</span>
+<span class="fc" id="L150">            long curr = current;</span>
+<span class="fc" id="L151">            int i = 0;</span>
+<span class="fc bfc" id="L152" title="All 2 branches covered.">            for (; i &lt; numWithExtra; i++) {</span>
+<span class="fc" id="L153">                long next = curr + elementsPerSplit + 1;</span>
+<span class="fc" id="L154">                iters[i] = new NumberSequenceIterator(curr, next - 1);</span>
+<span class="fc" id="L155">                curr = next;</span>
+            }
+<span class="fc bfc" id="L157" title="All 2 branches covered.">            for (; i &lt; numPartitions; i++) {</span>
+<span class="fc" id="L158">                long next = curr + elementsPerSplit;</span>
+<span class="fc" id="L159">                iters[i] = new NumberSequenceIterator(curr, next - 1, true);</span>
+<span class="fc" id="L160">                curr = next;</span>
+            }
+
+<span class="fc" id="L163">            return iters;</span>
+        } else {
+            // this can only be the case when there are two partitions
+<span class="nc bnc" id="L166" title="All 2 branches missed.">            if (numPartitions != 2) {</span>
+<span class="nc" id="L167">                throw new RuntimeException(&quot;Bug in splitting logic.&quot;);</span>
+            }
+
+<span class="nc" id="L170">            return new NumberSequenceIterator[] {</span>
+                new NumberSequenceIterator(current, current + elementsPerSplit),
+                new NumberSequenceIterator(current + elementsPerSplit, to)
+            };
+        }
+    }
+
+    @Override
+    public int getMaximumNumberOfSplits() {
+<span class="nc bnc" id="L179" title="All 6 branches missed.">        if (to &gt;= Integer.MAX_VALUE</span>
+                || current &lt;= Integer.MIN_VALUE
+                || to - current + 1 &gt;= Integer.MAX_VALUE) {
+<span class="nc" id="L182">            return Integer.MAX_VALUE;</span>
+        } else {
+<span class="nc" id="L184">            return (int) (to - current + 1);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

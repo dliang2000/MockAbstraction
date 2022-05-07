@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UserCodeObjectWrapper.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.operators.util</a> &gt; <span class="el_source">UserCodeObjectWrapper.java</span></div><h1>UserCodeObjectWrapper.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.operators.util;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.NonSerializableUserCodeException;
+
+import java.io.Serializable;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+
+import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/** This holds an actual object containing user defined code. */
+@Internal
+public class UserCodeObjectWrapper&lt;T&gt; implements UserCodeWrapper&lt;T&gt; {
+    private static final long serialVersionUID = 1L;
+
+    private final T userCodeObject;
+
+<span class="fc" id="L40">    public UserCodeObjectWrapper(T userCodeObject) {</span>
+<span class="fc" id="L41">        checkNotNull(userCodeObject, &quot;The user code object may not be null.&quot;);</span>
+<span class="fc" id="L42">        checkArgument(</span>
+                userCodeObject instanceof Serializable,
+<span class="fc" id="L44">                &quot;User code object is not serializable: &quot; + userCodeObject.getClass().getName());</span>
+
+<span class="fc" id="L46">        this.userCodeObject = userCodeObject;</span>
+
+        // Remove non serializable objects from the user code object as well as from outer objects
+<span class="fc" id="L49">        Object current = userCodeObject;</span>
+        try {
+<span class="fc bfc" id="L51" title="All 2 branches covered.">            while (null != current) {</span>
+<span class="fc" id="L52">                Object newCurrent = null;</span>
+
+                /**
+                 * Check if the usercode class has custom serialization methods. (See
+                 * http://docs.oracle.com/javase/7/docs/api/java/io/Serializable.html for details).
+                 * We can not guarantee that the user handles serialization correctly in this case.
+                 */
+<span class="fc" id="L59">                boolean hasCustomSerialization = false;</span>
+<span class="fc" id="L60">                Method customSerializer = null;</span>
+<span class="fc" id="L61">                Method customDeserializer = null;</span>
+                try {
+<span class="fc" id="L63">                    customSerializer =</span>
+<span class="fc" id="L64">                            current.getClass()</span>
+<span class="nc" id="L65">                                    .getDeclaredMethod(</span>
+                                            &quot;writeObject&quot;, java.io.ObjectOutputStream.class);
+<span class="nc" id="L67">                    customDeserializer =</span>
+<span class="nc" id="L68">                            current.getClass()</span>
+<span class="nc" id="L69">                                    .getDeclaredMethod(</span>
+                                            &quot;readObject&quot;, java.io.ObjectInputStream.class);
+<span class="fc" id="L71">                } catch (Exception e) {</span>
+                    // we can ignore exceptions here.
+<span class="nc" id="L73">                }</span>
+
+<span class="pc bpc" id="L75" title="3 of 4 branches missed.">                if (customSerializer != null &amp;&amp; customDeserializer != null) {</span>
+<span class="nc" id="L76">                    hasCustomSerialization = true;</span>
+                }
+
+<span class="fc bfc" id="L79" title="All 2 branches covered.">                for (Field f : current.getClass().getDeclaredFields()) {</span>
+<span class="fc" id="L80">                    f.setAccessible(true);</span>
+
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">                    if (f.getName().contains(&quot;$outer&quot;)) {</span>
+<span class="nc" id="L83">                        newCurrent = f.get(current);</span>
+                    }
+
+<span class="pc bpc" id="L86" title="1 of 2 branches missed.">                    if (hasCustomSerialization</span>
+<span class="fc bfc" id="L87" title="All 2 branches covered.">                            || Modifier.isTransient(f.getModifiers())</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">                            || Modifier.isStatic(f.getModifiers())) {</span>
+                        // field not relevant for serialization
+<span class="fc" id="L90">                        continue;</span>
+                    }
+
+<span class="fc" id="L93">                    Object fieldContents = f.get(current);</span>
+<span class="pc bpc" id="L94" title="2 of 4 branches missed.">                    if (fieldContents != null &amp;&amp; !(fieldContents instanceof Serializable)) {</span>
+<span class="nc" id="L95">                        throw new NonSerializableUserCodeException(</span>
+                                &quot;User-defined object &quot;
+                                        + userCodeObject
+                                        + &quot; (&quot;
+<span class="nc" id="L99">                                        + userCodeObject.getClass().getName()</span>
+                                        + &quot;) contains non-serializable field &quot;
+<span class="nc" id="L101">                                        + f.getName()</span>
+                                        + &quot; = &quot;
+<span class="nc" id="L103">                                        + f.get(current));</span>
+                    }
+                }
+<span class="fc" id="L106">                current = newCurrent;</span>
+<span class="fc" id="L107">            }</span>
+<span class="nc" id="L108">        } catch (NonSerializableUserCodeException e) {</span>
+            // forward those
+<span class="nc" id="L110">            throw e;</span>
+<span class="nc" id="L111">        } catch (Exception e) {</span>
+            // should never happen, since we make the fields accessible.
+            // anyways, do not swallow the exception, but report it
+<span class="nc" id="L114">            throw new RuntimeException(</span>
+                    &quot;Could not access the fields of the user defined class while checking for serializability.&quot;,
+                    e);
+<span class="fc" id="L117">        }</span>
+<span class="fc" id="L118">    }</span>
+
+    @Override
+    public T getUserCodeObject(Class&lt;? super T&gt; superClass, ClassLoader cl) {
+<span class="nc" id="L122">        return userCodeObject;</span>
+    }
+
+    @Override
+    public T getUserCodeObject() {
+<span class="fc" id="L127">        return userCodeObject;</span>
+    }
+
+    @Override
+    public &lt;A extends Annotation&gt; A getUserCodeAnnotation(Class&lt;A&gt; annotationClass) {
+<span class="nc" id="L132">        return userCodeObject.getClass().getAnnotation(annotationClass);</span>
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    @Override
+    public Class&lt;? extends T&gt; getUserCodeClass() {
+<span class="nc" id="L138">        return (Class&lt;? extends T&gt;) userCodeObject.getClass();</span>
+    }
+
+    @Override
+    public boolean hasObject() {
+<span class="nc" id="L143">        return true;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

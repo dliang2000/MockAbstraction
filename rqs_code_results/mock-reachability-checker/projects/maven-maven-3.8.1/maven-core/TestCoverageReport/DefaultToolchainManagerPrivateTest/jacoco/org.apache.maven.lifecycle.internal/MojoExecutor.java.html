@@ -1,0 +1,386 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MojoExecutor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.lifecycle.internal</a> &gt; <span class="el_source">MojoExecutor.java</span></div><h1>MojoExecutor.java</h1><pre class="source lang-java linenums">package org.apache.maven.lifecycle.internal;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
+import org.apache.maven.artifact.resolver.filter.CumulativeScopeArtifactFilter;
+import org.apache.maven.execution.ExecutionEvent;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.lifecycle.LifecycleExecutionException;
+import org.apache.maven.lifecycle.MissingProjectException;
+import org.apache.maven.plugin.BuildPluginManager;
+import org.apache.maven.plugin.MavenPluginManager;
+import org.apache.maven.plugin.MojoExecution;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugin.PluginConfigurationException;
+import org.apache.maven.plugin.PluginIncompatibleException;
+import org.apache.maven.plugin.PluginManagerException;
+import org.apache.maven.plugin.descriptor.MojoDescriptor;
+import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.component.annotations.Component;
+import org.codehaus.plexus.component.annotations.Requirement;
+import org.codehaus.plexus.util.StringUtils;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+
+/**
+ * &lt;p&gt;
+ * Executes an individual mojo
+ * &lt;/p&gt;
+ * &lt;strong&gt;NOTE:&lt;/strong&gt; This class is not part of any public api and can be changed or deleted without prior notice.
+ *
+ * @author Jason van Zyl
+ * @author Benjamin Bentmann
+ * @author Kristian Rosenvold
+ * @since 3.0
+ */
+@Component( role = MojoExecutor.class )
+public class MojoExecutor
+{
+
+    @Requirement
+    private BuildPluginManager pluginManager;
+
+    @Requirement
+    private MavenPluginManager mavenPluginManager;
+
+    @Requirement
+    private LifecycleDependencyResolver lifeCycleDependencyResolver;
+
+    @Requirement
+    private ExecutionEventCatapult eventCatapult;
+
+    public MojoExecutor()
+<span class="nc" id="L80">    {</span>
+<span class="nc" id="L81">    }</span>
+
+    public DependencyContext newDependencyContext( MavenSession session, List&lt;MojoExecution&gt; mojoExecutions )
+    {
+<span class="nc" id="L85">        Set&lt;String&gt; scopesToCollect = new TreeSet&lt;&gt;();</span>
+<span class="nc" id="L86">        Set&lt;String&gt; scopesToResolve = new TreeSet&lt;&gt;();</span>
+
+<span class="nc" id="L88">        collectDependencyRequirements( scopesToResolve, scopesToCollect, mojoExecutions );</span>
+
+<span class="nc" id="L90">        return new DependencyContext( session.getCurrentProject(), scopesToCollect, scopesToResolve );</span>
+    }
+
+    private void collectDependencyRequirements( Set&lt;String&gt; scopesToResolve, Set&lt;String&gt; scopesToCollect,
+                                                Collection&lt;MojoExecution&gt; mojoExecutions )
+    {
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        for ( MojoExecution mojoExecution : mojoExecutions )</span>
+        {
+<span class="nc" id="L98">            MojoDescriptor mojoDescriptor = mojoExecution.getMojoDescriptor();</span>
+
+<span class="nc" id="L100">            scopesToResolve.addAll( toScopes( mojoDescriptor.getDependencyResolutionRequired() ) );</span>
+
+<span class="nc" id="L102">            scopesToCollect.addAll( toScopes( mojoDescriptor.getDependencyCollectionRequired() ) );</span>
+<span class="nc" id="L103">        }</span>
+<span class="nc" id="L104">    }</span>
+
+    private Collection&lt;String&gt; toScopes( String classpath )
+    {
+<span class="nc" id="L108">        Collection&lt;String&gt; scopes = Collections.emptyList();</span>
+
+<span class="nc bnc" id="L110" title="All 2 branches missed.">        if ( StringUtils.isNotEmpty( classpath ) )</span>
+        {
+<span class="nc bnc" id="L112" title="All 2 branches missed.">            if ( Artifact.SCOPE_COMPILE.equals( classpath ) )</span>
+            {
+<span class="nc" id="L114">                scopes = Arrays.asList( Artifact.SCOPE_COMPILE, Artifact.SCOPE_SYSTEM, Artifact.SCOPE_PROVIDED );</span>
+            }
+<span class="nc bnc" id="L116" title="All 2 branches missed.">            else if ( Artifact.SCOPE_RUNTIME.equals( classpath ) )</span>
+            {
+<span class="nc" id="L118">                scopes = Arrays.asList( Artifact.SCOPE_COMPILE, Artifact.SCOPE_RUNTIME );</span>
+            }
+<span class="nc bnc" id="L120" title="All 2 branches missed.">            else if ( Artifact.SCOPE_COMPILE_PLUS_RUNTIME.equals( classpath ) )</span>
+            {
+<span class="nc" id="L122">                scopes = Arrays.asList( Artifact.SCOPE_COMPILE, Artifact.SCOPE_SYSTEM, Artifact.SCOPE_PROVIDED,</span>
+                                        Artifact.SCOPE_RUNTIME );
+            }
+<span class="nc bnc" id="L125" title="All 2 branches missed.">            else if ( Artifact.SCOPE_RUNTIME_PLUS_SYSTEM.equals( classpath ) )</span>
+            {
+<span class="nc" id="L127">                scopes = Arrays.asList( Artifact.SCOPE_COMPILE, Artifact.SCOPE_SYSTEM, Artifact.SCOPE_RUNTIME );</span>
+            }
+<span class="nc bnc" id="L129" title="All 2 branches missed.">            else if ( Artifact.SCOPE_TEST.equals( classpath ) )</span>
+            {
+<span class="nc" id="L131">                scopes = Arrays.asList( Artifact.SCOPE_COMPILE, Artifact.SCOPE_SYSTEM, Artifact.SCOPE_PROVIDED,</span>
+                                        Artifact.SCOPE_RUNTIME, Artifact.SCOPE_TEST );
+            }
+        }
+<span class="nc" id="L135">        return Collections.unmodifiableCollection( scopes );</span>
+    }
+
+    public void execute( MavenSession session, List&lt;MojoExecution&gt; mojoExecutions, ProjectIndex projectIndex )
+        throws LifecycleExecutionException
+
+    {
+<span class="nc" id="L142">        DependencyContext dependencyContext = newDependencyContext( session, mojoExecutions );</span>
+
+<span class="nc" id="L144">        PhaseRecorder phaseRecorder = new PhaseRecorder( session.getCurrentProject() );</span>
+
+<span class="nc bnc" id="L146" title="All 2 branches missed.">        for ( MojoExecution mojoExecution : mojoExecutions )</span>
+        {
+<span class="nc" id="L148">            execute( session, mojoExecution, projectIndex, dependencyContext, phaseRecorder );</span>
+<span class="nc" id="L149">        }</span>
+<span class="nc" id="L150">    }</span>
+
+    public void execute( MavenSession session, MojoExecution mojoExecution, ProjectIndex projectIndex,
+                         DependencyContext dependencyContext, PhaseRecorder phaseRecorder )
+        throws LifecycleExecutionException
+    {
+<span class="nc" id="L156">        execute( session, mojoExecution, projectIndex, dependencyContext );</span>
+<span class="nc" id="L157">        phaseRecorder.observeExecution( mojoExecution );</span>
+<span class="nc" id="L158">    }</span>
+
+    private void execute( MavenSession session, MojoExecution mojoExecution, ProjectIndex projectIndex,
+                          DependencyContext dependencyContext )
+        throws LifecycleExecutionException
+    {
+<span class="nc" id="L164">        MojoDescriptor mojoDescriptor = mojoExecution.getMojoDescriptor();</span>
+
+        try
+        {
+<span class="nc" id="L168">            mavenPluginManager.checkRequiredMavenVersion( mojoDescriptor.getPluginDescriptor() );</span>
+        }
+<span class="nc" id="L170">        catch ( PluginIncompatibleException e )</span>
+        {
+<span class="nc" id="L172">            throw new LifecycleExecutionException( mojoExecution, session.getCurrentProject(), e );</span>
+<span class="nc" id="L173">        }</span>
+
+<span class="nc bnc" id="L175" title="All 4 branches missed.">        if ( mojoDescriptor.isProjectRequired() &amp;&amp; !session.getRequest().isProjectPresent() )</span>
+        {
+<span class="nc" id="L177">            Throwable cause = new MissingProjectException(</span>
+                &quot;Goal requires a project to execute&quot; + &quot; but there is no POM in this directory (&quot;
+<span class="nc" id="L179">                    + session.getExecutionRootDirectory() + &quot;).&quot;</span>
+                    + &quot; Please verify you invoked Maven from the correct directory.&quot; );
+<span class="nc" id="L181">            throw new LifecycleExecutionException( mojoExecution, null, cause );</span>
+        }
+
+<span class="nc bnc" id="L184" title="All 4 branches missed.">        if ( mojoDescriptor.isOnlineRequired() &amp;&amp; session.isOffline() )</span>
+        {
+<span class="nc bnc" id="L186" title="All 2 branches missed.">            if ( MojoExecution.Source.CLI.equals( mojoExecution.getSource() ) )</span>
+            {
+<span class="nc" id="L188">                Throwable cause = new IllegalStateException(</span>
+                    &quot;Goal requires online mode for execution&quot; + &quot; but Maven is currently offline.&quot; );
+<span class="nc" id="L190">                throw new LifecycleExecutionException( mojoExecution, session.getCurrentProject(), cause );</span>
+            }
+            else
+            {
+<span class="nc" id="L194">                eventCatapult.fire( ExecutionEvent.Type.MojoSkipped, session, mojoExecution );</span>
+
+<span class="nc" id="L196">                return;</span>
+            }
+        }
+
+<span class="nc" id="L200">        List&lt;MavenProject&gt; forkedProjects = executeForkedExecutions( mojoExecution, session, projectIndex );</span>
+
+<span class="nc" id="L202">        ensureDependenciesAreResolved( mojoDescriptor, session, dependencyContext );</span>
+
+<span class="nc" id="L204">        eventCatapult.fire( ExecutionEvent.Type.MojoStarted, session, mojoExecution );</span>
+
+        try
+        {
+            try
+            {
+<span class="nc" id="L210">                pluginManager.executeMojo( session, mojoExecution );</span>
+            }
+<span class="nc" id="L212">            catch ( MojoFailureException | PluginManagerException | PluginConfigurationException</span>
+                | MojoExecutionException e )
+            {
+<span class="nc" id="L215">                throw new LifecycleExecutionException( mojoExecution, session.getCurrentProject(), e );</span>
+<span class="nc" id="L216">            }</span>
+
+<span class="nc" id="L218">            eventCatapult.fire( ExecutionEvent.Type.MojoSucceeded, session, mojoExecution );</span>
+        }
+<span class="nc" id="L220">        catch ( LifecycleExecutionException e )</span>
+        {
+<span class="nc" id="L222">            eventCatapult.fire( ExecutionEvent.Type.MojoFailed, session, mojoExecution, e );</span>
+
+<span class="nc" id="L224">            throw e;</span>
+        }
+        finally
+        {
+<span class="nc bnc" id="L228" title="All 2 branches missed.">            for ( MavenProject forkedProject : forkedProjects )</span>
+            {
+<span class="nc" id="L230">                forkedProject.setExecutionProject( null );</span>
+<span class="nc" id="L231">            }</span>
+        }
+<span class="nc" id="L233">    }</span>
+
+    public void ensureDependenciesAreResolved( MojoDescriptor mojoDescriptor, MavenSession session,
+                                               DependencyContext dependencyContext )
+        throws LifecycleExecutionException
+
+    {
+<span class="nc" id="L240">        MavenProject project = dependencyContext.getProject();</span>
+<span class="nc" id="L241">        boolean aggregating = mojoDescriptor.isAggregator();</span>
+
+<span class="nc bnc" id="L243" title="All 2 branches missed.">        if ( dependencyContext.isResolutionRequiredForCurrentProject() )</span>
+        {
+<span class="nc" id="L245">            Collection&lt;String&gt; scopesToCollect = dependencyContext.getScopesToCollectForCurrentProject();</span>
+<span class="nc" id="L246">            Collection&lt;String&gt; scopesToResolve = dependencyContext.getScopesToResolveForCurrentProject();</span>
+
+<span class="nc" id="L248">            lifeCycleDependencyResolver.resolveProjectDependencies( project, scopesToCollect, scopesToResolve, session,</span>
+<span class="nc" id="L249">                                                                    aggregating, Collections.&lt;Artifact&gt;emptySet() );</span>
+
+<span class="nc" id="L251">            dependencyContext.synchronizeWithProjectState();</span>
+        }
+
+<span class="nc bnc" id="L254" title="All 2 branches missed.">        if ( aggregating )</span>
+        {
+<span class="nc" id="L256">            Collection&lt;String&gt; scopesToCollect = toScopes( mojoDescriptor.getDependencyCollectionRequired() );</span>
+<span class="nc" id="L257">            Collection&lt;String&gt; scopesToResolve = toScopes( mojoDescriptor.getDependencyResolutionRequired() );</span>
+
+<span class="nc bnc" id="L259" title="All 2 branches missed.">            if ( dependencyContext.isResolutionRequiredForAggregatedProjects( scopesToCollect, scopesToResolve ) )</span>
+            {
+<span class="nc bnc" id="L261" title="All 2 branches missed.">                for ( MavenProject aggregatedProject : session.getProjects() )</span>
+                {
+<span class="nc bnc" id="L263" title="All 2 branches missed.">                    if ( aggregatedProject != project )</span>
+                    {
+<span class="nc" id="L265">                        lifeCycleDependencyResolver.resolveProjectDependencies( aggregatedProject, scopesToCollect,</span>
+                                                                                scopesToResolve, session, aggregating,
+<span class="nc" id="L267">                                                                                Collections.&lt;Artifact&gt;emptySet() );</span>
+                    }
+<span class="nc" id="L269">                }</span>
+            }
+        }
+
+<span class="nc" id="L273">        ArtifactFilter artifactFilter = getArtifactFilter( mojoDescriptor );</span>
+<span class="nc" id="L274">        List&lt;MavenProject&gt; projectsToResolve =</span>
+<span class="nc" id="L275">            LifecycleDependencyResolver.getProjects( session.getCurrentProject(), session,</span>
+<span class="nc" id="L276">                                                     mojoDescriptor.isAggregator() );</span>
+<span class="nc bnc" id="L277" title="All 2 branches missed.">        for ( MavenProject projectToResolve : projectsToResolve )</span>
+        {
+<span class="nc" id="L279">            projectToResolve.setArtifactFilter( artifactFilter );</span>
+<span class="nc" id="L280">        }</span>
+<span class="nc" id="L281">    }</span>
+
+    private ArtifactFilter getArtifactFilter( MojoDescriptor mojoDescriptor )
+    {
+<span class="nc" id="L285">        String scopeToResolve = mojoDescriptor.getDependencyResolutionRequired();</span>
+<span class="nc" id="L286">        String scopeToCollect = mojoDescriptor.getDependencyCollectionRequired();</span>
+
+<span class="nc" id="L288">        List&lt;String&gt; scopes = new ArrayList&lt;&gt;( 2 );</span>
+<span class="nc bnc" id="L289" title="All 2 branches missed.">        if ( StringUtils.isNotEmpty( scopeToCollect ) )</span>
+        {
+<span class="nc" id="L291">            scopes.add( scopeToCollect );</span>
+        }
+<span class="nc bnc" id="L293" title="All 2 branches missed.">        if ( StringUtils.isNotEmpty( scopeToResolve ) )</span>
+        {
+<span class="nc" id="L295">            scopes.add( scopeToResolve );</span>
+        }
+
+<span class="nc bnc" id="L298" title="All 2 branches missed.">        if ( scopes.isEmpty() )</span>
+        {
+<span class="nc" id="L300">            return null;</span>
+        }
+        else
+        {
+<span class="nc" id="L304">            return new CumulativeScopeArtifactFilter( scopes );</span>
+        }
+    }
+
+    public List&lt;MavenProject&gt; executeForkedExecutions( MojoExecution mojoExecution, MavenSession session,
+                                                       ProjectIndex projectIndex )
+        throws LifecycleExecutionException
+    {
+<span class="nc" id="L312">        List&lt;MavenProject&gt; forkedProjects = Collections.emptyList();</span>
+
+<span class="nc" id="L314">        Map&lt;String, List&lt;MojoExecution&gt;&gt; forkedExecutions = mojoExecution.getForkedExecutions();</span>
+
+<span class="nc bnc" id="L316" title="All 2 branches missed.">        if ( !forkedExecutions.isEmpty() )</span>
+        {
+<span class="nc" id="L318">            eventCatapult.fire( ExecutionEvent.Type.ForkStarted, session, mojoExecution );</span>
+
+<span class="nc" id="L320">            MavenProject project = session.getCurrentProject();</span>
+
+<span class="nc" id="L322">            forkedProjects = new ArrayList&lt;&gt;( forkedExecutions.size() );</span>
+
+            try
+            {
+<span class="nc bnc" id="L326" title="All 2 branches missed.">                for ( Map.Entry&lt;String, List&lt;MojoExecution&gt;&gt; fork : forkedExecutions.entrySet() )</span>
+                {
+<span class="nc" id="L328">                    String projectId = fork.getKey();</span>
+
+<span class="nc" id="L330">                    int index = projectIndex.getIndices().get( projectId );</span>
+
+<span class="nc" id="L332">                    MavenProject forkedProject = projectIndex.getProjects().get( projectId );</span>
+
+<span class="nc" id="L334">                    forkedProjects.add( forkedProject );</span>
+
+<span class="nc" id="L336">                    MavenProject executedProject = forkedProject.clone();</span>
+
+<span class="nc" id="L338">                    forkedProject.setExecutionProject( executedProject );</span>
+
+<span class="nc" id="L340">                    List&lt;MojoExecution&gt; mojoExecutions = fork.getValue();</span>
+
+<span class="nc bnc" id="L342" title="All 2 branches missed.">                    if ( mojoExecutions.isEmpty() )</span>
+                    {
+<span class="nc" id="L344">                        continue;</span>
+                    }
+
+                    try
+                    {
+<span class="nc" id="L349">                        session.setCurrentProject( executedProject );</span>
+<span class="nc" id="L350">                        session.getProjects().set( index, executedProject );</span>
+<span class="nc" id="L351">                        projectIndex.getProjects().put( projectId, executedProject );</span>
+
+<span class="nc" id="L353">                        eventCatapult.fire( ExecutionEvent.Type.ForkedProjectStarted, session, mojoExecution );</span>
+
+<span class="nc" id="L355">                        execute( session, mojoExecutions, projectIndex );</span>
+
+<span class="nc" id="L357">                        eventCatapult.fire( ExecutionEvent.Type.ForkedProjectSucceeded, session, mojoExecution );</span>
+                    }
+<span class="nc" id="L359">                    catch ( LifecycleExecutionException e )</span>
+                    {
+<span class="nc" id="L361">                        eventCatapult.fire( ExecutionEvent.Type.ForkedProjectFailed, session, mojoExecution, e );</span>
+
+<span class="nc" id="L363">                        throw e;</span>
+                    }
+                    finally
+                    {
+<span class="nc" id="L367">                        projectIndex.getProjects().put( projectId, forkedProject );</span>
+<span class="nc" id="L368">                        session.getProjects().set( index, forkedProject );</span>
+<span class="nc" id="L369">                        session.setCurrentProject( project );</span>
+                    }
+<span class="nc" id="L371">                }</span>
+
+<span class="nc" id="L373">                eventCatapult.fire( ExecutionEvent.Type.ForkSucceeded, session, mojoExecution );</span>
+            }
+<span class="nc" id="L375">            catch ( LifecycleExecutionException e )</span>
+            {
+<span class="nc" id="L377">                eventCatapult.fire( ExecutionEvent.Type.ForkFailed, session, mojoExecution, e );</span>
+
+<span class="nc" id="L379">                throw e;</span>
+<span class="nc" id="L380">            }</span>
+        }
+
+<span class="nc" id="L383">        return forkedProjects;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

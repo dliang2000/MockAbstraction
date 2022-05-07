@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OutputTag.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.util</a> &gt; <span class="el_source">OutputTag.java</span></div><h1>OutputTag.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.util;
+
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.functions.InvalidTypesException;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.typeutils.TypeExtractor;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+import java.io.Serializable;
+import java.util.Objects;
+
+/**
+ * An {@link OutputTag} is a typed and named tag to use for tagging side outputs of an operator.
+ *
+ * &lt;p&gt;An {@code OutputTag} must always be an anonymous inner class so that Flink can derive a {@link
+ * TypeInformation} for the generic type parameter.
+ *
+ * &lt;p&gt;Example:
+ *
+ * &lt;pre&gt;{@code
+ * OutputTag&lt;Tuple2&lt;String, Long&gt;&gt; info = new OutputTag&lt;Tuple2&lt;String, Long&gt;&gt;(&quot;late-data&quot;){};
+ * }&lt;/pre&gt;
+ *
+ * @param &lt;T&gt; the type of elements in the side-output stream.
+ */
+@PublicEvolving
+public class OutputTag&lt;T&gt; implements Serializable {
+
+    private static final long serialVersionUID = 2L;
+
+    private final String id;
+
+    private final TypeInformation&lt;T&gt; typeInfo;
+
+    /**
+     * Creates a new named {@code OutputTag} with the given id.
+     *
+     * @param id The id of the created {@code OutputTag}.
+     */
+<span class="fc" id="L60">    public OutputTag(String id) {</span>
+<span class="fc" id="L61">        Preconditions.checkNotNull(id, &quot;OutputTag id cannot be null.&quot;);</span>
+<span class="pc bpc" id="L62" title="1 of 2 branches missed.">        Preconditions.checkArgument(!id.isEmpty(), &quot;OutputTag id must not be empty.&quot;);</span>
+<span class="nc" id="L63">        this.id = id;</span>
+
+        try {
+<span class="nc" id="L66">            this.typeInfo = TypeExtractor.createTypeInfo(this, OutputTag.class, getClass(), 0);</span>
+<span class="nc" id="L67">        } catch (InvalidTypesException e) {</span>
+<span class="nc" id="L68">            throw new InvalidTypesException(</span>
+                    &quot;Could not determine TypeInformation for the OutputTag type. &quot;
+                            + &quot;The most common reason is forgetting to make the OutputTag an anonymous inner class. &quot;
+                            + &quot;It is also not possible to use generic type variables with OutputTags, such as 'Tuple2&lt;A, B&gt;'.&quot;,
+                    e);
+<span class="nc" id="L73">        }</span>
+<span class="nc" id="L74">    }</span>
+
+    /**
+     * Creates a new named {@code OutputTag} with the given id and output {@link TypeInformation}.
+     *
+     * @param id The id of the created {@code OutputTag}.
+     * @param typeInfo The {@code TypeInformation} for the side output.
+     */
+<span class="fc" id="L82">    public OutputTag(String id, TypeInformation&lt;T&gt; typeInfo) {</span>
+<span class="fc" id="L83">        Preconditions.checkNotNull(id, &quot;OutputTag id cannot be null.&quot;);</span>
+<span class="pc bpc" id="L84" title="1 of 2 branches missed.">        Preconditions.checkArgument(!id.isEmpty(), &quot;OutputTag id must not be empty.&quot;);</span>
+<span class="nc" id="L85">        this.id = id;</span>
+<span class="nc" id="L86">        this.typeInfo = Preconditions.checkNotNull(typeInfo, &quot;TypeInformation cannot be null.&quot;);</span>
+<span class="nc" id="L87">    }</span>
+
+    public static boolean isResponsibleFor(
+            @Nullable OutputTag&lt;?&gt; owner, @Nonnull OutputTag&lt;?&gt; other) {
+<span class="nc" id="L91">        return other.equals(owner);</span>
+    }
+
+    // ------------------------------------------------------------------------
+
+    public String getId() {
+<span class="nc" id="L97">        return id;</span>
+    }
+
+    public TypeInformation&lt;T&gt; getTypeInfo() {
+<span class="nc" id="L101">        return typeInfo;</span>
+    }
+
+    // ------------------------------------------------------------------------
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        if (obj == this) {</span>
+<span class="nc" id="L109">            return true;</span>
+        }
+<span class="nc bnc" id="L111" title="All 4 branches missed.">        if (obj == null || !(obj instanceof OutputTag)) {</span>
+<span class="nc" id="L112">            return false;</span>
+        }
+<span class="nc" id="L114">        OutputTag other = (OutputTag) obj;</span>
+<span class="nc" id="L115">        return Objects.equals(this.id, other.id);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L120">        return id.hashCode();</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L125">        return &quot;OutputTag(&quot; + getTypeInfo() + &quot;, &quot; + id + &quot;)&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

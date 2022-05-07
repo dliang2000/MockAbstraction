@@ -1,0 +1,824 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DelimitedInputFormat.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.io</a> &gt; <span class="el_source">DelimitedInputFormat.java</span></div><h1>DelimitedInputFormat.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.io;
+
+import org.apache.flink.annotation.Public;
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.io.statistics.BaseStatistics;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.GlobalConfiguration;
+import org.apache.flink.configuration.OptimizerOptions;
+import org.apache.flink.core.fs.FileInputSplit;
+import org.apache.flink.core.fs.FileStatus;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.types.parser.FieldParser;
+import org.apache.flink.util.Preconditions;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
+
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.Arrays;
+
+/**
+ * Base implementation for input formats that split the input at a delimiter into records. The
+ * parsing of the record bytes into the record has to be implemented in the {@link
+ * #readRecord(Object, byte[], int, int)} method.
+ *
+ * &lt;p&gt;The default delimiter is the newline character {@code '\n'}.
+ */
+@Public
+public abstract class DelimitedInputFormat&lt;OT&gt; extends FileInputFormat&lt;OT&gt;
+        implements CheckpointableInputFormat&lt;FileInputSplit, Long&gt; {
+
+    private static final long serialVersionUID = 1L;
+
+    // -------------------------------------- Constants -------------------------------------------
+
+    /** The log. */
+<span class="fc" id="L59">    private static final Logger LOG = LoggerFactory.getLogger(DelimitedInputFormat.class);</span>
+
+    // The charset used to convert strings to bytes
+<span class="fc" id="L62">    private String charsetName = &quot;UTF-8&quot;;</span>
+
+    // Charset is not serializable
+    private transient Charset charset;
+
+    /** The default read buffer size = 1MB. */
+    private static final int DEFAULT_READ_BUFFER_SIZE = 1024 * 1024;
+
+    /** Indication that the number of samples has not been set by the configuration. */
+    private static final int NUM_SAMPLES_UNDEFINED = -1;
+
+    /** The maximum number of line samples to be taken. */
+    private static int DEFAULT_MAX_NUM_SAMPLES;
+
+    /** The minimum number of line samples to be taken. */
+    private static int DEFAULT_MIN_NUM_SAMPLES;
+
+    /**
+     * The maximum size of a sample record before sampling is aborted. To catch cases where a wrong
+     * delimiter is given.
+     */
+    private static int MAX_SAMPLE_LEN;
+
+    /** @deprecated Please use {@code loadConfigParameters(Configuration config} */
+    @Deprecated
+    protected static void loadGlobalConfigParams() {
+<span class="nc" id="L88">        loadConfigParameters(GlobalConfiguration.loadConfiguration());</span>
+<span class="nc" id="L89">    }</span>
+
+    protected static void loadConfigParameters(Configuration parameters) {
+<span class="fc" id="L92">        int maxSamples = parameters.getInteger(OptimizerOptions.DELIMITED_FORMAT_MAX_LINE_SAMPLES);</span>
+<span class="fc" id="L93">        int minSamples = parameters.getInteger(OptimizerOptions.DELIMITED_FORMAT_MIN_LINE_SAMPLES);</span>
+
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">        if (maxSamples &lt; 0) {</span>
+<span class="nc" id="L96">            LOG.error(</span>
+                    &quot;Invalid default maximum number of line samples: &quot;
+                            + maxSamples
+                            + &quot;. Using default value of &quot;
+<span class="nc" id="L100">                            + OptimizerOptions.DELIMITED_FORMAT_MAX_LINE_SAMPLES.key());</span>
+<span class="nc" id="L101">            maxSamples = OptimizerOptions.DELIMITED_FORMAT_MAX_LINE_SAMPLES.defaultValue();</span>
+        }
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">        if (minSamples &lt; 0) {</span>
+<span class="nc" id="L104">            LOG.error(</span>
+                    &quot;Invalid default minimum number of line samples: &quot;
+                            + minSamples
+                            + &quot;. Using default value of &quot;
+<span class="nc" id="L108">                            + OptimizerOptions.DELIMITED_FORMAT_MIN_LINE_SAMPLES.key());</span>
+<span class="nc" id="L109">            minSamples = OptimizerOptions.DELIMITED_FORMAT_MIN_LINE_SAMPLES.defaultValue();</span>
+        }
+
+<span class="fc" id="L112">        DEFAULT_MAX_NUM_SAMPLES = maxSamples;</span>
+
+<span class="pc bpc" id="L114" title="1 of 2 branches missed.">        if (minSamples &gt; maxSamples) {</span>
+<span class="nc" id="L115">            LOG.error(</span>
+                    &quot;Default minimum number of line samples cannot be greater the default maximum number &quot;
+                            + &quot;of line samples: min=&quot;
+                            + minSamples
+                            + &quot;, max=&quot;
+                            + maxSamples
+                            + &quot;. Defaulting minimum to maximum.&quot;);
+<span class="nc" id="L122">            DEFAULT_MIN_NUM_SAMPLES = maxSamples;</span>
+        } else {
+<span class="fc" id="L124">            DEFAULT_MIN_NUM_SAMPLES = minSamples;</span>
+        }
+
+<span class="fc" id="L127">        int maxLen = parameters.getInteger(OptimizerOptions.DELIMITED_FORMAT_MAX_SAMPLE_LEN);</span>
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">        if (maxLen &lt;= 0) {</span>
+<span class="nc" id="L129">            maxLen = OptimizerOptions.DELIMITED_FORMAT_MAX_SAMPLE_LEN.defaultValue();</span>
+<span class="nc" id="L130">            LOG.error(</span>
+                    &quot;Invalid value for the maximum sample record length. Using default value of &quot;
+                            + maxLen
+                            + '.');
+<span class="pc bpc" id="L134" title="1 of 2 branches missed.">        } else if (maxLen &lt; DEFAULT_READ_BUFFER_SIZE) {</span>
+<span class="nc" id="L135">            maxLen = DEFAULT_READ_BUFFER_SIZE;</span>
+<span class="nc" id="L136">            LOG.warn(</span>
+                    &quot;Increasing maximum sample record length to size of the read buffer (&quot;
+                            + maxLen
+                            + &quot;).&quot;);
+        }
+<span class="fc" id="L141">        MAX_SAMPLE_LEN = maxLen;</span>
+<span class="fc" id="L142">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+    //  Variables for internal parsing.
+    //  They are all transient, because we do not want them so be serialized
+    // --------------------------------------------------------------------------------------------
+
+    private transient byte[] readBuffer;
+
+    private transient byte[] wrapBuffer;
+
+    private transient int readPos;
+
+    private transient int limit;
+
+    protected transient byte[] currBuffer; // buffer in which current record byte sequence is found
+    protected transient int currOffset; // offset in above buffer
+    protected transient int currLen; // length of current byte sequence
+
+    private transient boolean overLimit;
+
+    private transient boolean end;
+
+<span class="fc" id="L165">    private long offset = -1;</span>
+
+    // --------------------------------------------------------------------------------------------
+    //  The configuration parameters. Configured on the instance and serialized to be shipped.
+    // --------------------------------------------------------------------------------------------
+
+    // The delimiter may be set with a byte-sequence or a String. In the latter
+    // case the byte representation is updated consistent with current charset.
+<span class="fc" id="L173">    private byte[] delimiter = new byte[] {'\n'};</span>
+<span class="fc" id="L174">    private String delimiterString = null;</span>
+
+<span class="fc" id="L176">    private int lineLengthLimit = Integer.MAX_VALUE;</span>
+
+<span class="fc" id="L178">    private int bufferSize = -1;</span>
+
+<span class="fc" id="L180">    private int numLineSamples = NUM_SAMPLES_UNDEFINED;</span>
+
+    // --------------------------------------------------------------------------------------------
+    //  Constructors &amp; Getters/setters for the configurable parameters
+    // --------------------------------------------------------------------------------------------
+
+    public DelimitedInputFormat() {
+<span class="fc" id="L187">        this(null, null);</span>
+<span class="fc" id="L188">    }</span>
+
+    protected DelimitedInputFormat(Path filePath, Configuration configuration) {
+<span class="fc" id="L191">        super(filePath);</span>
+<span class="fc bfc" id="L192" title="All 2 branches covered.">        if (configuration == null) {</span>
+<span class="fc" id="L193">            configuration = GlobalConfiguration.loadConfiguration();</span>
+        }
+<span class="fc" id="L195">        loadConfigParameters(configuration);</span>
+<span class="fc" id="L196">    }</span>
+
+    /**
+     * Get the character set used for the row delimiter. This is also used by subclasses to
+     * interpret field delimiters, comment strings, and for configuring {@link FieldParser}s.
+     *
+     * @return the charset
+     */
+    @PublicEvolving
+    public Charset getCharset() {
+<span class="fc bfc" id="L206" title="All 2 branches covered.">        if (this.charset == null) {</span>
+<span class="fc" id="L207">            this.charset = Charset.forName(charsetName);</span>
+        }
+<span class="fc" id="L209">        return this.charset;</span>
+    }
+
+    /**
+     * Set the name of the character set used for the row delimiter. This is also used by subclasses
+     * to interpret field delimiters, comment strings, and for configuring {@link FieldParser}s.
+     *
+     * &lt;p&gt;These fields are interpreted when set. Changing the charset thereafter may cause
+     * unexpected results.
+     *
+     * @param charset name of the charset
+     */
+    @PublicEvolving
+    public void setCharset(String charset) {
+<span class="fc" id="L223">        this.charsetName = Preconditions.checkNotNull(charset);</span>
+<span class="fc" id="L224">        this.charset = null;</span>
+
+<span class="fc bfc" id="L226" title="All 2 branches covered.">        if (this.delimiterString != null) {</span>
+<span class="fc" id="L227">            this.delimiter = delimiterString.getBytes(getCharset());</span>
+        }
+<span class="fc" id="L229">    }</span>
+
+    public byte[] getDelimiter() {
+<span class="fc" id="L232">        return delimiter;</span>
+    }
+
+    public void setDelimiter(byte[] delimiter) {
+<span class="pc bpc" id="L236" title="1 of 2 branches missed.">        if (delimiter == null) {</span>
+<span class="nc" id="L237">            throw new IllegalArgumentException(&quot;Delimiter must not be null&quot;);</span>
+        }
+<span class="fc" id="L239">        this.delimiter = delimiter;</span>
+<span class="fc" id="L240">        this.delimiterString = null;</span>
+<span class="fc" id="L241">    }</span>
+
+    public void setDelimiter(char delimiter) {
+<span class="nc" id="L244">        setDelimiter(String.valueOf(delimiter));</span>
+<span class="nc" id="L245">    }</span>
+
+    public void setDelimiter(String delimiter) {
+<span class="pc bpc" id="L248" title="1 of 2 branches missed.">        if (delimiter == null) {</span>
+<span class="nc" id="L249">            throw new IllegalArgumentException(&quot;Delimiter must not be null&quot;);</span>
+        }
+<span class="fc" id="L251">        this.delimiter = delimiter.getBytes(getCharset());</span>
+<span class="fc" id="L252">        this.delimiterString = delimiter;</span>
+<span class="fc" id="L253">    }</span>
+
+    public int getLineLengthLimit() {
+<span class="fc" id="L256">        return lineLengthLimit;</span>
+    }
+
+    public void setLineLengthLimit(int lineLengthLimit) {
+<span class="pc bpc" id="L260" title="1 of 2 branches missed.">        if (lineLengthLimit &lt; 1) {</span>
+<span class="nc" id="L261">            throw new IllegalArgumentException(&quot;Line length limit must be at least 1.&quot;);</span>
+        }
+
+<span class="fc" id="L264">        this.lineLengthLimit = lineLengthLimit;</span>
+<span class="fc" id="L265">    }</span>
+
+    public int getBufferSize() {
+<span class="fc" id="L268">        return bufferSize;</span>
+    }
+
+    public void setBufferSize(int bufferSize) {
+<span class="pc bpc" id="L272" title="1 of 2 branches missed.">        if (bufferSize &lt; 2) {</span>
+<span class="nc" id="L273">            throw new IllegalArgumentException(&quot;Buffer size must be at least 2.&quot;);</span>
+        }
+
+<span class="fc" id="L276">        this.bufferSize = bufferSize;</span>
+<span class="fc" id="L277">    }</span>
+
+    public int getNumLineSamples() {
+<span class="fc" id="L280">        return numLineSamples;</span>
+    }
+
+    public void setNumLineSamples(int numLineSamples) {
+<span class="pc bpc" id="L284" title="1 of 2 branches missed.">        if (numLineSamples &lt; 0) {</span>
+<span class="nc" id="L285">            throw new IllegalArgumentException(&quot;Number of line samples must not be negative.&quot;);</span>
+        }
+<span class="fc" id="L287">        this.numLineSamples = numLineSamples;</span>
+<span class="fc" id="L288">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+    //  User-defined behavior
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * This function parses the given byte array which represents a serialized record. The function
+     * returns a valid record or throws an IOException.
+     *
+     * @param reuse An optionally reusable object.
+     * @param bytes Binary data of serialized records.
+     * @param offset The offset where to start to read the record data.
+     * @param numBytes The number of bytes that can be read starting at the offset position.
+     * @return Returns the read record if it was successfully deserialized.
+     * @throws IOException if the record could not be read.
+     */
+    public abstract OT readRecord(OT reuse, byte[] bytes, int offset, int numBytes)
+            throws IOException;
+
+    // --------------------------------------------------------------------------------------------
+    //  Pre-flight: Configuration, Splits, Sampling
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Configures this input format by reading the path to the file from the configuration and the
+     * string that defines the record delimiter.
+     *
+     * @param parameters The configuration object to read the parameters from.
+     */
+    @Override
+    public void configure(Configuration parameters) {
+<span class="fc" id="L320">        super.configure(parameters);</span>
+
+        // the if() clauses are to prevent the configure() method from
+        // overwriting the values set by the setters
+
+<span class="fc bfc" id="L325" title="All 2 branches covered.">        if (Arrays.equals(delimiter, new byte[] {'\n'})) {</span>
+<span class="fc" id="L326">            String delimString = parameters.getString(RECORD_DELIMITER, null);</span>
+<span class="fc bfc" id="L327" title="All 2 branches covered.">            if (delimString != null) {</span>
+<span class="fc" id="L328">                setDelimiter(delimString);</span>
+            }
+        }
+
+        // set the number of samples
+<span class="fc bfc" id="L333" title="All 2 branches covered.">        if (numLineSamples == NUM_SAMPLES_UNDEFINED) {</span>
+<span class="fc" id="L334">            String samplesString = parameters.getString(NUM_STATISTICS_SAMPLES, null);</span>
+<span class="pc bpc" id="L335" title="1 of 2 branches missed.">            if (samplesString != null) {</span>
+                try {
+<span class="nc" id="L337">                    setNumLineSamples(Integer.parseInt(samplesString));</span>
+<span class="nc" id="L338">                } catch (NumberFormatException e) {</span>
+<span class="nc bnc" id="L339" title="All 2 branches missed.">                    if (LOG.isWarnEnabled()) {</span>
+<span class="nc" id="L340">                        LOG.warn(</span>
+                                &quot;Invalid value for number of samples to take: &quot;
+                                        + samplesString
+                                        + &quot;. Skipping sampling.&quot;);
+                    }
+<span class="nc" id="L345">                    setNumLineSamples(0);</span>
+<span class="nc" id="L346">                }</span>
+            }
+        }
+<span class="fc" id="L349">    }</span>
+
+    @Override
+    public FileBaseStatistics getStatistics(BaseStatistics cachedStats) throws IOException {
+
+<span class="fc bfc" id="L354" title="All 2 branches covered.">        final FileBaseStatistics cachedFileStats =</span>
+                cachedStats instanceof FileBaseStatistics ? (FileBaseStatistics) cachedStats : null;
+
+        // store properties
+<span class="fc" id="L358">        final long oldTimeout = this.openTimeout;</span>
+<span class="fc" id="L359">        final int oldBufferSize = this.bufferSize;</span>
+<span class="fc" id="L360">        final int oldLineLengthLimit = this.lineLengthLimit;</span>
+        try {
+
+<span class="fc" id="L363">            final ArrayList&lt;FileStatus&gt; allFiles = new ArrayList&lt;&gt;(1);</span>
+
+            // let the file input format deal with the up-to-date check and the basic size
+<span class="fc" id="L366">            final FileBaseStatistics stats =</span>
+<span class="fc" id="L367">                    getFileStats(cachedFileStats, getFilePaths(), allFiles);</span>
+<span class="pc bpc" id="L368" title="1 of 2 branches missed.">            if (stats == null) {</span>
+<span class="nc" id="L369">                return null;</span>
+            }
+
+            // check whether the width per record is already known or the total size is unknown as
+            // well
+            // in both cases, we return the stats as they are
+<span class="fc bfc" id="L375" title="All 2 branches covered.">            if (stats.getAverageRecordWidth() != FileBaseStatistics.AVG_RECORD_BYTES_UNKNOWN</span>
+<span class="pc bpc" id="L376" title="1 of 2 branches missed.">                    || stats.getTotalInputSize() == FileBaseStatistics.SIZE_UNKNOWN) {</span>
+<span class="fc" id="L377">                return stats;</span>
+            }
+
+            // disabling sampling for unsplittable files since the logic below assumes splitability.
+            // TODO: Add sampling for unsplittable files. Right now, only compressed text files are
+            // affected by this limitation.
+<span class="pc bpc" id="L383" title="1 of 2 branches missed.">            if (unsplittable) {</span>
+<span class="nc" id="L384">                return stats;</span>
+            }
+
+            // compute how many samples to take, depending on the defined upper and lower bound
+            final int numSamples;
+<span class="fc bfc" id="L389" title="All 2 branches covered.">            if (this.numLineSamples != NUM_SAMPLES_UNDEFINED) {</span>
+<span class="fc" id="L390">                numSamples = this.numLineSamples;</span>
+            } else {
+                // make the samples small for very small files
+<span class="fc" id="L393">                final int calcSamples = (int) (stats.getTotalInputSize() / 1024);</span>
+<span class="fc" id="L394">                numSamples =</span>
+<span class="fc" id="L395">                        Math.min(</span>
+                                DEFAULT_MAX_NUM_SAMPLES,
+<span class="fc" id="L397">                                Math.max(DEFAULT_MIN_NUM_SAMPLES, calcSamples));</span>
+            }
+
+            // check if sampling is disabled.
+<span class="pc bpc" id="L401" title="1 of 2 branches missed.">            if (numSamples == 0) {</span>
+<span class="nc" id="L402">                return stats;</span>
+            }
+<span class="pc bpc" id="L404" title="1 of 2 branches missed.">            if (numSamples &lt; 0) {</span>
+<span class="nc" id="L405">                throw new RuntimeException(&quot;Error: Invalid number of samples: &quot; + numSamples);</span>
+            }
+
+            // make sure that the sampling times out after a while if the file system does not
+            // answer in time
+<span class="fc" id="L410">            this.openTimeout = 10000;</span>
+            // set a small read buffer size
+<span class="fc" id="L412">            this.bufferSize = 4 * 1024;</span>
+            // prevent overly large records, for example if we have an incorrectly configured
+            // delimiter
+<span class="fc" id="L415">            this.lineLengthLimit = MAX_SAMPLE_LEN;</span>
+
+<span class="fc" id="L417">            long offset = 0;</span>
+<span class="fc" id="L418">            long totalNumBytes = 0;</span>
+<span class="fc" id="L419">            long stepSize = stats.getTotalInputSize() / numSamples;</span>
+
+<span class="fc" id="L421">            int fileNum = 0;</span>
+<span class="fc" id="L422">            int samplesTaken = 0;</span>
+
+            // take the samples
+<span class="fc bfc" id="L425" title="All 4 branches covered.">            while (samplesTaken &lt; numSamples &amp;&amp; fileNum &lt; allFiles.size()) {</span>
+                // make a split for the sample and use it to read a record
+<span class="fc" id="L427">                FileStatus file = allFiles.get(fileNum);</span>
+<span class="fc" id="L428">                FileInputSplit split =</span>
+<span class="fc" id="L429">                        new FileInputSplit(0, file.getPath(), offset, file.getLen() - offset, null);</span>
+
+                // we open the split, read one line, and take its length
+                try {
+<span class="fc" id="L433">                    open(split);</span>
+<span class="fc bfc" id="L434" title="All 2 branches covered.">                    if (readLine()) {</span>
+<span class="fc" id="L435">                        totalNumBytes += this.currLen + this.delimiter.length;</span>
+<span class="fc" id="L436">                        samplesTaken++;</span>
+                    }
+                } finally {
+                    // close the file stream, do not release the buffers
+<span class="fc" id="L440">                    super.close();</span>
+                }
+
+<span class="fc" id="L443">                offset += stepSize;</span>
+
+                // skip to the next file, if necessary
+<span class="fc bfc" id="L446" title="All 2 branches covered.">                while (fileNum &lt; allFiles.size()</span>
+<span class="fc bfc" id="L447" title="All 2 branches covered.">                        &amp;&amp; offset &gt;= (file = allFiles.get(fileNum)).getLen()) {</span>
+<span class="fc" id="L448">                    offset -= file.getLen();</span>
+<span class="fc" id="L449">                    fileNum++;</span>
+                }
+<span class="fc" id="L451">            }</span>
+
+            // we have the width, store it
+<span class="fc" id="L454">            return new FileBaseStatistics(</span>
+<span class="fc" id="L455">                    stats.getLastModificationTime(),</span>
+<span class="fc" id="L456">                    stats.getTotalInputSize(),</span>
+                    totalNumBytes / (float) samplesTaken);
+
+<span class="fc" id="L459">        } catch (IOException ioex) {</span>
+<span class="pc bpc" id="L460" title="1 of 2 branches missed.">            if (LOG.isWarnEnabled()) {</span>
+<span class="nc" id="L461">                LOG.warn(</span>
+                        &quot;Could not determine statistics for files '&quot;
+<span class="nc" id="L463">                                + Arrays.toString(getFilePaths())</span>
+                                + &quot;' &quot;
+                                + &quot;due to an io error: &quot;
+<span class="nc" id="L466">                                + ioex.getMessage());</span>
+            }
+<span class="nc" id="L468">        } catch (Throwable t) {</span>
+<span class="nc bnc" id="L469" title="All 2 branches missed.">            if (LOG.isErrorEnabled()) {</span>
+<span class="nc" id="L470">                LOG.error(</span>
+                        &quot;Unexpected problem while getting the file statistics for files '&quot;
+<span class="nc" id="L472">                                + Arrays.toString(getFilePaths())</span>
+                                + &quot;': &quot;
+<span class="nc" id="L474">                                + t.getMessage(),</span>
+                        t);
+            }
+        } finally {
+            // restore properties (even on return)
+<span class="fc" id="L479">            this.openTimeout = oldTimeout;</span>
+<span class="fc" id="L480">            this.bufferSize = oldBufferSize;</span>
+<span class="fc" id="L481">            this.lineLengthLimit = oldLineLengthLimit;</span>
+        }
+
+        // no statistics possible
+<span class="fc" id="L485">        return null;</span>
+    }
+
+    /**
+     * Opens the given input split. This method opens the input stream to the specified file,
+     * allocates read buffers and positions the stream at the correct position, making sure that any
+     * partial record at the beginning is skipped.
+     *
+     * @param split The input split to open.
+     * @see
+     *     org.apache.flink.api.common.io.FileInputFormat#open(org.apache.flink.core.fs.FileInputSplit)
+     */
+    @Override
+    public void open(FileInputSplit split) throws IOException {
+<span class="fc" id="L499">        super.open(split);</span>
+<span class="fc" id="L500">        initBuffers();</span>
+
+<span class="fc" id="L502">        this.offset = splitStart;</span>
+<span class="fc bfc" id="L503" title="All 2 branches covered.">        if (this.splitStart != 0) {</span>
+<span class="fc" id="L504">            this.stream.seek(offset);</span>
+<span class="fc" id="L505">            readLine();</span>
+            // if the first partial record already pushes the stream over
+            // the limit of our split, then no record starts within this split
+<span class="pc bpc" id="L508" title="1 of 2 branches missed.">            if (this.overLimit) {</span>
+<span class="nc" id="L509">                this.end = true;</span>
+            }
+        } else {
+<span class="fc" id="L512">            fillBuffer(0);</span>
+        }
+<span class="fc" id="L514">        initializeSplit(split, null);</span>
+<span class="fc" id="L515">    }</span>
+
+    private void initBuffers() {
+<span class="fc bfc" id="L518" title="All 2 branches covered.">        this.bufferSize = this.bufferSize &lt;= 0 ? DEFAULT_READ_BUFFER_SIZE : this.bufferSize;</span>
+
+<span class="pc bpc" id="L520" title="1 of 2 branches missed.">        if (this.bufferSize &lt;= this.delimiter.length) {</span>
+<span class="nc" id="L521">            throw new IllegalArgumentException(</span>
+                    &quot;Buffer size must be greater than length of delimiter.&quot;);
+        }
+
+<span class="pc bpc" id="L525" title="1 of 4 branches missed.">        if (this.readBuffer == null || this.readBuffer.length != this.bufferSize) {</span>
+<span class="fc" id="L526">            this.readBuffer = new byte[this.bufferSize];</span>
+        }
+<span class="pc bpc" id="L528" title="1 of 4 branches missed.">        if (this.wrapBuffer == null || this.wrapBuffer.length &lt; 256) {</span>
+<span class="fc" id="L529">            this.wrapBuffer = new byte[256];</span>
+        }
+
+<span class="fc" id="L532">        this.readPos = 0;</span>
+<span class="fc" id="L533">        this.limit = 0;</span>
+<span class="fc" id="L534">        this.overLimit = false;</span>
+<span class="fc" id="L535">        this.end = false;</span>
+<span class="fc" id="L536">    }</span>
+
+    /**
+     * Checks whether the current split is at its end.
+     *
+     * @return True, if the split is at its end, false otherwise.
+     */
+    @Override
+    public boolean reachedEnd() {
+<span class="fc" id="L545">        return this.end;</span>
+    }
+
+    @Override
+    public OT nextRecord(OT record) throws IOException {
+<span class="fc bfc" id="L550" title="All 2 branches covered.">        if (readLine()) {</span>
+<span class="fc" id="L551">            return readRecord(record, this.currBuffer, this.currOffset, this.currLen);</span>
+        } else {
+<span class="fc" id="L553">            this.end = true;</span>
+<span class="fc" id="L554">            return null;</span>
+        }
+    }
+
+    /**
+     * Closes the input by releasing all buffers and closing the file input stream.
+     *
+     * @throws IOException Thrown, if the closing of the file stream causes an I/O error.
+     */
+    @Override
+    public void close() throws IOException {
+<span class="fc" id="L565">        this.wrapBuffer = null;</span>
+<span class="fc" id="L566">        this.readBuffer = null;</span>
+<span class="fc" id="L567">        super.close();</span>
+<span class="fc" id="L568">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    protected final boolean readLine() throws IOException {
+<span class="fc bfc" id="L573" title="All 4 branches covered.">        if (this.stream == null || this.overLimit) {</span>
+<span class="fc" id="L574">            return false;</span>
+        }
+
+<span class="fc" id="L577">        int countInWrapBuffer = 0;</span>
+
+        // position of matching positions in the delimiter byte array
+<span class="fc" id="L580">        int delimPos = 0;</span>
+
+        while (true) {
+<span class="fc bfc" id="L583" title="All 2 branches covered.">            if (this.readPos &gt;= this.limit) {</span>
+                // readBuffer is completely consumed. Fill it again but keep partially read
+                // delimiter bytes.
+<span class="fc bfc" id="L586" title="All 2 branches covered.">                if (!fillBuffer(delimPos)) {</span>
+<span class="fc" id="L587">                    int countInReadBuffer = delimPos;</span>
+<span class="fc bfc" id="L588" title="All 2 branches covered.">                    if (countInWrapBuffer + countInReadBuffer &gt; 0) {</span>
+                        // we have bytes left to emit
+<span class="fc bfc" id="L590" title="All 2 branches covered.">                        if (countInReadBuffer &gt; 0) {</span>
+                            // we have bytes left in the readBuffer. Move them into the wrapBuffer
+<span class="pc bpc" id="L592" title="1 of 2 branches missed.">                            if (this.wrapBuffer.length - countInWrapBuffer &lt; countInReadBuffer) {</span>
+                                // reallocate
+<span class="nc" id="L594">                                byte[] tmp = new byte[countInWrapBuffer + countInReadBuffer];</span>
+<span class="nc" id="L595">                                System.arraycopy(this.wrapBuffer, 0, tmp, 0, countInWrapBuffer);</span>
+<span class="nc" id="L596">                                this.wrapBuffer = tmp;</span>
+                            }
+
+                            // copy readBuffer bytes to wrapBuffer
+<span class="fc" id="L600">                            System.arraycopy(</span>
+                                    this.readBuffer,
+                                    0,
+                                    this.wrapBuffer,
+                                    countInWrapBuffer,
+                                    countInReadBuffer);
+<span class="fc" id="L606">                            countInWrapBuffer += countInReadBuffer;</span>
+                        }
+
+<span class="fc" id="L609">                        this.offset += countInWrapBuffer;</span>
+<span class="fc" id="L610">                        setResult(this.wrapBuffer, 0, countInWrapBuffer);</span>
+<span class="fc" id="L611">                        return true;</span>
+                    } else {
+<span class="fc" id="L613">                        return false;</span>
+                    }
+                }
+            }
+
+<span class="fc" id="L618">            int startPos = this.readPos - delimPos;</span>
+            int count;
+
+            // Search for next occurrence of delimiter in read buffer.
+<span class="fc bfc" id="L622" title="All 4 branches covered.">            while (this.readPos &lt; this.limit &amp;&amp; delimPos &lt; this.delimiter.length) {</span>
+<span class="fc bfc" id="L623" title="All 2 branches covered.">                if ((this.readBuffer[this.readPos]) == this.delimiter[delimPos]) {</span>
+                    // Found the expected delimiter character. Continue looking for the next
+                    // character of delimiter.
+<span class="fc" id="L626">                    delimPos++;</span>
+                } else {
+                    // Delimiter does not match.
+                    // We have to reset the read position to the character after the first matching
+                    // character
+                    //   and search for the whole delimiter again.
+<span class="fc" id="L632">                    readPos -= delimPos;</span>
+<span class="fc" id="L633">                    delimPos = 0;</span>
+                }
+<span class="fc" id="L635">                readPos++;</span>
+            }
+
+            // check why we dropped out
+<span class="fc bfc" id="L639" title="All 2 branches covered.">            if (delimPos == this.delimiter.length) {</span>
+                // we found a delimiter
+<span class="fc" id="L641">                int readBufferBytesRead = this.readPos - startPos;</span>
+<span class="fc" id="L642">                this.offset += countInWrapBuffer + readBufferBytesRead;</span>
+<span class="fc" id="L643">                count = readBufferBytesRead - this.delimiter.length;</span>
+
+                // copy to byte array
+<span class="fc bfc" id="L646" title="All 2 branches covered.">                if (countInWrapBuffer &gt; 0) {</span>
+                    // check wrap buffer size
+<span class="pc bpc" id="L648" title="1 of 2 branches missed.">                    if (this.wrapBuffer.length &lt; countInWrapBuffer + count) {</span>
+<span class="nc" id="L649">                        final byte[] nb = new byte[countInWrapBuffer + count];</span>
+<span class="nc" id="L650">                        System.arraycopy(this.wrapBuffer, 0, nb, 0, countInWrapBuffer);</span>
+<span class="nc" id="L651">                        this.wrapBuffer = nb;</span>
+                    }
+<span class="pc bpc" id="L653" title="1 of 2 branches missed.">                    if (count &gt;= 0) {</span>
+<span class="fc" id="L654">                        System.arraycopy(</span>
+                                this.readBuffer, 0, this.wrapBuffer, countInWrapBuffer, count);
+                    }
+<span class="fc" id="L657">                    setResult(this.wrapBuffer, 0, countInWrapBuffer + count);</span>
+<span class="fc" id="L658">                    return true;</span>
+                } else {
+<span class="fc" id="L660">                    setResult(this.readBuffer, startPos, count);</span>
+<span class="fc" id="L661">                    return true;</span>
+                }
+            } else {
+                // we reached the end of the readBuffer
+<span class="fc" id="L665">                count = this.limit - startPos;</span>
+
+                // check against the maximum record length
+<span class="fc bfc" id="L668" title="All 2 branches covered.">                if (((long) countInWrapBuffer) + count &gt; this.lineLengthLimit) {</span>
+<span class="fc" id="L669">                    throw new IOException(</span>
+                            &quot;The record length exceeded the maximum record length (&quot;
+                                    + this.lineLengthLimit
+                                    + &quot;).&quot;);
+                }
+
+                // Compute number of bytes to move to wrapBuffer
+                // Chars of partially read delimiter must remain in the readBuffer. We might need to
+                // go back.
+<span class="fc" id="L678">                int bytesToMove = count - delimPos;</span>
+                // ensure wrapBuffer is large enough
+<span class="fc bfc" id="L680" title="All 2 branches covered.">                if (this.wrapBuffer.length - countInWrapBuffer &lt; bytesToMove) {</span>
+                    // reallocate
+<span class="fc" id="L682">                    byte[] tmp =</span>
+                            new byte
+<span class="fc" id="L684">                                    [Math.max(</span>
+                                            this.wrapBuffer.length * 2,
+                                            countInWrapBuffer + bytesToMove)];
+<span class="fc" id="L687">                    System.arraycopy(this.wrapBuffer, 0, tmp, 0, countInWrapBuffer);</span>
+<span class="fc" id="L688">                    this.wrapBuffer = tmp;</span>
+                }
+
+                // copy readBuffer to wrapBuffer (except delimiter chars)
+<span class="fc" id="L692">                System.arraycopy(</span>
+                        this.readBuffer, startPos, this.wrapBuffer, countInWrapBuffer, bytesToMove);
+<span class="fc" id="L694">                countInWrapBuffer += bytesToMove;</span>
+                // move delimiter chars to the beginning of the readBuffer
+<span class="fc" id="L696">                System.arraycopy(</span>
+                        this.readBuffer, this.readPos - delimPos, this.readBuffer, 0, delimPos);
+            }
+<span class="fc" id="L699">        }</span>
+    }
+
+    private void setResult(byte[] buffer, int offset, int len) {
+<span class="fc" id="L703">        this.currBuffer = buffer;</span>
+<span class="fc" id="L704">        this.currOffset = offset;</span>
+<span class="fc" id="L705">        this.currLen = len;</span>
+<span class="fc" id="L706">    }</span>
+
+    /** Fills the read buffer with bytes read from the file starting from an offset. */
+    private boolean fillBuffer(int offset) throws IOException {
+<span class="fc" id="L710">        int maxReadLength = this.readBuffer.length - offset;</span>
+        // special case for reading the whole split.
+<span class="fc bfc" id="L712" title="All 2 branches covered.">        if (this.splitLength == FileInputFormat.READ_WHOLE_SPLIT_FLAG) {</span>
+<span class="fc" id="L713">            int read = this.stream.read(this.readBuffer, offset, maxReadLength);</span>
+<span class="fc bfc" id="L714" title="All 2 branches covered.">            if (read == -1) {</span>
+<span class="fc" id="L715">                this.stream.close();</span>
+<span class="fc" id="L716">                this.stream = null;</span>
+<span class="fc" id="L717">                return false;</span>
+            } else {
+<span class="fc" id="L719">                this.readPos = offset;</span>
+<span class="fc" id="L720">                this.limit = read + offset;</span>
+<span class="fc" id="L721">                return true;</span>
+            }
+        }
+
+        // else ..
+        int toRead;
+<span class="fc bfc" id="L727" title="All 2 branches covered.">        if (this.splitLength &gt; 0) {</span>
+            // if we have more data, read that
+<span class="fc bfc" id="L729" title="All 2 branches covered.">            toRead = this.splitLength &gt; maxReadLength ? maxReadLength : (int) this.splitLength;</span>
+        } else {
+            // if we have exhausted our split, we need to complete the current record, or read one
+            // more across the next split.
+            // the reason is that the next split will skip over the beginning until it finds the
+            // first
+            // delimiter, discarding it as an incomplete chunk of data that belongs to the last
+            // record in the
+            // previous split.
+<span class="fc" id="L738">            toRead = maxReadLength;</span>
+<span class="fc" id="L739">            this.overLimit = true;</span>
+        }
+
+<span class="fc" id="L742">        int read = this.stream.read(this.readBuffer, offset, toRead);</span>
+
+<span class="fc bfc" id="L744" title="All 2 branches covered.">        if (read == -1) {</span>
+<span class="fc" id="L745">            this.stream.close();</span>
+<span class="fc" id="L746">            this.stream = null;</span>
+<span class="fc" id="L747">            return false;</span>
+        } else {
+<span class="fc" id="L749">            this.splitLength -= read;</span>
+<span class="fc" id="L750">            this.readPos = offset; // position from where to start reading</span>
+<span class="fc" id="L751">            this.limit = read + offset; // number of valid bytes in the read buffer</span>
+<span class="fc" id="L752">            return true;</span>
+        }
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // Config Keys for Parametrization via configuration
+    // --------------------------------------------------------------------------------------------
+
+    /** The configuration key to set the record delimiter. */
+    protected static final String RECORD_DELIMITER = &quot;delimited-format.delimiter&quot;;
+
+    /** The configuration key to set the number of samples to take for the statistics. */
+    private static final String NUM_STATISTICS_SAMPLES = &quot;delimited-format.numSamples&quot;;
+
+    // --------------------------------------------------------------------------------------------
+    //  Checkpointing
+    // --------------------------------------------------------------------------------------------
+
+    @PublicEvolving
+    @Override
+    public Long getCurrentState() throws IOException {
+<span class="nc" id="L773">        return this.offset;</span>
+    }
+
+    @PublicEvolving
+    @Override
+    public void reopen(FileInputSplit split, Long state) throws IOException {
+<span class="nc" id="L779">        Preconditions.checkNotNull(split, &quot;reopen() cannot be called on a null split.&quot;);</span>
+<span class="nc" id="L780">        Preconditions.checkNotNull(state, &quot;reopen() cannot be called with a null initial state.&quot;);</span>
+<span class="nc" id="L781">        Preconditions.checkArgument(</span>
+<span class="nc bnc" id="L782" title="All 4 branches missed.">                state == -1 || state &gt;= split.getStart(),</span>
+<span class="nc" id="L783">                &quot; Illegal offset &quot; + state + &quot;, smaller than the splits start=&quot; + split.getStart());</span>
+
+        // If we are already at the end of the split, just return
+<span class="nc bnc" id="L786" title="All 4 branches missed.">        if (split.getLength() != -1 &amp;&amp; state &gt; split.getStart() + split.getLength()) {</span>
+<span class="nc" id="L787">            this.end = true;</span>
+<span class="nc" id="L788">            return;</span>
+        }
+
+        // If the checkpointed offset is at the beginning of the split we fall back to the regular
+        // open logic
+<span class="nc bnc" id="L793" title="All 2 branches missed.">        if (split.getStart() == state) {</span>
+<span class="nc" id="L794">            this.open(split);</span>
+<span class="nc" id="L795">            return;</span>
+        }
+
+        // Otherwise we have to seek to the checkpointed offset and start reading from there
+<span class="nc" id="L799">        super.open(split);</span>
+<span class="nc" id="L800">        this.offset = state;</span>
+
+<span class="nc" id="L802">        initBuffers();</span>
+
+<span class="nc" id="L804">        this.stream.seek(this.offset);</span>
+<span class="nc bnc" id="L805" title="All 2 branches missed.">        if (split.getLength() == -1) {</span>
+            // this is the case for unsplittable files
+<span class="nc" id="L807">            fillBuffer(0);</span>
+        } else {
+<span class="nc" id="L809">            this.splitLength = this.splitStart + split.getLength() - this.offset;</span>
+        }
+
+<span class="nc" id="L812">        initializeSplit(split, state);</span>
+<span class="nc" id="L813">    }</span>
+
+    /**
+     * Initialization method that is called after opening or reopening an input split.
+     *
+     * @param split Split that was opened or reopened
+     * @param state Checkpointed state if the split was reopened
+     * @throws IOException
+     */
+<span class="fc" id="L822">    protected void initializeSplit(FileInputSplit split, @Nullable Long state) throws IOException {}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

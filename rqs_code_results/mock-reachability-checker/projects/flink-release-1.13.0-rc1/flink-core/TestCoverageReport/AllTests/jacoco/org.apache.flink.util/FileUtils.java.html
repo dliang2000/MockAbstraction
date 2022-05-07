@@ -1,0 +1,736 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FileUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.util</a> &gt; <span class="el_source">FileUtils.java</span></div><h1>FileUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.util;
+
+import org.apache.flink.core.fs.FSDataInputStream;
+import org.apache.flink.core.fs.FSDataOutputStream;
+import org.apache.flink.core.fs.FileStatus;
+import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.util.function.ThrowingConsumer;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.channels.WritableByteChannel;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.FileVisitOption;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Random;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * This is a utility class to deal files and directories. Contains utilities for recursive deletion
+ * and creation of temporary files.
+ */
+public final class FileUtils {
+
+    /** Global lock to prevent concurrent directory deletes under Windows and MacOS. */
+<span class="fc" id="L68">    private static final Object DELETE_LOCK = new Object();</span>
+
+    /** The alphabet to construct the random part of the filename from. */
+<span class="fc" id="L71">    private static final char[] ALPHABET = {</span>
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'a', 'b', 'c', 'd', 'e', 'f'
+    };
+
+    /** The length of the random part of the filename. */
+    private static final int RANDOM_FILE_NAME_LENGTH = 12;
+
+    /**
+     * The maximum size of array to allocate for reading. See {@code MAX_BUFFER_SIZE} in {@link
+     * java.nio.file.Files} for more.
+     */
+    private static final int MAX_BUFFER_SIZE = Integer.MAX_VALUE - 8;
+
+    /** The size of the buffer used for reading. */
+    private static final int BUFFER_SIZE = 4096;
+
+    private static final String JAR_FILE_EXTENSION = &quot;jar&quot;;
+
+    public static final String CLASS_FILE_EXTENSION = &quot;class&quot;;
+
+    public static final String PACKAGE_SEPARATOR = &quot;.&quot;;
+
+    // ------------------------------------------------------------------------
+
+    public static void writeCompletely(WritableByteChannel channel, ByteBuffer src)
+            throws IOException {
+<span class="nc bnc" id="L97" title="All 2 branches missed.">        while (src.hasRemaining()) {</span>
+<span class="nc" id="L98">            channel.write(src);</span>
+        }
+<span class="nc" id="L100">    }</span>
+
+    // ------------------------------------------------------------------------
+
+    /** Lists the given directory in a resource-leak-safe way. */
+    public static java.nio.file.Path[] listDirectory(java.nio.file.Path directory)
+            throws IOException {
+<span class="nc" id="L107">        try (Stream&lt;java.nio.file.Path&gt; stream = Files.list(directory)) {</span>
+<span class="nc" id="L108">            return stream.toArray(java.nio.file.Path[]::new);</span>
+        }
+    }
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * Constructs a random filename with the given prefix and a random part generated from hex
+     * characters.
+     *
+     * @param prefix the prefix to the filename to be constructed
+     * @return the generated random filename with the given prefix
+     */
+    public static String getRandomFilename(final String prefix) {
+<span class="nc" id="L122">        final Random rnd = new Random();</span>
+<span class="nc" id="L123">        final StringBuilder stringBuilder = new StringBuilder(prefix);</span>
+
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        for (int i = 0; i &lt; RANDOM_FILE_NAME_LENGTH; i++) {</span>
+<span class="nc" id="L126">            stringBuilder.append(ALPHABET[rnd.nextInt(ALPHABET.length)]);</span>
+        }
+
+<span class="nc" id="L129">        return stringBuilder.toString();</span>
+    }
+
+    // ------------------------------------------------------------------------
+    //  Simple reading and writing of files
+    // ------------------------------------------------------------------------
+
+    public static String readFile(File file, String charsetName) throws IOException {
+<span class="nc" id="L137">        byte[] bytes = readAllBytes(file.toPath());</span>
+<span class="nc" id="L138">        return new String(bytes, charsetName);</span>
+    }
+
+    public static String readFileUtf8(File file) throws IOException {
+<span class="nc" id="L142">        return readFile(file, &quot;UTF-8&quot;);</span>
+    }
+
+    public static void writeFile(File file, String contents, String encoding) throws IOException {
+<span class="nc" id="L146">        byte[] bytes = contents.getBytes(encoding);</span>
+<span class="nc" id="L147">        Files.write(file.toPath(), bytes, StandardOpenOption.WRITE);</span>
+<span class="nc" id="L148">    }</span>
+
+    public static void writeFileUtf8(File file, String contents) throws IOException {
+<span class="nc" id="L151">        writeFile(file, contents, &quot;UTF-8&quot;);</span>
+<span class="nc" id="L152">    }</span>
+
+    /**
+     * Reads all the bytes from a file. The method ensures that the file is closed when all bytes
+     * have been read or an I/O error, or other runtime exception, is thrown.
+     *
+     * &lt;p&gt;This is an implementation that follow {@link
+     * java.nio.file.Files#readAllBytes(java.nio.file.Path)}, and the difference is that it limits
+     * the size of the direct buffer to avoid direct-buffer OutOfMemoryError. When {@link
+     * java.nio.file.Files#readAllBytes(java.nio.file.Path)} or other interfaces in java API can do
+     * this in the future, we should remove it.
+     *
+     * @param path the path to the file
+     * @return a byte array containing the bytes read from the file
+     * @throws IOException if an I/O error occurs reading from the stream
+     * @throws OutOfMemoryError if an array of the required size cannot be allocated, for example
+     *     the file is larger that {@code 2GB}
+     */
+    public static byte[] readAllBytes(java.nio.file.Path path) throws IOException {
+<span class="fc" id="L171">        try (SeekableByteChannel channel = Files.newByteChannel(path);</span>
+<span class="fc" id="L172">                InputStream in = Channels.newInputStream(channel)) {</span>
+
+<span class="fc" id="L174">            long size = channel.size();</span>
+<span class="pc bpc" id="L175" title="1 of 2 branches missed.">            if (size &gt; (long) MAX_BUFFER_SIZE) {</span>
+<span class="nc" id="L176">                throw new OutOfMemoryError(&quot;Required array size too large&quot;);</span>
+            }
+
+<span class="fc" id="L179">            return read(in, (int) size);</span>
+        }
+    }
+
+    /**
+     * Reads all the bytes from an input stream. Uses {@code initialSize} as a hint about how many
+     * bytes the stream will have and uses {@code directBufferSize} to limit the size of the direct
+     * buffer used to read.
+     *
+     * @param source the input stream to read from
+     * @param initialSize the initial size of the byte array to allocate
+     * @return a byte array containing the bytes read from the file
+     * @throws IOException if an I/O error occurs reading from the stream
+     * @throws OutOfMemoryError if an array of the required size cannot be allocated
+     */
+    private static byte[] read(InputStream source, int initialSize) throws IOException {
+<span class="fc" id="L195">        int capacity = initialSize;</span>
+<span class="fc" id="L196">        byte[] buf = new byte[capacity];</span>
+<span class="fc" id="L197">        int nread = 0;</span>
+        int n;
+
+        for (; ; ) {
+            // read to EOF which may read more or less than initialSize (eg: file
+            // is truncated while we are reading)
+<span class="fc bfc" id="L203" title="All 2 branches covered.">            while ((n = source.read(buf, nread, Math.min(capacity - nread, BUFFER_SIZE))) &gt; 0) {</span>
+<span class="fc" id="L204">                nread += n;</span>
+            }
+
+            // if last call to source.read() returned -1, we are done
+            // otherwise, try to read one more byte; if that failed we're done too
+<span class="pc bpc" id="L209" title="2 of 4 branches missed.">            if (n &lt; 0 || (n = source.read()) &lt; 0) {</span>
+<span class="fc" id="L210">                break;</span>
+            }
+
+            // one more byte was read; need to allocate a larger buffer
+<span class="nc bnc" id="L214" title="All 2 branches missed.">            if (capacity &lt;= MAX_BUFFER_SIZE - capacity) {</span>
+<span class="nc" id="L215">                capacity = Math.max(capacity &lt;&lt; 1, BUFFER_SIZE);</span>
+            } else {
+<span class="nc bnc" id="L217" title="All 2 branches missed.">                if (capacity == MAX_BUFFER_SIZE) {</span>
+<span class="nc" id="L218">                    throw new OutOfMemoryError(&quot;Required array size too large&quot;);</span>
+                }
+<span class="nc" id="L220">                capacity = MAX_BUFFER_SIZE;</span>
+            }
+<span class="nc" id="L222">            buf = Arrays.copyOf(buf, capacity);</span>
+<span class="nc" id="L223">            buf[nread++] = (byte) n;</span>
+        }
+<span class="pc bpc" id="L225" title="1 of 2 branches missed.">        return (capacity == nread) ? buf : Arrays.copyOf(buf, nread);</span>
+    }
+
+    // ------------------------------------------------------------------------
+    //  Deleting directories on standard File Systems
+    // ------------------------------------------------------------------------
+
+    /**
+     * Removes the given file or directory recursively.
+     *
+     * &lt;p&gt;If the file or directory does not exist, this does not throw an exception, but simply does
+     * nothing. It considers the fact that a file-to-be-deleted is not present a success.
+     *
+     * &lt;p&gt;This method is safe against other concurrent deletion attempts.
+     *
+     * @param file The file or directory to delete.
+     * @throws IOException Thrown if the directory could not be cleaned for some reason, for example
+     *     due to missing access/write permissions.
+     */
+    public static void deleteFileOrDirectory(File file) throws IOException {
+<span class="fc" id="L245">        checkNotNull(file, &quot;file&quot;);</span>
+
+<span class="fc" id="L247">        guardIfNotThreadSafe(FileUtils::deleteFileOrDirectoryInternal, file);</span>
+<span class="fc" id="L248">    }</span>
+
+    /**
+     * Deletes the given directory recursively.
+     *
+     * &lt;p&gt;If the directory does not exist, this does not throw an exception, but simply does
+     * nothing. It considers the fact that a directory-to-be-deleted is not present a success.
+     *
+     * &lt;p&gt;This method is safe against other concurrent deletion attempts.
+     *
+     * @param directory The directory to be deleted.
+     * @throws IOException Thrown if the given file is not a directory, or if the directory could
+     *     not be deleted for some reason, for example due to missing access/write permissions.
+     */
+    public static void deleteDirectory(File directory) throws IOException {
+<span class="fc" id="L263">        checkNotNull(directory, &quot;directory&quot;);</span>
+
+<span class="fc" id="L265">        guardIfNotThreadSafe(FileUtils::deleteDirectoryInternal, directory);</span>
+<span class="fc" id="L266">    }</span>
+
+    /**
+     * Deletes the given directory recursively, not reporting any I/O exceptions that occur.
+     *
+     * &lt;p&gt;This method is identical to {@link FileUtils#deleteDirectory(File)}, except that it
+     * swallows all exceptions and may leave the job quietly incomplete.
+     *
+     * @param directory The directory to delete.
+     */
+    public static void deleteDirectoryQuietly(File directory) {
+<span class="fc bfc" id="L277" title="All 2 branches covered.">        if (directory == null) {</span>
+<span class="fc" id="L278">            return;</span>
+        }
+
+        // delete and do not report if it fails
+        try {
+<span class="fc" id="L283">            deleteDirectory(directory);</span>
+<span class="fc" id="L284">        } catch (Exception ignored) {</span>
+<span class="fc" id="L285">        }</span>
+<span class="fc" id="L286">    }</span>
+
+    /**
+     * Removes all files contained within a directory, without removing the directory itself.
+     *
+     * &lt;p&gt;This method is safe against other concurrent deletion attempts.
+     *
+     * @param directory The directory to remove all files from.
+     * @throws FileNotFoundException Thrown if the directory itself does not exist.
+     * @throws IOException Thrown if the file indicates a proper file and not a directory, or if the
+     *     directory could not be cleaned for some reason, for example due to missing access/write
+     *     permissions.
+     */
+    public static void cleanDirectory(File directory) throws IOException {
+<span class="nc" id="L300">        checkNotNull(directory, &quot;directory&quot;);</span>
+
+<span class="nc" id="L302">        guardIfNotThreadSafe(FileUtils::cleanDirectoryInternal, directory);</span>
+<span class="nc" id="L303">    }</span>
+
+    private static void deleteFileOrDirectoryInternal(File file) throws IOException {
+<span class="fc bfc" id="L306" title="All 2 branches covered.">        if (file.isDirectory()) {</span>
+            // file exists and is directory
+<span class="fc" id="L308">            deleteDirectoryInternal(file);</span>
+        } else {
+            // if the file is already gone (concurrently), we don't mind
+<span class="fc" id="L311">            Files.deleteIfExists(file.toPath());</span>
+        }
+        // else: already deleted
+<span class="fc" id="L314">    }</span>
+
+    private static void deleteDirectoryInternal(File directory) throws IOException {
+<span class="fc bfc" id="L317" title="All 2 branches covered.">        if (directory.isDirectory()) {</span>
+            // directory exists and is a directory
+
+            // empty the directory first
+            try {
+<span class="fc" id="L322">                cleanDirectoryInternal(directory);</span>
+<span class="fc" id="L323">            } catch (FileNotFoundException ignored) {</span>
+                // someone concurrently deleted the directory, nothing to do for us
+<span class="fc" id="L325">                return;</span>
+<span class="fc" id="L326">            }</span>
+
+            // delete the directory. this fails if the directory is not empty, meaning
+            // if new files got concurrently created. we want to fail then.
+            // if someone else deleted the empty directory concurrently, we don't mind
+            // the result is the same for us, after all
+<span class="fc" id="L332">            Files.deleteIfExists(directory.toPath());</span>
+<span class="fc bfc" id="L333" title="All 2 branches covered.">        } else if (directory.exists()) {</span>
+            // exists but is file, not directory
+            // either an error from the caller, or concurrently a file got created
+<span class="fc" id="L336">            throw new IOException(directory + &quot; is not a directory&quot;);</span>
+        }
+        // else: does not exist, which is okay (as if deleted)
+<span class="fc" id="L339">    }</span>
+
+    private static void cleanDirectoryInternal(File directory) throws IOException {
+<span class="fc bfc" id="L342" title="All 2 branches covered.">        if (Files.isSymbolicLink(directory.toPath())) {</span>
+            // the user directories which symbolic links point to should not be cleaned.
+<span class="fc" id="L344">            return;</span>
+        }
+<span class="pc bpc" id="L346" title="1 of 2 branches missed.">        if (directory.isDirectory()) {</span>
+<span class="fc" id="L347">            final File[] files = directory.listFiles();</span>
+
+<span class="fc bfc" id="L349" title="All 2 branches covered.">            if (files == null) {</span>
+                // directory does not exist any more or no permissions
+<span class="pc bpc" id="L351" title="1 of 2 branches missed.">                if (directory.exists()) {</span>
+<span class="nc" id="L352">                    throw new IOException(&quot;Failed to list contents of &quot; + directory);</span>
+                } else {
+<span class="fc" id="L354">                    throw new FileNotFoundException(directory.toString());</span>
+                }
+            }
+
+            // remove all files in the directory
+<span class="fc bfc" id="L359" title="All 2 branches covered.">            for (File file : files) {</span>
+<span class="pc bpc" id="L360" title="1 of 2 branches missed.">                if (file != null) {</span>
+<span class="fc" id="L361">                    deleteFileOrDirectory(file);</span>
+                }
+            }
+<span class="pc bnc" id="L364" title="All 2 branches missed.">        } else if (directory.exists()) {</span>
+<span class="nc" id="L365">            throw new IOException(directory + &quot; is not a directory but a regular file&quot;);</span>
+        } else {
+            // else does not exist at all
+<span class="nc" id="L368">            throw new FileNotFoundException(directory.toString());</span>
+        }
+<span class="fc" id="L370">    }</span>
+
+    private static void guardIfNotThreadSafe(ThrowingConsumer&lt;File, IOException&gt; toRun, File file)
+            throws IOException {
+<span class="pc bpc" id="L374" title="1 of 2 branches missed.">        if (OperatingSystem.isWindows()) {</span>
+<span class="nc" id="L375">            guardIfWindows(toRun, file);</span>
+<span class="nc" id="L376">            return;</span>
+        }
+<span class="pc bpc" id="L378" title="1 of 2 branches missed.">        if (OperatingSystem.isMac()) {</span>
+<span class="nc" id="L379">            guardIfMac(toRun, file);</span>
+<span class="nc" id="L380">            return;</span>
+        }
+
+<span class="fc" id="L383">        toRun.accept(file);</span>
+<span class="fc" id="L384">    }</span>
+
+    // for Windows, we synchronize on a global lock, to prevent concurrent delete issues
+    // &gt;
+    // in the future, we may want to find either a good way of working around file visibility
+    // under concurrent operations (the behavior seems completely unpredictable)
+    // or  make this locking more fine grained, for example  on directory path prefixes
+    private static void guardIfWindows(ThrowingConsumer&lt;File, IOException&gt; toRun, File file)
+            throws IOException {
+<span class="nc" id="L393">        synchronized (DELETE_LOCK) {</span>
+<span class="nc bnc" id="L394" title="All 2 branches missed.">            for (int attempt = 1; attempt &lt;= 10; attempt++) {</span>
+                try {
+<span class="nc" id="L396">                    toRun.accept(file);</span>
+<span class="nc" id="L397">                    break;</span>
+<span class="nc" id="L398">                } catch (AccessDeniedException e) {</span>
+                    // ah, windows...
+                }
+
+                // briefly wait and fall through the loop
+                try {
+<span class="nc" id="L404">                    Thread.sleep(1);</span>
+<span class="nc" id="L405">                } catch (InterruptedException e) {</span>
+                    // restore the interruption flag and error out of the method
+<span class="nc" id="L407">                    Thread.currentThread().interrupt();</span>
+<span class="nc" id="L408">                    throw new IOException(&quot;operation interrupted&quot;);</span>
+<span class="nc" id="L409">                }</span>
+            }
+<span class="nc" id="L411">        }</span>
+<span class="nc" id="L412">    }</span>
+
+    // Guard Mac for the same reason we guard windows. Refer to guardIfWindows for details.
+    // The difference to guardIfWindows is that we don't swallow the AccessDeniedException because
+    // doing that would lead to wrong behaviour.
+    private static void guardIfMac(ThrowingConsumer&lt;File, IOException&gt; toRun, File file)
+            throws IOException {
+<span class="nc" id="L419">        synchronized (DELETE_LOCK) {</span>
+<span class="nc" id="L420">            toRun.accept(file);</span>
+            // briefly wait and fall through the loop
+            try {
+<span class="nc" id="L423">                Thread.sleep(1);</span>
+<span class="nc" id="L424">            } catch (InterruptedException e) {</span>
+                // restore the interruption flag and error out of the method
+<span class="nc" id="L426">                Thread.currentThread().interrupt();</span>
+<span class="nc" id="L427">                throw new IOException(&quot;operation interrupted&quot;);</span>
+<span class="nc" id="L428">            }</span>
+<span class="nc" id="L429">        }</span>
+<span class="nc" id="L430">    }</span>
+
+    // ------------------------------------------------------------------------
+    //  Deleting directories on Flink FileSystem abstraction
+    // ------------------------------------------------------------------------
+
+    /**
+     * Deletes the path if it is empty. A path can only be empty if it is a directory which does not
+     * contain any other directories/files.
+     *
+     * @param fileSystem to use
+     * @param path to be deleted if empty
+     * @return true if the path could be deleted; otherwise false
+     * @throws IOException if the delete operation fails
+     */
+    public static boolean deletePathIfEmpty(FileSystem fileSystem, Path path) throws IOException {
+        final FileStatus[] fileStatuses;
+
+        try {
+<span class="fc" id="L449">            fileStatuses = fileSystem.listStatus(path);</span>
+<span class="nc" id="L450">        } catch (FileNotFoundException e) {</span>
+            // path already deleted
+<span class="nc" id="L452">            return true;</span>
+<span class="nc" id="L453">        } catch (Exception e) {</span>
+            // could not access directory, cannot delete
+<span class="nc" id="L455">            return false;</span>
+<span class="fc" id="L456">        }</span>
+
+        // if there are no more files or if we couldn't list the file status try to delete the path
+<span class="fc bfc" id="L459" title="All 2 branches covered.">        if (fileStatuses == null) {</span>
+            // another indicator of &quot;file not found&quot;
+<span class="fc" id="L461">            return true;</span>
+<span class="fc bfc" id="L462" title="All 2 branches covered.">        } else if (fileStatuses.length == 0) {</span>
+            // attempt to delete the path (will fail and be ignored if the path now contains
+            // some files (possibly added concurrently))
+<span class="fc" id="L465">            return fileSystem.delete(path, false);</span>
+        } else {
+<span class="fc" id="L467">            return false;</span>
+        }
+    }
+
+    /**
+     * Copies all files from source to target and sets executable flag. Paths might be on different
+     * systems.
+     *
+     * @param sourcePath source path to copy from
+     * @param targetPath target path to copy to
+     * @param executable if target file should be executable
+     * @throws IOException if the copy fails
+     */
+    public static void copy(Path sourcePath, Path targetPath, boolean executable)
+            throws IOException {
+        // we unwrap the file system to get raw streams without safety net
+<span class="nc" id="L483">        FileSystem sFS = FileSystem.getUnguardedFileSystem(sourcePath.toUri());</span>
+<span class="nc" id="L484">        FileSystem tFS = FileSystem.getUnguardedFileSystem(targetPath.toUri());</span>
+<span class="nc bnc" id="L485" title="All 2 branches missed.">        if (!tFS.exists(targetPath)) {</span>
+<span class="nc bnc" id="L486" title="All 2 branches missed.">            if (sFS.getFileStatus(sourcePath).isDir()) {</span>
+<span class="nc" id="L487">                internalCopyDirectory(sourcePath, targetPath, executable, sFS, tFS);</span>
+            } else {
+<span class="nc" id="L489">                internalCopyFile(sourcePath, targetPath, executable, sFS, tFS);</span>
+            }
+        }
+<span class="nc" id="L492">    }</span>
+
+    private static void internalCopyDirectory(
+            Path sourcePath, Path targetPath, boolean executable, FileSystem sFS, FileSystem tFS)
+            throws IOException {
+<span class="nc" id="L497">        tFS.mkdirs(targetPath);</span>
+<span class="nc" id="L498">        FileStatus[] contents = sFS.listStatus(sourcePath);</span>
+<span class="nc bnc" id="L499" title="All 2 branches missed.">        for (FileStatus content : contents) {</span>
+<span class="nc" id="L500">            String distPath = content.getPath().toString();</span>
+<span class="nc bnc" id="L501" title="All 2 branches missed.">            if (content.isDir()) {</span>
+<span class="nc bnc" id="L502" title="All 2 branches missed.">                if (distPath.endsWith(&quot;/&quot;)) {</span>
+<span class="nc" id="L503">                    distPath = distPath.substring(0, distPath.length() - 1);</span>
+                }
+            }
+<span class="nc" id="L506">            String localPath = targetPath + distPath.substring(distPath.lastIndexOf(&quot;/&quot;));</span>
+<span class="nc" id="L507">            copy(content.getPath(), new Path(localPath), executable);</span>
+        }
+<span class="nc" id="L509">    }</span>
+
+    private static void internalCopyFile(
+            Path sourcePath, Path targetPath, boolean executable, FileSystem sFS, FileSystem tFS)
+            throws IOException {
+<span class="nc" id="L514">        try (FSDataOutputStream lfsOutput =</span>
+<span class="nc" id="L515">                        tFS.create(targetPath, FileSystem.WriteMode.NO_OVERWRITE);</span>
+<span class="nc" id="L516">                FSDataInputStream fsInput = sFS.open(sourcePath)) {</span>
+<span class="nc" id="L517">            IOUtils.copyBytes(fsInput, lfsOutput);</span>
+            //noinspection ResultOfMethodCallIgnored
+<span class="nc" id="L519">            new File(targetPath.toString()).setExecutable(executable);</span>
+        }
+<span class="nc" id="L521">    }</span>
+
+    public static Path compressDirectory(Path directory, Path target) throws IOException {
+<span class="fc" id="L524">        FileSystem sourceFs = directory.getFileSystem();</span>
+<span class="fc" id="L525">        FileSystem targetFs = target.getFileSystem();</span>
+
+<span class="fc" id="L527">        Path absolutePath = absolutizePath(directory);</span>
+<span class="fc" id="L528">        Path absoluteTargetPath = absolutizePath(target);</span>
+<span class="fc" id="L529">        try (ZipOutputStream out =</span>
+                new ZipOutputStream(
+<span class="fc" id="L531">                        targetFs.create(absoluteTargetPath, FileSystem.WriteMode.NO_OVERWRITE))) {</span>
+<span class="fc" id="L532">            addToZip(absolutePath, sourceFs, absolutePath.getParent(), out);</span>
+        }
+<span class="fc" id="L534">        return target;</span>
+    }
+
+    private static void addToZip(
+            Path fileOrDirectory, FileSystem fs, Path rootDir, ZipOutputStream out)
+            throws IOException {
+<span class="fc" id="L540">        String relativePath = fileOrDirectory.getPath().replace(rootDir.getPath() + '/', &quot;&quot;);</span>
+<span class="fc bfc" id="L541" title="All 2 branches covered.">        if (fs.getFileStatus(fileOrDirectory).isDir()) {</span>
+<span class="fc" id="L542">            out.putNextEntry(new ZipEntry(relativePath + '/'));</span>
+<span class="fc bfc" id="L543" title="All 2 branches covered.">            for (FileStatus containedFile : fs.listStatus(fileOrDirectory)) {</span>
+<span class="fc" id="L544">                addToZip(containedFile.getPath(), fs, rootDir, out);</span>
+            }
+        } else {
+<span class="fc" id="L547">            ZipEntry entry = new ZipEntry(relativePath);</span>
+<span class="fc" id="L548">            out.putNextEntry(entry);</span>
+
+<span class="fc" id="L550">            try (FSDataInputStream in = fs.open(fileOrDirectory)) {</span>
+<span class="fc" id="L551">                IOUtils.copyBytes(in, out, false);</span>
+            }
+<span class="fc" id="L553">            out.closeEntry();</span>
+        }
+<span class="fc" id="L555">    }</span>
+
+    public static Path expandDirectory(Path file, Path targetDirectory) throws IOException {
+<span class="fc" id="L558">        FileSystem sourceFs = file.getFileSystem();</span>
+<span class="fc" id="L559">        FileSystem targetFs = targetDirectory.getFileSystem();</span>
+<span class="fc" id="L560">        Path rootDir = null;</span>
+<span class="fc" id="L561">        try (ZipInputStream zis = new ZipInputStream(sourceFs.open(file))) {</span>
+            ZipEntry entry;
+<span class="fc bfc" id="L563" title="All 2 branches covered.">            while ((entry = zis.getNextEntry()) != null) {</span>
+<span class="fc" id="L564">                Path relativePath = new Path(entry.getName());</span>
+<span class="fc bfc" id="L565" title="All 2 branches covered.">                if (rootDir == null) {</span>
+                    // the first entry contains the name of the original directory that was zipped
+<span class="fc" id="L567">                    rootDir = relativePath;</span>
+                }
+
+<span class="fc" id="L570">                Path newFile = new Path(targetDirectory, relativePath);</span>
+<span class="fc bfc" id="L571" title="All 2 branches covered.">                if (entry.isDirectory()) {</span>
+<span class="fc" id="L572">                    targetFs.mkdirs(newFile);</span>
+                } else {
+<span class="fc" id="L574">                    try (FSDataOutputStream fileStream =</span>
+<span class="fc" id="L575">                            targetFs.create(newFile, FileSystem.WriteMode.NO_OVERWRITE)) {</span>
+                        // do not close the streams here as it prevents access to further zip
+                        // entries
+<span class="fc" id="L578">                        IOUtils.copyBytes(zis, fileStream, false);</span>
+                    }
+                }
+<span class="fc" id="L581">                zis.closeEntry();</span>
+<span class="fc" id="L582">            }</span>
+        }
+<span class="fc" id="L584">        return new Path(targetDirectory, rootDir);</span>
+    }
+
+    /**
+     * List the {@code directory} recursively and return the files that satisfy the {@code
+     * fileFilter}.
+     *
+     * @param directory the directory to be listed
+     * @param fileFilter a file filter
+     * @return a collection of {@code File}s
+     * @throws IOException if an I/O error occurs while listing the files in the given directory
+     */
+    public static Collection&lt;java.nio.file.Path&gt; listFilesInDirectory(
+            final java.nio.file.Path directory, final Predicate&lt;java.nio.file.Path&gt; fileFilter)
+            throws IOException {
+<span class="fc" id="L599">        checkNotNull(directory, &quot;directory&quot;);</span>
+<span class="fc" id="L600">        checkNotNull(fileFilter, &quot;fileFilter&quot;);</span>
+
+<span class="fc bfc" id="L602" title="All 2 branches covered.">        if (!Files.exists(directory)) {</span>
+<span class="fc" id="L603">            throw new IllegalArgumentException(</span>
+<span class="fc" id="L604">                    String.format(&quot;The directory %s dose not exist.&quot;, directory));</span>
+        }
+<span class="fc bfc" id="L606" title="All 2 branches covered.">        if (!Files.isDirectory(directory)) {</span>
+<span class="fc" id="L607">            throw new IllegalArgumentException(</span>
+<span class="fc" id="L608">                    String.format(&quot;The %s is not a directory.&quot;, directory));</span>
+        }
+
+<span class="fc" id="L611">        final FilterFileVisitor filterFileVisitor = new FilterFileVisitor(fileFilter);</span>
+
+<span class="fc" id="L613">        Files.walkFileTree(</span>
+                directory,
+<span class="fc" id="L615">                EnumSet.of(FileVisitOption.FOLLOW_LINKS),</span>
+                Integer.MAX_VALUE,
+                filterFileVisitor);
+
+<span class="fc" id="L619">        return filterFileVisitor.getFiles();</span>
+    }
+
+    /**
+     * Absolutize the given path if it is relative.
+     *
+     * @param pathToAbsolutize path which is being absolutized if it is a relative path
+     * @return the absolutized path
+     */
+    public static Path absolutizePath(Path pathToAbsolutize) throws IOException {
+<span class="fc bfc" id="L629" title="All 2 branches covered.">        if (!pathToAbsolutize.isAbsolute()) {</span>
+<span class="fc" id="L630">            FileSystem fs = pathToAbsolutize.getFileSystem();</span>
+<span class="fc" id="L631">            return new Path(fs.getWorkingDirectory(), pathToAbsolutize);</span>
+        } else {
+<span class="fc" id="L633">            return pathToAbsolutize;</span>
+        }
+    }
+
+    /**
+     * Relativize the given path with respect to the given base path if it is absolute.
+     *
+     * @param basePath to relativize against
+     * @param pathToRelativize path which is being relativized if it is an absolute path
+     * @return the relativized path
+     */
+    public static java.nio.file.Path relativizePath(
+            java.nio.file.Path basePath, java.nio.file.Path pathToRelativize) {
+<span class="fc bfc" id="L646" title="All 2 branches covered.">        if (pathToRelativize.isAbsolute()) {</span>
+<span class="fc" id="L647">            return basePath.relativize(pathToRelativize);</span>
+        } else {
+<span class="fc" id="L649">            return pathToRelativize;</span>
+        }
+    }
+
+    /**
+     * Returns the current working directory as specified by the {@code user.dir} system property.
+     *
+     * @return current working directory
+     */
+    public static java.nio.file.Path getCurrentWorkingDirectory() {
+<span class="nc" id="L659">        return Paths.get(System.getProperty(&quot;user.dir&quot;));</span>
+    }
+
+    /**
+     * Checks whether the given file has a jar extension.
+     *
+     * @param file to check
+     * @return true if the file has a jar extension, otherwise false
+     */
+    public static boolean isJarFile(java.nio.file.Path file) {
+<span class="fc" id="L669">        return JAR_FILE_EXTENSION.equals(</span>
+<span class="fc" id="L670">                org.apache.flink.shaded.guava18.com.google.common.io.Files.getFileExtension(</span>
+<span class="fc" id="L671">                        file.toString()));</span>
+    }
+
+    /**
+     * Remove the extension of the file name.
+     *
+     * @param fileName to strip
+     * @return the file name without extension
+     */
+    public static String stripFileExtension(String fileName) {
+<span class="nc" id="L681">        final String extension =</span>
+<span class="nc" id="L682">                org.apache.flink.shaded.guava18.com.google.common.io.Files.getFileExtension(</span>
+                        fileName);
+<span class="nc bnc" id="L684" title="All 2 branches missed.">        if (!extension.isEmpty()) {</span>
+<span class="nc" id="L685">            return fileName.substring(0, fileName.lastIndexOf(extension) - 1);</span>
+        }
+<span class="nc" id="L687">        return fileName;</span>
+    }
+
+    /**
+     * Converts the given {@link java.nio.file.Path} into a file {@link URL}. The resulting url is
+     * relative iff the given path is relative.
+     *
+     * @param path to convert into a {@link URL}.
+     * @return URL
+     * @throws MalformedURLException if the path could not be converted into a file {@link URL}
+     */
+    public static URL toURL(java.nio.file.Path path) throws MalformedURLException {
+<span class="fc" id="L699">        final String scheme = path.toUri().getScheme();</span>
+<span class="fc" id="L700">        return new URL(scheme, null, -1, path.toString());</span>
+    }
+
+    private static final class FilterFileVisitor extends SimpleFileVisitor&lt;java.nio.file.Path&gt; {
+
+        private final Predicate&lt;java.nio.file.Path&gt; fileFilter;
+
+        private final List&lt;java.nio.file.Path&gt; files;
+
+<span class="fc" id="L709">        FilterFileVisitor(Predicate&lt;java.nio.file.Path&gt; fileFilter) {</span>
+<span class="fc" id="L710">            this.fileFilter = checkNotNull(fileFilter);</span>
+<span class="fc" id="L711">            this.files = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L712">        }</span>
+
+        @Override
+        public FileVisitResult visitFile(java.nio.file.Path file, BasicFileAttributes attrs)
+                throws IOException {
+<span class="fc" id="L717">            FileVisitResult fileVisitResult = super.visitFile(file, attrs);</span>
+
+<span class="fc bfc" id="L719" title="All 2 branches covered.">            if (fileFilter.test(file)) {</span>
+<span class="fc" id="L720">                files.add(file);</span>
+            }
+
+<span class="fc" id="L723">            return fileVisitResult;</span>
+        }
+
+        Collection&lt;java.nio.file.Path&gt; getFiles() {
+<span class="fc" id="L727">            return Collections.unmodifiableCollection(files);</span>
+        }
+    }
+
+    // ------------------------------------------------------------------------
+
+    /** Private default constructor to avoid instantiation. */
+    private FileUtils() {}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

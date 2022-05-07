@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FileOutputFormat.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.io</a> &gt; <span class="el_source">FileOutputFormat.java</span></div><h1>FileOutputFormat.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.io;
+
+import org.apache.flink.annotation.Public;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.configuration.GlobalConfiguration;
+import org.apache.flink.core.fs.FSDataOutputStream;
+import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.core.fs.FileSystem.WriteMode;
+import org.apache.flink.core.fs.Path;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.FileNotFoundException;
+import java.io.IOException;
+
+/**
+ * The abstract base class for all Rich output formats that are file based. Contains the logic to
+ * open/close the target file streams.
+ */
+@Public
+public abstract class FileOutputFormat&lt;IT&gt; extends RichOutputFormat&lt;IT&gt;
+        implements InitializeOnMaster, CleanupWhenUnsuccessful {
+
+    private static final long serialVersionUID = 1L;
+
+    // --------------------------------------------------------------------------------------------
+
+    /** Behavior for creating output directories. */
+<span class="fc" id="L49">    public static enum OutputDirectoryMode {</span>
+
+        /** A directory is always created, regardless of number of write tasks. */
+<span class="fc" id="L52">        ALWAYS,</span>
+
+        /**
+         * A directory is only created for parallel output tasks, i.e., number of output tasks &amp;gt;
+         * 1. If number of output tasks = 1, the output is written to a single file.
+         */
+<span class="fc" id="L58">        PARONLY</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    private static WriteMode DEFAULT_WRITE_MODE;
+
+    private static OutputDirectoryMode DEFAULT_OUTPUT_DIRECTORY_MODE;
+
+    static {
+<span class="fc" id="L68">        initDefaultsFromConfiguration(GlobalConfiguration.loadConfiguration());</span>
+    }
+
+    /**
+     * Initialize defaults for output format. Needs to be a static method because it is configured
+     * for local cluster execution.
+     *
+     * @param configuration The configuration to load defaults from
+     */
+    public static void initDefaultsFromConfiguration(Configuration configuration) {
+<span class="fc" id="L78">        final boolean overwrite = configuration.getBoolean(CoreOptions.FILESYTEM_DEFAULT_OVERRIDE);</span>
+
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">        DEFAULT_WRITE_MODE = overwrite ? WriteMode.OVERWRITE : WriteMode.NO_OVERWRITE;</span>
+
+<span class="fc" id="L82">        final boolean alwaysCreateDirectory =</span>
+<span class="fc" id="L83">                configuration.getBoolean(CoreOptions.FILESYSTEM_OUTPUT_ALWAYS_CREATE_DIRECTORY);</span>
+
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">        DEFAULT_OUTPUT_DIRECTORY_MODE =</span>
+                alwaysCreateDirectory ? OutputDirectoryMode.ALWAYS : OutputDirectoryMode.PARONLY;
+<span class="fc" id="L87">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    /** The LOG for logging messages in this class. */
+<span class="fc" id="L92">    private static final Logger LOG = LoggerFactory.getLogger(FileOutputFormat.class);</span>
+
+    /** The key under which the name of the target path is stored in the configuration. */
+    public static final String FILE_PARAMETER_KEY = &quot;flink.output.file&quot;;
+
+    /** The path of the file to be written. */
+    protected Path outputFilePath;
+
+    /** The write mode of the output. */
+    private WriteMode writeMode;
+
+    /** The output directory mode */
+    private OutputDirectoryMode outputDirectoryMode;
+
+    // --------------------------------------------------------------------------------------------
+
+    /** The stream to which the data is written; */
+    protected transient FSDataOutputStream stream;
+
+    /**
+     * The path that is actually written to (may a a file in a the directory defined by {@code
+     * outputFilePath} )
+     */
+    private transient Path actualFilePath;
+
+    /**
+     * Flag indicating whether this format actually created a file, which should be removed on
+     * cleanup.
+     */
+    private transient boolean fileCreated;
+
+    // --------------------------------------------------------------------------------------------
+
+<span class="fc" id="L125">    public FileOutputFormat() {}</span>
+
+<span class="nc" id="L127">    public FileOutputFormat(Path outputPath) {</span>
+<span class="nc" id="L128">        this.outputFilePath = outputPath;</span>
+<span class="nc" id="L129">    }</span>
+
+    public void setOutputFilePath(Path path) {
+<span class="pc bpc" id="L132" title="1 of 2 branches missed.">        if (path == null) {</span>
+<span class="nc" id="L133">            throw new IllegalArgumentException(&quot;Output file path may not be null.&quot;);</span>
+        }
+
+<span class="fc" id="L136">        this.outputFilePath = path;</span>
+<span class="fc" id="L137">    }</span>
+
+    public Path getOutputFilePath() {
+<span class="nc" id="L140">        return this.outputFilePath;</span>
+    }
+
+    public void setWriteMode(WriteMode mode) {
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">        if (mode == null) {</span>
+<span class="nc" id="L145">            throw new NullPointerException();</span>
+        }
+
+<span class="fc" id="L148">        this.writeMode = mode;</span>
+<span class="fc" id="L149">    }</span>
+
+    public WriteMode getWriteMode() {
+<span class="nc" id="L152">        return this.writeMode;</span>
+    }
+
+    public void setOutputDirectoryMode(OutputDirectoryMode mode) {
+<span class="pc bpc" id="L156" title="1 of 2 branches missed.">        if (mode == null) {</span>
+<span class="nc" id="L157">            throw new NullPointerException();</span>
+        }
+
+<span class="fc" id="L160">        this.outputDirectoryMode = mode;</span>
+<span class="fc" id="L161">    }</span>
+
+    public OutputDirectoryMode getOutputDirectoryMode() {
+<span class="nc" id="L164">        return this.outputDirectoryMode;</span>
+    }
+
+    // ----------------------------------------------------------------
+
+    @Override
+    public void configure(Configuration parameters) {
+        // get the output file path, if it was not yet set
+<span class="pc bpc" id="L172" title="1 of 2 branches missed.">        if (this.outputFilePath == null) {</span>
+            // get the file parameter
+<span class="nc" id="L174">            String filePath = parameters.getString(FILE_PARAMETER_KEY, null);</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">            if (filePath == null) {</span>
+<span class="nc" id="L176">                throw new IllegalArgumentException(</span>
+                        &quot;The output path has been specified neither via constructor/setters&quot;
+                                + &quot;, nor via the Configuration.&quot;);
+            }
+
+            try {
+<span class="nc" id="L182">                this.outputFilePath = new Path(filePath);</span>
+<span class="nc" id="L183">            } catch (RuntimeException rex) {</span>
+<span class="nc" id="L184">                throw new RuntimeException(</span>
+                        &quot;Could not create a valid URI from the given file path name: &quot;
+<span class="nc" id="L186">                                + rex.getMessage());</span>
+<span class="nc" id="L187">            }</span>
+        }
+
+        // check if have not been set and use the defaults in that case
+<span class="pc bpc" id="L191" title="1 of 2 branches missed.">        if (this.writeMode == null) {</span>
+<span class="nc" id="L192">            this.writeMode = DEFAULT_WRITE_MODE;</span>
+        }
+
+<span class="pc bpc" id="L195" title="1 of 2 branches missed.">        if (this.outputDirectoryMode == null) {</span>
+<span class="nc" id="L196">            this.outputDirectoryMode = DEFAULT_OUTPUT_DIRECTORY_MODE;</span>
+        }
+<span class="fc" id="L198">    }</span>
+
+    @Override
+    public void open(int taskNumber, int numTasks) throws IOException {
+<span class="pc bpc" id="L202" title="2 of 4 branches missed.">        if (taskNumber &lt; 0 || numTasks &lt; 1) {</span>
+<span class="nc" id="L203">            throw new IllegalArgumentException(</span>
+                    &quot;TaskNumber: &quot; + taskNumber + &quot;, numTasks: &quot; + numTasks);
+        }
+
+<span class="pc bpc" id="L207" title="1 of 2 branches missed.">        if (LOG.isDebugEnabled()) {</span>
+<span class="nc" id="L208">            LOG.debug(</span>
+                    &quot;Opening stream for output (&quot;
+                            + (taskNumber + 1)
+                            + &quot;/&quot;
+                            + numTasks
+                            + &quot;). WriteMode=&quot;
+                            + writeMode
+                            + &quot;, OutputDirectoryMode=&quot;
+                            + outputDirectoryMode);
+        }
+
+<span class="fc" id="L219">        Path p = this.outputFilePath;</span>
+<span class="pc bpc" id="L220" title="1 of 2 branches missed.">        if (p == null) {</span>
+<span class="nc" id="L221">            throw new IOException(&quot;The file path is null.&quot;);</span>
+        }
+
+<span class="fc" id="L224">        final FileSystem fs = p.getFileSystem();</span>
+
+        // if this is a local file system, we need to initialize the local output directory here
+<span class="pc bpc" id="L227" title="1 of 2 branches missed.">        if (!fs.isDistributedFS()) {</span>
+
+<span class="fc bfc" id="L229" title="All 4 branches covered.">            if (numTasks == 1 &amp;&amp; outputDirectoryMode == OutputDirectoryMode.PARONLY) {</span>
+                // output should go to a single file
+
+                // prepare local output path. checks for write mode and removes existing files in
+                // case of OVERWRITE mode
+<span class="pc bpc" id="L234" title="1 of 2 branches missed.">                if (!fs.initOutPathLocalFS(p, writeMode, false)) {</span>
+                    // output preparation failed! Cancel task.
+<span class="nc" id="L236">                    throw new IOException(</span>
+                            &quot;Output path '&quot;
+<span class="nc" id="L238">                                    + p.toString()</span>
+                                    + &quot;' could not be initialized. Canceling task...&quot;);
+                }
+            } else {
+                // numTasks &gt; 1 || outDirMode == OutputDirectoryMode.ALWAYS
+
+<span class="pc bpc" id="L244" title="1 of 2 branches missed.">                if (!fs.initOutPathLocalFS(p, writeMode, true)) {</span>
+                    // output preparation failed! Cancel task.
+<span class="nc" id="L246">                    throw new IOException(</span>
+                            &quot;Output directory '&quot;
+<span class="nc" id="L248">                                    + p.toString()</span>
+                                    + &quot;' could not be created. Canceling task...&quot;);
+                }
+            }
+        }
+
+        // Suffix the path with the parallel instance index, if needed
+<span class="fc bfc" id="L255" title="All 4 branches covered.">        this.actualFilePath =</span>
+                (numTasks &gt; 1 || outputDirectoryMode == OutputDirectoryMode.ALWAYS)
+<span class="fc" id="L257">                        ? p.suffix(&quot;/&quot; + getDirectoryFileName(taskNumber))</span>
+                        : p;
+
+        // create output file
+<span class="fc" id="L261">        this.stream = fs.create(this.actualFilePath, writeMode);</span>
+
+        // at this point, the file creation must have succeeded, or an exception has been thrown
+<span class="fc" id="L264">        this.fileCreated = true;</span>
+<span class="fc" id="L265">    }</span>
+
+    protected String getDirectoryFileName(int taskNumber) {
+<span class="fc" id="L268">        return Integer.toString(taskNumber + 1);</span>
+    }
+
+    @Override
+    public void close() throws IOException {
+<span class="fc" id="L273">        final FSDataOutputStream s = this.stream;</span>
+<span class="pc bpc" id="L274" title="1 of 2 branches missed.">        if (s != null) {</span>
+<span class="fc" id="L275">            this.stream = null;</span>
+<span class="fc" id="L276">            s.close();</span>
+        }
+<span class="fc" id="L278">    }</span>
+
+    /**
+     * Initialization of the distributed file system if it is used.
+     *
+     * @param parallelism The task parallelism.
+     */
+    @Override
+    public void initializeGlobal(int parallelism) throws IOException {
+<span class="nc" id="L287">        final Path path = getOutputFilePath();</span>
+<span class="nc" id="L288">        final FileSystem fs = path.getFileSystem();</span>
+
+        // only distributed file systems can be initialized at start-up time.
+<span class="nc bnc" id="L291" title="All 2 branches missed.">        if (fs.isDistributedFS()) {</span>
+
+<span class="nc" id="L293">            final WriteMode writeMode = getWriteMode();</span>
+<span class="nc" id="L294">            final OutputDirectoryMode outDirMode = getOutputDirectoryMode();</span>
+
+<span class="nc bnc" id="L296" title="All 4 branches missed.">            if (parallelism == 1 &amp;&amp; outDirMode == OutputDirectoryMode.PARONLY) {</span>
+                // output is not written in parallel and should be written to a single file.
+                // prepare distributed output path
+<span class="nc bnc" id="L299" title="All 2 branches missed.">                if (!fs.initOutPathDistFS(path, writeMode, false)) {</span>
+                    // output preparation failed! Cancel task.
+<span class="nc" id="L301">                    throw new IOException(&quot;Output path could not be initialized.&quot;);</span>
+                }
+
+            } else {
+                // output should be written to a directory
+
+                // only distributed file systems can be initialized at start-up time.
+<span class="nc bnc" id="L308" title="All 2 branches missed.">                if (!fs.initOutPathDistFS(path, writeMode, true)) {</span>
+<span class="nc" id="L309">                    throw new IOException(&quot;Output directory could not be created.&quot;);</span>
+                }
+            }
+        }
+<span class="nc" id="L313">    }</span>
+
+    @Override
+    public void tryCleanupOnError() {
+<span class="nc bnc" id="L317" title="All 2 branches missed.">        if (this.fileCreated) {</span>
+<span class="nc" id="L318">            this.fileCreated = false;</span>
+
+            try {
+<span class="nc" id="L321">                close();</span>
+<span class="nc" id="L322">            } catch (IOException e) {</span>
+<span class="nc" id="L323">                LOG.error(&quot;Could not properly close FileOutputFormat.&quot;, e);</span>
+<span class="nc" id="L324">            }</span>
+
+            try {
+<span class="nc" id="L327">                FileSystem.get(this.actualFilePath.toUri()).delete(actualFilePath, false);</span>
+<span class="nc" id="L328">            } catch (FileNotFoundException e) {</span>
+                // ignore, may not be visible yet or may be already removed
+<span class="nc" id="L330">            } catch (Throwable t) {</span>
+<span class="nc" id="L331">                LOG.error(&quot;Could not remove the incomplete file &quot; + actualFilePath + '.', t);</span>
+<span class="nc" id="L332">            }</span>
+        }
+<span class="nc" id="L334">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

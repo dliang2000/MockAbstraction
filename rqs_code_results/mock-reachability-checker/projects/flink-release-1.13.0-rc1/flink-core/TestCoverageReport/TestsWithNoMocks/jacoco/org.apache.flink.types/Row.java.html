@@ -1,0 +1,594 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Row.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.types</a> &gt; <span class="el_source">Row.java</span></div><h1>Row.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.flink.types;
+
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.java.typeutils.runtime.RowSerializer;
+import org.apache.flink.util.Preconditions;
+
+import javax.annotation.Nullable;
+
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+
+import static org.apache.flink.types.RowUtils.deepEqualsRow;
+import static org.apache.flink.types.RowUtils.deepHashCodeRow;
+
+/**
+ * A row is a fixed-length, null-aware composite type for storing multiple values in a deterministic
+ * field order. Every field can be null regardless of the field's type. The type of row fields
+ * cannot be automatically inferred; therefore, it is required to provide type information whenever
+ * a row is produced.
+ *
+ * &lt;p&gt;The main purpose of rows is to bridge between Flink's Table and SQL ecosystem and other APIs.
+ * Therefore, a row does not only consist of a schema part (containing the fields) but also attaches
+ * a {@link RowKind} for encoding a change in a changelog. Thus, a row can be considered as an entry
+ * in a changelog. For example, in regular batch scenarios, a changelog would consist of a bounded
+ * stream of {@link RowKind#INSERT} rows. The row kind is kept separate from the fields and can be
+ * accessed by using {@link #getKind()} and {@link #setKind(RowKind)}.
+ *
+ * &lt;p&gt;Fields of a row can be accessed either position-based or name-based. An implementer can decide
+ * in which field mode a row should operate during creation. Rows that were produced by the
+ * framework support a hybrid of both field modes (i.e. named positions):
+ *
+ * &lt;h1&gt;Position-based field mode&lt;/h1&gt;
+ *
+ * &lt;p&gt;{@link Row#withPositions(int)} creates a fixed-length row. The fields can be accessed by
+ * position (zero-based) using {@link #getField(int)} and {@link #setField(int, Object)}. Every
+ * field is initialized with {@code null} by default.
+ *
+ * &lt;h1&gt;Name-based field mode&lt;/h1&gt;
+ *
+ * &lt;p&gt;{@link Row#withNames()} creates a variable-length row. The fields can be accessed by name
+ * using {@link #getField(String)} and {@link #setField(String, Object)}. Every field is initialized
+ * during the first call to {@link #setField(String, Object)} for the given name. However, the
+ * framework will initialize missing fields with {@code null} and reorder all fields once more type
+ * information is available during serialization or input conversion. Thus, even name-based rows
+ * eventually become fixed-length composite types with a deterministic field order. Name-based rows
+ * perform worse than position-based rows but simplify row creation and code readability.
+ *
+ * &lt;h1&gt;Hybrid / named-position field mode&lt;/h1&gt;
+ *
+ * &lt;p&gt;Rows that were produced by the framework (after deserialization or output conversion) are
+ * fixed-length rows with a deterministic field order that can map static field names to field
+ * positions. Thus, fields can be accessed both via {@link #getField(int)} and {@link
+ * #getField(String)}. Both {@link #setField(int, Object)} and {@link #setField(String, Object)} are
+ * supported for existing fields. However, adding new field names via {@link #setField(String,
+ * Object)} is not allowed. A hybrid row's {@link #equals(Object)} supports comparing to all kinds
+ * of rows. A hybrid row's {@link #hashCode()} is only valid for position-based rows.
+ *
+ * &lt;p&gt;A row instance is in principle {@link Serializable}. However, it may contain non-serializable
+ * fields in which case serialization will fail if the row is not serialized with Flink's
+ * serialization stack.
+ *
+ * &lt;p&gt;The {@link #equals(Object)} and {@link #hashCode()} methods of this class support all external
+ * conversion classes of the table ecosystem.
+ */
+<span class="pc bpc" id="L86" title="1 of 2 branches missed.">@PublicEvolving</span>
+public final class Row implements Serializable {
+
+    private static final long serialVersionUID = 3L;
+
+    /** The kind of change a row describes in a changelog. */
+    private RowKind kind;
+
+    /** Fields organized by position. Either this or {@link #fieldByName} is set. */
+    private final @Nullable Object[] fieldByPosition;
+
+    /** Fields organized by name. Either this or {@link #fieldByPosition} is set. */
+    private final @Nullable Map&lt;String, Object&gt; fieldByName;
+
+    /** Mapping from field names to positions. Requires {@link #fieldByPosition} semantics. */
+    private final @Nullable LinkedHashMap&lt;String, Integer&gt; positionByName;
+
+    Row(
+            RowKind kind,
+            @Nullable Object[] fieldByPosition,
+            @Nullable Map&lt;String, Object&gt; fieldByName,
+<span class="fc" id="L107">            @Nullable LinkedHashMap&lt;String, Integer&gt; positionByName) {</span>
+<span class="fc" id="L108">        this.kind = kind;</span>
+<span class="fc" id="L109">        this.fieldByPosition = fieldByPosition;</span>
+<span class="fc" id="L110">        this.fieldByName = fieldByName;</span>
+<span class="fc" id="L111">        this.positionByName = positionByName;</span>
+<span class="fc" id="L112">    }</span>
+
+    /**
+     * Creates a fixed-length row in position-based field mode.
+     *
+     * &lt;p&gt;The semantics are equivalent to {@link Row#withPositions(RowKind, int)}. This constructor
+     * exists for backwards compatibility.
+     *
+     * @param kind kind of change a row describes in a changelog
+     * @param arity the number of fields in the row
+     */
+<span class="fc" id="L123">    public Row(RowKind kind, int arity) {</span>
+<span class="fc" id="L124">        this.kind = Preconditions.checkNotNull(kind, &quot;Row kind must not be null.&quot;);</span>
+<span class="fc" id="L125">        this.fieldByPosition = new Object[arity];</span>
+<span class="fc" id="L126">        this.fieldByName = null;</span>
+<span class="fc" id="L127">        this.positionByName = null;</span>
+<span class="fc" id="L128">    }</span>
+
+    /**
+     * Creates a fixed-length row in position-based field mode.
+     *
+     * &lt;p&gt;The semantics are equivalent to {@link Row#withPositions(int)}. This constructor exists
+     * for backwards compatibility.
+     *
+     * @param arity the number of fields in the row
+     */
+    public Row(int arity) {
+<span class="fc" id="L139">        this(RowKind.INSERT, arity);</span>
+<span class="fc" id="L140">    }</span>
+
+    /**
+     * Creates a fixed-length row in position-based field mode.
+     *
+     * &lt;p&gt;Fields can be accessed by position via {@link #setField(int, Object)} and {@link
+     * #getField(int)}.
+     *
+     * &lt;p&gt;See the class documentation of {@link Row} for more information.
+     *
+     * @param kind kind of change a row describes in a changelog
+     * @param arity the number of fields in the row
+     * @return a new row instance
+     */
+    public static Row withPositions(RowKind kind, int arity) {
+<span class="fc" id="L155">        return new Row(kind, new Object[arity], null, null);</span>
+    }
+
+    /**
+     * Creates a fixed-length row in position-based field mode.
+     *
+     * &lt;p&gt;Fields can be accessed by position via {@link #setField(int, Object)} and {@link
+     * #getField(int)}.
+     *
+     * &lt;p&gt;By default, a row describes an {@link RowKind#INSERT} change.
+     *
+     * &lt;p&gt;See the class documentation of {@link Row} for more information.
+     *
+     * @param arity the number of fields in the row
+     * @return a new row instance
+     */
+    public static Row withPositions(int arity) {
+<span class="fc" id="L172">        return withPositions(RowKind.INSERT, arity);</span>
+    }
+
+    /**
+     * Creates a variable-length row in name-based field mode.
+     *
+     * &lt;p&gt;Fields can be accessed by name via {@link #setField(String, Object)} and {@link
+     * #getField(String)}.
+     *
+     * &lt;p&gt;See the class documentation of {@link Row} for more information.
+     *
+     * @param kind kind of change a row describes in a changelog
+     * @return a new row instance
+     */
+    public static Row withNames(RowKind kind) {
+<span class="fc" id="L187">        return new Row(kind, null, new HashMap&lt;&gt;(), null);</span>
+    }
+
+    /**
+     * Creates a variable-length row in name-based field mode.
+     *
+     * &lt;p&gt;Fields can be accessed by name via {@link #setField(String, Object)} and {@link
+     * #getField(String)}.
+     *
+     * &lt;p&gt;By default, a row describes an {@link RowKind#INSERT} change.
+     *
+     * &lt;p&gt;See the class documentation of {@link Row} for more information.
+     *
+     * @return a new row instance
+     */
+    public static Row withNames() {
+<span class="fc" id="L203">        return withNames(RowKind.INSERT);</span>
+    }
+
+    /**
+     * Returns the kind of change that this row describes in a changelog.
+     *
+     * &lt;p&gt;By default, a row describes an {@link RowKind#INSERT} change.
+     *
+     * @see RowKind
+     */
+    public RowKind getKind() {
+<span class="fc" id="L214">        return kind;</span>
+    }
+
+    /**
+     * Sets the kind of change that this row describes in a changelog.
+     *
+     * &lt;p&gt;By default, a row describes an {@link RowKind#INSERT} change.
+     *
+     * @see RowKind
+     */
+    public void setKind(RowKind kind) {
+<span class="fc" id="L225">        Preconditions.checkNotNull(kind, &quot;Row kind must not be null.&quot;);</span>
+<span class="fc" id="L226">        this.kind = kind;</span>
+<span class="fc" id="L227">    }</span>
+
+    /**
+     * Returns the number of fields in the row.
+     *
+     * &lt;p&gt;Note: The row kind is kept separate from the fields and is not included in this number.
+     *
+     * @return the number of fields in the row
+     */
+    public int getArity() {
+<span class="fc bfc" id="L237" title="All 2 branches covered.">        if (fieldByPosition != null) {</span>
+<span class="fc" id="L238">            return fieldByPosition.length;</span>
+        } else {
+<span class="pc bpc" id="L240" title="2 of 4 branches missed.">            assert fieldByName != null;</span>
+<span class="fc" id="L241">            return fieldByName.size();</span>
+        }
+    }
+
+    /**
+     * Returns the field's content at the specified field position.
+     *
+     * &lt;p&gt;Note: The row must operate in position-based field mode.
+     *
+     * @param pos the position of the field, 0-based
+     * @return the field's content at the specified position
+     */
+    public @Nullable Object getField(int pos) {
+<span class="fc bfc" id="L254" title="All 2 branches covered.">        if (fieldByPosition != null) {</span>
+<span class="fc" id="L255">            return fieldByPosition[pos];</span>
+        } else {
+<span class="fc" id="L257">            throw new IllegalArgumentException(</span>
+                    &quot;Accessing a field by position is not supported in name-based field mode.&quot;);
+        }
+    }
+
+    /**
+     * Returns the field's content at the specified field position.
+     *
+     * &lt;p&gt;Note: The row must operate in position-based field mode.
+     *
+     * &lt;p&gt;This method avoids a lot of manual casting in the user implementation.
+     *
+     * @param pos the position of the field, 0-based
+     * @return the field's content at the specified position
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public &lt;T&gt; T getFieldAs(int pos) {
+<span class="nc" id="L274">        return (T) getField(pos);</span>
+    }
+
+    /**
+     * Returns the field's content using the specified field name.
+     *
+     * &lt;p&gt;Note: The row must operate in name-based field mode.
+     *
+     * @param name the name of the field or null if not set previously
+     * @return the field's content
+     */
+    public @Nullable Object getField(String name) {
+<span class="fc bfc" id="L286" title="All 2 branches covered.">        if (fieldByName != null) {</span>
+<span class="fc" id="L287">            return fieldByName.get(name);</span>
+<span class="fc bfc" id="L288" title="All 2 branches covered.">        } else if (positionByName != null) {</span>
+<span class="fc" id="L289">            final Integer pos = positionByName.get(name);</span>
+<span class="fc bfc" id="L290" title="All 2 branches covered.">            if (pos == null) {</span>
+<span class="fc" id="L291">                throw new IllegalArgumentException(</span>
+<span class="fc" id="L292">                        String.format(&quot;Unknown field name '%s' for mapping to a position.&quot;, name));</span>
+            }
+<span class="pc bpc" id="L294" title="2 of 4 branches missed.">            assert fieldByPosition != null;</span>
+<span class="fc" id="L295">            return fieldByPosition[pos];</span>
+        } else {
+<span class="fc" id="L297">            throw new IllegalArgumentException(</span>
+                    &quot;Accessing a field by name is not supported in position-based field mode.&quot;);
+        }
+    }
+
+    /**
+     * Returns the field's content using the specified field name.
+     *
+     * &lt;p&gt;Note: The row must operate in name-based field mode.
+     *
+     * &lt;p&gt;This method avoids a lot of manual casting in the user implementation.
+     *
+     * @param name the name of the field, set previously
+     * @return the field's content
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public &lt;T&gt; T getFieldAs(String name) {
+<span class="nc" id="L314">        return (T) getField(name);</span>
+    }
+
+    /**
+     * Sets the field's content at the specified position.
+     *
+     * &lt;p&gt;Note: The row must operate in position-based field mode.
+     *
+     * @param pos the position of the field, 0-based
+     * @param value the value to be assigned to the field at the specified position
+     */
+    public void setField(int pos, @Nullable Object value) {
+<span class="fc bfc" id="L326" title="All 2 branches covered.">        if (fieldByPosition != null) {</span>
+<span class="fc" id="L327">            fieldByPosition[pos] = value;</span>
+        } else {
+<span class="fc" id="L329">            throw new IllegalArgumentException(</span>
+                    &quot;Accessing a field by position is not supported in name-based field mode.&quot;);
+        }
+<span class="fc" id="L332">    }</span>
+
+    /**
+     * Sets the field's content using the specified field name.
+     *
+     * &lt;p&gt;Note: The row must operate in name-based field mode.
+     *
+     * @param name the name of the field
+     * @param value the value to be assigned to the field
+     */
+    public void setField(String name, @Nullable Object value) {
+<span class="fc bfc" id="L343" title="All 2 branches covered.">        if (fieldByName != null) {</span>
+<span class="fc" id="L344">            fieldByName.put(name, value);</span>
+<span class="fc bfc" id="L345" title="All 2 branches covered.">        } else if (positionByName != null) {</span>
+<span class="fc" id="L346">            final Integer pos = positionByName.get(name);</span>
+<span class="fc bfc" id="L347" title="All 2 branches covered.">            if (pos == null) {</span>
+<span class="fc" id="L348">                throw new IllegalArgumentException(</span>
+<span class="fc" id="L349">                        String.format(</span>
+                                &quot;Unknown field name '%s' for mapping to a row position. &quot;
+                                        + &quot;Available names are: %s&quot;,
+<span class="fc" id="L352">                                name, positionByName.keySet()));</span>
+            }
+<span class="pc bpc" id="L354" title="2 of 4 branches missed.">            assert fieldByPosition != null;</span>
+<span class="fc" id="L355">            fieldByPosition[pos] = value;</span>
+<span class="fc" id="L356">        } else {</span>
+<span class="fc" id="L357">            throw new IllegalArgumentException(</span>
+                    &quot;Accessing a field by name is not supported in position-based field mode.&quot;);
+        }
+<span class="fc" id="L360">    }</span>
+
+    /**
+     * Returns the set of field names if this row operates in name-based field mode, otherwise null.
+     *
+     * &lt;p&gt;This method is a helper method for serializers and converters but can also be useful for
+     * other row transformations.
+     *
+     * @param includeNamedPositions whether or not to include named positions when this row operates
+     *     in a hybrid field mode
+     */
+    public @Nullable Set&lt;String&gt; getFieldNames(boolean includeNamedPositions) {
+<span class="fc bfc" id="L372" title="All 2 branches covered.">        if (fieldByName != null) {</span>
+<span class="fc" id="L373">            return fieldByName.keySet();</span>
+        }
+<span class="pc bpc" id="L375" title="1 of 4 branches missed.">        if (includeNamedPositions &amp;&amp; positionByName != null) {</span>
+<span class="fc" id="L376">            return positionByName.keySet();</span>
+        }
+<span class="fc" id="L378">        return null;</span>
+    }
+
+    /** Clears all fields of this row. */
+    public void clear() {
+<span class="fc bfc" id="L383" title="All 2 branches covered.">        if (fieldByPosition != null) {</span>
+<span class="fc" id="L384">            Arrays.fill(fieldByPosition, null);</span>
+        } else {
+<span class="pc bpc" id="L386" title="2 of 4 branches missed.">            assert fieldByName != null;</span>
+<span class="fc" id="L387">            fieldByName.clear();</span>
+        }
+<span class="fc" id="L389">    }</span>
+
+    @Override
+    public String toString() {
+<span class="fc" id="L393">        return RowUtils.deepToStringRow(kind, fieldByPosition, fieldByName);</span>
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="fc bfc" id="L398" title="All 2 branches covered.">        if (this == o) {</span>
+<span class="fc" id="L399">            return true;</span>
+        }
+<span class="pc bpc" id="L401" title="2 of 4 branches missed.">        if (o == null || getClass() != o.getClass()) {</span>
+<span class="nc" id="L402">            return false;</span>
+        }
+<span class="fc" id="L404">        final Row other = (Row) o;</span>
+<span class="fc" id="L405">        return deepEqualsRow(</span>
+                kind,
+                fieldByPosition,
+                fieldByName,
+                positionByName,
+                other.kind,
+                other.fieldByPosition,
+                other.fieldByName,
+                other.positionByName);
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L418">        return deepHashCodeRow(kind, fieldByPosition, fieldByName);</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // Utility methods
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Creates a fixed-length row in position-based field mode and assigns the given values to the
+     * row's fields.
+     *
+     * &lt;p&gt;This method should be more convenient than {@link Row#withPositions(int)} in many cases.
+     *
+     * &lt;p&gt;For example:
+     *
+     * &lt;pre&gt;
+     *     Row.of(&quot;hello&quot;, true, 1L);
+     * &lt;/pre&gt;
+     *
+     * instead of
+     *
+     * &lt;pre&gt;
+     *     Row row = Row.withPositions(3);
+     *     row.setField(0, &quot;hello&quot;);
+     *     row.setField(1, true);
+     *     row.setField(2, 1L);
+     * &lt;/pre&gt;
+     *
+     * &lt;p&gt;By default, a row describes an {@link RowKind#INSERT} change.
+     */
+    public static Row of(Object... values) {
+<span class="fc" id="L449">        final Row row = new Row(values.length);</span>
+<span class="fc bfc" id="L450" title="All 2 branches covered.">        for (int i = 0; i &lt; values.length; i++) {</span>
+<span class="fc" id="L451">            row.setField(i, values[i]);</span>
+        }
+<span class="fc" id="L453">        return row;</span>
+    }
+
+    /**
+     * Creates a fixed-length row in position-based field mode with given kind and assigns the given
+     * values to the row's fields.
+     *
+     * &lt;p&gt;This method should be more convenient than {@link Row#withPositions(RowKind, int)} in many
+     * cases.
+     *
+     * &lt;p&gt;For example:
+     *
+     * &lt;pre&gt;
+     *     Row.ofKind(RowKind.INSERT, &quot;hello&quot;, true, 1L);
+     * &lt;/pre&gt;
+     *
+     * instead of
+     *
+     * &lt;pre&gt;
+     *     Row row = Row.withPositions(RowKind.INSERT, 3);
+     *     row.setField(0, &quot;hello&quot;);
+     *     row.setField(1, true);
+     *     row.setField(2, 1L);
+     * &lt;/pre&gt;
+     */
+    public static Row ofKind(RowKind kind, Object... values) {
+<span class="fc" id="L479">        final Row row = new Row(kind, values.length);</span>
+<span class="fc bfc" id="L480" title="All 2 branches covered.">        for (int i = 0; i &lt; values.length; i++) {</span>
+<span class="fc" id="L481">            row.setField(i, values[i]);</span>
+        }
+<span class="fc" id="L483">        return row;</span>
+    }
+
+    /**
+     * Creates a new row which is copied from another row (including its {@link RowKind}).
+     *
+     * &lt;p&gt;This method does not perform a deep copy. Use {@link RowSerializer#copy(Row)} if required.
+     */
+    public static Row copy(Row row) {
+        final Object[] newFieldByPosition;
+<span class="fc bfc" id="L493" title="All 2 branches covered.">        if (row.fieldByPosition != null) {</span>
+<span class="fc" id="L494">            newFieldByPosition = new Object[row.fieldByPosition.length];</span>
+<span class="fc" id="L495">            System.arraycopy(</span>
+                    row.fieldByPosition, 0, newFieldByPosition, 0, newFieldByPosition.length);
+        } else {
+<span class="fc" id="L498">            newFieldByPosition = null;</span>
+        }
+
+        final Map&lt;String, Object&gt; newFieldByName;
+<span class="fc bfc" id="L502" title="All 2 branches covered.">        if (row.fieldByName != null) {</span>
+<span class="fc" id="L503">            newFieldByName = new HashMap&lt;&gt;(row.fieldByName);</span>
+        } else {
+<span class="fc" id="L505">            newFieldByName = null;</span>
+        }
+
+<span class="fc" id="L508">        return new Row(row.kind, newFieldByPosition, newFieldByName, row.positionByName);</span>
+    }
+
+    /**
+     * Creates a new row with projected fields and identical {@link RowKind} from another row.
+     *
+     * &lt;p&gt;This method does not perform a deep copy.
+     *
+     * &lt;p&gt;Note: The row must operate in position-based field mode. Field names are not projected.
+     *
+     * @param fieldPositions field indices to be projected
+     */
+    public static Row project(Row row, int[] fieldPositions) {
+<span class="fc" id="L521">        final Row newRow = Row.withPositions(row.kind, fieldPositions.length);</span>
+<span class="fc bfc" id="L522" title="All 2 branches covered.">        for (int i = 0; i &lt; fieldPositions.length; i++) {</span>
+<span class="fc" id="L523">            newRow.setField(i, row.getField(fieldPositions[i]));</span>
+        }
+<span class="fc" id="L525">        return newRow;</span>
+    }
+
+    /**
+     * Creates a new row with projected fields and identical {@link RowKind} from another row.
+     *
+     * &lt;p&gt;This method does not perform a deep copy.
+     *
+     * &lt;p&gt;Note: The row must operate in name-based field mode.
+     *
+     * @param fieldNames field names to be projected
+     */
+    public static Row project(Row row, String[] fieldNames) {
+<span class="fc" id="L538">        final Row newRow = Row.withNames(row.getKind());</span>
+<span class="fc bfc" id="L539" title="All 2 branches covered.">        for (String fieldName : fieldNames) {</span>
+<span class="fc" id="L540">            newRow.setField(fieldName, row.getField(fieldName));</span>
+        }
+<span class="fc" id="L542">        return newRow;</span>
+    }
+
+    /**
+     * Creates a new row with fields that are copied from the other rows and appended to the
+     * resulting row in the given order. The {@link RowKind} of the first row determines the {@link
+     * RowKind} of the result.
+     *
+     * &lt;p&gt;This method does not perform a deep copy.
+     *
+     * &lt;p&gt;Note: All rows must operate in position-based field mode.
+     */
+    public static Row join(Row first, Row... remainings) {
+<span class="pc bpc" id="L555" title="1 of 2 branches missed.">        Preconditions.checkArgument(</span>
+                first.fieldByPosition != null,
+                &quot;All rows must operate in position-based field mode.&quot;);
+<span class="fc" id="L558">        int newLength = first.fieldByPosition.length;</span>
+<span class="fc bfc" id="L559" title="All 2 branches covered.">        for (Row remaining : remainings) {</span>
+<span class="pc bpc" id="L560" title="1 of 2 branches missed.">            Preconditions.checkArgument(</span>
+                    remaining.fieldByPosition != null,
+                    &quot;All rows must operate in position-based field mode.&quot;);
+<span class="fc" id="L563">            newLength += remaining.fieldByPosition.length;</span>
+        }
+
+<span class="fc" id="L566">        final Row joinedRow = new Row(first.kind, newLength);</span>
+<span class="fc" id="L567">        int index = 0;</span>
+
+        // copy the first row
+<span class="pc bpc" id="L570" title="2 of 4 branches missed.">        assert joinedRow.fieldByPosition != null;</span>
+<span class="fc" id="L571">        System.arraycopy(</span>
+                first.fieldByPosition,
+                0,
+                joinedRow.fieldByPosition,
+                index,
+                first.fieldByPosition.length);
+<span class="fc" id="L577">        index += first.fieldByPosition.length;</span>
+
+        // copy the remaining rows
+<span class="fc bfc" id="L580" title="All 2 branches covered.">        for (Row remaining : remainings) {</span>
+<span class="pc bpc" id="L581" title="2 of 4 branches missed.">            assert remaining.fieldByPosition != null;</span>
+<span class="fc" id="L582">            System.arraycopy(</span>
+                    remaining.fieldByPosition,
+                    0,
+                    joinedRow.fieldByPosition,
+                    index,
+                    remaining.fieldByPosition.length);
+<span class="fc" id="L588">            index += remaining.fieldByPosition.length;</span>
+        }
+
+<span class="fc" id="L591">        return joinedRow;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

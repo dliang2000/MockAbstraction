@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LinkedOptionalMapSerializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.util</a> &gt; <span class="el_source">LinkedOptionalMapSerializer.java</span></div><h1>LinkedOptionalMapSerializer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.util;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.core.memory.DataInputDeserializer;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputSerializer;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.util.function.BiConsumerWithException;
+import org.apache.flink.util.function.BiFunctionWithException;
+
+import javax.annotation.Nullable;
+
+import java.io.IOException;
+
+import static org.apache.flink.util.Preconditions.checkState;
+
+/** LinkedOptionalMapSerializer - A serializer of {@link LinkedOptionalMap}. */
+@Internal
+public final class LinkedOptionalMapSerializer {
+
+    /** This header is used for sanity checks on input streams. */
+    private static final long HEADER = 0x4f2c69a3d70L;
+
+    private LinkedOptionalMapSerializer() {}
+
+    public static &lt;K, V&gt; void writeOptionalMap(
+            DataOutputView out,
+            LinkedOptionalMap&lt;K, V&gt; map,
+            BiConsumerWithException&lt;DataOutputView, K, IOException&gt; keyWriter,
+            BiConsumerWithException&lt;DataOutputView, V, IOException&gt; valueWriter)
+            throws IOException {
+
+<span class="fc" id="L51">        out.writeLong(HEADER);</span>
+<span class="fc" id="L52">        out.writeInt(map.size());</span>
+<span class="fc" id="L53">        map.forEach(</span>
+                ((keyName, key, value) -&gt; {
+<span class="fc" id="L55">                    out.writeUTF(keyName);</span>
+
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">                    if (key == null) {</span>
+<span class="nc" id="L58">                        out.writeBoolean(false);</span>
+                    } else {
+<span class="fc" id="L60">                        out.writeBoolean(true);</span>
+<span class="fc" id="L61">                        writeFramed(out, keyWriter, key);</span>
+                    }
+
+<span class="pc bpc" id="L64" title="1 of 2 branches missed.">                    if (value == null) {</span>
+<span class="nc" id="L65">                        out.writeBoolean(false);</span>
+                    } else {
+<span class="fc" id="L67">                        out.writeBoolean(true);</span>
+<span class="fc" id="L68">                        writeFramed(out, valueWriter, value);</span>
+                    }
+<span class="fc" id="L70">                }));</span>
+<span class="fc" id="L71">    }</span>
+
+    public static &lt;K, V&gt; LinkedOptionalMap&lt;K, V&gt; readOptionalMap(
+            DataInputView in,
+            BiFunctionWithException&lt;DataInputView, String, K, IOException&gt; keyReader,
+            BiFunctionWithException&lt;DataInputView, String, V, IOException&gt; valueReader)
+            throws IOException {
+
+<span class="fc" id="L79">        final long header = in.readLong();</span>
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">        checkState(header == HEADER, &quot;Corrupted stream received header %s&quot;, header);</span>
+
+<span class="fc" id="L82">        long mapSize = in.readInt();</span>
+<span class="fc" id="L83">        LinkedOptionalMap&lt;K, V&gt; map = new LinkedOptionalMap&lt;&gt;();</span>
+<span class="fc bfc" id="L84" title="All 2 branches covered.">        for (int i = 0; i &lt; mapSize; i++) {</span>
+<span class="fc" id="L85">            String keyName = in.readUTF();</span>
+
+            final K key;
+<span class="pc bpc" id="L88" title="1 of 2 branches missed.">            if (in.readBoolean()) {</span>
+<span class="fc" id="L89">                key = tryReadFrame(in, keyName, keyReader);</span>
+            } else {
+<span class="nc" id="L91">                key = null;</span>
+            }
+
+            final V value;
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">            if (in.readBoolean()) {</span>
+<span class="fc" id="L96">                value = tryReadFrame(in, keyName, valueReader);</span>
+            } else {
+<span class="nc" id="L98">                value = null;</span>
+            }
+
+<span class="fc" id="L101">            map.put(keyName, key, value);</span>
+        }
+<span class="fc" id="L103">        return map;</span>
+    }
+
+    private static &lt;T&gt; void writeFramed(
+            DataOutputView out,
+            BiConsumerWithException&lt;DataOutputView, T, IOException&gt; writer,
+            T item)
+            throws IOException {
+<span class="fc" id="L111">        DataOutputSerializer frame = new DataOutputSerializer(64);</span>
+<span class="fc" id="L112">        writer.accept(frame, item);</span>
+
+<span class="fc" id="L114">        final byte[] buffer = frame.getSharedBuffer();</span>
+<span class="fc" id="L115">        final int bufferSize = frame.length();</span>
+<span class="fc" id="L116">        out.writeInt(bufferSize);</span>
+<span class="fc" id="L117">        out.write(buffer, 0, bufferSize);</span>
+<span class="fc" id="L118">    }</span>
+
+    @Nullable
+    private static &lt;T&gt; T tryReadFrame(
+            DataInputView in,
+            String keyName,
+            BiFunctionWithException&lt;DataInputView, String, T, IOException&gt; reader)
+            throws IOException {
+<span class="fc" id="L126">        final int bufferSize = in.readInt();</span>
+<span class="fc" id="L127">        final byte[] buffer = new byte[bufferSize];</span>
+<span class="fc" id="L128">        in.readFully(buffer);</span>
+<span class="fc" id="L129">        DataInputDeserializer frame = new DataInputDeserializer(buffer);</span>
+<span class="fc" id="L130">        return reader.apply(frame, keyName);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

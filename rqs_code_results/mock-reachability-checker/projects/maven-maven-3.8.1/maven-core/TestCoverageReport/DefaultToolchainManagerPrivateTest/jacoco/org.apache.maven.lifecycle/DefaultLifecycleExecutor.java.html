@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultLifecycleExecutor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.lifecycle</a> &gt; <span class="el_source">DefaultLifecycleExecutor.java</span></div><h1>DefaultLifecycleExecutor.java</h1><pre class="source lang-java linenums">package org.apache.maven.lifecycle;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.lifecycle.internal.LifecycleExecutionPlanCalculator;
+import org.apache.maven.lifecycle.internal.LifecycleStarter;
+import org.apache.maven.lifecycle.internal.LifecycleTaskSegmentCalculator;
+import org.apache.maven.lifecycle.internal.MojoDescriptorCreator;
+import org.apache.maven.lifecycle.internal.MojoExecutor;
+import org.apache.maven.lifecycle.internal.ProjectIndex;
+import org.apache.maven.lifecycle.internal.TaskSegment;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.plugin.InvalidPluginDescriptorException;
+import org.apache.maven.plugin.MojoExecution;
+import org.apache.maven.plugin.MojoNotFoundException;
+import org.apache.maven.plugin.PluginDescriptorParsingException;
+import org.apache.maven.plugin.PluginManagerException;
+import org.apache.maven.plugin.PluginNotFoundException;
+import org.apache.maven.plugin.PluginResolutionException;
+import org.apache.maven.plugin.descriptor.MojoDescriptor;
+import org.apache.maven.plugin.prefix.NoPluginFoundForPrefixException;
+import org.apache.maven.plugin.version.PluginVersionResolutionException;
+import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.component.annotations.Component;
+import org.codehaus.plexus.component.annotations.Requirement;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * A facade that provides lifecycle services to components outside maven core.
+ *
+ * Note that this component is not normally used from within core itself.
+ *
+ * @author Jason van Zyl
+ * @author Benjamin Bentmann
+ * @author Kristian Rosenvold
+ */
+@Component( role = LifecycleExecutor.class )
+<span class="nc" id="L60">public class DefaultLifecycleExecutor</span>
+    implements LifecycleExecutor
+{
+
+    @Requirement
+    private LifeCyclePluginAnalyzer lifeCyclePluginAnalyzer;
+
+    @Requirement
+    private DefaultLifecycles defaultLifeCycles;
+
+    @Requirement
+    private LifecycleTaskSegmentCalculator lifecycleTaskSegmentCalculator;
+
+    @Requirement
+    private LifecycleExecutionPlanCalculator lifecycleExecutionPlanCalculator;
+
+    @Requirement
+    private MojoExecutor mojoExecutor;
+
+    @Requirement
+    private LifecycleStarter lifecycleStarter;
+
+
+    public void execute( MavenSession session )
+    {
+<span class="nc" id="L85">        lifecycleStarter.execute( session );</span>
+<span class="nc" id="L86">    }</span>
+
+    @Requirement
+    private MojoDescriptorCreator mojoDescriptorCreator;
+
+    // These methods deal with construction intact Plugin object that look like they come from a standard
+    // &lt;plugin/&gt; block in a Maven POM. We have to do some wiggling to pull the sources of information
+    // together and this really shows the problem of constructing a sensible default configuration but
+    // it's all encapsulated here so it appears normalized to the POM builder.
+
+    // We are going to take the project packaging and find all plugin in the default lifecycle and create
+    // fully populated Plugin objects, including executions with goals and default configuration taken
+    // from the plugin.xml inside a plugin.
+    //
+    // TODO This whole method could probably removed by injecting lifeCyclePluginAnalyzer straight into client site.
+    // TODO But for some reason the whole plexus appcontext refuses to start when I try this.
+
+    public Set&lt;Plugin&gt; getPluginsBoundByDefaultToAllLifecycles( String packaging )
+    {
+<span class="nc" id="L105">        return lifeCyclePluginAnalyzer.getPluginsBoundByDefaultToAllLifecycles( packaging );</span>
+    }
+
+    // USED BY MAVEN HELP PLUGIN
+
+    @Deprecated
+    public Map&lt;String, Lifecycle&gt; getPhaseToLifecycleMap()
+    {
+<span class="nc" id="L113">        return defaultLifeCycles.getPhaseToLifecycleMap();</span>
+    }
+
+    // NOTE: Backward-compat with maven-help-plugin:2.1
+
+    @SuppressWarnings( { &quot;UnusedDeclaration&quot; } )
+    MojoDescriptor getMojoDescriptor( String task, MavenSession session, MavenProject project, String invokedVia,
+                                      boolean canUsePrefix, boolean isOptionalMojo )
+        throws PluginNotFoundException, PluginResolutionException, PluginDescriptorParsingException,
+        MojoNotFoundException, NoPluginFoundForPrefixException, InvalidPluginDescriptorException,
+        PluginVersionResolutionException
+    {
+<span class="nc" id="L125">        return mojoDescriptorCreator.getMojoDescriptor( task, session, project );</span>
+    }
+
+    // Used by m2eclipse
+
+    @SuppressWarnings( { &quot;UnusedDeclaration&quot; } )
+    public MavenExecutionPlan calculateExecutionPlan( MavenSession session, boolean setup, String... tasks )
+        throws PluginNotFoundException, PluginResolutionException, PluginDescriptorParsingException,
+        MojoNotFoundException, NoPluginFoundForPrefixException, InvalidPluginDescriptorException,
+        PluginManagerException, LifecyclePhaseNotFoundException, LifecycleNotFoundException,
+        PluginVersionResolutionException
+    {
+<span class="nc" id="L137">        List&lt;TaskSegment&gt; taskSegments =</span>
+<span class="nc" id="L138">            lifecycleTaskSegmentCalculator.calculateTaskSegments( session, Arrays.asList( tasks ) );</span>
+
+<span class="nc" id="L140">        TaskSegment mergedSegment = new TaskSegment( false );</span>
+
+<span class="nc bnc" id="L142" title="All 2 branches missed.">        for ( TaskSegment taskSegment : taskSegments )</span>
+        {
+<span class="nc" id="L144">            mergedSegment.getTasks().addAll( taskSegment.getTasks() );</span>
+<span class="nc" id="L145">        }</span>
+
+<span class="nc" id="L147">        return lifecycleExecutionPlanCalculator.calculateExecutionPlan( session, session.getCurrentProject(),</span>
+<span class="nc" id="L148">                                                                        mergedSegment.getTasks(), setup );</span>
+    }
+
+    public MavenExecutionPlan calculateExecutionPlan( MavenSession session, String... tasks )
+        throws PluginNotFoundException, PluginResolutionException, PluginDescriptorParsingException,
+        MojoNotFoundException, NoPluginFoundForPrefixException, InvalidPluginDescriptorException,
+        PluginManagerException, LifecyclePhaseNotFoundException, LifecycleNotFoundException,
+        PluginVersionResolutionException
+    {
+<span class="nc" id="L157">        return calculateExecutionPlan( session, true, tasks );</span>
+    }
+
+    // Site 3.x
+    public void calculateForkedExecutions( MojoExecution mojoExecution, MavenSession session )
+        throws MojoNotFoundException, PluginNotFoundException, PluginResolutionException,
+        PluginDescriptorParsingException, NoPluginFoundForPrefixException, InvalidPluginDescriptorException,
+        LifecyclePhaseNotFoundException, LifecycleNotFoundException, PluginVersionResolutionException
+    {
+<span class="nc" id="L166">        lifecycleExecutionPlanCalculator.calculateForkedExecutions( mojoExecution, session );</span>
+<span class="nc" id="L167">    }</span>
+
+    // Site 3.x
+    public List&lt;MavenProject&gt; executeForkedExecutions( MojoExecution mojoExecution, MavenSession session )
+        throws LifecycleExecutionException
+    {
+<span class="nc" id="L173">        return mojoExecutor.executeForkedExecutions( mojoExecution, session,</span>
+<span class="nc" id="L174">                                                     new ProjectIndex( session.getProjects() ) );</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

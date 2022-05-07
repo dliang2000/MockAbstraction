@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KryoUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.java.typeutils.runtime</a> &gt; <span class="el_source">KryoUtils.java</span></div><h1>KryoUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.java.typeutils.runtime;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.util.InstantiationUtil;
+
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.KryoException;
+import com.esotericsoftware.kryo.Serializer;
+
+import java.io.IOException;
+import java.util.Collection;
+
+/** Convenience methods for Kryo */
+@Internal
+<span class="nc" id="L34">public class KryoUtils {</span>
+
+    /**
+     * Tries to copy the given record from using the provided Kryo instance. If this fails, then the
+     * record from is copied by serializing it into a byte buffer and deserializing it from there.
+     *
+     * @param from Element to copy
+     * @param kryo Kryo instance to use
+     * @param serializer TypeSerializer which is used in case of a Kryo failure
+     * @param &lt;T&gt; Type of the element to be copied
+     * @return Copied element
+     */
+    public static &lt;T&gt; T copy(T from, Kryo kryo, TypeSerializer&lt;T&gt; serializer) {
+        try {
+<span class="nc" id="L48">            return kryo.copy(from);</span>
+<span class="nc" id="L49">        } catch (KryoException ke) {</span>
+            // Kryo could not copy the object --&gt; try to serialize/deserialize the object
+            try {
+<span class="nc" id="L52">                byte[] byteArray = InstantiationUtil.serializeToByteArray(serializer, from);</span>
+
+<span class="nc" id="L54">                return InstantiationUtil.deserializeFromByteArray(serializer, byteArray);</span>
+<span class="nc" id="L55">            } catch (IOException ioe) {</span>
+<span class="nc" id="L56">                throw new RuntimeException(</span>
+                        &quot;Could not copy object by serializing/deserializing&quot; + &quot; it.&quot;, ioe);
+            }
+        }
+    }
+
+    /**
+     * Tries to copy the given record from using the provided Kryo instance. If this fails, then the
+     * record from is copied by serializing it into a byte buffer and deserializing it from there.
+     *
+     * @param from Element to copy
+     * @param reuse Reuse element for the deserialization
+     * @param kryo Kryo instance to use
+     * @param serializer TypeSerializer which is used in case of a Kryo failure
+     * @param &lt;T&gt; Type of the element to be copied
+     * @return Copied element
+     */
+    public static &lt;T&gt; T copy(T from, T reuse, Kryo kryo, TypeSerializer&lt;T&gt; serializer) {
+        try {
+<span class="nc" id="L75">            return kryo.copy(from);</span>
+<span class="nc" id="L76">        } catch (KryoException ke) {</span>
+            // Kryo could not copy the object --&gt; try to serialize/deserialize the object
+            try {
+<span class="nc" id="L79">                byte[] byteArray = InstantiationUtil.serializeToByteArray(serializer, from);</span>
+
+<span class="nc" id="L81">                return InstantiationUtil.deserializeFromByteArray(serializer, reuse, byteArray);</span>
+<span class="nc" id="L82">            } catch (IOException ioe) {</span>
+<span class="nc" id="L83">                throw new RuntimeException(</span>
+                        &quot;Could not copy object by serializing/deserializing&quot; + &quot; it.&quot;, ioe);
+            }
+        }
+    }
+
+    /**
+     * Apply a list of {@link KryoRegistration} to a Kryo instance. The list of registrations is
+     * assumed to already be a final resolution of all possible registration overwrites.
+     *
+     * &lt;p&gt;The registrations are applied in the given order and always specify the registration id as
+     * the next available id in the Kryo instance (providing the id just extra ensures nothing is
+     * overwritten, and isn't strictly required);
+     *
+     * @param kryo the Kryo instance to apply the registrations
+     * @param resolvedRegistrations the registrations, which should already be resolved of all
+     *     possible registration overwrites
+     */
+    public static void applyRegistrations(
+            Kryo kryo, Collection&lt;KryoRegistration&gt; resolvedRegistrations) {
+
+        Serializer&lt;?&gt; serializer;
+<span class="fc bfc" id="L105" title="All 2 branches covered.">        for (KryoRegistration registration : resolvedRegistrations) {</span>
+<span class="fc" id="L106">            serializer = registration.getSerializer(kryo);</span>
+
+<span class="fc bfc" id="L108" title="All 2 branches covered.">            if (serializer != null) {</span>
+<span class="fc" id="L109">                kryo.register(</span>
+<span class="fc" id="L110">                        registration.getRegisteredClass(),</span>
+                        serializer,
+<span class="fc" id="L112">                        kryo.getNextRegistrationId());</span>
+            } else {
+<span class="fc" id="L114">                kryo.register(registration.getRegisteredClass(), kryo.getNextRegistrationId());</span>
+            }
+<span class="fc" id="L116">        }</span>
+<span class="fc" id="L117">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

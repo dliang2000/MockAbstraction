@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultValidator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.validator</a> &gt; <span class="el_source">DefaultValidator.java</span></div><h1>DefaultValidator.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package br.com.caelum.vraptor.validator;
+
+import static java.util.Collections.unmodifiableList;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.ResourceBundle;
+
+import javax.inject.Inject;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import br.com.caelum.vraptor.Result;
+import br.com.caelum.vraptor.View;
+import br.com.caelum.vraptor.core.Localization;
+import br.com.caelum.vraptor.ioc.RequestScoped;
+import br.com.caelum.vraptor.proxy.Proxifier;
+import br.com.caelum.vraptor.util.test.MockResult;
+import br.com.caelum.vraptor.view.ValidationViewsFactory;
+
+import com.google.common.base.Supplier;
+
+/**
+ * The default validator implementation.
+ *
+ * @author Guilherme Silveira
+ */
+@RequestScoped
+public class DefaultValidator extends AbstractValidator {
+
+<span class="fc" id="L50">	private static final Logger logger = LoggerFactory.getLogger(DefaultValidator.class);</span>
+
+<span class="fc" id="L52">	private final class LocalizationSupplier implements Supplier&lt;ResourceBundle&gt; {</span>
+		public ResourceBundle get() {
+<span class="fc" id="L54">			return localization.getBundle();</span>
+		}
+	}
+
+	private final Result result;
+
+<span class="fc" id="L60">	private final List&lt;Message&gt; errors = new ArrayList&lt;Message&gt;();</span>
+	private final ValidationViewsFactory viewsFactory;
+	private final BeanValidator beanValidator;
+	private final Outjector outjector;
+	private final Proxifier proxifier;
+	private final Localization localization;
+
+	public DefaultValidator() {
+<span class="nc" id="L68">		this(null, null, null, null, null, null);</span>
+<span class="nc" id="L69">	}</span>
+
+	@Inject
+<span class="fc" id="L72">	public DefaultValidator(Result result, ValidationViewsFactory factory, Outjector outjector, Proxifier proxifier, BeanValidator beanValidator, Localization localization) {</span>
+<span class="fc" id="L73">	this.result = result;</span>
+<span class="fc" id="L74">		this.viewsFactory = factory;</span>
+<span class="fc" id="L75">		this.outjector = outjector;</span>
+<span class="fc" id="L76">		this.proxifier = proxifier;</span>
+<span class="fc" id="L77">		this.beanValidator = beanValidator;</span>
+<span class="fc" id="L78">		this.localization = localization;</span>
+<span class="fc" id="L79">	}</span>
+
+	public void checking(Validations validations) {
+<span class="fc" id="L82">	addAll(validations.getErrors(new LocalizationSupplier()));</span>
+<span class="fc" id="L83">	}</span>
+
+	public void validate(Object object, Class&lt;?&gt;... groups) {
+<span class="fc" id="L86">	addAll(beanValidator.validate(object, groups));</span>
+<span class="fc" id="L87">	}</span>
+
+	public void validateProperties(Object object, String... properties) {
+<span class="fc" id="L90">		addAll(beanValidator.validateProperties(object, properties));</span>
+<span class="fc" id="L91">	}</span>
+	
+	public void validateProperty(Object object, String property, Class&lt;?&gt;... groups) {
+<span class="nc" id="L94">		addAll(beanValidator.validateProperty(object, property, groups));</span>
+<span class="nc" id="L95">	}</span>
+
+	public &lt;T extends View&gt; T onErrorUse(Class&lt;T&gt; view) {
+<span class="fc bfc" id="L98" title="All 2 branches covered.">		if (!hasErrors()) {</span>
+<span class="fc" id="L99">			return new MockResult(proxifier).use(view); //ignore anything, no errors occurred</span>
+		}
+
+<span class="pc bpc" id="L102" title="1 of 2 branches missed.">		if (logger.isDebugEnabled()) {</span>
+<span class="nc" id="L103">			logger.debug(&quot;there are errors on result: {}&quot;, errors);</span>
+		}
+
+<span class="fc" id="L106">		result.include(&quot;errors&quot;, errors);</span>
+<span class="fc" id="L107">		outjector.outjectRequestMap();</span>
+<span class="fc" id="L108">		return viewsFactory.instanceFor(view, errors);</span>
+	}
+
+	public void addAll(Collection&lt;? extends Message&gt; messages) {
+<span class="fc bfc" id="L112" title="All 2 branches covered.">		for (Message message : messages) {</span>
+<span class="fc" id="L113">			add(message);</span>
+<span class="fc" id="L114">		}</span>
+<span class="fc" id="L115">	}</span>
+
+	public void add(Message message) {
+<span class="fc bfc" id="L118" title="All 4 branches covered.">		if (message instanceof I18nMessage &amp;&amp; !((I18nMessage) message).hasBundle()) {</span>
+<span class="fc" id="L119">			((I18nMessage) message).setLazyBundle(new LocalizationSupplier());</span>
+		}
+<span class="fc" id="L121">		errors.add(message);</span>
+<span class="fc" id="L122">	}</span>
+
+	public boolean hasErrors() {
+<span class="fc bfc" id="L125" title="All 2 branches covered.">		return !errors.isEmpty();</span>
+	}
+
+	public List&lt;Message&gt; getErrors() {
+<span class="fc" id="L129">		return unmodifiableList(errors);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

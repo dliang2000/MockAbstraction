@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultBeanConfigurationRequest.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.configuration</a> &gt; <span class="el_source">DefaultBeanConfigurationRequest.java</span></div><h1>DefaultBeanConfigurationRequest.java</h1><pre class="source lang-java linenums">package org.apache.maven.configuration;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import org.apache.commons.lang3.Validate;
+import org.apache.maven.model.Build;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.model.PluginExecution;
+import org.apache.maven.model.PluginManagement;
+import org.codehaus.plexus.util.StringUtils;
+
+/**
+ * A basic bean configuration request.
+ *
+ * @author Benjamin Bentmann
+ */
+<span class="fc" id="L35">public class DefaultBeanConfigurationRequest</span>
+    implements BeanConfigurationRequest
+{
+
+    private Object bean;
+
+    private Object configuration;
+
+    private String configurationElement;
+
+    private ClassLoader classLoader;
+
+    private BeanConfigurationValuePreprocessor valuePreprocessor;
+
+    private BeanConfigurationPathTranslator pathTranslator;
+
+    public Object getBean()
+    {
+<span class="fc" id="L53">        return bean;</span>
+    }
+
+    public DefaultBeanConfigurationRequest setBean( Object bean )
+    {
+<span class="fc" id="L58">        this.bean = bean;</span>
+<span class="fc" id="L59">        return this;</span>
+    }
+
+    public Object getConfiguration()
+    {
+<span class="fc" id="L64">        return configuration;</span>
+    }
+
+    public String getConfigurationElement()
+    {
+<span class="fc" id="L69">        return configurationElement;</span>
+    }
+
+    public DefaultBeanConfigurationRequest setConfiguration( Object configuration )
+    {
+<span class="fc" id="L74">        return setConfiguration( configuration, null );</span>
+    }
+
+    public DefaultBeanConfigurationRequest setConfiguration( Object configuration, String element )
+    {
+<span class="fc" id="L79">        this.configuration = configuration;</span>
+<span class="fc" id="L80">        this.configurationElement = element;</span>
+<span class="fc" id="L81">        return this;</span>
+    }
+
+    /**
+     * Sets the configuration to the configuration taken from the specified build plugin in the POM. First, the build
+     * plugins will be searched for the specified plugin, if that fails, the plugin management section will be searched.
+     *
+     * @param model The POM to extract the plugin configuration from, may be {@code null}.
+     * @param pluginGroupId The group id of the plugin whose configuration should be used, must not be {@code null} or
+     *            empty.
+     * @param pluginArtifactId The artifact id of the plugin whose configuration should be used, must not be
+     *            {@code null} or empty.
+     * @param pluginExecutionId The id of a plugin execution whose configuration should be used, may be {@code null} or
+     *            empty to use the general plugin configuration.
+     * @return This request for chaining, never {@code null}.
+     */
+    public DefaultBeanConfigurationRequest setConfiguration( Model model, String pluginGroupId,
+                                                             String pluginArtifactId, String pluginExecutionId )
+    {
+<span class="nc" id="L100">        Plugin plugin = findPlugin( model, pluginGroupId, pluginArtifactId );</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        if ( plugin != null )</span>
+        {
+<span class="nc bnc" id="L103" title="All 2 branches missed.">            if ( StringUtils.isNotEmpty( pluginExecutionId ) )</span>
+            {
+<span class="nc bnc" id="L105" title="All 2 branches missed.">                for ( PluginExecution execution : plugin.getExecutions() )</span>
+                {
+<span class="nc bnc" id="L107" title="All 2 branches missed.">                    if ( pluginExecutionId.equals( execution.getId() ) )</span>
+                    {
+<span class="nc" id="L109">                        setConfiguration( execution.getConfiguration() );</span>
+<span class="nc" id="L110">                        break;</span>
+                    }
+<span class="nc" id="L112">                }</span>
+            }
+            else
+            {
+<span class="nc" id="L116">                setConfiguration( plugin.getConfiguration() );</span>
+            }
+        }
+<span class="nc" id="L119">        return this;</span>
+    }
+
+    private Plugin findPlugin( Model model, String groupId, String artifactId )
+    {
+<span class="nc" id="L124">        Validate.notBlank( groupId, &quot;groupId can neither be null, empty nor blank&quot; );</span>
+<span class="nc" id="L125">        Validate.notBlank( artifactId, &quot;artifactId can neither be null, empty nor blank&quot; );</span>
+
+<span class="nc bnc" id="L127" title="All 2 branches missed.">        if ( model != null )</span>
+        {
+<span class="nc" id="L129">            Build build = model.getBuild();</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">            if ( build != null )</span>
+            {
+<span class="nc bnc" id="L132" title="All 2 branches missed.">                for ( Plugin plugin : build.getPlugins() )</span>
+                {
+<span class="nc bnc" id="L134" title="All 4 branches missed.">                    if ( groupId.equals( plugin.getGroupId() ) &amp;&amp; artifactId.equals( plugin.getArtifactId() ) )</span>
+                    {
+<span class="nc" id="L136">                        return plugin;</span>
+                    }
+<span class="nc" id="L138">                }</span>
+
+<span class="nc" id="L140">                PluginManagement mgmt = build.getPluginManagement();</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">                if ( mgmt != null )</span>
+                {
+<span class="nc bnc" id="L143" title="All 2 branches missed.">                    for ( Plugin plugin : mgmt.getPlugins() )</span>
+                    {
+<span class="nc bnc" id="L145" title="All 4 branches missed.">                        if ( groupId.equals( plugin.getGroupId() ) &amp;&amp; artifactId.equals( plugin.getArtifactId() ) )</span>
+                        {
+<span class="nc" id="L147">                            return plugin;</span>
+                        }
+<span class="nc" id="L149">                    }</span>
+                }
+            }
+        }
+
+<span class="nc" id="L154">        return null;</span>
+    }
+
+    public ClassLoader getClassLoader()
+    {
+<span class="fc" id="L159">        return classLoader;</span>
+    }
+
+    public DefaultBeanConfigurationRequest setClassLoader( ClassLoader classLoader )
+    {
+<span class="nc" id="L164">        this.classLoader = classLoader;</span>
+<span class="nc" id="L165">        return this;</span>
+    }
+
+    public BeanConfigurationValuePreprocessor getValuePreprocessor()
+    {
+<span class="fc" id="L170">        return valuePreprocessor;</span>
+    }
+
+    public DefaultBeanConfigurationRequest setValuePreprocessor( BeanConfigurationValuePreprocessor valuePreprocessor )
+    {
+<span class="fc" id="L175">        this.valuePreprocessor = valuePreprocessor;</span>
+<span class="fc" id="L176">        return this;</span>
+    }
+
+    public BeanConfigurationPathTranslator getPathTranslator()
+    {
+<span class="fc" id="L181">        return pathTranslator;</span>
+    }
+
+    public DefaultBeanConfigurationRequest setPathTranslator( BeanConfigurationPathTranslator pathTranslator )
+    {
+<span class="fc" id="L186">        this.pathTranslator = pathTranslator;</span>
+<span class="fc" id="L187">        return this;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

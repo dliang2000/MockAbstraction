@@ -1,0 +1,1110 @@
+public class javassist.bytecode.analysis.Analyzer extends java.lang.Object implements javassist.bytecode.Opcode
+{
+    private final javassist.bytecode.analysis.SubroutineScanner scanner;
+    private javassist.CtClass clazz;
+    private javassist.bytecode.analysis.Analyzer$ExceptionInfo[] exceptions;
+    private javassist.bytecode.analysis.Frame[] frames;
+    private javassist.bytecode.analysis.Subroutine[] subroutines;
+
+    public void <init>()
+    {
+        javassist.bytecode.analysis.Analyzer r0;
+        javassist.bytecode.analysis.SubroutineScanner $r1;
+
+        r0 := @this: javassist.bytecode.analysis.Analyzer;
+
+        specialinvoke r0.<java.lang.Object: void <init>()>();
+
+        $r1 = new javassist.bytecode.analysis.SubroutineScanner;
+
+        specialinvoke $r1.<javassist.bytecode.analysis.SubroutineScanner: void <init>()>();
+
+        r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.SubroutineScanner scanner> = $r1;
+
+        return;
+    }
+
+    public javassist.bytecode.analysis.Frame[] analyze(javassist.CtClass, javassist.bytecode.MethodInfo) throws javassist.bytecode.BadBytecode
+    {
+        javassist.bytecode.analysis.Analyzer r0;
+        javassist.CtClass r1;
+        javassist.bytecode.MethodInfo r2;
+        javassist.bytecode.CodeAttribute r3;
+        int i0, i1, i2, $i3, $i4;
+        javassist.bytecode.CodeIterator r4;
+        javassist.bytecode.analysis.IntQueue $r7;
+        javassist.bytecode.analysis.Analyzer$ExceptionInfo[] $r8;
+        javassist.bytecode.analysis.SubroutineScanner $r9;
+        javassist.bytecode.analysis.Subroutine[] $r10;
+        javassist.bytecode.analysis.Executor $r11;
+        javassist.ClassPool $r12;
+        javassist.bytecode.ConstPool $r13;
+        javassist.bytecode.analysis.Frame[] $r14, $r15, $r17;
+        javassist.bytecode.analysis.Frame $r16;
+        boolean $z0;
+
+        r0 := @this: javassist.bytecode.analysis.Analyzer;
+
+        r1 := @parameter0: javassist.CtClass;
+
+        r2 := @parameter1: javassist.bytecode.MethodInfo;
+
+        r0.<javassist.bytecode.analysis.Analyzer: javassist.CtClass clazz> = r1;
+
+        r3 = virtualinvoke r2.<javassist.bytecode.MethodInfo: javassist.bytecode.CodeAttribute getCodeAttribute()>();
+
+        if r3 != null goto label1;
+
+        return null;
+
+     label1:
+        i0 = virtualinvoke r3.<javassist.bytecode.CodeAttribute: int getMaxLocals()>();
+
+        i1 = virtualinvoke r3.<javassist.bytecode.CodeAttribute: int getMaxStack()>();
+
+        i2 = virtualinvoke r3.<javassist.bytecode.CodeAttribute: int getCodeLength()>();
+
+        r4 = virtualinvoke r3.<javassist.bytecode.CodeAttribute: javassist.bytecode.CodeIterator iterator()>();
+
+        $r7 = new javassist.bytecode.analysis.IntQueue;
+
+        specialinvoke $r7.<javassist.bytecode.analysis.IntQueue: void <init>()>();
+
+        $r8 = specialinvoke r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Analyzer$ExceptionInfo[] buildExceptionInfo(javassist.bytecode.MethodInfo)>(r2);
+
+        r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Analyzer$ExceptionInfo[] exceptions> = $r8;
+
+        $r9 = r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.SubroutineScanner scanner>;
+
+        $r10 = virtualinvoke $r9.<javassist.bytecode.analysis.SubroutineScanner: javassist.bytecode.analysis.Subroutine[] scan(javassist.bytecode.MethodInfo)>(r2);
+
+        r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Subroutine[] subroutines> = $r10;
+
+        $r11 = new javassist.bytecode.analysis.Executor;
+
+        $r12 = virtualinvoke r1.<javassist.CtClass: javassist.ClassPool getClassPool()>();
+
+        $r13 = virtualinvoke r2.<javassist.bytecode.MethodInfo: javassist.bytecode.ConstPool getConstPool()>();
+
+        specialinvoke $r11.<javassist.bytecode.analysis.Executor: void <init>(javassist.ClassPool,javassist.bytecode.ConstPool)>($r12, $r13);
+
+        $r14 = newarray (javassist.bytecode.analysis.Frame)[i2];
+
+        r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Frame[] frames> = $r14;
+
+        $r15 = r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Frame[] frames>;
+
+        $i3 = virtualinvoke r4.<javassist.bytecode.CodeIterator: int lookAhead()>();
+
+        $r16 = specialinvoke r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Frame firstFrame(javassist.bytecode.MethodInfo,int,int)>(r2, i0, i1);
+
+        $r15[$i3] = $r16;
+
+        $i4 = virtualinvoke r4.<javassist.bytecode.CodeIterator: int next()>();
+
+        virtualinvoke $r7.<javassist.bytecode.analysis.IntQueue: void add(int)>($i4);
+
+     label2:
+        $z0 = virtualinvoke $r7.<javassist.bytecode.analysis.IntQueue: boolean isEmpty()>();
+
+        if $z0 != 0 goto label3;
+
+        specialinvoke r0.<javassist.bytecode.analysis.Analyzer: void analyzeNextEntry(javassist.bytecode.MethodInfo,javassist.bytecode.CodeIterator,javassist.bytecode.analysis.IntQueue,javassist.bytecode.analysis.Executor)>(r2, r4, $r7, $r11);
+
+        goto label2;
+
+     label3:
+        $r17 = r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Frame[] frames>;
+
+        return $r17;
+    }
+
+    public javassist.bytecode.analysis.Frame[] analyze(javassist.CtMethod) throws javassist.bytecode.BadBytecode
+    {
+        javassist.bytecode.analysis.Analyzer r0;
+        javassist.CtMethod r1;
+        javassist.CtClass $r2;
+        javassist.bytecode.MethodInfo $r3;
+        javassist.bytecode.analysis.Frame[] $r4;
+
+        r0 := @this: javassist.bytecode.analysis.Analyzer;
+
+        r1 := @parameter0: javassist.CtMethod;
+
+        $r2 = virtualinvoke r1.<javassist.CtMethod: javassist.CtClass getDeclaringClass()>();
+
+        $r3 = virtualinvoke r1.<javassist.CtMethod: javassist.bytecode.MethodInfo getMethodInfo2()>();
+
+        $r4 = virtualinvoke r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Frame[] analyze(javassist.CtClass,javassist.bytecode.MethodInfo)>($r2, $r3);
+
+        return $r4;
+    }
+
+    private void analyzeNextEntry(javassist.bytecode.MethodInfo, javassist.bytecode.CodeIterator, javassist.bytecode.analysis.IntQueue, javassist.bytecode.analysis.Executor) throws javassist.bytecode.BadBytecode
+    {
+        javassist.bytecode.analysis.Analyzer r0;
+        javassist.bytecode.MethodInfo r1;
+        javassist.bytecode.CodeIterator r2;
+        javassist.bytecode.analysis.IntQueue r3;
+        javassist.bytecode.analysis.Executor r4;
+        int i0, i1, $i3, $i4, $i5, i6;
+        javassist.bytecode.analysis.Frame r5, $r8, $r12;
+        javassist.bytecode.analysis.Subroutine r6, $r13;
+        javassist.bytecode.analysis.Frame[] $r7, $r10;
+        javassist.bytecode.analysis.Subroutine[] $r9, $r11;
+        boolean $z0, $z1, $z2, $z3;
+        java.lang.RuntimeException $r14;
+        javassist.bytecode.BadBytecode $r15;
+        java.lang.StringBuilder $r16, $r18, $r19, $r20, $r21;
+        java.lang.String $r17, $r22;
+
+        r0 := @this: javassist.bytecode.analysis.Analyzer;
+
+        r1 := @parameter0: javassist.bytecode.MethodInfo;
+
+        r2 := @parameter1: javassist.bytecode.CodeIterator;
+
+        r3 := @parameter2: javassist.bytecode.analysis.IntQueue;
+
+        r4 := @parameter3: javassist.bytecode.analysis.Executor;
+
+        i0 = virtualinvoke r3.<javassist.bytecode.analysis.IntQueue: int take()>();
+
+        virtualinvoke r2.<javassist.bytecode.CodeIterator: void move(int)>(i0);
+
+        virtualinvoke r2.<javassist.bytecode.CodeIterator: int next()>();
+
+        $r7 = r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Frame[] frames>;
+
+        $r8 = $r7[i0];
+
+        r5 = virtualinvoke $r8.<javassist.bytecode.analysis.Frame: javassist.bytecode.analysis.Frame copy()>();
+
+        $r9 = r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Subroutine[] subroutines>;
+
+        r6 = $r9[i0];
+
+     label01:
+        virtualinvoke r4.<javassist.bytecode.analysis.Executor: void execute(javassist.bytecode.MethodInfo,int,javassist.bytecode.CodeIterator,javassist.bytecode.analysis.Frame,javassist.bytecode.analysis.Subroutine)>(r1, i0, r2, r5, r6);
+
+     label02:
+        goto label04;
+
+     label03:
+        $r14 := @caughtexception;
+
+        $r15 = new javassist.bytecode.BadBytecode;
+
+        $r16 = new java.lang.StringBuilder;
+
+        specialinvoke $r16.<java.lang.StringBuilder: void <init>()>();
+
+        $r17 = virtualinvoke $r14.<java.lang.RuntimeException: java.lang.String getMessage()>();
+
+        $r18 = virtualinvoke $r16.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>($r17);
+
+        $r19 = virtualinvoke $r18.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("[pos = ");
+
+        $r20 = virtualinvoke $r19.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i0);
+
+        $r21 = virtualinvoke $r20.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("]");
+
+        $r22 = virtualinvoke $r21.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r15.<javassist.bytecode.BadBytecode: void <init>(java.lang.String,java.lang.Throwable)>($r22, $r14);
+
+        throw $r15;
+
+     label04:
+        i6 = virtualinvoke r2.<javassist.bytecode.CodeIterator: int byteAt(int)>(i0);
+
+        if i6 != 170 goto label05;
+
+        specialinvoke r0.<javassist.bytecode.analysis.Analyzer: void mergeTableSwitch(javassist.bytecode.analysis.IntQueue,int,javassist.bytecode.CodeIterator,javassist.bytecode.analysis.Frame)>(r3, i0, r2, r5);
+
+        goto label11;
+
+     label05:
+        if i6 != 171 goto label06;
+
+        specialinvoke r0.<javassist.bytecode.analysis.Analyzer: void mergeLookupSwitch(javassist.bytecode.analysis.IntQueue,int,javassist.bytecode.CodeIterator,javassist.bytecode.analysis.Frame)>(r3, i0, r2, r5);
+
+        goto label11;
+
+     label06:
+        if i6 != 169 goto label07;
+
+        specialinvoke r0.<javassist.bytecode.analysis.Analyzer: void mergeRet(javassist.bytecode.analysis.IntQueue,javassist.bytecode.CodeIterator,int,javassist.bytecode.analysis.Frame,javassist.bytecode.analysis.Subroutine)>(r3, r2, i0, r5, r6);
+
+        goto label11;
+
+     label07:
+        $z0 = staticinvoke <javassist.bytecode.analysis.Util: boolean isJumpInstruction(int)>(i6);
+
+        if $z0 == 0 goto label10;
+
+        i1 = staticinvoke <javassist.bytecode.analysis.Util: int getJumpTarget(int,javassist.bytecode.CodeIterator)>(i0, r2);
+
+        $z2 = staticinvoke <javassist.bytecode.analysis.Util: boolean isJsr(int)>(i6);
+
+        if $z2 == 0 goto label08;
+
+        $r10 = r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Frame[] frames>;
+
+        $r12 = $r10[i0];
+
+        $r11 = r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Subroutine[] subroutines>;
+
+        $r13 = $r11[i1];
+
+        $i5 = specialinvoke r0.<javassist.bytecode.analysis.Analyzer: int lookAhead(javassist.bytecode.CodeIterator,int)>(r2, i0);
+
+        specialinvoke r0.<javassist.bytecode.analysis.Analyzer: void mergeJsr(javassist.bytecode.analysis.IntQueue,javassist.bytecode.analysis.Frame,javassist.bytecode.analysis.Subroutine,int,int)>(r3, $r12, $r13, i0, $i5);
+
+        goto label09;
+
+     label08:
+        $z3 = staticinvoke <javassist.bytecode.analysis.Util: boolean isGoto(int)>(i6);
+
+        if $z3 != 0 goto label09;
+
+        $i4 = specialinvoke r0.<javassist.bytecode.analysis.Analyzer: int lookAhead(javassist.bytecode.CodeIterator,int)>(r2, i0);
+
+        specialinvoke r0.<javassist.bytecode.analysis.Analyzer: void merge(javassist.bytecode.analysis.IntQueue,javassist.bytecode.analysis.Frame,int)>(r3, r5, $i4);
+
+     label09:
+        specialinvoke r0.<javassist.bytecode.analysis.Analyzer: void merge(javassist.bytecode.analysis.IntQueue,javassist.bytecode.analysis.Frame,int)>(r3, r5, i1);
+
+        goto label11;
+
+     label10:
+        if i6 == 191 goto label11;
+
+        $z1 = staticinvoke <javassist.bytecode.analysis.Util: boolean isReturn(int)>(i6);
+
+        if $z1 != 0 goto label11;
+
+        $i3 = specialinvoke r0.<javassist.bytecode.analysis.Analyzer: int lookAhead(javassist.bytecode.CodeIterator,int)>(r2, i0);
+
+        specialinvoke r0.<javassist.bytecode.analysis.Analyzer: void merge(javassist.bytecode.analysis.IntQueue,javassist.bytecode.analysis.Frame,int)>(r3, r5, $i3);
+
+     label11:
+        specialinvoke r0.<javassist.bytecode.analysis.Analyzer: void mergeExceptionHandlers(javassist.bytecode.analysis.IntQueue,javassist.bytecode.MethodInfo,int,javassist.bytecode.analysis.Frame)>(r3, r1, i0, r5);
+
+        return;
+
+        catch java.lang.RuntimeException from label01 to label02 with label03;
+    }
+
+    private javassist.bytecode.analysis.Analyzer$ExceptionInfo[] buildExceptionInfo(javassist.bytecode.MethodInfo)
+    {
+        javassist.bytecode.analysis.Analyzer r0;
+        javassist.bytecode.MethodInfo r1;
+        javassist.bytecode.ConstPool r2;
+        javassist.ClassPool r3;
+        javassist.bytecode.ExceptionTable r4;
+        javassist.bytecode.analysis.Analyzer$ExceptionInfo[] r5;
+        int i0, $i1, $i2, $i3, $i4, $i5, i6;
+        javassist.CtClass $r8, $r11;
+        javassist.bytecode.CodeAttribute $r9;
+        java.lang.String $r10, $r15;
+        javassist.bytecode.analysis.Analyzer$ExceptionInfo $r12;
+        javassist.NotFoundException $r13;
+        java.lang.IllegalStateException $r14;
+        javassist.bytecode.analysis.Type $r16;
+
+        r0 := @this: javassist.bytecode.analysis.Analyzer;
+
+        r1 := @parameter0: javassist.bytecode.MethodInfo;
+
+        r2 = virtualinvoke r1.<javassist.bytecode.MethodInfo: javassist.bytecode.ConstPool getConstPool()>();
+
+        $r8 = r0.<javassist.bytecode.analysis.Analyzer: javassist.CtClass clazz>;
+
+        r3 = virtualinvoke $r8.<javassist.CtClass: javassist.ClassPool getClassPool()>();
+
+        $r9 = virtualinvoke r1.<javassist.bytecode.MethodInfo: javassist.bytecode.CodeAttribute getCodeAttribute()>();
+
+        r4 = virtualinvoke $r9.<javassist.bytecode.CodeAttribute: javassist.bytecode.ExceptionTable getExceptionTable()>();
+
+        $i1 = virtualinvoke r4.<javassist.bytecode.ExceptionTable: int size()>();
+
+        r5 = newarray (javassist.bytecode.analysis.Analyzer$ExceptionInfo)[$i1];
+
+        i6 = 0;
+
+     label1:
+        $i2 = virtualinvoke r4.<javassist.bytecode.ExceptionTable: int size()>();
+
+        if i6 >= $i2 goto label7;
+
+        i0 = virtualinvoke r4.<javassist.bytecode.ExceptionTable: int catchType(int)>(i6);
+
+     label2:
+        if i0 != 0 goto label3;
+
+        $r16 = <javassist.bytecode.analysis.Type: javassist.bytecode.analysis.Type THROWABLE>;
+
+        goto label4;
+
+     label3:
+        $r10 = virtualinvoke r2.<javassist.bytecode.ConstPool: java.lang.String getClassInfo(int)>(i0);
+
+        $r11 = virtualinvoke r3.<javassist.ClassPool: javassist.CtClass get(java.lang.String)>($r10);
+
+        $r16 = staticinvoke <javassist.bytecode.analysis.Type: javassist.bytecode.analysis.Type get(javassist.CtClass)>($r11);
+
+     label4:
+        goto label6;
+
+     label5:
+        $r13 := @caughtexception;
+
+        $r14 = new java.lang.IllegalStateException;
+
+        $r15 = virtualinvoke $r13.<javassist.NotFoundException: java.lang.String getMessage()>();
+
+        specialinvoke $r14.<java.lang.IllegalStateException: void <init>(java.lang.String)>($r15);
+
+        throw $r14;
+
+     label6:
+        $r12 = new javassist.bytecode.analysis.Analyzer$ExceptionInfo;
+
+        $i3 = virtualinvoke r4.<javassist.bytecode.ExceptionTable: int startPc(int)>(i6);
+
+        $i4 = virtualinvoke r4.<javassist.bytecode.ExceptionTable: int endPc(int)>(i6);
+
+        $i5 = virtualinvoke r4.<javassist.bytecode.ExceptionTable: int handlerPc(int)>(i6);
+
+        specialinvoke $r12.<javassist.bytecode.analysis.Analyzer$ExceptionInfo: void <init>(int,int,int,javassist.bytecode.analysis.Type,javassist.bytecode.analysis.Analyzer$1)>($i3, $i4, $i5, $r16, null);
+
+        r5[i6] = $r12;
+
+        i6 = i6 + 1;
+
+        goto label1;
+
+     label7:
+        return r5;
+
+        catch javassist.NotFoundException from label2 to label4 with label5;
+    }
+
+    private javassist.bytecode.analysis.Frame firstFrame(javassist.bytecode.MethodInfo, int, int)
+    {
+        javassist.bytecode.analysis.Analyzer r0;
+        javassist.bytecode.MethodInfo r1;
+        int i0, i1, $i2, $i3, $i4, $i5, $i6, $i7, i9, i10;
+        javassist.CtClass[] r3;
+        javassist.bytecode.analysis.Type r4, $r10, $r11, $r13;
+        javassist.bytecode.analysis.Frame $r5;
+        java.lang.String $r6;
+        javassist.CtClass $r7, $r9, $r12;
+        javassist.ClassPool $r8;
+        javassist.NotFoundException $r14;
+        java.lang.RuntimeException $r15;
+
+        r0 := @this: javassist.bytecode.analysis.Analyzer;
+
+        r1 := @parameter0: javassist.bytecode.MethodInfo;
+
+        i0 := @parameter1: int;
+
+        i1 := @parameter2: int;
+
+        i9 = 0;
+
+        $r5 = new javassist.bytecode.analysis.Frame;
+
+        specialinvoke $r5.<javassist.bytecode.analysis.Frame: void <init>(int,int)>(i0, i1);
+
+        $i2 = virtualinvoke r1.<javassist.bytecode.MethodInfo: int getAccessFlags()>();
+
+        $i3 = $i2 & 8;
+
+        if $i3 != 0 goto label1;
+
+        i9 = 0 + 1;
+
+        $r12 = r0.<javassist.bytecode.analysis.Analyzer: javassist.CtClass clazz>;
+
+        $r13 = staticinvoke <javassist.bytecode.analysis.Type: javassist.bytecode.analysis.Type get(javassist.CtClass)>($r12);
+
+        virtualinvoke $r5.<javassist.bytecode.analysis.Frame: void setLocal(int,javassist.bytecode.analysis.Type)>(0, $r13);
+
+     label1:
+        $r6 = virtualinvoke r1.<javassist.bytecode.MethodInfo: java.lang.String getDescriptor()>();
+
+        $r7 = r0.<javassist.bytecode.analysis.Analyzer: javassist.CtClass clazz>;
+
+        $r8 = virtualinvoke $r7.<javassist.CtClass: javassist.ClassPool getClassPool()>();
+
+        r3 = staticinvoke <javassist.bytecode.Descriptor: javassist.CtClass[] getParameterTypes(java.lang.String,javassist.ClassPool)>($r6, $r8);
+
+     label2:
+        goto label4;
+
+     label3:
+        $r14 := @caughtexception;
+
+        $r15 = new java.lang.RuntimeException;
+
+        specialinvoke $r15.<java.lang.RuntimeException: void <init>(java.lang.Throwable)>($r14);
+
+        throw $r15;
+
+     label4:
+        i10 = 0;
+
+     label5:
+        $i4 = lengthof r3;
+
+        if i10 >= $i4 goto label7;
+
+        $r9 = r3[i10];
+
+        $r10 = staticinvoke <javassist.bytecode.analysis.Type: javassist.bytecode.analysis.Type get(javassist.CtClass)>($r9);
+
+        r4 = specialinvoke r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Type zeroExtend(javassist.bytecode.analysis.Type)>($r10);
+
+        $i5 = i9;
+
+        i9 = i9 + 1;
+
+        virtualinvoke $r5.<javassist.bytecode.analysis.Frame: void setLocal(int,javassist.bytecode.analysis.Type)>($i5, r4);
+
+        $i6 = virtualinvoke r4.<javassist.bytecode.analysis.Type: int getSize()>();
+
+        if $i6 != 2 goto label6;
+
+        $i7 = i9;
+
+        i9 = i9 + 1;
+
+        $r11 = <javassist.bytecode.analysis.Type: javassist.bytecode.analysis.Type TOP>;
+
+        virtualinvoke $r5.<javassist.bytecode.analysis.Frame: void setLocal(int,javassist.bytecode.analysis.Type)>($i7, $r11);
+
+     label6:
+        i10 = i10 + 1;
+
+        goto label5;
+
+     label7:
+        return $r5;
+
+        catch javassist.NotFoundException from label1 to label2 with label3;
+    }
+
+    private int getNext(javassist.bytecode.CodeIterator, int, int) throws javassist.bytecode.BadBytecode
+    {
+        javassist.bytecode.analysis.Analyzer r0;
+        javassist.bytecode.CodeIterator r1;
+        int i0, i1, i2;
+
+        r0 := @this: javassist.bytecode.analysis.Analyzer;
+
+        r1 := @parameter0: javassist.bytecode.CodeIterator;
+
+        i0 := @parameter1: int;
+
+        i1 := @parameter2: int;
+
+        virtualinvoke r1.<javassist.bytecode.CodeIterator: void move(int)>(i0);
+
+        virtualinvoke r1.<javassist.bytecode.CodeIterator: int next()>();
+
+        i2 = virtualinvoke r1.<javassist.bytecode.CodeIterator: int lookAhead()>();
+
+        virtualinvoke r1.<javassist.bytecode.CodeIterator: void move(int)>(i1);
+
+        virtualinvoke r1.<javassist.bytecode.CodeIterator: int next()>();
+
+        return i2;
+    }
+
+    private int lookAhead(javassist.bytecode.CodeIterator, int) throws javassist.bytecode.BadBytecode
+    {
+        javassist.bytecode.analysis.Analyzer r0;
+        javassist.bytecode.CodeIterator r1;
+        int i0, $i1;
+        boolean $z0;
+        javassist.bytecode.BadBytecode $r2;
+        java.lang.StringBuilder $r3, $r4, $r5, $r6;
+        java.lang.String $r7;
+
+        r0 := @this: javassist.bytecode.analysis.Analyzer;
+
+        r1 := @parameter0: javassist.bytecode.CodeIterator;
+
+        i0 := @parameter1: int;
+
+        $z0 = virtualinvoke r1.<javassist.bytecode.CodeIterator: boolean hasNext()>();
+
+        if $z0 != 0 goto label1;
+
+        $r2 = new javassist.bytecode.BadBytecode;
+
+        $r3 = new java.lang.StringBuilder;
+
+        specialinvoke $r3.<java.lang.StringBuilder: void <init>()>();
+
+        $r4 = virtualinvoke $r3.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Execution falls off end! [pos = ");
+
+        $r5 = virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i0);
+
+        $r6 = virtualinvoke $r5.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("]");
+
+        $r7 = virtualinvoke $r6.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r2.<javassist.bytecode.BadBytecode: void <init>(java.lang.String)>($r7);
+
+        throw $r2;
+
+     label1:
+        $i1 = virtualinvoke r1.<javassist.bytecode.CodeIterator: int lookAhead()>();
+
+        return $i1;
+    }
+
+    private void merge(javassist.bytecode.analysis.IntQueue, javassist.bytecode.analysis.Frame, int)
+    {
+        javassist.bytecode.analysis.Analyzer r0;
+        javassist.bytecode.analysis.IntQueue r1;
+        javassist.bytecode.analysis.Frame r2, r3, $r6;
+        int i0;
+        javassist.bytecode.analysis.Frame[] $r4, $r5;
+        boolean z0;
+
+        r0 := @this: javassist.bytecode.analysis.Analyzer;
+
+        r1 := @parameter0: javassist.bytecode.analysis.IntQueue;
+
+        r2 := @parameter1: javassist.bytecode.analysis.Frame;
+
+        i0 := @parameter2: int;
+
+        $r4 = r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Frame[] frames>;
+
+        r3 = $r4[i0];
+
+        if r3 != null goto label1;
+
+        $r5 = r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Frame[] frames>;
+
+        $r6 = virtualinvoke r2.<javassist.bytecode.analysis.Frame: javassist.bytecode.analysis.Frame copy()>();
+
+        $r5[i0] = $r6;
+
+        z0 = 1;
+
+        goto label2;
+
+     label1:
+        z0 = virtualinvoke r3.<javassist.bytecode.analysis.Frame: boolean merge(javassist.bytecode.analysis.Frame)>(r2);
+
+     label2:
+        if z0 == 0 goto label3;
+
+        virtualinvoke r1.<javassist.bytecode.analysis.IntQueue: void add(int)>(i0);
+
+     label3:
+        return;
+    }
+
+    private void mergeExceptionHandlers(javassist.bytecode.analysis.IntQueue, javassist.bytecode.MethodInfo, int, javassist.bytecode.analysis.Frame)
+    {
+        javassist.bytecode.analysis.Analyzer r0;
+        javassist.bytecode.analysis.IntQueue r1;
+        javassist.bytecode.MethodInfo r2;
+        int i0, $i1, $i2, $i3, $i4, i5;
+        javassist.bytecode.analysis.Frame r3, r5;
+        javassist.bytecode.analysis.Analyzer$ExceptionInfo r4;
+        javassist.bytecode.analysis.Analyzer$ExceptionInfo[] $r6, $r7;
+        javassist.bytecode.analysis.Type $r8;
+
+        r0 := @this: javassist.bytecode.analysis.Analyzer;
+
+        r1 := @parameter0: javassist.bytecode.analysis.IntQueue;
+
+        r2 := @parameter1: javassist.bytecode.MethodInfo;
+
+        i0 := @parameter2: int;
+
+        r3 := @parameter3: javassist.bytecode.analysis.Frame;
+
+        i5 = 0;
+
+     label1:
+        $r6 = r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Analyzer$ExceptionInfo[] exceptions>;
+
+        $i1 = lengthof $r6;
+
+        if i5 >= $i1 goto label3;
+
+        $r7 = r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Analyzer$ExceptionInfo[] exceptions>;
+
+        r4 = $r7[i5];
+
+        $i2 = staticinvoke <javassist.bytecode.analysis.Analyzer$ExceptionInfo: int access$100(javassist.bytecode.analysis.Analyzer$ExceptionInfo)>(r4);
+
+        if i0 < $i2 goto label2;
+
+        $i3 = staticinvoke <javassist.bytecode.analysis.Analyzer$ExceptionInfo: int access$200(javassist.bytecode.analysis.Analyzer$ExceptionInfo)>(r4);
+
+        if i0 >= $i3 goto label2;
+
+        r5 = virtualinvoke r3.<javassist.bytecode.analysis.Frame: javassist.bytecode.analysis.Frame copy()>();
+
+        virtualinvoke r5.<javassist.bytecode.analysis.Frame: void clearStack()>();
+
+        $r8 = staticinvoke <javassist.bytecode.analysis.Analyzer$ExceptionInfo: javassist.bytecode.analysis.Type access$300(javassist.bytecode.analysis.Analyzer$ExceptionInfo)>(r4);
+
+        virtualinvoke r5.<javassist.bytecode.analysis.Frame: void push(javassist.bytecode.analysis.Type)>($r8);
+
+        $i4 = staticinvoke <javassist.bytecode.analysis.Analyzer$ExceptionInfo: int access$400(javassist.bytecode.analysis.Analyzer$ExceptionInfo)>(r4);
+
+        specialinvoke r0.<javassist.bytecode.analysis.Analyzer: void merge(javassist.bytecode.analysis.IntQueue,javassist.bytecode.analysis.Frame,int)>(r1, r5, $i4);
+
+     label2:
+        i5 = i5 + 1;
+
+        goto label1;
+
+     label3:
+        return;
+    }
+
+    private void mergeJsr(javassist.bytecode.analysis.IntQueue, javassist.bytecode.analysis.Frame, javassist.bytecode.analysis.Subroutine, int, int) throws javassist.bytecode.BadBytecode
+    {
+        javassist.bytecode.analysis.Analyzer r0;
+        javassist.bytecode.analysis.IntQueue r1;
+        javassist.bytecode.analysis.Frame r2, $r7, r14;
+        javassist.bytecode.analysis.Subroutine r3;
+        int i0, i1, $i2, i3;
+        javassist.bytecode.analysis.Type r4, r15, r16;
+        javassist.bytecode.analysis.Frame[] $r5, $r6;
+        boolean $z0, $z1, $z2, $z3, $z4, z5;
+        javassist.bytecode.BadBytecode $r8;
+        java.lang.StringBuilder $r9, $r10, $r11, $r12;
+        java.lang.String $r13;
+
+        r0 := @this: javassist.bytecode.analysis.Analyzer;
+
+        r1 := @parameter0: javassist.bytecode.analysis.IntQueue;
+
+        r2 := @parameter1: javassist.bytecode.analysis.Frame;
+
+        r3 := @parameter2: javassist.bytecode.analysis.Subroutine;
+
+        i0 := @parameter3: int;
+
+        i1 := @parameter4: int;
+
+        if r3 != null goto label1;
+
+        $r8 = new javassist.bytecode.BadBytecode;
+
+        $r9 = new java.lang.StringBuilder;
+
+        specialinvoke $r9.<java.lang.StringBuilder: void <init>()>();
+
+        $r10 = virtualinvoke $r9.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("No subroutine at jsr target! [pos = ");
+
+        $r11 = virtualinvoke $r10.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i0);
+
+        $r12 = virtualinvoke $r11.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("]");
+
+        $r13 = virtualinvoke $r12.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r8.<javassist.bytecode.BadBytecode: void <init>(java.lang.String)>($r13);
+
+        throw $r8;
+
+     label1:
+        $r5 = r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Frame[] frames>;
+
+        r14 = $r5[i1];
+
+        z5 = 0;
+
+        if r14 != null goto label2;
+
+        $r6 = r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Frame[] frames>;
+
+        $r7 = virtualinvoke r2.<javassist.bytecode.analysis.Frame: javassist.bytecode.analysis.Frame copy()>();
+
+        $r6[i1] = $r7;
+
+        r14 = $r7;
+
+        z5 = 1;
+
+        goto label7;
+
+     label2:
+        i3 = 0;
+
+     label3:
+        $i2 = virtualinvoke r2.<javassist.bytecode.analysis.Frame: int localsLength()>();
+
+        if i3 >= $i2 goto label7;
+
+        $z2 = virtualinvoke r3.<javassist.bytecode.analysis.Subroutine: boolean isAccessed(int)>(i3);
+
+        if $z2 != 0 goto label6;
+
+        r4 = virtualinvoke r14.<javassist.bytecode.analysis.Frame: javassist.bytecode.analysis.Type getLocal(int)>(i3);
+
+        r15 = virtualinvoke r2.<javassist.bytecode.analysis.Frame: javassist.bytecode.analysis.Type getLocal(int)>(i3);
+
+        if r4 != null goto label4;
+
+        virtualinvoke r14.<javassist.bytecode.analysis.Frame: void setLocal(int,javassist.bytecode.analysis.Type)>(i3, r15);
+
+        z5 = 1;
+
+        goto label6;
+
+     label4:
+        r16 = virtualinvoke r4.<javassist.bytecode.analysis.Type: javassist.bytecode.analysis.Type merge(javassist.bytecode.analysis.Type)>(r15);
+
+        virtualinvoke r14.<javassist.bytecode.analysis.Frame: void setLocal(int,javassist.bytecode.analysis.Type)>(i3, r16);
+
+        $z3 = virtualinvoke r16.<javassist.bytecode.analysis.Type: boolean equals(java.lang.Object)>(r4);
+
+        if $z3 == 0 goto label5;
+
+        $z4 = virtualinvoke r16.<javassist.bytecode.analysis.Type: boolean popChanged()>();
+
+        if $z4 == 0 goto label6;
+
+     label5:
+        z5 = 1;
+
+     label6:
+        i3 = i3 + 1;
+
+        goto label3;
+
+     label7:
+        $z0 = virtualinvoke r14.<javassist.bytecode.analysis.Frame: boolean isJsrMerged()>();
+
+        if $z0 != 0 goto label8;
+
+        virtualinvoke r14.<javassist.bytecode.analysis.Frame: void setJsrMerged(boolean)>(1);
+
+        z5 = 1;
+
+     label8:
+        if z5 == 0 goto label9;
+
+        $z1 = virtualinvoke r14.<javassist.bytecode.analysis.Frame: boolean isRetMerged()>();
+
+        if $z1 == 0 goto label9;
+
+        virtualinvoke r1.<javassist.bytecode.analysis.IntQueue: void add(int)>(i1);
+
+     label9:
+        return;
+    }
+
+    private void mergeLookupSwitch(javassist.bytecode.analysis.IntQueue, int, javassist.bytecode.CodeIterator, javassist.bytecode.analysis.Frame) throws javassist.bytecode.BadBytecode
+    {
+        javassist.bytecode.analysis.Analyzer r0;
+        javassist.bytecode.analysis.IntQueue r1;
+        int i0, i1, i2, i3, $i4, $i5, $i6, $i7, $i8, i9, i10, i11, i12;
+        javassist.bytecode.CodeIterator r2;
+        javassist.bytecode.analysis.Frame r3;
+
+        r0 := @this: javassist.bytecode.analysis.Analyzer;
+
+        r1 := @parameter0: javassist.bytecode.analysis.IntQueue;
+
+        i0 := @parameter1: int;
+
+        r2 := @parameter2: javassist.bytecode.CodeIterator;
+
+        r3 := @parameter3: javassist.bytecode.analysis.Frame;
+
+        $i4 = i0 & -4;
+
+        i9 = $i4 + 4;
+
+        $i5 = virtualinvoke r2.<javassist.bytecode.CodeIterator: int s32bitAt(int)>(i9);
+
+        $i6 = i0 + $i5;
+
+        specialinvoke r0.<javassist.bytecode.analysis.Analyzer: void merge(javassist.bytecode.analysis.IntQueue,javassist.bytecode.analysis.Frame,int)>(r1, r3, $i6);
+
+        i10 = i9 + 4;
+
+        i1 = virtualinvoke r2.<javassist.bytecode.CodeIterator: int s32bitAt(int)>(i10);
+
+        $i7 = i1 * 8;
+
+        i11 = i10 + 4;
+
+        i2 = $i7 + i11;
+
+        i12 = i11 + 4;
+
+     label1:
+        if i12 >= i2 goto label2;
+
+        $i8 = virtualinvoke r2.<javassist.bytecode.CodeIterator: int s32bitAt(int)>(i12);
+
+        i3 = $i8 + i0;
+
+        specialinvoke r0.<javassist.bytecode.analysis.Analyzer: void merge(javassist.bytecode.analysis.IntQueue,javassist.bytecode.analysis.Frame,int)>(r1, r3, i3);
+
+        i12 = i12 + 8;
+
+        goto label1;
+
+     label2:
+        return;
+    }
+
+    private void mergeRet(javassist.bytecode.analysis.IntQueue, javassist.bytecode.CodeIterator, int, javassist.bytecode.analysis.Frame, javassist.bytecode.analysis.Subroutine) throws javassist.bytecode.BadBytecode
+    {
+        javassist.bytecode.analysis.Analyzer r0;
+        javassist.bytecode.analysis.IntQueue r1;
+        javassist.bytecode.CodeIterator r2;
+        int i0, i1, i2, i3;
+        javassist.bytecode.analysis.Frame r3, $r17, r24;
+        javassist.bytecode.analysis.Subroutine r4;
+        java.util.Iterator r5, r6;
+        javassist.bytecode.analysis.Type r7, r8;
+        java.util.Collection $r9, $r13;
+        boolean $z0, $z1, $z2, z4, $z5;
+        java.lang.Object $r10, $r14;
+        java.lang.Integer $r11, $r15;
+        javassist.bytecode.analysis.Frame[] $r12, $r16;
+        javassist.bytecode.BadBytecode $r18;
+        java.lang.StringBuilder $r19, $r20, $r21, $r22;
+        java.lang.String $r23;
+
+        r0 := @this: javassist.bytecode.analysis.Analyzer;
+
+        r1 := @parameter0: javassist.bytecode.analysis.IntQueue;
+
+        r2 := @parameter1: javassist.bytecode.CodeIterator;
+
+        i0 := @parameter2: int;
+
+        r3 := @parameter3: javassist.bytecode.analysis.Frame;
+
+        r4 := @parameter4: javassist.bytecode.analysis.Subroutine;
+
+        if r4 != null goto label01;
+
+        $r18 = new javassist.bytecode.BadBytecode;
+
+        $r19 = new java.lang.StringBuilder;
+
+        specialinvoke $r19.<java.lang.StringBuilder: void <init>()>();
+
+        $r20 = virtualinvoke $r19.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("Ret on no subroutine! [pos = ");
+
+        $r21 = virtualinvoke $r20.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i0);
+
+        $r22 = virtualinvoke $r21.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("]");
+
+        $r23 = virtualinvoke $r22.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r18.<javassist.bytecode.BadBytecode: void <init>(java.lang.String)>($r23);
+
+        throw $r18;
+
+     label01:
+        $r9 = virtualinvoke r4.<javassist.bytecode.analysis.Subroutine: java.util.Collection callers()>();
+
+        r5 = interfaceinvoke $r9.<java.util.Collection: java.util.Iterator iterator()>();
+
+     label02:
+        $z0 = interfaceinvoke r5.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label10;
+
+        $r10 = interfaceinvoke r5.<java.util.Iterator: java.lang.Object next()>();
+
+        $r11 = (java.lang.Integer) $r10;
+
+        i1 = virtualinvoke $r11.<java.lang.Integer: int intValue()>();
+
+        i2 = specialinvoke r0.<javassist.bytecode.analysis.Analyzer: int getNext(javassist.bytecode.CodeIterator,int,int)>(r2, i1, i0);
+
+        $r12 = r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Frame[] frames>;
+
+        r24 = $r12[i2];
+
+        if r24 != null goto label03;
+
+        $r16 = r0.<javassist.bytecode.analysis.Analyzer: javassist.bytecode.analysis.Frame[] frames>;
+
+        $r17 = virtualinvoke r3.<javassist.bytecode.analysis.Frame: javassist.bytecode.analysis.Frame copyStack()>();
+
+        $r16[i2] = $r17;
+
+        r24 = $r17;
+
+        z4 = 1;
+
+        goto label04;
+
+     label03:
+        z4 = virtualinvoke r24.<javassist.bytecode.analysis.Frame: boolean mergeStack(javassist.bytecode.analysis.Frame)>(r3);
+
+     label04:
+        $r13 = virtualinvoke r4.<javassist.bytecode.analysis.Subroutine: java.util.Collection accessed()>();
+
+        r6 = interfaceinvoke $r13.<java.util.Collection: java.util.Iterator iterator()>();
+
+     label05:
+        $z5 = interfaceinvoke r6.<java.util.Iterator: boolean hasNext()>();
+
+        if $z5 == 0 goto label07;
+
+        $r14 = interfaceinvoke r6.<java.util.Iterator: java.lang.Object next()>();
+
+        $r15 = (java.lang.Integer) $r14;
+
+        i3 = virtualinvoke $r15.<java.lang.Integer: int intValue()>();
+
+        r7 = virtualinvoke r24.<javassist.bytecode.analysis.Frame: javassist.bytecode.analysis.Type getLocal(int)>(i3);
+
+        r8 = virtualinvoke r3.<javassist.bytecode.analysis.Frame: javassist.bytecode.analysis.Type getLocal(int)>(i3);
+
+        if r7 == r8 goto label06;
+
+        virtualinvoke r24.<javassist.bytecode.analysis.Frame: void setLocal(int,javassist.bytecode.analysis.Type)>(i3, r8);
+
+        z4 = 1;
+
+     label06:
+        goto label05;
+
+     label07:
+        $z1 = virtualinvoke r24.<javassist.bytecode.analysis.Frame: boolean isRetMerged()>();
+
+        if $z1 != 0 goto label08;
+
+        virtualinvoke r24.<javassist.bytecode.analysis.Frame: void setRetMerged(boolean)>(1);
+
+        z4 = 1;
+
+     label08:
+        if z4 == 0 goto label09;
+
+        $z2 = virtualinvoke r24.<javassist.bytecode.analysis.Frame: boolean isJsrMerged()>();
+
+        if $z2 == 0 goto label09;
+
+        virtualinvoke r1.<javassist.bytecode.analysis.IntQueue: void add(int)>(i2);
+
+     label09:
+        goto label02;
+
+     label10:
+        return;
+    }
+
+    private void mergeTableSwitch(javassist.bytecode.analysis.IntQueue, int, javassist.bytecode.CodeIterator, javassist.bytecode.analysis.Frame) throws javassist.bytecode.BadBytecode
+    {
+        javassist.bytecode.analysis.Analyzer r0;
+        javassist.bytecode.analysis.IntQueue r1;
+        int i0, i1, i2, i3, i4, $i5, $i6, $i7, $i8, $i9, $i10, $i11, i12, i13, i14, i15;
+        javassist.bytecode.CodeIterator r2;
+        javassist.bytecode.analysis.Frame r3;
+
+        r0 := @this: javassist.bytecode.analysis.Analyzer;
+
+        r1 := @parameter0: javassist.bytecode.analysis.IntQueue;
+
+        i0 := @parameter1: int;
+
+        r2 := @parameter2: javassist.bytecode.CodeIterator;
+
+        r3 := @parameter3: javassist.bytecode.analysis.Frame;
+
+        $i5 = i0 & -4;
+
+        i12 = $i5 + 4;
+
+        $i6 = virtualinvoke r2.<javassist.bytecode.CodeIterator: int s32bitAt(int)>(i12);
+
+        $i7 = i0 + $i6;
+
+        specialinvoke r0.<javassist.bytecode.analysis.Analyzer: void merge(javassist.bytecode.analysis.IntQueue,javassist.bytecode.analysis.Frame,int)>(r1, r3, $i7);
+
+        i13 = i12 + 4;
+
+        i1 = virtualinvoke r2.<javassist.bytecode.CodeIterator: int s32bitAt(int)>(i13);
+
+        i14 = i13 + 4;
+
+        i2 = virtualinvoke r2.<javassist.bytecode.CodeIterator: int s32bitAt(int)>(i14);
+
+        $i8 = i2 - i1;
+
+        $i9 = $i8 + 1;
+
+        $i10 = $i9 * 4;
+
+        i15 = i14 + 4;
+
+        i3 = $i10 + i15;
+
+     label1:
+        if i15 >= i3 goto label2;
+
+        $i11 = virtualinvoke r2.<javassist.bytecode.CodeIterator: int s32bitAt(int)>(i15);
+
+        i4 = $i11 + i0;
+
+        specialinvoke r0.<javassist.bytecode.analysis.Analyzer: void merge(javassist.bytecode.analysis.IntQueue,javassist.bytecode.analysis.Frame,int)>(r1, r3, i4);
+
+        i15 = i15 + 4;
+
+        goto label1;
+
+     label2:
+        return;
+    }
+
+    private javassist.bytecode.analysis.Type zeroExtend(javassist.bytecode.analysis.Type)
+    {
+        javassist.bytecode.analysis.Analyzer r0;
+        javassist.bytecode.analysis.Type r1, $r2, $r3, $r4, $r5, $r6;
+
+        r0 := @this: javassist.bytecode.analysis.Analyzer;
+
+        r1 := @parameter0: javassist.bytecode.analysis.Type;
+
+        $r2 = <javassist.bytecode.analysis.Type: javassist.bytecode.analysis.Type SHORT>;
+
+        if r1 == $r2 goto label1;
+
+        $r3 = <javassist.bytecode.analysis.Type: javassist.bytecode.analysis.Type BYTE>;
+
+        if r1 == $r3 goto label1;
+
+        $r4 = <javassist.bytecode.analysis.Type: javassist.bytecode.analysis.Type CHAR>;
+
+        if r1 == $r4 goto label1;
+
+        $r5 = <javassist.bytecode.analysis.Type: javassist.bytecode.analysis.Type BOOLEAN>;
+
+        if r1 != $r5 goto label2;
+
+     label1:
+        $r6 = <javassist.bytecode.analysis.Type: javassist.bytecode.analysis.Type INTEGER>;
+
+        return $r6;
+
+     label2:
+        return r1;
+    }
+}

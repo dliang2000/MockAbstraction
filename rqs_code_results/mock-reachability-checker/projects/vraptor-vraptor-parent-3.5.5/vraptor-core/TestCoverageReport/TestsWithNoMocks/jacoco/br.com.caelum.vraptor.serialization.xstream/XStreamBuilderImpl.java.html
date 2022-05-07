@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>XStreamBuilderImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.serialization.xstream</a> &gt; <span class="el_source">XStreamBuilderImpl.java</span></div><h1>XStreamBuilderImpl.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource All rights reserved.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+package br.com.caelum.vraptor.serialization.xstream;
+
+import java.io.Writer;
+import java.util.Arrays;
+import java.util.Collections;
+
+import br.com.caelum.vraptor.interceptor.DefaultTypeNameExtractor;
+import br.com.caelum.vraptor.interceptor.TypeNameExtractor;
+import br.com.caelum.vraptor.ioc.Component;
+import br.com.caelum.vraptor.ioc.PrototypeScoped;
+
+import com.thoughtworks.xstream.XStream;
+import com.thoughtworks.xstream.converters.Converter;
+import com.thoughtworks.xstream.converters.SingleValueConverter;
+import com.thoughtworks.xstream.io.HierarchicalStreamDriver;
+import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
+import com.thoughtworks.xstream.io.json.JsonHierarchicalStreamDriver;
+import com.thoughtworks.xstream.io.json.JsonWriter;
+
+/**
+ * Implementation of default XStream configuration
+ *
+ * @author Rafael Viana
+ * @since 3.4.0
+ */
+@PrototypeScoped
+@Component
+public class XStreamBuilderImpl implements XStreamBuilder {
+
+	private final XStreamConverters converters;
+	private final TypeNameExtractor extractor;
+	
+	private boolean indented;
+	private boolean withoutRoot;
+	private boolean recursive;
+	
+<span class="fc" id="L52">	public XStreamBuilderImpl(XStreamConverters converters, TypeNameExtractor extractor) {</span>
+<span class="fc" id="L53">		this.converters = converters;</span>
+<span class="fc" id="L54">		this.extractor = extractor;</span>
+<span class="fc" id="L55">	}</span>
+
+	public static XStreamBuilder cleanInstance(Converter...converters) {
+<span class="fc" id="L58">	return new XStreamBuilderImpl(</span>
+<span class="fc" id="L59">		new XStreamConverters(Arrays.asList(converters), Collections.&lt;SingleValueConverter&gt;emptyList()),</span>
+		new DefaultTypeNameExtractor());
+	}
+
+	public XStream xmlInstance() {
+<span class="fc" id="L64">		VRaptorXStream xstream = new VRaptorXStream(extractor);</span>
+<span class="fc" id="L65">		xstream.getVRaptorMapper().getSerializee().setRecursive(recursive);</span>
+<span class="fc" id="L66">		return configure(xstream);</span>
+	}
+	
+	protected static final String DEFAULT_NEW_LINE = &quot;&quot;;
+<span class="fc" id="L70">	protected static final char[] DEFAULT_LINE_INDENTER = {};</span>
+	
+	protected static final String INDENTED_NEW_LINE = &quot;\n&quot;;
+<span class="fc" id="L73">	protected static final char[] INDENTED_LINE_INDENTER = { ' ', ' '};</span>
+	
+	public XStream jsonInstance() {
+<span class="fc" id="L76">		return configure(new VRaptorXStream(extractor, getHierarchicalStreamDriver()));</span>
+	}
+	
+	public XStream configure(XStream xstream) {
+<span class="fc" id="L80">		converters.registerComponents(xstream);</span>
+<span class="fc" id="L81">		return xstream;</span>
+	}
+
+	/**
+	  * You can override this method for configuring Driver before serialization
+	  * @return configured hierarchical driver
+	  */
+	protected HierarchicalStreamDriver getHierarchicalStreamDriver() {
+<span class="fc bfc" id="L89" title="All 2 branches covered.">	final String newLine = (indented ? INDENTED_NEW_LINE : DEFAULT_NEW_LINE);</span>
+<span class="fc bfc" id="L90" title="All 2 branches covered.">	final char[] lineIndenter = (indented ? INDENTED_LINE_INDENTER : DEFAULT_LINE_INDENTER);</span>
+
+<span class="fc" id="L92">	return new JsonHierarchicalStreamDriver() {</span>
+		public HierarchicalStreamWriter createWriter(Writer writer) {
+<span class="fc bfc" id="L94" title="All 2 branches covered.">		if (withoutRoot) {</span>
+<span class="fc" id="L95">			return new JsonWriter(writer, lineIndenter, newLine, JsonWriter.DROP_ROOT_MODE);</span>
+		}
+
+<span class="fc" id="L98">		return new JsonWriter(writer, lineIndenter, newLine);</span>
+		}
+	};
+	}
+
+	public XStreamBuilder indented() {
+<span class="fc" id="L104">		indented = true;</span>
+<span class="fc" id="L105">	return this;</span>
+	}
+
+	public XStreamBuilder withoutRoot() {
+<span class="fc" id="L109">		withoutRoot = true;</span>
+<span class="fc" id="L110">	return this;</span>
+	}
+
+	public XStreamBuilder recursive() {
+<span class="nc" id="L114">		recursive = true;</span>
+<span class="nc" id="L115">		return this;</span>
+	}
+	
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>XStreamJSONSerialization.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.serialization.xstream</a> &gt; <span class="el_source">XStreamJSONSerialization.java</span></div><h1>XStreamJSONSerialization.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+package br.com.caelum.vraptor.serialization.xstream;
+
+import java.io.IOException;
+
+import javax.servlet.http.HttpServletResponse;
+
+import br.com.caelum.vraptor.interceptor.TypeNameExtractor;
+import br.com.caelum.vraptor.ioc.Component;
+import br.com.caelum.vraptor.serialization.*;
+import br.com.caelum.vraptor.view.ResultException;
+import com.thoughtworks.xstream.XStream;
+import com.thoughtworks.xstream.io.HierarchicalStreamDriver;
+
+/**
+ * XStream implementation for JSONSerialization
+ *
+ * @author Lucas Cavalcanti
+ * @since 3.0.2
+ */
+@Component
+public class XStreamJSONSerialization implements JSONSerialization {
+
+	protected final HttpServletResponse response;
+	protected final TypeNameExtractor extractor;
+	protected final ProxyInitializer initializer;
+	protected final XStreamBuilder builder;
+
+<span class="fc" id="L43">	public XStreamJSONSerialization(HttpServletResponse response, TypeNameExtractor extractor, ProxyInitializer initializer, XStreamBuilder builder) {</span>
+<span class="fc" id="L44">	this.response = response;</span>
+<span class="fc" id="L45">	this.extractor = extractor;</span>
+<span class="fc" id="L46">	this.initializer = initializer;</span>
+<span class="fc" id="L47">	this.builder = builder;</span>
+<span class="fc" id="L48">	}</span>
+
+	public boolean accepts(String format) {
+<span class="nc" id="L51">	return &quot;json&quot;.equals(format);</span>
+	}
+
+	public &lt;T&gt; Serializer from(T object) {
+<span class="fc" id="L55">	return from(object, null);</span>
+	}
+
+	public &lt;T&gt; Serializer from(T object, String alias) {
+<span class="fc" id="L59">	response.setContentType(&quot;application/json&quot;);</span>
+<span class="fc" id="L60">	return getSerializer().from(object, alias);</span>
+	}
+
+	protected SerializerBuilder getSerializer() {
+	try {
+<span class="fc" id="L65">		return new XStreamSerializer(getXStream(), response.getWriter(), extractor, initializer);</span>
+<span class="nc" id="L66">	} catch (IOException e) {</span>
+<span class="nc" id="L67">		throw new ResultException(&quot;Unable to serialize data&quot;, e);</span>
+	}
+	}
+
+	/**
+	 * You can override this method for configuring Driver before serialization
+	 */
+	public &lt;T&gt; NoRootSerialization withoutRoot() {
+<span class="fc" id="L75">	   	builder.withoutRoot();</span>
+<span class="fc" id="L76">	return this;</span>
+	}
+	
+	public JSONSerialization indented() {
+<span class="fc" id="L80">	builder.indented();</span>
+<span class="fc" id="L81">	return this;</span>
+	}
+
+	/**
+	 * You can override this method for configuring XStream before serialization
+	 *
+	 * @deprecated prefer overwriting XStreamBuilder
+	 * @return a configured instance of xstream
+	 */
+	@Deprecated
+	protected XStream getXStream() {
+<span class="fc" id="L92">	return builder.jsonInstance();</span>
+	}
+
+	/**
+	 * You can override this method for configuring Driver before serialization
+	 * @deprecated Override this method on XStreamBuilderImpl instead. WARN: this method will be ignored!
+	 * @return configured hierarchical driver
+	 */
+	@Deprecated
+<span class="nc" id="L101">	protected HierarchicalStreamDriver getHierarchicalStreamDriver() { return null; }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

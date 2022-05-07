@@ -1,0 +1,378 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Plan.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common</a> &gt; <span class="el_source">Plan.java</span></div><h1>Plan.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.cache.DistributedCache.DistributedCacheEntry;
+import org.apache.flink.api.common.operators.GenericDataSinkBase;
+import org.apache.flink.api.common.operators.Operator;
+import org.apache.flink.api.dag.Pipeline;
+import org.apache.flink.util.Visitable;
+import org.apache.flink.util.Visitor;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map.Entry;
+import java.util.Set;
+
+import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+/**
+ * This class represents Flink programs, in the form of dataflow plans.
+ *
+ * &lt;p&gt;The dataflow is referenced by the data sinks, from which all connected operators of the data
+ * flow can be reached via backwards traversal.
+ */
+@Internal
+public class Plan implements Visitable&lt;Operator&lt;?&gt;&gt;, Pipeline {
+
+    /**
+     * A collection of all sinks in the plan. Since the plan is traversed from the sinks to the
+     * sources, this collection must contain all the sinks.
+     */
+<span class="nc" id="L56">    protected final List&lt;GenericDataSinkBase&lt;?&gt;&gt; sinks = new ArrayList&lt;&gt;(4);</span>
+
+    /** The name of the job. */
+    protected String jobName;
+
+    /** The default parallelism to use for nodes that have no explicitly specified parallelism. */
+<span class="nc" id="L62">    protected int defaultParallelism = ExecutionConfig.PARALLELISM_DEFAULT;</span>
+
+    /** Hash map for files in the distributed cache: registered name to cache entry. */
+<span class="nc" id="L65">    protected HashMap&lt;String, DistributedCacheEntry&gt; cacheFile = new HashMap&lt;&gt;();</span>
+
+    /** Config object for runtime execution parameters. */
+    protected ExecutionConfig executionConfig;
+
+    /** The ID of the Job that this dataflow plan belongs to. */
+    private JobID jobId;
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * Creates a new dataflow plan with the given name, describing the data flow that ends at the
+     * given data sinks.
+     *
+     * &lt;p&gt;If not all of the sinks of a data flow are given to the plan, the flow might not be
+     * translated entirely.
+     *
+     * @param sinks The collection will the sinks of the job's data flow.
+     * @param jobName The name to display for the job.
+     */
+    public Plan(Collection&lt;? extends GenericDataSinkBase&lt;?&gt;&gt; sinks, String jobName) {
+<span class="nc" id="L86">        this(sinks, jobName, ExecutionConfig.PARALLELISM_DEFAULT);</span>
+<span class="nc" id="L87">    }</span>
+
+    /**
+     * Creates a new program plan with the given name and default parallelism, describing the data
+     * flow that ends at the given data sinks.
+     *
+     * &lt;p&gt;If not all of the sinks of a data flow are given to the plan, the flow might not be
+     * translated entirely.
+     *
+     * @param sinks The collection will the sinks of the job's data flow.
+     * @param jobName The name to display for the job.
+     * @param defaultParallelism The default parallelism for the job.
+     */
+    public Plan(
+            Collection&lt;? extends GenericDataSinkBase&lt;?&gt;&gt; sinks,
+            String jobName,
+<span class="nc" id="L103">            int defaultParallelism) {</span>
+<span class="nc" id="L104">        this.sinks.addAll(sinks);</span>
+<span class="nc" id="L105">        this.jobName = jobName;</span>
+<span class="nc" id="L106">        this.defaultParallelism = defaultParallelism;</span>
+<span class="nc" id="L107">    }</span>
+
+    /**
+     * Creates a new program plan with the given name, containing initially a single data sink.
+     *
+     * &lt;p&gt;If not all of the sinks of a data flow are given, the flow might not be translated
+     * entirely, but only the parts of the flow reachable by traversing backwards from the given
+     * data sinks.
+     *
+     * @param sink The data sink of the data flow.
+     * @param jobName The name to display for the job.
+     */
+    public Plan(GenericDataSinkBase&lt;?&gt; sink, String jobName) {
+<span class="nc" id="L120">        this(sink, jobName, ExecutionConfig.PARALLELISM_DEFAULT);</span>
+<span class="nc" id="L121">    }</span>
+
+    /**
+     * Creates a new program plan with the given name and default parallelism, containing initially
+     * a single data sink.
+     *
+     * &lt;p&gt;If not all of the sinks of a data flow are given, the flow might not be translated
+     * entirely, but only the parts of the flow reachable by traversing backwards from the given
+     * data sinks.
+     *
+     * @param sink The data sink of the data flow.
+     * @param jobName The name to display for the job.
+     * @param defaultParallelism The default parallelism for the job.
+     */
+    public Plan(GenericDataSinkBase&lt;?&gt; sink, String jobName, int defaultParallelism) {
+<span class="nc" id="L136">        this(Collections.&lt;GenericDataSinkBase&lt;?&gt;&gt;singletonList(sink), jobName, defaultParallelism);</span>
+<span class="nc" id="L137">    }</span>
+
+    /**
+     * Creates a new program plan, describing the data flow that ends at the given data sinks. The
+     * display name for the job is generated using a timestamp.
+     *
+     * &lt;p&gt;If not all of the sinks of a data flow are given, the flow might not be translated
+     * entirely, but only the parts of the flow reachable by traversing backwards from the given
+     * data sinks.
+     *
+     * @param sinks The collection will the sinks of the data flow.
+     */
+    public Plan(Collection&lt;? extends GenericDataSinkBase&lt;?&gt;&gt; sinks) {
+<span class="nc" id="L150">        this(sinks, ExecutionConfig.PARALLELISM_DEFAULT);</span>
+<span class="nc" id="L151">    }</span>
+
+    /**
+     * Creates a new program plan with the given default parallelism, describing the data flow that
+     * ends at the given data sinks. The display name for the job is generated using a timestamp.
+     *
+     * &lt;p&gt;If not all of the sinks of a data flow are given, the flow might not be translated
+     * entirely, but only the parts of the flow reachable by traversing backwards from the given
+     * data sinks.
+     *
+     * @param sinks The collection will the sinks of the data flow.
+     * @param defaultParallelism The default parallelism for the job.
+     */
+    public Plan(Collection&lt;? extends GenericDataSinkBase&lt;?&gt;&gt; sinks, int defaultParallelism) {
+<span class="nc" id="L165">        this(sinks, &quot;Flink Job at &quot; + Calendar.getInstance().getTime(), defaultParallelism);</span>
+<span class="nc" id="L166">    }</span>
+
+    /**
+     * Creates a new program plan with single data sink. The display name for the job is generated
+     * using a timestamp.
+     *
+     * &lt;p&gt;If not all of the sinks of a data flow are given to the plan, the flow might not be
+     * translated entirely.
+     *
+     * @param sink The data sink of the data flow.
+     */
+    public Plan(GenericDataSinkBase&lt;?&gt; sink) {
+<span class="nc" id="L178">        this(sink, ExecutionConfig.PARALLELISM_DEFAULT);</span>
+<span class="nc" id="L179">    }</span>
+
+    /**
+     * Creates a new program plan with single data sink and the given default parallelism. The
+     * display name for the job is generated using a timestamp.
+     *
+     * &lt;p&gt;If not all of the sinks of a data flow are given to the plan, the flow might not be
+     * translated entirely.
+     *
+     * @param sink The data sink of the data flow.
+     * @param defaultParallelism The default parallelism for the job.
+     */
+    public Plan(GenericDataSinkBase&lt;?&gt; sink, int defaultParallelism) {
+<span class="nc" id="L192">        this(sink, &quot;Flink Job at &quot; + Calendar.getInstance().getTime(), defaultParallelism);</span>
+<span class="nc" id="L193">    }</span>
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * Adds a data sink to the set of sinks in this program.
+     *
+     * @param sink The data sink to add.
+     */
+    public void addDataSink(GenericDataSinkBase&lt;?&gt; sink) {
+<span class="nc" id="L203">        checkNotNull(sink, &quot;The data sink must not be null.&quot;);</span>
+
+<span class="nc bnc" id="L205" title="All 2 branches missed.">        if (!this.sinks.contains(sink)) {</span>
+<span class="nc" id="L206">            this.sinks.add(sink);</span>
+        }
+<span class="nc" id="L208">    }</span>
+
+    /**
+     * Gets all the data sinks of this job.
+     *
+     * @return All sinks of the program.
+     */
+    public Collection&lt;? extends GenericDataSinkBase&lt;?&gt;&gt; getDataSinks() {
+<span class="nc" id="L216">        return this.sinks;</span>
+    }
+
+    /**
+     * Gets the name of this job.
+     *
+     * @return The name of the job.
+     */
+    public String getJobName() {
+<span class="nc" id="L225">        return this.jobName;</span>
+    }
+
+    /**
+     * Sets the jobName for this Plan.
+     *
+     * @param jobName The jobName to set.
+     */
+    public void setJobName(String jobName) {
+<span class="nc" id="L234">        checkNotNull(jobName, &quot;The job name must not be null.&quot;);</span>
+<span class="nc" id="L235">        this.jobName = jobName;</span>
+<span class="nc" id="L236">    }</span>
+
+    /**
+     * Gets the ID of the job that the dataflow plan belongs to. If this ID is not set, then the
+     * dataflow represents its own independent job.
+     *
+     * @return The ID of the job that the dataflow plan belongs to.
+     */
+    public JobID getJobId() {
+<span class="nc" id="L245">        return jobId;</span>
+    }
+
+    /**
+     * Sets the ID of the job that the dataflow plan belongs to. If this ID is set to {@code null},
+     * then the dataflow represents its own independent job.
+     *
+     * @param jobId The ID of the job that the dataflow plan belongs to.
+     */
+    public void setJobId(JobID jobId) {
+<span class="nc" id="L255">        this.jobId = jobId;</span>
+<span class="nc" id="L256">    }</span>
+
+    /**
+     * Gets the default parallelism for this job. That degree is always used when an operator is not
+     * explicitly given a parallelism.
+     *
+     * @return The default parallelism for the plan.
+     */
+    public int getDefaultParallelism() {
+<span class="nc" id="L265">        return this.defaultParallelism;</span>
+    }
+
+    /**
+     * Sets the default parallelism for this plan. That degree is always used when an operator is
+     * not explicitly given a parallelism.
+     *
+     * @param defaultParallelism The default parallelism for the plan.
+     */
+    public void setDefaultParallelism(int defaultParallelism) {
+<span class="nc bnc" id="L275" title="All 4 branches missed.">        checkArgument(</span>
+                defaultParallelism &gt;= 1
+                        || defaultParallelism == ExecutionConfig.PARALLELISM_DEFAULT,
+                &quot;The default parallelism must be positive, or ExecutionConfig.PARALLELISM_DEFAULT if the system should use the globally configured default.&quot;);
+
+<span class="nc" id="L280">        this.defaultParallelism = defaultParallelism;</span>
+<span class="nc" id="L281">    }</span>
+
+    /**
+     * Gets the optimizer post-pass class for this job. The post-pass typically creates utility
+     * classes for data types and is specific to a particular data model (record, tuple, Scala, ...)
+     *
+     * @return The name of the class implementing the optimizer post-pass.
+     */
+    public String getPostPassClassName() {
+<span class="nc" id="L290">        return &quot;org.apache.flink.optimizer.postpass.JavaApiPostPass&quot;;</span>
+    }
+
+    /**
+     * Gets the execution config object.
+     *
+     * @return The execution config object.
+     */
+    public ExecutionConfig getExecutionConfig() {
+<span class="nc bnc" id="L299" title="All 2 branches missed.">        if (executionConfig == null) {</span>
+<span class="nc" id="L300">            throw new RuntimeException(&quot;Execution config has not been set properly for this plan&quot;);</span>
+        }
+<span class="nc" id="L302">        return executionConfig;</span>
+    }
+
+    /**
+     * Sets the runtime config object defining execution parameters.
+     *
+     * @param executionConfig The execution config to use.
+     */
+    public void setExecutionConfig(ExecutionConfig executionConfig) {
+<span class="nc" id="L311">        this.executionConfig = executionConfig;</span>
+<span class="nc" id="L312">    }</span>
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * Traverses the job depth first from all data sinks on towards the sources.
+     *
+     * @see Visitable#accept(Visitor)
+     */
+    @Override
+    public void accept(Visitor&lt;Operator&lt;?&gt;&gt; visitor) {
+<span class="nc bnc" id="L323" title="All 2 branches missed.">        for (GenericDataSinkBase&lt;?&gt; sink : this.sinks) {</span>
+<span class="nc" id="L324">            sink.accept(visitor);</span>
+<span class="nc" id="L325">        }</span>
+<span class="nc" id="L326">    }</span>
+
+    /**
+     * Register cache files at program level.
+     *
+     * @param entry contains all relevant information
+     * @param name user defined name of that file
+     * @throws java.io.IOException
+     */
+    public void registerCachedFile(String name, DistributedCacheEntry entry) throws IOException {
+<span class="nc bnc" id="L336" title="All 2 branches missed.">        if (!this.cacheFile.containsKey(name)) {</span>
+<span class="nc" id="L337">            this.cacheFile.put(name, entry);</span>
+        } else {
+<span class="nc" id="L339">            throw new IOException(&quot;cache file &quot; + name + &quot;already exists!&quot;);</span>
+        }
+<span class="nc" id="L341">    }</span>
+
+    /**
+     * Return the registered cached files.
+     *
+     * @return Set of (name, filePath) pairs
+     */
+    public Set&lt;Entry&lt;String, DistributedCacheEntry&gt;&gt; getCachedFiles() {
+<span class="nc" id="L349">        return this.cacheFile.entrySet();</span>
+    }
+
+    public int getMaximumParallelism() {
+<span class="nc" id="L353">        MaxDopVisitor visitor = new MaxDopVisitor();</span>
+<span class="nc" id="L354">        accept(visitor);</span>
+<span class="nc" id="L355">        return Math.max(visitor.maxDop, this.defaultParallelism);</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+<span class="nc" id="L360">    private static final class MaxDopVisitor implements Visitor&lt;Operator&lt;?&gt;&gt; {</span>
+
+<span class="nc" id="L362">        private final Set&lt;Operator&gt; visitedOperators = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L363">        private int maxDop = -1;</span>
+
+        @Override
+        public boolean preVisit(Operator&lt;?&gt; visitable) {
+<span class="nc bnc" id="L367" title="All 2 branches missed.">            if (!visitedOperators.add(visitable)) {</span>
+<span class="nc" id="L368">                return false;</span>
+            }
+<span class="nc" id="L370">            this.maxDop = Math.max(this.maxDop, visitable.getParallelism());</span>
+<span class="nc" id="L371">            return true;</span>
+        }
+
+        @Override
+<span class="nc" id="L375">        public void postVisit(Operator&lt;?&gt; visitable) {}</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

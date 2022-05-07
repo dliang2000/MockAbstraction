@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LinkToHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">vraptor</a> &gt; <a href="index.source.html" class="el_package">br.com.caelum.vraptor.view</a> &gt; <span class="el_source">LinkToHandler.java</span></div><h1>LinkToHandler.java</h1><pre class="source lang-java linenums">/***
+ * Copyright (c) 2009 Caelum - www.caelum.com.br/opensource All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+package br.com.caelum.vraptor.view;
+
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.ServletContext;
+
+import net.vidageek.mirror.dsl.Mirror;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import br.com.caelum.vraptor.http.route.Router;
+
+import com.google.common.collect.ForwardingMap;
+
+/**
+ * View helper for generating uris
+ * @author Lucas Cavalcanti
+ * @since 3.4.0
+ *
+ */
+public class LinkToHandler extends ForwardingMap&lt;Class&lt;?&gt;, Object&gt; {
+
+<span class="fc" id="L44">	private static final Logger logger = LoggerFactory.getLogger(LinkToHandler.class);</span>
+
+	private final ServletContext context;
+	private final Router router;
+
+<span class="fc" id="L49">	public LinkToHandler(ServletContext context, Router router) {</span>
+<span class="fc" id="L50">		this.context = context;</span>
+<span class="fc" id="L51">		this.router = router;</span>
+<span class="fc" id="L52">	}</span>
+
+	public void start() {
+<span class="fc" id="L55">		logger.info(&quot;Registering linkTo component&quot;);</span>
+<span class="fc" id="L56">		context.setAttribute(&quot;linkTo&quot;, this);</span>
+<span class="fc" id="L57">	}</span>
+
+	@Override
+	protected Map&lt;Class&lt;?&gt;, Object&gt; delegate() {
+<span class="nc" id="L61">	return Collections.emptyMap();</span>
+	}
+
+	@Override
+	public LinkMethod get(Object key) {
+<span class="fc" id="L66">	return new LinkMethod((Class&lt;?&gt;) key);</span>
+	}
+
+	class LinkMethod extends ForwardingMap&lt;String, Linker&gt; {
+
+		private final Class&lt;?&gt; controller;
+<span class="fc" id="L72">		public LinkMethod(Class&lt;?&gt; controller) {</span>
+<span class="fc" id="L73">			this.controller = controller;</span>
+<span class="fc" id="L74">		}</span>
+		@Override
+		protected Map&lt;String, Linker&gt; delegate() {
+<span class="nc" id="L77">			return Collections.emptyMap();</span>
+		}
+
+		@Override
+		public Linker get(Object key) {
+<span class="fc" id="L82">			return new Linker(controller, key.toString());</span>
+		}
+
+		@Override
+		public String toString() {
+<span class="fc" id="L87">			throw new IllegalArgumentException(&quot;uncomplete linkTo[&quot; + controller.getSimpleName() + &quot;]. You must specify the method.&quot;);</span>
+		}
+	}
+
+	class Linker extends ForwardingMap&lt;Object, Linker&gt; {
+
+		private final List&lt;Object&gt; args;
+		private final String methodName;
+		private final Class&lt;?&gt; controller;
+
+		public Linker(Class&lt;?&gt; controller, String methodName) {
+<span class="fc" id="L98">			this(controller, methodName, new ArrayList&lt;Object&gt;());</span>
+<span class="fc" id="L99">		}</span>
+
+<span class="fc" id="L101">		public Linker(Class&lt;?&gt; controller, String methodName, List&lt;Object&gt; args) {</span>
+<span class="fc" id="L102">			this.controller = controller;</span>
+<span class="fc" id="L103">			this.methodName = methodName;</span>
+<span class="fc" id="L104">			this.args = args;</span>
+<span class="fc" id="L105">		}</span>
+
+		@Override
+		public Linker get(Object key) {
+<span class="fc" id="L109">			List&lt;Object&gt; newArgs = new ArrayList&lt;Object&gt;(args);</span>
+<span class="fc" id="L110">			newArgs.add(key);</span>
+<span class="fc" id="L111">			return new Linker(controller, methodName, newArgs);</span>
+		}
+
+		@Override
+		protected Map&lt;Object, Linker&gt; delegate() {
+<span class="nc" id="L116">			return Collections.emptyMap();</span>
+		}
+
+		@Override
+		public String toString() {
+<span class="fc" id="L121">			Method method = null;</span>
+
+<span class="fc bfc" id="L123" title="All 2 branches covered.">			if (getMethodsAmountWithSameName() &gt; 1) {</span>
+<span class="fc" id="L124">				method = new Mirror().on(controller).reflect().method(methodName).withArgs(getClasses(args));</span>
+<span class="pc bpc" id="L125" title="1 of 4 branches missed.">				if (method == null &amp;&amp; args.isEmpty()) {</span>
+<span class="fc" id="L126">					throw new IllegalArgumentException(&quot;Ambiguous method '&quot; + methodName + &quot;' on &quot; + controller + &quot;. Try to add some parameters to resolve ambiguity, or use different method names.&quot;);</span>
+				}
+			} else {
+<span class="fc" id="L129">				method = findMethodWithName(controller, methodName);</span>
+			}
+
+<span class="pc bpc" id="L132" title="1 of 2 branches missed.">			if(method == null) {</span>
+<span class="fc" id="L133">				throw new IllegalArgumentException(</span>
+<span class="fc" id="L134">					String.format(&quot;There are no methods on %s named '%s' that receives args of types %s&quot;,</span>
+<span class="fc" id="L135">							controller, methodName, Arrays.toString(getClasses(args))));</span>
+			}
+
+<span class="nc" id="L138">			return context.getContextPath() + router.urlFor(controller, method, getArgs(method));</span>
+		}
+
+		private Object[] getArgs(Method method) {
+<span class="fc" id="L142">			int methodParamsQuantity = method.getParameterTypes().length;</span>
+
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">			if (args.size() == methodParamsQuantity)</span>
+<span class="nc" id="L145">				return args.toArray();</span>
+
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">			if (args.size() &gt; methodParamsQuantity)</span>
+<span class="fc" id="L148">				throw new IllegalArgumentException(String.format(&quot;linkTo param args must have the same or lower length as method param args. linkTo args: %d | method args: %d&quot;, args.size(), methodParamsQuantity));</span>
+
+<span class="nc" id="L150">			Object[] noMissingParamsArgs = new Object[methodParamsQuantity];</span>
+<span class="nc" id="L151">			System.arraycopy(args.toArray(), 0, noMissingParamsArgs, 0, args.size());</span>
+
+<span class="nc" id="L153">			return noMissingParamsArgs;</span>
+		}
+
+		private Method findMethodWithName(Class&lt;?&gt; type, String name) {
+<span class="fc bfc" id="L157" title="All 2 branches covered.">			for (Method method : type.getDeclaredMethods()) {</span>
+<span class="pc bpc" id="L158" title="1 of 4 branches missed.">				if (!method.isBridge() &amp;&amp; method.getName().equals(name)) {</span>
+<span class="fc" id="L159">					return method;</span>
+				}
+			}
+
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">			if (type.getSuperclass().equals(Object.class)) {</span>
+<span class="fc" id="L164">				return null;</span>
+			}
+
+<span class="nc" id="L167">			return findMethodWithName(type.getSuperclass(), name);</span>
+		}
+
+		private int getMethodsAmountWithSameName() {
+<span class="fc" id="L171">			int amount = 0;</span>
+<span class="fc bfc" id="L172" title="All 2 branches covered.">			for (Method method : controller.getDeclaredMethods()) {</span>
+<span class="pc bpc" id="L173" title="1 of 4 branches missed.">				if (!method.isBridge() &amp;&amp; method.getName().equals(methodName)) {</span>
+<span class="fc" id="L174">					amount++;</span>
+				}
+			}
+
+<span class="fc" id="L178">			return amount;</span>
+		}
+
+		private Class&lt;?&gt;[] getClasses(List&lt;Object&gt; params) {
+<span class="fc" id="L182">			Class&lt;?&gt;[] classes = new Class&lt;?&gt;[params.size()];</span>
+<span class="fc bfc" id="L183" title="All 2 branches covered.">			for(int i = 0; i &lt; params.size(); i ++) {</span>
+<span class="fc" id="L184">				classes[i] = params.get(i).getClass();</span>
+			}
+<span class="fc" id="L186">			return classes;</span>
+	   }
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

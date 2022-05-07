@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ListKeyGroupedIterator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.operators.util</a> &gt; <span class="el_source">ListKeyGroupedIterator.java</span></div><h1>ListKeyGroupedIterator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.operators.util;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.TypeComparator;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.util.TraversableOnceException;
+
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NoSuchElementException;
+
+/**
+ * The KeyValueIterator returns a key and all values that belong to the key (share the same key).
+ */
+@Internal
+public final class ListKeyGroupedIterator&lt;E&gt; {
+
+    private final List&lt;E&gt; input;
+
+    private final TypeSerializer&lt;E&gt; serializer; // != null if the elements should be copied
+
+    private final TypeComparator&lt;E&gt; comparator;
+
+    private ValuesIterator valuesIterator;
+
+<span class="fc" id="L45">    private int currentPosition = 0;</span>
+
+    private E lookahead;
+
+    private boolean done;
+
+    /**
+     * Initializes the ListKeyGroupedIterator..
+     *
+     * @param input The list with the input elements.
+     * @param comparator The comparator for the data type iterated over.
+     */
+    public ListKeyGroupedIterator(
+<span class="fc" id="L58">            List&lt;E&gt; input, TypeSerializer&lt;E&gt; serializer, TypeComparator&lt;E&gt; comparator) {</span>
+<span class="pc bpc" id="L59" title="2 of 4 branches missed.">        if (input == null || comparator == null) {</span>
+<span class="nc" id="L60">            throw new NullPointerException();</span>
+        }
+
+<span class="fc" id="L63">        this.input = input;</span>
+<span class="fc" id="L64">        this.serializer = serializer;</span>
+<span class="fc" id="L65">        this.comparator = comparator;</span>
+
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        this.done = input.isEmpty() ? true : false;</span>
+<span class="fc" id="L68">    }</span>
+
+    /**
+     * Moves the iterator to the next key. This method may skip any values that have not yet been
+     * returned by the iterator created by the {@link #getValues()} method. Hence, if called
+     * multiple times it &quot;removes&quot; key groups.
+     *
+     * @return true, if the input iterator has an other group of records with the same key.
+     */
+    public boolean nextKey() throws IOException {
+
+<span class="fc bfc" id="L79" title="All 2 branches covered.">        if (lookahead != null) {</span>
+            // common case: whole value-iterator was consumed and a new key group is available.
+<span class="fc" id="L81">            this.comparator.setReference(this.lookahead);</span>
+<span class="fc" id="L82">            this.valuesIterator.next = this.lookahead;</span>
+<span class="fc" id="L83">            this.lookahead = null;</span>
+<span class="fc" id="L84">            this.valuesIterator.iteratorAvailable = true;</span>
+<span class="fc" id="L85">            return true;</span>
+        }
+
+        // first element, empty/done, or the values iterator was not entirely consumed
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        if (this.done) {</span>
+<span class="fc" id="L90">            return false;</span>
+        }
+
+<span class="fc bfc" id="L93" title="All 2 branches covered.">        if (this.valuesIterator != null) {</span>
+            // values was not entirely consumed. move to the next key
+            // Required if user code / reduce() method did not read the whole value iterator.
+            E next;
+            while (true) {
+<span class="fc bfc" id="L98" title="All 2 branches covered.">                if (currentPosition &lt; input.size()</span>
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">                        &amp;&amp; (next = this.input.get(currentPosition++)) != null) {</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">                    if (!this.comparator.equalToReference(next)) {</span>
+                        // the keys do not match, so we have a new group. store the current key
+<span class="fc" id="L102">                        this.comparator.setReference(next);</span>
+<span class="fc" id="L103">                        this.valuesIterator.next = next;</span>
+<span class="fc" id="L104">                        this.valuesIterator.iteratorAvailable = true;</span>
+<span class="fc" id="L105">                        return true;</span>
+                    }
+                } else {
+                    // input exhausted
+<span class="fc" id="L109">                    this.valuesIterator.next = null;</span>
+<span class="fc" id="L110">                    this.valuesIterator = null;</span>
+<span class="fc" id="L111">                    this.done = true;</span>
+<span class="fc" id="L112">                    return false;</span>
+                }
+            }
+        } else {
+            // first element
+            // get the next element
+<span class="fc" id="L118">            E first = input.get(currentPosition++);</span>
+<span class="pc bpc" id="L119" title="1 of 2 branches missed.">            if (first != null) {</span>
+<span class="fc" id="L120">                this.comparator.setReference(first);</span>
+<span class="fc" id="L121">                this.valuesIterator = new ValuesIterator(first, serializer);</span>
+<span class="fc" id="L122">                return true;</span>
+            } else {
+                // empty input, set everything null
+<span class="nc" id="L125">                this.done = true;</span>
+<span class="nc" id="L126">                return false;</span>
+            }
+        }
+    }
+
+    private E advanceToNext() {
+<span class="fc bfc" id="L132" title="All 2 branches covered.">        if (currentPosition &lt; input.size()) {</span>
+<span class="fc" id="L133">            E next = input.get(currentPosition++);</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">            if (comparator.equalToReference(next)) {</span>
+                // same key
+<span class="fc" id="L136">                return next;</span>
+            } else {
+                // moved to the next key, no more values here
+<span class="fc" id="L139">                lookahead = next;</span>
+<span class="fc" id="L140">                return null;</span>
+            }
+        } else {
+            // backing iterator is consumed
+<span class="fc" id="L144">            this.done = true;</span>
+<span class="fc" id="L145">            return null;</span>
+        }
+    }
+
+    /**
+     * Returns an iterator over all values that belong to the current key. The iterator is initially
+     * &lt;code&gt;null&lt;/code&gt; (before the first call to {@link #nextKey()} and after all keys are
+     * consumed. In general, this method returns always a non-null value, if a previous call to
+     * {@link #nextKey()} return &lt;code&gt;true&lt;/code&gt;.
+     *
+     * @return Iterator over all values that belong to the current key.
+     */
+    public ValuesIterator getValues() {
+<span class="fc" id="L158">        return this.valuesIterator;</span>
+    }
+
+    // --------------------------------------------------------------------------------------------
+
+    public final class ValuesIterator implements Iterator&lt;E&gt;, Iterable&lt;E&gt; {
+
+        private E next;
+
+<span class="fc" id="L167">        private boolean iteratorAvailable = true;</span>
+
+        private final TypeSerializer&lt;E&gt; serializer;
+
+<span class="fc" id="L171">        private ValuesIterator(E first, TypeSerializer&lt;E&gt; serializer) {</span>
+<span class="fc" id="L172">            this.next = first;</span>
+<span class="fc" id="L173">            this.serializer = serializer;</span>
+<span class="fc" id="L174">        }</span>
+
+        @Override
+        public boolean hasNext() {
+<span class="fc bfc" id="L178" title="All 2 branches covered.">            return next != null;</span>
+        }
+
+        @Override
+        public E next() {
+<span class="pc bpc" id="L183" title="1 of 2 branches missed.">            if (this.next != null) {</span>
+<span class="fc" id="L184">                E current = this.next;</span>
+<span class="fc" id="L185">                this.next = ListKeyGroupedIterator.this.advanceToNext();</span>
+<span class="fc" id="L186">                return serializer.copy(current);</span>
+            } else {
+<span class="nc" id="L188">                throw new NoSuchElementException();</span>
+            }
+        }
+
+        @Override
+        public void remove() {
+<span class="nc" id="L194">            throw new UnsupportedOperationException();</span>
+        }
+
+        @Override
+        public Iterator&lt;E&gt; iterator() {
+<span class="pc bpc" id="L199" title="1 of 2 branches missed.">            if (iteratorAvailable) {</span>
+<span class="fc" id="L200">                iteratorAvailable = false;</span>
+<span class="fc" id="L201">                return this;</span>
+            } else {
+<span class="nc" id="L203">                throw new TraversableOnceException();</span>
+            }
+        }
+
+        public E getCurrent() {
+<span class="fc" id="L208">            return next;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

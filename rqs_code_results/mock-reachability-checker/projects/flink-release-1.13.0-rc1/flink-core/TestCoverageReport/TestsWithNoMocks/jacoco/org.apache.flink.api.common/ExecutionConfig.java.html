@@ -1,0 +1,1221 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExecutionConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common</a> &gt; <span class="el_source">ExecutionConfig.java</span></div><h1>ExecutionConfig.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.Public;
+import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.restartstrategy.RestartStrategies;
+import org.apache.flink.configuration.ConfigurationUtils;
+import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.configuration.ExecutionOptions;
+import org.apache.flink.configuration.MetricOptions;
+import org.apache.flink.configuration.PipelineOptions;
+import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.util.Preconditions;
+
+import com.esotericsoftware.kryo.Serializer;
+
+import java.io.Serializable;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+import static org.apache.flink.util.Preconditions.checkArgument;
+
+/**
+ * A config to define the behavior of the program execution. It allows to define (among other
+ * options) the following settings:
+ *
+ * &lt;ul&gt;
+ *   &lt;li&gt;The default parallelism of the program, i.e., how many parallel tasks to use for all
+ *       functions that do not define a specific value directly.
+ *   &lt;li&gt;The number of retries in the case of failed executions.
+ *   &lt;li&gt;The delay between execution retries.
+ *   &lt;li&gt;The {@link ExecutionMode} of the program: Batch or Pipelined. The default execution mode is
+ *       {@link ExecutionMode#PIPELINED}
+ *   &lt;li&gt;Enabling or disabling the &quot;closure cleaner&quot;. The closure cleaner pre-processes the
+ *       implementations of functions. In case they are (anonymous) inner classes, it removes unused
+ *       references to the enclosing class to fix certain serialization-related problems and to
+ *       reduce the size of the closure.
+ *   &lt;li&gt;The config allows to register types and serializers to increase the efficiency of handling
+ *       &lt;i&gt;generic types&lt;/i&gt; and &lt;i&gt;POJOs&lt;/i&gt;. This is usually only needed when the functions
+ *       return not only the types declared in their signature, but also subclasses of those types.
+ * &lt;/ul&gt;
+ */
+@Public
+<span class="fc" id="L68">public class ExecutionConfig implements Serializable, Archiveable&lt;ArchivedExecutionConfig&gt; {</span>
+
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * The constant to use for the parallelism, if the system should use the number of currently
+     * available slots.
+     */
+    @Deprecated public static final int PARALLELISM_AUTO_MAX = Integer.MAX_VALUE;
+
+    /**
+     * The flag value indicating use of the default parallelism. This value can be used to reset the
+     * parallelism back to the default state.
+     */
+    public static final int PARALLELISM_DEFAULT = -1;
+
+    /**
+     * The flag value indicating an unknown or unset parallelism. This value is not a valid
+     * parallelism and indicates that the parallelism should remain unchanged.
+     */
+    public static final int PARALLELISM_UNKNOWN = -2;
+
+    private static final long DEFAULT_RESTART_DELAY = 10000L;
+
+    // --------------------------------------------------------------------------------------------
+
+    /** Defines how data exchange happens - batch or pipelined */
+<span class="fc" id="L95">    private ExecutionMode executionMode = ExecutionMode.PIPELINED;</span>
+
+<span class="fc" id="L97">    private ClosureCleanerLevel closureCleanerLevel = ClosureCleanerLevel.RECURSIVE;</span>
+
+<span class="fc" id="L99">    private int parallelism = CoreOptions.DEFAULT_PARALLELISM.defaultValue();</span>
+
+    /**
+     * The program wide maximum parallelism used for operators which haven't specified a maximum
+     * parallelism. The maximum parallelism specifies the upper limit for dynamic scaling and the
+     * number of key groups used for partitioned state.
+     */
+<span class="fc" id="L106">    private int maxParallelism = -1;</span>
+
+    /**
+     * @deprecated Should no longer be used because it is subsumed by RestartStrategyConfiguration
+     */
+<span class="fc" id="L111">    @Deprecated private int numberOfExecutionRetries = -1;</span>
+
+<span class="fc" id="L113">    private boolean forceKryo = false;</span>
+
+    /** Flag to indicate whether generic types (through Kryo) are supported */
+<span class="fc" id="L116">    private boolean disableGenericTypes = false;</span>
+
+<span class="fc" id="L118">    private boolean enableAutoGeneratedUids = true;</span>
+
+<span class="fc" id="L120">    private boolean objectReuse = false;</span>
+
+<span class="fc" id="L122">    private boolean autoTypeRegistrationEnabled = true;</span>
+
+<span class="fc" id="L124">    private boolean forceAvro = false;</span>
+<span class="fc" id="L125">    private long autoWatermarkInterval = 200;</span>
+
+    /**
+     * Interval in milliseconds for sending latency tracking marks from the sources to the sinks.
+     */
+<span class="fc" id="L130">    private long latencyTrackingInterval = MetricOptions.LATENCY_INTERVAL.defaultValue();</span>
+
+<span class="fc" id="L132">    private boolean isLatencyTrackingConfigured = false;</span>
+
+    /**
+     * @deprecated Should no longer be used because it is subsumed by RestartStrategyConfiguration
+     */
+<span class="fc" id="L137">    @Deprecated private long executionRetryDelay = DEFAULT_RESTART_DELAY;</span>
+
+<span class="fc" id="L139">    private RestartStrategies.RestartStrategyConfiguration restartStrategyConfiguration =</span>
+            new RestartStrategies.FallbackRestartStrategyConfiguration();
+
+<span class="fc" id="L142">    private long taskCancellationIntervalMillis = -1;</span>
+
+    /**
+     * Timeout after which an ongoing task cancellation will lead to a fatal TaskManager error,
+     * usually killing the JVM.
+     */
+<span class="fc" id="L148">    private long taskCancellationTimeoutMillis = -1;</span>
+
+    /**
+     * This flag defines if we use compression for the state snapshot data or not. Default: false
+     */
+<span class="fc" id="L153">    private boolean useSnapshotCompression = false;</span>
+
+    // ------------------------------- User code values --------------------------------------------
+
+<span class="fc" id="L157">    private GlobalJobParameters globalJobParameters = new GlobalJobParameters();</span>
+
+    // Serializers and types registered with Kryo and the PojoSerializer
+    // we store them in linked maps/sets to ensure they are registered in order in all kryo
+    // instances.
+
+<span class="fc" id="L163">    private LinkedHashMap&lt;Class&lt;?&gt;, SerializableSerializer&lt;?&gt;&gt; registeredTypesWithKryoSerializers =</span>
+            new LinkedHashMap&lt;&gt;();
+
+<span class="fc" id="L166">    private LinkedHashMap&lt;Class&lt;?&gt;, Class&lt;? extends Serializer&lt;?&gt;&gt;&gt;</span>
+            registeredTypesWithKryoSerializerClasses = new LinkedHashMap&lt;&gt;();
+
+<span class="fc" id="L169">    private LinkedHashMap&lt;Class&lt;?&gt;, SerializableSerializer&lt;?&gt;&gt; defaultKryoSerializers =</span>
+            new LinkedHashMap&lt;&gt;();
+
+<span class="fc" id="L172">    private LinkedHashMap&lt;Class&lt;?&gt;, Class&lt;? extends Serializer&lt;?&gt;&gt;&gt; defaultKryoSerializerClasses =</span>
+            new LinkedHashMap&lt;&gt;();
+
+<span class="fc" id="L175">    private LinkedHashSet&lt;Class&lt;?&gt;&gt; registeredKryoTypes = new LinkedHashSet&lt;&gt;();</span>
+
+<span class="fc" id="L177">    private LinkedHashSet&lt;Class&lt;?&gt;&gt; registeredPojoTypes = new LinkedHashSet&lt;&gt;();</span>
+
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Enables the ClosureCleaner. This analyzes user code functions and sets fields to null that
+     * are not used. This will in most cases make closures or anonymous inner classes serializable
+     * that where not serializable due to some Scala or Java implementation artifact. User code must
+     * be serializable because it needs to be sent to worker nodes.
+     */
+    public ExecutionConfig enableClosureCleaner() {
+<span class="nc" id="L188">        this.closureCleanerLevel = ClosureCleanerLevel.RECURSIVE;</span>
+<span class="nc" id="L189">        return this;</span>
+    }
+
+    /**
+     * Disables the ClosureCleaner.
+     *
+     * @see #enableClosureCleaner()
+     */
+    public ExecutionConfig disableClosureCleaner() {
+<span class="fc" id="L198">        this.closureCleanerLevel = ClosureCleanerLevel.NONE;</span>
+<span class="fc" id="L199">        return this;</span>
+    }
+
+    /**
+     * Returns whether the ClosureCleaner is enabled.
+     *
+     * @see #enableClosureCleaner()
+     */
+    public boolean isClosureCleanerEnabled() {
+<span class="pc bpc" id="L208" title="1 of 2 branches missed.">        return !(closureCleanerLevel == ClosureCleanerLevel.NONE);</span>
+    }
+
+    /**
+     * Configures the closure cleaner. Please see {@link ClosureCleanerLevel} for details on the
+     * different settings.
+     */
+    public ExecutionConfig setClosureCleanerLevel(ClosureCleanerLevel level) {
+<span class="nc" id="L216">        this.closureCleanerLevel = level;</span>
+<span class="nc" id="L217">        return this;</span>
+    }
+
+    /** Returns the configured {@link ClosureCleanerLevel}. */
+    public ClosureCleanerLevel getClosureCleanerLevel() {
+<span class="nc" id="L222">        return closureCleanerLevel;</span>
+    }
+
+    /**
+     * Sets the interval of the automatic watermark emission. Watermarks are used throughout the
+     * streaming system to keep track of the progress of time. They are used, for example, for time
+     * based windowing.
+     *
+     * &lt;p&gt;Setting an interval of {@code 0} will disable periodic watermark emission.
+     *
+     * @param interval The interval between watermarks in milliseconds.
+     */
+    @PublicEvolving
+    public ExecutionConfig setAutoWatermarkInterval(long interval) {
+<span class="nc bnc" id="L236" title="All 2 branches missed.">        Preconditions.checkArgument(interval &gt;= 0, &quot;Auto watermark interval must not be negative.&quot;);</span>
+<span class="nc" id="L237">        this.autoWatermarkInterval = interval;</span>
+<span class="nc" id="L238">        return this;</span>
+    }
+
+    /**
+     * Returns the interval of the automatic watermark emission.
+     *
+     * @see #setAutoWatermarkInterval(long)
+     */
+    @PublicEvolving
+    public long getAutoWatermarkInterval() {
+<span class="nc" id="L248">        return this.autoWatermarkInterval;</span>
+    }
+
+    /**
+     * Interval for sending latency tracking marks from the sources to the sinks. Flink will send
+     * latency tracking marks from the sources at the specified interval.
+     *
+     * &lt;p&gt;Setting a tracking interval &lt;= 0 disables the latency tracking.
+     *
+     * @param interval Interval in milliseconds.
+     */
+    @PublicEvolving
+    public ExecutionConfig setLatencyTrackingInterval(long interval) {
+<span class="nc" id="L261">        this.latencyTrackingInterval = interval;</span>
+<span class="nc" id="L262">        this.isLatencyTrackingConfigured = true;</span>
+<span class="nc" id="L263">        return this;</span>
+    }
+
+    /**
+     * Returns the latency tracking interval.
+     *
+     * @return The latency tracking interval in milliseconds
+     */
+    @PublicEvolving
+    public long getLatencyTrackingInterval() {
+<span class="nc" id="L273">        return latencyTrackingInterval;</span>
+    }
+
+    @Internal
+    public boolean isLatencyTrackingConfigured() {
+<span class="nc" id="L278">        return isLatencyTrackingConfigured;</span>
+    }
+
+    /**
+     * Gets the parallelism with which operation are executed by default. Operations can
+     * individually override this value to use a specific parallelism.
+     *
+     * &lt;p&gt;Other operations may need to run with a different parallelism - for example calling a
+     * reduce operation over the entire data set will involve an operation that runs with a
+     * parallelism of one (the final reduce to the single result value).
+     *
+     * @return The parallelism used by operations, unless they override that value. This method
+     *     returns {@link #PARALLELISM_DEFAULT} if the environment's default parallelism should be
+     *     used.
+     */
+    public int getParallelism() {
+<span class="fc" id="L294">        return parallelism;</span>
+    }
+
+    /**
+     * Sets the parallelism for operations executed through this environment. Setting a parallelism
+     * of x here will cause all operators (such as join, map, reduce) to run with x parallel
+     * instances.
+     *
+     * &lt;p&gt;This method overrides the default parallelism for this environment. The local execution
+     * environment uses by default a value equal to the number of hardware contexts (CPU cores /
+     * threads). When executing the program via the command line client from a JAR file, the default
+     * parallelism is the one configured for that setup.
+     *
+     * @param parallelism The parallelism to use
+     */
+    public ExecutionConfig setParallelism(int parallelism) {
+<span class="pc bpc" id="L310" title="1 of 2 branches missed.">        if (parallelism != PARALLELISM_UNKNOWN) {</span>
+<span class="pc bpc" id="L311" title="1 of 4 branches missed.">            if (parallelism &lt; 1 &amp;&amp; parallelism != PARALLELISM_DEFAULT) {</span>
+<span class="nc" id="L312">                throw new IllegalArgumentException(</span>
+                        &quot;Parallelism must be at least one, or ExecutionConfig.PARALLELISM_DEFAULT (use system default).&quot;);
+            }
+<span class="fc" id="L315">            this.parallelism = parallelism;</span>
+        }
+<span class="fc" id="L317">        return this;</span>
+    }
+
+    /**
+     * Gets the maximum degree of parallelism defined for the program.
+     *
+     * &lt;p&gt;The maximum degree of parallelism specifies the upper limit for dynamic scaling. It also
+     * defines the number of key groups used for partitioned state.
+     *
+     * @return Maximum degree of parallelism
+     */
+    @PublicEvolving
+    public int getMaxParallelism() {
+<span class="nc" id="L330">        return maxParallelism;</span>
+    }
+
+    /**
+     * Sets the maximum degree of parallelism defined for the program.
+     *
+     * &lt;p&gt;The maximum degree of parallelism specifies the upper limit for dynamic scaling. It also
+     * defines the number of key groups used for partitioned state.
+     *
+     * @param maxParallelism Maximum degree of parallelism to be used for the program.
+     */
+    @PublicEvolving
+    public void setMaxParallelism(int maxParallelism) {
+<span class="nc bnc" id="L343" title="All 2 branches missed.">        checkArgument(maxParallelism &gt; 0, &quot;The maximum parallelism must be greater than 0.&quot;);</span>
+<span class="nc" id="L344">        this.maxParallelism = maxParallelism;</span>
+<span class="nc" id="L345">    }</span>
+
+    /**
+     * Gets the interval (in milliseconds) between consecutive attempts to cancel a running task.
+     */
+    public long getTaskCancellationInterval() {
+<span class="nc" id="L351">        return this.taskCancellationIntervalMillis;</span>
+    }
+
+    /**
+     * Sets the configuration parameter specifying the interval (in milliseconds) between
+     * consecutive attempts to cancel a running task.
+     *
+     * @param interval the interval (in milliseconds).
+     */
+    public ExecutionConfig setTaskCancellationInterval(long interval) {
+<span class="nc" id="L361">        this.taskCancellationIntervalMillis = interval;</span>
+<span class="nc" id="L362">        return this;</span>
+    }
+
+    /**
+     * Returns the timeout (in milliseconds) after which an ongoing task cancellation leads to a
+     * fatal TaskManager error.
+     *
+     * &lt;p&gt;The value &lt;code&gt;0&lt;/code&gt; means that the timeout is disabled. In this case a stuck
+     * cancellation will not lead to a fatal error.
+     */
+    @PublicEvolving
+    public long getTaskCancellationTimeout() {
+<span class="nc" id="L374">        return this.taskCancellationTimeoutMillis;</span>
+    }
+
+    /**
+     * Sets the timeout (in milliseconds) after which an ongoing task cancellation is considered
+     * failed, leading to a fatal TaskManager error.
+     *
+     * &lt;p&gt;The cluster default is configured via {@link
+     * TaskManagerOptions#TASK_CANCELLATION_TIMEOUT}.
+     *
+     * &lt;p&gt;The value &lt;code&gt;0&lt;/code&gt; disables the timeout. In this case a stuck cancellation will not
+     * lead to a fatal error.
+     *
+     * @param timeout The task cancellation timeout (in milliseconds).
+     */
+    @PublicEvolving
+    public ExecutionConfig setTaskCancellationTimeout(long timeout) {
+<span class="nc bnc" id="L391" title="All 2 branches missed.">        checkArgument(timeout &gt;= 0, &quot;Timeout needs to be &gt;= 0.&quot;);</span>
+<span class="nc" id="L392">        this.taskCancellationTimeoutMillis = timeout;</span>
+<span class="nc" id="L393">        return this;</span>
+    }
+
+    /**
+     * Sets the restart strategy to be used for recovery.
+     *
+     * &lt;pre&gt;{@code
+     * ExecutionConfig config = env.getConfig();
+     *
+     * config.setRestartStrategy(RestartStrategies.fixedDelayRestart(
+     * 	10,  // number of retries
+     * 	1000 // delay between retries));
+     * }&lt;/pre&gt;
+     *
+     * @param restartStrategyConfiguration Configuration defining the restart strategy to use
+     */
+    @PublicEvolving
+    public void setRestartStrategy(
+            RestartStrategies.RestartStrategyConfiguration restartStrategyConfiguration) {
+<span class="fc" id="L412">        this.restartStrategyConfiguration =</span>
+<span class="fc" id="L413">                Preconditions.checkNotNull(restartStrategyConfiguration);</span>
+<span class="fc" id="L414">    }</span>
+
+    /**
+     * Returns the restart strategy which has been set for the current job.
+     *
+     * @return The specified restart configuration
+     */
+    @PublicEvolving
+    @SuppressWarnings(&quot;deprecation&quot;)
+    public RestartStrategies.RestartStrategyConfiguration getRestartStrategy() {
+<span class="pc bpc" id="L424" title="1 of 2 branches missed.">        if (restartStrategyConfiguration</span>
+                instanceof RestartStrategies.FallbackRestartStrategyConfiguration) {
+            // support the old API calls by creating a restart strategy from them
+<span class="nc bnc" id="L427" title="All 4 branches missed.">            if (getNumberOfExecutionRetries() &gt; 0 &amp;&amp; getExecutionRetryDelay() &gt;= 0) {</span>
+<span class="nc" id="L428">                return RestartStrategies.fixedDelayRestart(</span>
+<span class="nc" id="L429">                        getNumberOfExecutionRetries(), getExecutionRetryDelay());</span>
+<span class="nc bnc" id="L430" title="All 2 branches missed.">            } else if (getNumberOfExecutionRetries() == 0) {</span>
+<span class="nc" id="L431">                return RestartStrategies.noRestart();</span>
+            } else {
+<span class="nc" id="L433">                return restartStrategyConfiguration;</span>
+            }
+        } else {
+<span class="fc" id="L436">            return restartStrategyConfiguration;</span>
+        }
+    }
+
+    /**
+     * Gets the number of times the system will try to re-execute failed tasks. A value of {@code
+     * -1} indicates that the system default value (as defined in the configuration) should be used.
+     *
+     * @return The number of times the system will try to re-execute failed tasks.
+     * @deprecated Should no longer be used because it is subsumed by RestartStrategyConfiguration
+     */
+    @Deprecated
+    public int getNumberOfExecutionRetries() {
+<span class="nc" id="L449">        return numberOfExecutionRetries;</span>
+    }
+
+    /**
+     * Returns the delay between execution retries.
+     *
+     * @return The delay between successive execution retries in milliseconds.
+     * @deprecated Should no longer be used because it is subsumed by RestartStrategyConfiguration
+     */
+    @Deprecated
+    public long getExecutionRetryDelay() {
+<span class="nc" id="L460">        return executionRetryDelay;</span>
+    }
+
+    /**
+     * Sets the number of times that failed tasks are re-executed. A value of zero effectively
+     * disables fault tolerance. A value of {@code -1} indicates that the system default value (as
+     * defined in the configuration) should be used.
+     *
+     * @param numberOfExecutionRetries The number of times the system will try to re-execute failed
+     *     tasks.
+     * @return The current execution configuration
+     * @deprecated This method will be replaced by {@link #setRestartStrategy}. The {@link
+     *     RestartStrategies.FixedDelayRestartStrategyConfiguration} contains the number of
+     *     execution retries.
+     */
+    @Deprecated
+    public ExecutionConfig setNumberOfExecutionRetries(int numberOfExecutionRetries) {
+<span class="nc bnc" id="L477" title="All 2 branches missed.">        if (numberOfExecutionRetries &lt; -1) {</span>
+<span class="nc" id="L478">            throw new IllegalArgumentException(</span>
+                    &quot;The number of execution retries must be non-negative, or -1 (use system default)&quot;);
+        }
+<span class="nc" id="L481">        this.numberOfExecutionRetries = numberOfExecutionRetries;</span>
+<span class="nc" id="L482">        return this;</span>
+    }
+
+    /**
+     * Sets the delay between executions.
+     *
+     * @param executionRetryDelay The number of milliseconds the system will wait to retry.
+     * @return The current execution configuration
+     * @deprecated This method will be replaced by {@link #setRestartStrategy}. The {@link
+     *     RestartStrategies.FixedDelayRestartStrategyConfiguration} contains the delay between
+     *     successive execution attempts.
+     */
+    @Deprecated
+    public ExecutionConfig setExecutionRetryDelay(long executionRetryDelay) {
+<span class="nc bnc" id="L496" title="All 2 branches missed.">        if (executionRetryDelay &lt; 0) {</span>
+<span class="nc" id="L497">            throw new IllegalArgumentException(&quot;The delay between retries must be non-negative.&quot;);</span>
+        }
+<span class="nc" id="L499">        this.executionRetryDelay = executionRetryDelay;</span>
+<span class="nc" id="L500">        return this;</span>
+    }
+
+    /**
+     * Sets the execution mode to execute the program. The execution mode defines whether data
+     * exchanges are performed in a batch or on a pipelined manner.
+     *
+     * &lt;p&gt;The default execution mode is {@link ExecutionMode#PIPELINED}.
+     *
+     * @param executionMode The execution mode to use.
+     */
+    public void setExecutionMode(ExecutionMode executionMode) {
+<span class="nc" id="L512">        this.executionMode = executionMode;</span>
+<span class="nc" id="L513">    }</span>
+
+    /**
+     * Gets the execution mode used to execute the program. The execution mode defines whether data
+     * exchanges are performed in a batch or on a pipelined manner.
+     *
+     * &lt;p&gt;The default execution mode is {@link ExecutionMode#PIPELINED}.
+     *
+     * @return The execution mode for the program.
+     */
+    public ExecutionMode getExecutionMode() {
+<span class="nc" id="L524">        return executionMode;</span>
+    }
+
+    /**
+     * This method is deprecated. It was used to set the {@link InputDependencyConstraint} utilized
+     * by the old scheduler implementations which got removed as part of FLINK-20589. The current
+     * implementation has no effect.
+     *
+     * @param ignored Ignored parameter.
+     * @deprecated due to the deprecation of {@code InputDependencyConstraint}.
+     */
+    @PublicEvolving
+    @Deprecated
+<span class="nc" id="L537">    public void setDefaultInputDependencyConstraint(InputDependencyConstraint ignored) {}</span>
+
+    /**
+     * This method is deprecated. It was used to return the {@link InputDependencyConstraint}
+     * utilized by the old scheduler implementations. These implementations were removed as part of
+     * FLINK-20589.
+     *
+     * @return The previous default constraint {@link InputDependencyConstraint#ANY}.
+     * @deprecated due to the deprecation of {@code InputDependencyConstraint}.
+     */
+    @PublicEvolving
+    @Deprecated
+    public InputDependencyConstraint getDefaultInputDependencyConstraint() {
+<span class="nc" id="L550">        return InputDependencyConstraint.ANY;</span>
+    }
+
+    /**
+     * Force TypeExtractor to use Kryo serializer for POJOS even though we could analyze as POJO. In
+     * some cases this might be preferable. For example, when using interfaces with subclasses that
+     * cannot be analyzed as POJO.
+     */
+    public void enableForceKryo() {
+<span class="nc" id="L559">        forceKryo = true;</span>
+<span class="nc" id="L560">    }</span>
+
+    /** Disable use of Kryo serializer for all POJOs. */
+    public void disableForceKryo() {
+<span class="fc" id="L564">        forceKryo = false;</span>
+<span class="fc" id="L565">    }</span>
+
+    public boolean isForceKryoEnabled() {
+<span class="fc" id="L568">        return forceKryo;</span>
+    }
+
+    /**
+     * Enables the use generic types which are serialized via Kryo.
+     *
+     * &lt;p&gt;Generic types are enabled by default.
+     *
+     * @see #disableGenericTypes()
+     */
+    public void enableGenericTypes() {
+<span class="nc" id="L579">        disableGenericTypes = false;</span>
+<span class="nc" id="L580">    }</span>
+
+    /**
+     * Disables the use of generic types (types that would be serialized via Kryo). If this option
+     * is used, Flink will throw an {@code UnsupportedOperationException} whenever it encounters a
+     * data type that would go through Kryo for serialization.
+     *
+     * &lt;p&gt;Disabling generic types can be helpful to eagerly find and eliminate the use of types that
+     * would go through Kryo serialization during runtime. Rather than checking types individually,
+     * using this option will throw exceptions eagerly in the places where generic types are used.
+     *
+     * &lt;p&gt;&lt;b&gt;Important:&lt;/b&gt; We recommend to use this option only during development and
+     * pre-production phases, not during actual production use. The application program and/or the
+     * input data may be such that new, previously unseen, types occur at some point. In that case,
+     * setting this option would cause the program to fail.
+     *
+     * @see #enableGenericTypes()
+     */
+    public void disableGenericTypes() {
+<span class="fc" id="L599">        disableGenericTypes = true;</span>
+<span class="fc" id="L600">    }</span>
+
+    /**
+     * Checks whether generic types are supported. Generic types are types that go through Kryo
+     * during serialization.
+     *
+     * &lt;p&gt;Generic types are enabled by default.
+     *
+     * @see #enableGenericTypes()
+     * @see #disableGenericTypes()
+     */
+    public boolean hasGenericTypesDisabled() {
+<span class="fc" id="L612">        return disableGenericTypes;</span>
+    }
+
+    /**
+     * Enables the Flink runtime to auto-generate UID's for operators.
+     *
+     * @see #disableAutoGeneratedUIDs()
+     */
+    public void enableAutoGeneratedUIDs() {
+<span class="nc" id="L621">        enableAutoGeneratedUids = true;</span>
+<span class="nc" id="L622">    }</span>
+
+    /**
+     * Disables auto-generated UIDs. Forces users to manually specify UIDs on DataStream
+     * applications.
+     *
+     * &lt;p&gt;It is highly recommended that users specify UIDs before deploying to production since they
+     * are used to match state in savepoints to operators in a job. Because auto-generated ID's are
+     * likely to change when modifying a job, specifying custom IDs allow an application to evolve
+     * overtime without discarding state.
+     */
+    public void disableAutoGeneratedUIDs() {
+<span class="nc" id="L634">        enableAutoGeneratedUids = false;</span>
+<span class="nc" id="L635">    }</span>
+
+    /**
+     * Checks whether auto generated UIDs are supported.
+     *
+     * &lt;p&gt;Auto generated UIDs are enabled by default.
+     *
+     * @see #enableAutoGeneratedUIDs()
+     * @see #disableAutoGeneratedUIDs()
+     */
+    public boolean hasAutoGeneratedUIDsEnabled() {
+<span class="nc" id="L646">        return enableAutoGeneratedUids;</span>
+    }
+
+    /**
+     * Forces Flink to use the Apache Avro serializer for POJOs.
+     *
+     * &lt;p&gt;&lt;b&gt;Important:&lt;/b&gt; Make sure to include the &lt;i&gt;flink-avro&lt;/i&gt; module.
+     */
+    public void enableForceAvro() {
+<span class="fc" id="L655">        forceAvro = true;</span>
+<span class="fc" id="L656">    }</span>
+
+    /** Disables the Apache Avro serializer as the forced serializer for POJOs. */
+    public void disableForceAvro() {
+<span class="nc" id="L660">        forceAvro = false;</span>
+<span class="nc" id="L661">    }</span>
+
+    /** Returns whether the Apache Avro is the default serializer for POJOs. */
+    public boolean isForceAvroEnabled() {
+<span class="fc" id="L665">        return forceAvro;</span>
+    }
+
+    /**
+     * Enables reusing objects that Flink internally uses for deserialization and passing data to
+     * user-code functions. Keep in mind that this can lead to bugs when the user-code function of
+     * an operation is not aware of this behaviour.
+     */
+    public ExecutionConfig enableObjectReuse() {
+<span class="fc" id="L674">        objectReuse = true;</span>
+<span class="fc" id="L675">        return this;</span>
+    }
+
+    /**
+     * Disables reusing objects that Flink internally uses for deserialization and passing data to
+     * user-code functions. @see #enableObjectReuse()
+     */
+    public ExecutionConfig disableObjectReuse() {
+<span class="fc" id="L683">        objectReuse = false;</span>
+<span class="fc" id="L684">        return this;</span>
+    }
+
+    /** Returns whether object reuse has been enabled or disabled. @see #enableObjectReuse() */
+    public boolean isObjectReuseEnabled() {
+<span class="fc" id="L689">        return objectReuse;</span>
+    }
+
+    public GlobalJobParameters getGlobalJobParameters() {
+<span class="fc" id="L693">        return globalJobParameters;</span>
+    }
+
+    /**
+     * Register a custom, serializable user configuration object.
+     *
+     * @param globalJobParameters Custom user configuration object
+     */
+    public void setGlobalJobParameters(GlobalJobParameters globalJobParameters) {
+<span class="nc" id="L702">        Preconditions.checkNotNull(globalJobParameters, &quot;globalJobParameters shouldn't be null&quot;);</span>
+<span class="nc" id="L703">        this.globalJobParameters = globalJobParameters;</span>
+<span class="nc" id="L704">    }</span>
+
+    // --------------------------------------------------------------------------------------------
+    //  Registry for types and serializers
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Adds a new Kryo default serializer to the Runtime.
+     *
+     * &lt;p&gt;Note that the serializer instance must be serializable (as defined by
+     * java.io.Serializable), because it may be distributed to the worker nodes by java
+     * serialization.
+     *
+     * @param type The class of the types serialized with the given serializer.
+     * @param serializer The serializer to use.
+     */
+    public &lt;T extends Serializer&lt;?&gt; &amp; Serializable&gt; void addDefaultKryoSerializer(
+            Class&lt;?&gt; type, T serializer) {
+<span class="pc bpc" id="L722" title="2 of 4 branches missed.">        if (type == null || serializer == null) {</span>
+<span class="nc" id="L723">            throw new NullPointerException(&quot;Cannot register null class or serializer.&quot;);</span>
+        }
+
+<span class="fc" id="L726">        defaultKryoSerializers.put(type, new SerializableSerializer&lt;&gt;(serializer));</span>
+<span class="fc" id="L727">    }</span>
+
+    /**
+     * Adds a new Kryo default serializer to the Runtime.
+     *
+     * @param type The class of the types serialized with the given serializer.
+     * @param serializerClass The class of the serializer to use.
+     */
+    public void addDefaultKryoSerializer(
+            Class&lt;?&gt; type, Class&lt;? extends Serializer&lt;?&gt;&gt; serializerClass) {
+<span class="pc bpc" id="L737" title="2 of 4 branches missed.">        if (type == null || serializerClass == null) {</span>
+<span class="nc" id="L738">            throw new NullPointerException(&quot;Cannot register null class or serializer.&quot;);</span>
+        }
+<span class="fc" id="L740">        defaultKryoSerializerClasses.put(type, serializerClass);</span>
+<span class="fc" id="L741">    }</span>
+
+    /**
+     * Registers the given type with a Kryo Serializer.
+     *
+     * &lt;p&gt;Note that the serializer instance must be serializable (as defined by
+     * java.io.Serializable), because it may be distributed to the worker nodes by java
+     * serialization.
+     *
+     * @param type The class of the types serialized with the given serializer.
+     * @param serializer The serializer to use.
+     */
+    public &lt;T extends Serializer&lt;?&gt; &amp; Serializable&gt; void registerTypeWithKryoSerializer(
+            Class&lt;?&gt; type, T serializer) {
+<span class="pc bpc" id="L755" title="2 of 4 branches missed.">        if (type == null || serializer == null) {</span>
+<span class="nc" id="L756">            throw new NullPointerException(&quot;Cannot register null class or serializer.&quot;);</span>
+        }
+
+<span class="fc" id="L759">        registeredTypesWithKryoSerializers.put(type, new SerializableSerializer&lt;&gt;(serializer));</span>
+<span class="fc" id="L760">    }</span>
+
+    /**
+     * Registers the given Serializer via its class as a serializer for the given type at the
+     * KryoSerializer
+     *
+     * @param type The class of the types serialized with the given serializer.
+     * @param serializerClass The class of the serializer to use.
+     */
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    public void registerTypeWithKryoSerializer(
+            Class&lt;?&gt; type, Class&lt;? extends Serializer&gt; serializerClass) {
+<span class="pc bpc" id="L772" title="2 of 4 branches missed.">        if (type == null || serializerClass == null) {</span>
+<span class="nc" id="L773">            throw new NullPointerException(&quot;Cannot register null class or serializer.&quot;);</span>
+        }
+
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L777">        Class&lt;? extends Serializer&lt;?&gt;&gt; castedSerializerClass =</span>
+                (Class&lt;? extends Serializer&lt;?&gt;&gt;) serializerClass;
+<span class="fc" id="L779">        registeredTypesWithKryoSerializerClasses.put(type, castedSerializerClass);</span>
+<span class="fc" id="L780">    }</span>
+
+    /**
+     * Registers the given type with the serialization stack. If the type is eventually serialized
+     * as a POJO, then the type is registered with the POJO serializer. If the type ends up being
+     * serialized with Kryo, then it will be registered at Kryo to make sure that only tags are
+     * written.
+     *
+     * @param type The class of the type to register.
+     */
+    public void registerPojoType(Class&lt;?&gt; type) {
+<span class="pc bpc" id="L791" title="1 of 2 branches missed.">        if (type == null) {</span>
+<span class="nc" id="L792">            throw new NullPointerException(&quot;Cannot register null type class.&quot;);</span>
+        }
+<span class="pc bpc" id="L794" title="1 of 2 branches missed.">        if (!registeredPojoTypes.contains(type)) {</span>
+<span class="fc" id="L795">            registeredPojoTypes.add(type);</span>
+        }
+<span class="fc" id="L797">    }</span>
+
+    /**
+     * Registers the given type with the serialization stack. If the type is eventually serialized
+     * as a POJO, then the type is registered with the POJO serializer. If the type ends up being
+     * serialized with Kryo, then it will be registered at Kryo to make sure that only tags are
+     * written.
+     *
+     * @param type The class of the type to register.
+     */
+    public void registerKryoType(Class&lt;?&gt; type) {
+<span class="pc bpc" id="L808" title="1 of 2 branches missed.">        if (type == null) {</span>
+<span class="nc" id="L809">            throw new NullPointerException(&quot;Cannot register null type class.&quot;);</span>
+        }
+<span class="fc" id="L811">        registeredKryoTypes.add(type);</span>
+<span class="fc" id="L812">    }</span>
+
+    /** Returns the registered types with Kryo Serializers. */
+    public LinkedHashMap&lt;Class&lt;?&gt;, SerializableSerializer&lt;?&gt;&gt;
+            getRegisteredTypesWithKryoSerializers() {
+<span class="fc" id="L817">        return registeredTypesWithKryoSerializers;</span>
+    }
+
+    /** Returns the registered types with their Kryo Serializer classes. */
+    public LinkedHashMap&lt;Class&lt;?&gt;, Class&lt;? extends Serializer&lt;?&gt;&gt;&gt;
+            getRegisteredTypesWithKryoSerializerClasses() {
+<span class="fc" id="L823">        return registeredTypesWithKryoSerializerClasses;</span>
+    }
+
+    /** Returns the registered default Kryo Serializers. */
+    public LinkedHashMap&lt;Class&lt;?&gt;, SerializableSerializer&lt;?&gt;&gt; getDefaultKryoSerializers() {
+<span class="fc" id="L828">        return defaultKryoSerializers;</span>
+    }
+
+    /** Returns the registered default Kryo Serializer classes. */
+    public LinkedHashMap&lt;Class&lt;?&gt;, Class&lt;? extends Serializer&lt;?&gt;&gt;&gt;
+            getDefaultKryoSerializerClasses() {
+<span class="fc" id="L834">        return defaultKryoSerializerClasses;</span>
+    }
+
+    /** Returns the registered Kryo types. */
+    public LinkedHashSet&lt;Class&lt;?&gt;&gt; getRegisteredKryoTypes() {
+<span class="pc bpc" id="L839" title="1 of 2 branches missed.">        if (isForceKryoEnabled()) {</span>
+            // if we force kryo, we must also return all the types that
+            // were previously only registered as POJO
+<span class="nc" id="L842">            LinkedHashSet&lt;Class&lt;?&gt;&gt; result = new LinkedHashSet&lt;&gt;();</span>
+<span class="nc" id="L843">            result.addAll(registeredKryoTypes);</span>
+<span class="nc bnc" id="L844" title="All 2 branches missed.">            for (Class&lt;?&gt; t : registeredPojoTypes) {</span>
+<span class="nc bnc" id="L845" title="All 2 branches missed.">                if (!result.contains(t)) {</span>
+<span class="nc" id="L846">                    result.add(t);</span>
+                }
+<span class="nc" id="L848">            }</span>
+<span class="nc" id="L849">            return result;</span>
+        } else {
+<span class="fc" id="L851">            return registeredKryoTypes;</span>
+        }
+    }
+
+    /** Returns the registered POJO types. */
+    public LinkedHashSet&lt;Class&lt;?&gt;&gt; getRegisteredPojoTypes() {
+<span class="fc" id="L857">        return registeredPojoTypes;</span>
+    }
+
+    public boolean isAutoTypeRegistrationDisabled() {
+<span class="nc bnc" id="L861" title="All 2 branches missed.">        return !autoTypeRegistrationEnabled;</span>
+    }
+
+    /**
+     * Control whether Flink is automatically registering all types in the user programs with Kryo.
+     */
+    public void disableAutoTypeRegistration() {
+<span class="nc" id="L868">        this.autoTypeRegistrationEnabled = false;</span>
+<span class="nc" id="L869">    }</span>
+
+    public boolean isUseSnapshotCompression() {
+<span class="nc" id="L872">        return useSnapshotCompression;</span>
+    }
+
+    public void setUseSnapshotCompression(boolean useSnapshotCompression) {
+<span class="nc" id="L876">        this.useSnapshotCompression = useSnapshotCompression;</span>
+<span class="nc" id="L877">    }</span>
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="pc bpc" id="L881" title="1 of 2 branches missed.">        if (obj instanceof ExecutionConfig) {</span>
+<span class="fc" id="L882">            ExecutionConfig other = (ExecutionConfig) obj;</span>
+
+<span class="pc bpc" id="L884" title="1 of 2 branches missed.">            return other.canEqual(this)</span>
+<span class="pc bpc" id="L885" title="7 of 12 branches missed.">                    &amp;&amp; Objects.equals(executionMode, other.executionMode)</span>
+                    &amp;&amp; closureCleanerLevel == other.closureCleanerLevel
+                    &amp;&amp; parallelism == other.parallelism
+                    &amp;&amp; ((restartStrategyConfiguration == null
+                                    &amp;&amp; other.restartStrategyConfiguration == null)
+                            || (null != restartStrategyConfiguration
+<span class="pc bpc" id="L891" title="6 of 12 branches missed.">                                    &amp;&amp; restartStrategyConfiguration.equals(</span>
+                                            other.restartStrategyConfiguration)))
+                    &amp;&amp; forceKryo == other.forceKryo
+                    &amp;&amp; disableGenericTypes == other.disableGenericTypes
+                    &amp;&amp; objectReuse == other.objectReuse
+                    &amp;&amp; autoTypeRegistrationEnabled == other.autoTypeRegistrationEnabled
+                    &amp;&amp; forceAvro == other.forceAvro
+<span class="pc bpc" id="L898" title="2 of 4 branches missed.">                    &amp;&amp; Objects.equals(globalJobParameters, other.globalJobParameters)</span>
+                    &amp;&amp; autoWatermarkInterval == other.autoWatermarkInterval
+<span class="pc bpc" id="L900" title="1 of 2 branches missed.">                    &amp;&amp; registeredTypesWithKryoSerializerClasses.equals(</span>
+                            other.registeredTypesWithKryoSerializerClasses)
+<span class="pc bpc" id="L902" title="1 of 2 branches missed.">                    &amp;&amp; defaultKryoSerializerClasses.equals(other.defaultKryoSerializerClasses)</span>
+<span class="pc bpc" id="L903" title="1 of 2 branches missed.">                    &amp;&amp; registeredKryoTypes.equals(other.registeredKryoTypes)</span>
+<span class="pc bpc" id="L904" title="3 of 6 branches missed.">                    &amp;&amp; registeredPojoTypes.equals(other.registeredPojoTypes)</span>
+                    &amp;&amp; taskCancellationIntervalMillis == other.taskCancellationIntervalMillis
+                    &amp;&amp; useSnapshotCompression == other.useSnapshotCompression;
+
+        } else {
+<span class="nc" id="L909">            return false;</span>
+        }
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L915">        return Objects.hash(</span>
+                executionMode,
+                closureCleanerLevel,
+<span class="nc" id="L918">                parallelism,</span>
+                restartStrategyConfiguration,
+<span class="nc" id="L920">                forceKryo,</span>
+<span class="nc" id="L921">                disableGenericTypes,</span>
+<span class="nc" id="L922">                objectReuse,</span>
+<span class="nc" id="L923">                autoTypeRegistrationEnabled,</span>
+<span class="nc" id="L924">                forceAvro,</span>
+                globalJobParameters,
+<span class="nc" id="L926">                autoWatermarkInterval,</span>
+                registeredTypesWithKryoSerializerClasses,
+                defaultKryoSerializerClasses,
+                registeredKryoTypes,
+                registeredPojoTypes,
+<span class="nc" id="L931">                taskCancellationIntervalMillis,</span>
+<span class="nc" id="L932">                useSnapshotCompression);</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L937">        return &quot;ExecutionConfig{&quot;</span>
+                + &quot;executionMode=&quot;
+                + executionMode
+                + &quot;, closureCleanerLevel=&quot;
+                + closureCleanerLevel
+                + &quot;, parallelism=&quot;
+                + parallelism
+                + &quot;, maxParallelism=&quot;
+                + maxParallelism
+                + &quot;, numberOfExecutionRetries=&quot;
+                + numberOfExecutionRetries
+                + &quot;, forceKryo=&quot;
+                + forceKryo
+                + &quot;, disableGenericTypes=&quot;
+                + disableGenericTypes
+                + &quot;, enableAutoGeneratedUids=&quot;
+                + enableAutoGeneratedUids
+                + &quot;, objectReuse=&quot;
+                + objectReuse
+                + &quot;, autoTypeRegistrationEnabled=&quot;
+                + autoTypeRegistrationEnabled
+                + &quot;, forceAvro=&quot;
+                + forceAvro
+                + &quot;, autoWatermarkInterval=&quot;
+                + autoWatermarkInterval
+                + &quot;, latencyTrackingInterval=&quot;
+                + latencyTrackingInterval
+                + &quot;, isLatencyTrackingConfigured=&quot;
+                + isLatencyTrackingConfigured
+                + &quot;, executionRetryDelay=&quot;
+                + executionRetryDelay
+                + &quot;, restartStrategyConfiguration=&quot;
+                + restartStrategyConfiguration
+                + &quot;, taskCancellationIntervalMillis=&quot;
+                + taskCancellationIntervalMillis
+                + &quot;, taskCancellationTimeoutMillis=&quot;
+                + taskCancellationTimeoutMillis
+                + &quot;, useSnapshotCompression=&quot;
+                + useSnapshotCompression
+                + &quot;, globalJobParameters=&quot;
+                + globalJobParameters
+                + &quot;, registeredTypesWithKryoSerializers=&quot;
+                + registeredTypesWithKryoSerializers
+                + &quot;, registeredTypesWithKryoSerializerClasses=&quot;
+                + registeredTypesWithKryoSerializerClasses
+                + &quot;, defaultKryoSerializers=&quot;
+                + defaultKryoSerializers
+                + &quot;, defaultKryoSerializerClasses=&quot;
+                + defaultKryoSerializerClasses
+                + &quot;, registeredKryoTypes=&quot;
+                + registeredKryoTypes
+                + &quot;, registeredPojoTypes=&quot;
+                + registeredPojoTypes
+                + '}';
+    }
+
+    public boolean canEqual(Object obj) {
+<span class="fc" id="L994">        return obj instanceof ExecutionConfig;</span>
+    }
+
+    @Override
+    @Internal
+    public ArchivedExecutionConfig archive() {
+<span class="nc" id="L1000">        return new ArchivedExecutionConfig(this);</span>
+    }
+
+    // ------------------------------ Utilities  ----------------------------------
+
+    public static class SerializableSerializer&lt;T extends Serializer&lt;?&gt; &amp; Serializable&gt;
+            implements Serializable {
+        private static final long serialVersionUID = 4687893502781067189L;
+
+        private T serializer;
+
+<span class="fc" id="L1011">        public SerializableSerializer(T serializer) {</span>
+<span class="fc" id="L1012">            this.serializer = serializer;</span>
+<span class="fc" id="L1013">        }</span>
+
+        public T getSerializer() {
+<span class="fc" id="L1016">            return serializer;</span>
+        }
+    }
+
+    /**
+     * Abstract class for a custom user configuration object registered at the execution config.
+     *
+     * &lt;p&gt;This user config is accessible at runtime through
+     * getRuntimeContext().getExecutionConfig().GlobalJobParameters()
+     */
+<span class="fc" id="L1026">    public static class GlobalJobParameters implements Serializable {</span>
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Convert UserConfig into a {@code Map&lt;String, String&gt;} representation. This can be used by
+         * the runtime, for example for presenting the user config in the web frontend.
+         *
+         * @return Key/Value representation of the UserConfig
+         */
+        public Map&lt;String, String&gt; toMap() {
+<span class="nc" id="L1036">            return Collections.emptyMap();</span>
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+<span class="pc bpc" id="L1041" title="2 of 4 branches missed.">            if (obj == null || this.getClass() != obj.getClass()) {</span>
+<span class="nc" id="L1042">                return false;</span>
+            }
+
+<span class="fc" id="L1045">            return true;</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="fc" id="L1050">            return Objects.hash();</span>
+        }
+    }
+
+    /** Configuration settings for the closure cleaner. */
+<span class="fc" id="L1055">    public enum ClosureCleanerLevel {</span>
+        /** Disable the closure cleaner completely. */
+<span class="fc" id="L1057">        NONE,</span>
+
+        /** Clean only the top-level class without recursing into fields. */
+<span class="fc" id="L1060">        TOP_LEVEL,</span>
+
+        /** Clean all the fields recursively. */
+<span class="fc" id="L1063">        RECURSIVE</span>
+    }
+
+    /**
+     * Sets all relevant options contained in the {@link ReadableConfig} such as e.g. {@link
+     * PipelineOptions#CLOSURE_CLEANER_LEVEL}.
+     *
+     * &lt;p&gt;It will change the value of a setting only if a corresponding option was set in the {@code
+     * configuration}. If a key is not present, the current value of a field will remain untouched.
+     *
+     * @param configuration a configuration to read the values from
+     * @param classLoader a class loader to use when loading classes
+     */
+    public void configure(ReadableConfig configuration, ClassLoader classLoader) {
+<span class="fc" id="L1077">        configuration</span>
+<span class="fc" id="L1078">                .getOptional(PipelineOptions.AUTO_TYPE_REGISTRATION)</span>
+<span class="pc" id="L1079">                .ifPresent(b -&gt; this.autoTypeRegistrationEnabled = b);</span>
+<span class="fc" id="L1080">        configuration</span>
+<span class="fc" id="L1081">                .getOptional(PipelineOptions.AUTO_GENERATE_UIDS)</span>
+<span class="pc" id="L1082">                .ifPresent(b -&gt; this.enableAutoGeneratedUids = b);</span>
+<span class="fc" id="L1083">        configuration</span>
+<span class="fc" id="L1084">                .getOptional(PipelineOptions.AUTO_WATERMARK_INTERVAL)</span>
+<span class="pc" id="L1085">                .ifPresent(i -&gt; this.setAutoWatermarkInterval(i.toMillis()));</span>
+<span class="fc" id="L1086">        configuration</span>
+<span class="fc" id="L1087">                .getOptional(PipelineOptions.CLOSURE_CLEANER_LEVEL)</span>
+<span class="fc" id="L1088">                .ifPresent(this::setClosureCleanerLevel);</span>
+<span class="pc" id="L1089">        configuration.getOptional(PipelineOptions.FORCE_AVRO).ifPresent(b -&gt; this.forceAvro = b);</span>
+<span class="fc" id="L1090">        configuration</span>
+<span class="fc" id="L1091">                .getOptional(PipelineOptions.GENERIC_TYPES)</span>
+<span class="pc bnc" id="L1092" title="All 2 branches missed.">                .ifPresent(b -&gt; this.disableGenericTypes = !b);</span>
+<span class="pc" id="L1093">        configuration.getOptional(PipelineOptions.FORCE_KRYO).ifPresent(b -&gt; this.forceKryo = b);</span>
+<span class="fc" id="L1094">        configuration</span>
+<span class="fc" id="L1095">                .getOptional(PipelineOptions.GLOBAL_JOB_PARAMETERS)</span>
+<span class="pc" id="L1096">                .&lt;GlobalJobParameters&gt;map(MapBasedJobParameters::new)</span>
+<span class="fc" id="L1097">                .ifPresent(this::setGlobalJobParameters);</span>
+
+<span class="fc" id="L1099">        configuration</span>
+<span class="fc" id="L1100">                .getOptional(MetricOptions.LATENCY_INTERVAL)</span>
+<span class="fc" id="L1101">                .ifPresent(this::setLatencyTrackingInterval);</span>
+
+<span class="fc" id="L1103">        configuration</span>
+<span class="fc" id="L1104">                .getOptional(PipelineOptions.MAX_PARALLELISM)</span>
+<span class="fc" id="L1105">                .ifPresent(this::setMaxParallelism);</span>
+<span class="fc" id="L1106">        configuration.getOptional(CoreOptions.DEFAULT_PARALLELISM).ifPresent(this::setParallelism);</span>
+<span class="fc" id="L1107">        configuration</span>
+<span class="fc" id="L1108">                .getOptional(PipelineOptions.OBJECT_REUSE)</span>
+<span class="pc" id="L1109">                .ifPresent(o -&gt; this.objectReuse = o);</span>
+<span class="fc" id="L1110">        configuration</span>
+<span class="fc" id="L1111">                .getOptional(TaskManagerOptions.TASK_CANCELLATION_INTERVAL)</span>
+<span class="fc" id="L1112">                .ifPresent(this::setTaskCancellationInterval);</span>
+<span class="fc" id="L1113">        configuration</span>
+<span class="fc" id="L1114">                .getOptional(TaskManagerOptions.TASK_CANCELLATION_TIMEOUT)</span>
+<span class="fc" id="L1115">                .ifPresent(this::setTaskCancellationTimeout);</span>
+<span class="fc" id="L1116">        configuration</span>
+<span class="fc" id="L1117">                .getOptional(ExecutionOptions.SNAPSHOT_COMPRESSION)</span>
+<span class="fc" id="L1118">                .ifPresent(this::setUseSnapshotCompression);</span>
+<span class="fc" id="L1119">        RestartStrategies.fromConfiguration(configuration).ifPresent(this::setRestartStrategy);</span>
+<span class="fc" id="L1120">        configuration</span>
+<span class="fc" id="L1121">                .getOptional(PipelineOptions.KRYO_DEFAULT_SERIALIZERS)</span>
+<span class="fc" id="L1122">                .map(s -&gt; parseKryoSerializersWithExceptionHandling(classLoader, s))</span>
+<span class="fc" id="L1123">                .ifPresent(s -&gt; this.defaultKryoSerializerClasses = s);</span>
+
+<span class="fc" id="L1125">        configuration</span>
+<span class="fc" id="L1126">                .getOptional(PipelineOptions.POJO_REGISTERED_CLASSES)</span>
+<span class="fc" id="L1127">                .map(c -&gt; loadClasses(c, classLoader, &quot;Could not load pojo type to be registered.&quot;))</span>
+<span class="fc" id="L1128">                .ifPresent(c -&gt; this.registeredPojoTypes = c);</span>
+
+<span class="fc" id="L1130">        configuration</span>
+<span class="fc" id="L1131">                .getOptional(PipelineOptions.KRYO_REGISTERED_CLASSES)</span>
+<span class="fc" id="L1132">                .map(c -&gt; loadClasses(c, classLoader, &quot;Could not load kryo type to be registered.&quot;))</span>
+<span class="fc" id="L1133">                .ifPresent(c -&gt; this.registeredKryoTypes = c);</span>
+<span class="fc" id="L1134">    }</span>
+
+    private LinkedHashSet&lt;Class&lt;?&gt;&gt; loadClasses(
+            List&lt;String&gt; classNames, ClassLoader classLoader, String errorMessage) {
+<span class="fc" id="L1138">        return classNames.stream()</span>
+<span class="fc" id="L1139">                .map(name -&gt; this.&lt;Class&lt;?&gt;&gt;loadClass(name, classLoader, errorMessage))</span>
+<span class="fc" id="L1140">                .collect(Collectors.toCollection(LinkedHashSet::new));</span>
+    }
+
+    private LinkedHashMap&lt;Class&lt;?&gt;, Class&lt;? extends Serializer&lt;?&gt;&gt;&gt;
+            parseKryoSerializersWithExceptionHandling(
+                    ClassLoader classLoader, List&lt;String&gt; kryoSerializers) {
+        try {
+<span class="fc" id="L1147">            return parseKryoSerializers(classLoader, kryoSerializers);</span>
+<span class="nc" id="L1148">        } catch (Exception e) {</span>
+<span class="nc" id="L1149">            throw new IllegalArgumentException(</span>
+<span class="nc" id="L1150">                    String.format(</span>
+                            &quot;Could not configure kryo serializers from %s. The expected format is:&quot;
+                                    + &quot;'class:&lt;fully qualified class name&gt;,serializer:&lt;fully qualified serializer name&gt;;...&quot;,
+                            kryoSerializers),
+                    e);
+        }
+    }
+
+    private LinkedHashMap&lt;Class&lt;?&gt;, Class&lt;? extends Serializer&lt;?&gt;&gt;&gt; parseKryoSerializers(
+            ClassLoader classLoader, List&lt;String&gt; kryoSerializers) {
+<span class="fc" id="L1160">        return kryoSerializers.stream()</span>
+<span class="fc" id="L1161">                .map(ConfigurationUtils::parseMap)</span>
+<span class="fc" id="L1162">                .collect(</span>
+<span class="fc" id="L1163">                        Collectors.toMap(</span>
+                                m -&gt;
+<span class="fc" id="L1165">                                        loadClass(</span>
+<span class="fc" id="L1166">                                                m.get(&quot;class&quot;),</span>
+                                                classLoader,
+                                                &quot;Could not load class for kryo serialization&quot;),
+                                m -&gt;
+<span class="fc" id="L1170">                                        loadClass(</span>
+<span class="fc" id="L1171">                                                m.get(&quot;serializer&quot;),</span>
+                                                classLoader,
+                                                &quot;Could not load serializer's class&quot;),
+                                (m1, m2) -&gt; {
+<span class="nc" id="L1175">                                    throw new IllegalArgumentException(</span>
+                                            &quot;Duplicated serializer for class: &quot; + m1);
+                                },
+                                LinkedHashMap::new));
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private &lt;T extends Class&gt; T loadClass(
+            String className, ClassLoader classLoader, String errorMessage) {
+        try {
+<span class="fc" id="L1185">            return (T) Class.forName(className, false, classLoader);</span>
+<span class="nc" id="L1186">        } catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L1187">            throw new IllegalArgumentException(errorMessage, e);</span>
+        }
+    }
+
+    private static class MapBasedJobParameters extends GlobalJobParameters {
+        private final Map&lt;String, String&gt; properties;
+
+<span class="nc" id="L1194">        private MapBasedJobParameters(Map&lt;String, String&gt; properties) {</span>
+<span class="nc" id="L1195">            this.properties = properties;</span>
+<span class="nc" id="L1196">        }</span>
+
+        @Override
+        public Map&lt;String, String&gt; toMap() {
+<span class="nc" id="L1200">            return properties;</span>
+        }
+
+        @Override
+        public boolean equals(Object o) {
+<span class="nc bnc" id="L1205" title="All 2 branches missed.">            if (this == o) {</span>
+<span class="nc" id="L1206">                return true;</span>
+            }
+<span class="nc bnc" id="L1208" title="All 2 branches missed.">            if (!(o instanceof GlobalJobParameters)) {</span>
+<span class="nc" id="L1209">                return false;</span>
+            }
+<span class="nc" id="L1211">            GlobalJobParameters that = (GlobalJobParameters) o;</span>
+<span class="nc" id="L1212">            return Objects.equals(properties, that.toMap());</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="nc" id="L1217">            return Objects.hash(super.hashCode(), properties);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

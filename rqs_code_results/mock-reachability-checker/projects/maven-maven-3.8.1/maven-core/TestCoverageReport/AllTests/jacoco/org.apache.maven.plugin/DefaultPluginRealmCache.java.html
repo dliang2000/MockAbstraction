@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultPluginRealmCache.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Maven Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.maven.plugin</a> &gt; <span class="el_source">DefaultPluginRealmCache.java</span></div><h1>DefaultPluginRealmCache.java</h1><pre class="source lang-java linenums">package org.apache.maven.plugin;
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.apache.maven.RepositoryUtils;
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.classworlds.realm.ClassRealm;
+import org.codehaus.plexus.classworlds.realm.NoSuchRealmException;
+import org.codehaus.plexus.component.annotations.Component;
+import org.codehaus.plexus.personality.plexus.lifecycle.phase.Disposable;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.graph.DependencyFilter;
+import org.eclipse.aether.repository.LocalRepository;
+import org.eclipse.aether.repository.RemoteRepository;
+import org.eclipse.aether.repository.WorkspaceRepository;
+
+/**
+ * Default PluginCache implementation. Assumes cached data does not change.
+ */
+@Component( role = PluginRealmCache.class )
+<span class="fc" id="L47">public class DefaultPluginRealmCache</span>
+    implements PluginRealmCache, Disposable
+{
+    /**
+     * CacheKey
+     */
+    protected static class CacheKey
+        implements Key
+    {
+
+        private final Plugin plugin;
+
+        private final WorkspaceRepository workspace;
+
+        private final LocalRepository localRepo;
+
+        private final List&lt;RemoteRepository&gt; repositories;
+
+        private final ClassLoader parentRealm;
+
+        private final Map&lt;String, ClassLoader&gt; foreignImports;
+
+        private final DependencyFilter filter;
+
+        private final int hashCode;
+
+        public CacheKey( Plugin plugin, ClassLoader parentRealm, Map&lt;String, ClassLoader&gt; foreignImports,
+                         DependencyFilter dependencyFilter, List&lt;RemoteRepository&gt; repositories,
+                         RepositorySystemSession session )
+<span class="fc" id="L76">        {</span>
+<span class="fc" id="L77">            this.plugin = plugin.clone();</span>
+<span class="fc" id="L78">            this.workspace = RepositoryUtils.getWorkspace( session );</span>
+<span class="fc" id="L79">            this.localRepo = session.getLocalRepository();</span>
+<span class="fc" id="L80">            this.repositories = new ArrayList&lt;&gt;( repositories.size() );</span>
+<span class="fc bfc" id="L81" title="All 2 branches covered.">            for ( RemoteRepository repository : repositories )</span>
+            {
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">                if ( repository.isRepositoryManager() )</span>
+                {
+<span class="nc" id="L85">                    this.repositories.addAll( repository.getMirroredRepositories() );</span>
+                }
+                else
+                {
+<span class="fc" id="L89">                    this.repositories.add( repository );</span>
+                }
+<span class="fc" id="L91">            }</span>
+<span class="fc" id="L92">            this.parentRealm = parentRealm;</span>
+<span class="pc bpc" id="L93" title="1 of 2 branches missed.">            this.foreignImports =</span>
+<span class="pc" id="L94">                ( foreignImports != null ) ? foreignImports : Collections.&lt;String, ClassLoader&gt;emptyMap();</span>
+<span class="fc" id="L95">            this.filter = dependencyFilter;</span>
+
+<span class="fc" id="L97">            int hash = 17;</span>
+<span class="fc" id="L98">            hash = hash * 31 + CacheUtils.pluginHashCode( plugin );</span>
+<span class="fc" id="L99">            hash = hash * 31 + Objects.hashCode( workspace );</span>
+<span class="fc" id="L100">            hash = hash * 31 + Objects.hashCode( localRepo );</span>
+<span class="fc" id="L101">            hash = hash * 31 + RepositoryUtils.repositoriesHashCode( repositories );</span>
+<span class="fc" id="L102">            hash = hash * 31 + Objects.hashCode( parentRealm );</span>
+<span class="fc" id="L103">            hash = hash * 31 + this.foreignImports.hashCode();</span>
+<span class="fc" id="L104">            hash = hash * 31 + Objects.hashCode( dependencyFilter );</span>
+<span class="fc" id="L105">            this.hashCode = hash;</span>
+<span class="fc" id="L106">        }</span>
+
+        @Override
+        public String toString()
+        {
+<span class="nc" id="L111">            return plugin.getId();</span>
+        }
+
+        @Override
+        public int hashCode()
+        {
+<span class="fc" id="L117">            return hashCode;</span>
+        }
+
+        @Override
+        public boolean equals( Object o )
+        {
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">            if ( o == this )</span>
+            {
+<span class="nc" id="L125">                return true;</span>
+            }
+
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">            if ( !( o instanceof CacheKey ) )</span>
+            {
+<span class="nc" id="L130">                return false;</span>
+            }
+
+<span class="fc" id="L133">            CacheKey that = (CacheKey) o;</span>
+
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">            return parentRealm == that.parentRealm </span>
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">                &amp;&amp; CacheUtils.pluginEquals( plugin, that.plugin )</span>
+<span class="pc bpc" id="L137" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals( workspace, that.workspace ) </span>
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals( localRepo, that.localRepo )</span>
+<span class="pc bpc" id="L139" title="1 of 2 branches missed.">                &amp;&amp; RepositoryUtils.repositoriesEquals( this.repositories, that.repositories ) </span>
+<span class="pc bpc" id="L140" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals( filter, that.filter )</span>
+<span class="pc bpc" id="L141" title="1 of 2 branches missed.">                &amp;&amp; Objects.equals( foreignImports, that.foreignImports );</span>
+        }
+    }
+
+<span class="fc" id="L145">    protected final Map&lt;Key, CacheRecord&gt; cache = new ConcurrentHashMap&lt;&gt;();</span>
+
+    public Key createKey( Plugin plugin, ClassLoader parentRealm, Map&lt;String, ClassLoader&gt; foreignImports,
+                          DependencyFilter dependencyFilter, List&lt;RemoteRepository&gt; repositories,
+                          RepositorySystemSession session )
+    {
+<span class="fc" id="L151">        return new CacheKey( plugin, parentRealm, foreignImports, dependencyFilter, repositories, session );</span>
+    }
+
+    public CacheRecord get( Key key )
+    {
+<span class="fc" id="L156">        return cache.get( key );</span>
+    }
+
+    public CacheRecord put( Key key, ClassRealm pluginRealm, List&lt;Artifact&gt; pluginArtifacts )
+    {
+<span class="fc" id="L161">        Objects.requireNonNull( pluginRealm, &quot;pluginRealm cannot be null&quot; );</span>
+<span class="fc" id="L162">        Objects.requireNonNull( pluginArtifacts, &quot;pluginArtifacts cannot be null&quot; );</span>
+
+<span class="pc bpc" id="L164" title="1 of 2 branches missed.">        if ( cache.containsKey( key ) )</span>
+        {
+<span class="nc" id="L166">            throw new IllegalStateException( &quot;Duplicate plugin realm for plugin &quot; + key );</span>
+        }
+
+<span class="fc" id="L169">        CacheRecord record = new CacheRecord( pluginRealm, pluginArtifacts );</span>
+
+<span class="fc" id="L171">        cache.put( key, record );</span>
+
+<span class="fc" id="L173">        return record;</span>
+    }
+
+    public void flush()
+    {
+<span class="fc bfc" id="L178" title="All 2 branches covered.">        for ( CacheRecord record : cache.values() )</span>
+        {
+<span class="fc" id="L180">            ClassRealm realm = record.getRealm();</span>
+            try
+            {
+<span class="fc" id="L183">                realm.getWorld().disposeRealm( realm.getId() );</span>
+            }
+<span class="nc" id="L185">            catch ( NoSuchRealmException e )</span>
+            {
+                // ignore
+<span class="fc" id="L188">            }</span>
+<span class="fc" id="L189">        }</span>
+<span class="fc" id="L190">        cache.clear();</span>
+<span class="fc" id="L191">    }</span>
+
+    protected static int pluginHashCode( Plugin plugin )
+    {
+<span class="nc" id="L195">        return CacheUtils.pluginHashCode( plugin );</span>
+    }
+
+    protected static boolean pluginEquals( Plugin a, Plugin b )
+    {
+<span class="nc" id="L200">        return CacheUtils.pluginEquals( a, b );</span>
+    }
+
+    public void register( MavenProject project, Key key, CacheRecord record )
+    {
+        // default cache does not track plugin usage
+<span class="fc" id="L206">    }</span>
+
+    public void dispose()
+    {
+<span class="fc" id="L210">        flush();</span>
+<span class="fc" id="L211">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

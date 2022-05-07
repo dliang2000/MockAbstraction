@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CompositeTypeSerializerUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.typeutils</a> &gt; <span class="el_source">CompositeTypeSerializerUtil.java</span></div><h1>CompositeTypeSerializerUtil.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.typeutils;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.util.Preconditions;
+
+import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
+
+/** Utilities for the {@link CompositeTypeSerializerSnapshot}. */
+@Internal
+<span class="nc" id="L30">public class CompositeTypeSerializerUtil {</span>
+
+    /**
+     * Delegates compatibility checks to a {@link CompositeTypeSerializerSnapshot} instance. This
+     * can be used by legacy snapshot classes, which have a newer implementation implemented as a
+     * {@link CompositeTypeSerializerSnapshot}.
+     *
+     * @param newSerializer the new serializer to check for compatibility.
+     * @param newCompositeSnapshot an instance of the new snapshot class to delegate compatibility
+     *     checks to. This instance should already contain the outer snapshot information.
+     * @param legacyNestedSnapshots the nested serializer snapshots of the legacy composite
+     *     snapshot.
+     * @return the result compatibility.
+     */
+    public static &lt;T&gt; TypeSerializerSchemaCompatibility&lt;T&gt; delegateCompatibilityCheckToNewSnapshot(
+            TypeSerializer&lt;T&gt; newSerializer,
+            CompositeTypeSerializerSnapshot&lt;T, ? extends TypeSerializer&gt; newCompositeSnapshot,
+            TypeSerializerSnapshot&lt;?&gt;... legacyNestedSnapshots) {
+
+<span class="nc bnc" id="L49" title="All 2 branches missed.">        checkArgument(legacyNestedSnapshots.length &gt; 0);</span>
+<span class="nc" id="L50">        return newCompositeSnapshot.internalResolveSchemaCompatibility(</span>
+                newSerializer, legacyNestedSnapshots);
+    }
+
+    /**
+     * Overrides the existing nested serializer's snapshots with the provided {@code
+     * nestedSnapshots}.
+     *
+     * @param compositeSnapshot the composite snapshot to overwrite its nested serializers.
+     * @param nestedSnapshots the nested snapshots to overwrite with.
+     */
+    public static void setNestedSerializersSnapshots(
+            CompositeTypeSerializerSnapshot&lt;?, ?&gt; compositeSnapshot,
+            TypeSerializerSnapshot&lt;?&gt;... nestedSnapshots) {
+
+<span class="nc" id="L65">        NestedSerializersSnapshotDelegate delegate =</span>
+                new NestedSerializersSnapshotDelegate(nestedSnapshots);
+<span class="nc" id="L67">        compositeSnapshot.setNestedSerializersSnapshotDelegate(delegate);</span>
+<span class="nc" id="L68">    }</span>
+
+    /**
+     * Constructs an {@link IntermediateCompatibilityResult} with the given array of nested
+     * serializers and their corresponding serializer snapshots.
+     *
+     * &lt;p&gt;This result is considered &quot;intermediate&quot;, because the actual final result is not yet built
+     * if it isn't defined. This is the case if the final result is supposed to be {@link
+     * TypeSerializerSchemaCompatibility#compatibleWithReconfiguredSerializer(TypeSerializer)},
+     * where construction of the reconfigured serializer instance should be done by the caller.
+     *
+     * &lt;p&gt;For other cases, i.e. {@link TypeSerializerSchemaCompatibility#compatibleAsIs()}, {@link
+     * TypeSerializerSchemaCompatibility#compatibleAfterMigration()}, and {@link
+     * TypeSerializerSchemaCompatibility#incompatible()}, these results are considered final.
+     *
+     * @param newNestedSerializers the new nested serializers to check for compatibility.
+     * @param nestedSerializerSnapshots the associated nested serializers' snapshots.
+     * @return the intermediate compatibility result of the new nested serializers.
+     */
+    public static &lt;T&gt; IntermediateCompatibilityResult&lt;T&gt; constructIntermediateCompatibilityResult(
+            TypeSerializer&lt;?&gt;[] newNestedSerializers,
+            TypeSerializerSnapshot&lt;?&gt;[] nestedSerializerSnapshots) {
+
+<span class="pc bpc" id="L91" title="1 of 2 branches missed.">        Preconditions.checkArgument(</span>
+                newNestedSerializers.length == nestedSerializerSnapshots.length,
+                &quot;Different number of new serializers and existing serializer snapshots.&quot;);
+
+<span class="fc" id="L95">        TypeSerializer&lt;?&gt;[] nestedSerializers = new TypeSerializer[newNestedSerializers.length];</span>
+
+        // check nested serializers for compatibility
+<span class="fc" id="L98">        boolean nestedSerializerRequiresMigration = false;</span>
+<span class="fc" id="L99">        boolean hasReconfiguredNestedSerializers = false;</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">        for (int i = 0; i &lt; nestedSerializerSnapshots.length; i++) {</span>
+<span class="fc" id="L101">            TypeSerializerSchemaCompatibility&lt;?&gt; compatibility =</span>
+<span class="fc" id="L102">                    resolveCompatibility(newNestedSerializers[i], nestedSerializerSnapshots[i]);</span>
+
+            // if any one of the new nested serializers is incompatible, we can just short circuit
+            // the result
+<span class="fc bfc" id="L106" title="All 2 branches covered.">            if (compatibility.isIncompatible()) {</span>
+<span class="fc" id="L107">                return IntermediateCompatibilityResult.definedIncompatibleResult();</span>
+            }
+
+<span class="fc bfc" id="L110" title="All 2 branches covered.">            if (compatibility.isCompatibleAfterMigration()) {</span>
+<span class="fc" id="L111">                nestedSerializerRequiresMigration = true;</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">            } else if (compatibility.isCompatibleWithReconfiguredSerializer()) {</span>
+<span class="fc" id="L113">                hasReconfiguredNestedSerializers = true;</span>
+<span class="fc" id="L114">                nestedSerializers[i] = compatibility.getReconfiguredSerializer();</span>
+<span class="pc bpc" id="L115" title="1 of 2 branches missed.">            } else if (compatibility.isCompatibleAsIs()) {</span>
+<span class="fc" id="L116">                nestedSerializers[i] = newNestedSerializers[i];</span>
+            } else {
+<span class="nc" id="L118">                throw new IllegalStateException(&quot;Undefined compatibility type.&quot;);</span>
+            }
+        }
+
+<span class="fc bfc" id="L122" title="All 2 branches covered.">        if (nestedSerializerRequiresMigration) {</span>
+<span class="fc" id="L123">            return IntermediateCompatibilityResult.definedCompatibleAfterMigrationResult();</span>
+        }
+
+<span class="fc bfc" id="L126" title="All 2 branches covered.">        if (hasReconfiguredNestedSerializers) {</span>
+<span class="fc" id="L127">            return IntermediateCompatibilityResult.undefinedReconfigureResult(nestedSerializers);</span>
+        }
+
+        // ends up here if everything is compatible as is
+<span class="fc" id="L131">        return IntermediateCompatibilityResult.definedCompatibleAsIsResult(nestedSerializers);</span>
+    }
+
+    public static class IntermediateCompatibilityResult&lt;T&gt; {
+
+        private final TypeSerializerSchemaCompatibility.Type compatibilityType;
+        private final TypeSerializer&lt;?&gt;[] nestedSerializers;
+
+        static &lt;T&gt; IntermediateCompatibilityResult&lt;T&gt; definedCompatibleAsIsResult(
+                TypeSerializer&lt;?&gt;[] originalSerializers) {
+<span class="fc" id="L141">            return new IntermediateCompatibilityResult&lt;&gt;(</span>
+                    TypeSerializerSchemaCompatibility.Type.COMPATIBLE_AS_IS, originalSerializers);
+        }
+
+        static &lt;T&gt; IntermediateCompatibilityResult&lt;T&gt; definedIncompatibleResult() {
+<span class="fc" id="L146">            return new IntermediateCompatibilityResult&lt;&gt;(</span>
+                    TypeSerializerSchemaCompatibility.Type.INCOMPATIBLE, null);
+        }
+
+        static &lt;T&gt; IntermediateCompatibilityResult&lt;T&gt; definedCompatibleAfterMigrationResult() {
+<span class="fc" id="L151">            return new IntermediateCompatibilityResult&lt;&gt;(</span>
+                    TypeSerializerSchemaCompatibility.Type.COMPATIBLE_AFTER_MIGRATION, null);
+        }
+
+        static &lt;T&gt; IntermediateCompatibilityResult&lt;T&gt; undefinedReconfigureResult(
+                TypeSerializer&lt;?&gt;[] reconfiguredNestedSerializers) {
+<span class="fc" id="L157">            return new IntermediateCompatibilityResult&lt;&gt;(</span>
+                    TypeSerializerSchemaCompatibility.Type.COMPATIBLE_WITH_RECONFIGURED_SERIALIZER,
+                    reconfiguredNestedSerializers);
+        }
+
+        private IntermediateCompatibilityResult(
+                TypeSerializerSchemaCompatibility.Type compatibilityType,
+<span class="fc" id="L164">                TypeSerializer&lt;?&gt;[] nestedSerializers) {</span>
+<span class="fc" id="L165">            this.compatibilityType = checkNotNull(compatibilityType);</span>
+<span class="fc" id="L166">            this.nestedSerializers = nestedSerializers;</span>
+<span class="fc" id="L167">        }</span>
+
+        public boolean isCompatibleWithReconfiguredSerializer() {
+<span class="fc bfc" id="L170" title="All 2 branches covered.">            return compatibilityType</span>
+                    == TypeSerializerSchemaCompatibility.Type
+                            .COMPATIBLE_WITH_RECONFIGURED_SERIALIZER;
+        }
+
+        public boolean isCompatibleAsIs() {
+<span class="pc bpc" id="L176" title="1 of 2 branches missed.">            return compatibilityType == TypeSerializerSchemaCompatibility.Type.COMPATIBLE_AS_IS;</span>
+        }
+
+        public boolean isCompatibleAfterMigration() {
+<span class="fc bfc" id="L180" title="All 2 branches covered.">            return compatibilityType</span>
+                    == TypeSerializerSchemaCompatibility.Type.COMPATIBLE_AFTER_MIGRATION;
+        }
+
+        public boolean isIncompatible() {
+<span class="fc bfc" id="L185" title="All 2 branches covered.">            return compatibilityType == TypeSerializerSchemaCompatibility.Type.INCOMPATIBLE;</span>
+        }
+
+        public TypeSerializerSchemaCompatibility&lt;T&gt; getFinalResult() {
+<span class="fc bfc" id="L189" title="All 2 branches covered.">            checkState(</span>
+                    compatibilityType
+                            != TypeSerializerSchemaCompatibility.Type
+                                    .COMPATIBLE_WITH_RECONFIGURED_SERIALIZER,
+                    &quot;unable to build final result if intermediate compatibility type is COMPATIBLE_WITH_RECONFIGURED_SERIALIZER.&quot;);
+<span class="pc bpc" id="L194" title="1 of 4 branches missed.">            switch (compatibilityType) {</span>
+                case COMPATIBLE_AS_IS:
+<span class="fc" id="L196">                    return TypeSerializerSchemaCompatibility.compatibleAsIs();</span>
+                case COMPATIBLE_AFTER_MIGRATION:
+<span class="fc" id="L198">                    return TypeSerializerSchemaCompatibility.compatibleAfterMigration();</span>
+                case INCOMPATIBLE:
+<span class="fc" id="L200">                    return TypeSerializerSchemaCompatibility.incompatible();</span>
+                default:
+<span class="nc" id="L202">                    throw new IllegalStateException(&quot;unrecognized compatibility type.&quot;);</span>
+            }
+        }
+
+        public TypeSerializer&lt;?&gt;[] getNestedSerializers() {
+<span class="fc bfc" id="L207" title="All 4 branches covered.">            checkState(</span>
+                    compatibilityType == TypeSerializerSchemaCompatibility.Type.COMPATIBLE_AS_IS
+                            || compatibilityType
+                                    == TypeSerializerSchemaCompatibility.Type
+                                            .COMPATIBLE_WITH_RECONFIGURED_SERIALIZER,
+                    &quot;only intermediate compatibility types COMPATIBLE_AS_IS and COMPATIBLE_WITH_RECONFIGURED_SERIALIZER have nested serializers.&quot;);
+<span class="fc" id="L213">            return nestedSerializers;</span>
+        }
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private static &lt;E&gt; TypeSerializerSchemaCompatibility&lt;E&gt; resolveCompatibility(
+            TypeSerializer&lt;?&gt; serializer, TypeSerializerSnapshot&lt;?&gt; snapshot) {
+
+<span class="fc" id="L221">        TypeSerializer&lt;E&gt; typedSerializer = (TypeSerializer&lt;E&gt;) serializer;</span>
+<span class="fc" id="L222">        TypeSerializerSnapshot&lt;E&gt; typedSnapshot = (TypeSerializerSnapshot&lt;E&gt;) snapshot;</span>
+
+<span class="fc" id="L224">        return typedSnapshot.resolveSchemaCompatibility(typedSerializer);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

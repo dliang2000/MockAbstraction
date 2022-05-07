@@ -1,0 +1,2180 @@
+public class com.esotericsoftware.kryo.util.IntMap extends java.lang.Object
+{
+    private static final int PRIME1;
+    private static final int PRIME2;
+    private static final int PRIME3;
+    private static final int EMPTY;
+    public int size;
+    int[] keyTable;
+    java.lang.Object[] valueTable;
+    int capacity;
+    int stashSize;
+    java.lang.Object zeroValue;
+    boolean hasZeroValue;
+    private float loadFactor;
+    private int hashShift;
+    private int mask;
+    private int threshold;
+    private int stashCapacity;
+    private int pushIterations;
+
+    public void <init>()
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void <init>(int,float)>(32, 0.8F);
+
+        return;
+    }
+
+    public void <init>(int)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int i0;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i0 := @parameter0: int;
+
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void <init>(int,float)>(i0, 0.8F);
+
+        return;
+    }
+
+    public void <init>(int, float)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int i0, $i1, $i3, $i4, $i5, $i6, $i7, $i8, $i9, $i10, $i11, $i12, $i13, $i14, $i15, $i16, $i17, $i18, $i19, $i20, $i21, $i22, $i23;
+        float f0, $f1, $f2;
+        byte $b2;
+        double $d0, $d1, $d2, $d3, $d4;
+        int[] $r1, $r2;
+        java.lang.Object[] $r3, $r4;
+        java.lang.IllegalArgumentException $r5, $r10, $r15;
+        java.lang.StringBuilder $r6, $r7, $r8, $r11, $r12, $r13, $r16, $r17, $r18;
+        java.lang.String $r9, $r14, $r19;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i0 := @parameter0: int;
+
+        f0 := @parameter1: float;
+
+        specialinvoke r0.<java.lang.Object: void <init>()>();
+
+        if i0 >= 0 goto label1;
+
+        $r15 = new java.lang.IllegalArgumentException;
+
+        $r16 = new java.lang.StringBuilder;
+
+        specialinvoke $r16.<java.lang.StringBuilder: void <init>()>();
+
+        $r17 = virtualinvoke $r16.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("initialCapacity must be >= 0: ");
+
+        $r18 = virtualinvoke $r17.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i0);
+
+        $r19 = virtualinvoke $r18.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r15.<java.lang.IllegalArgumentException: void <init>(java.lang.String)>($r19);
+
+        throw $r15;
+
+     label1:
+        if i0 <= 1073741824 goto label2;
+
+        $r10 = new java.lang.IllegalArgumentException;
+
+        $r11 = new java.lang.StringBuilder;
+
+        specialinvoke $r11.<java.lang.StringBuilder: void <init>()>();
+
+        $r12 = virtualinvoke $r11.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("initialCapacity is too large: ");
+
+        $r13 = virtualinvoke $r12.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i0);
+
+        $r14 = virtualinvoke $r13.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r10.<java.lang.IllegalArgumentException: void <init>(java.lang.String)>($r14);
+
+        throw $r10;
+
+     label2:
+        $i1 = staticinvoke <com.esotericsoftware.kryo.util.ObjectMap: int nextPowerOfTwo(int)>(i0);
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int capacity> = $i1;
+
+        $b2 = f0 cmpg 0.0F;
+
+        if $b2 > 0 goto label3;
+
+        $r5 = new java.lang.IllegalArgumentException;
+
+        $r6 = new java.lang.StringBuilder;
+
+        specialinvoke $r6.<java.lang.StringBuilder: void <init>()>();
+
+        $r7 = virtualinvoke $r6.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("loadFactor must be > 0: ");
+
+        $r8 = virtualinvoke $r7.<java.lang.StringBuilder: java.lang.StringBuilder append(float)>(f0);
+
+        $r9 = virtualinvoke $r8.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r5.<java.lang.IllegalArgumentException: void <init>(java.lang.String)>($r9);
+
+        throw $r5;
+
+     label3:
+        r0.<com.esotericsoftware.kryo.util.IntMap: float loadFactor> = f0;
+
+        $i3 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $f1 = (float) $i3;
+
+        $f2 = $f1 * f0;
+
+        $i4 = (int) $f2;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int threshold> = $i4;
+
+        $i5 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i6 = $i5 - 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int mask> = $i6;
+
+        $i7 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i8 = staticinvoke <java.lang.Integer: int numberOfTrailingZeros(int)>($i7);
+
+        $i9 = 31 - $i8;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int hashShift> = $i9;
+
+        $i10 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $d0 = (double) $i10;
+
+        $d1 = staticinvoke <java.lang.Math: double log(double)>($d0);
+
+        $d2 = staticinvoke <java.lang.Math: double ceil(double)>($d1);
+
+        $i11 = (int) $d2;
+
+        $i12 = $i11 * 2;
+
+        $i13 = staticinvoke <java.lang.Math: int max(int,int)>(3, $i12);
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int stashCapacity> = $i13;
+
+        $i14 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i15 = staticinvoke <java.lang.Math: int min(int,int)>($i14, 8);
+
+        $i16 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $d3 = (double) $i16;
+
+        $d4 = staticinvoke <java.lang.Math: double sqrt(double)>($d3);
+
+        $i17 = (int) $d4;
+
+        $i18 = $i17 / 8;
+
+        $i19 = staticinvoke <java.lang.Math: int max(int,int)>($i15, $i18);
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int pushIterations> = $i19;
+
+        $i21 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i20 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashCapacity>;
+
+        $i22 = $i21 + $i20;
+
+        $r1 = newarray (int)[$i22];
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable> = $r1;
+
+        $r2 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i23 = lengthof $r2;
+
+        $r3 = newarray (java.lang.Object)[$i23];
+
+        $r4 = (java.lang.Object[]) $r3;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable> = $r4;
+
+        return;
+    }
+
+    public void <init>(com.esotericsoftware.kryo.util.IntMap)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0, r1;
+        float $f0;
+        int $i0, $i1, $i2, $i3, $i4;
+        int[] $r2, $r3, $r4;
+        java.lang.Object[] $r5, $r6, $r7;
+        java.lang.Object $r8;
+        boolean $z0;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        r1 := @parameter0: com.esotericsoftware.kryo.util.IntMap;
+
+        $i0 = r1.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $f0 = r1.<com.esotericsoftware.kryo.util.IntMap: float loadFactor>;
+
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void <init>(int,float)>($i0, $f0);
+
+        $i1 = r1.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize> = $i1;
+
+        $r4 = r1.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $r3 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $r2 = r1.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i2 = lengthof $r2;
+
+        staticinvoke <java.lang.System: void arraycopy(java.lang.Object,int,java.lang.Object,int,int)>($r4, 0, $r3, 0, $i2);
+
+        $r7 = r1.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r6 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r5 = r1.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $i3 = lengthof $r5;
+
+        staticinvoke <java.lang.System: void arraycopy(java.lang.Object,int,java.lang.Object,int,int)>($r7, 0, $r6, 0, $i3);
+
+        $i4 = r1.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $i4;
+
+        $r8 = r1.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue>;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue> = $r8;
+
+        $z0 = r1.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue>;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue> = $z0;
+
+        return;
+    }
+
+    public java.lang.Object put(int, java.lang.Object)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int i0, i1, i2, i3, i4, i5, $i6, $i7, $i8, $i9, $i10, $i11, $i12, $i13, $i14, $i15, $i16, $i17, $i18, $i19, $i20, $i21, $i22, $i23, $i24, $i25, i26, i27, i28;
+        java.lang.Object r1, r2, r14, r16, r17, r18;
+        java.lang.Object[] $r3, $r4, $r5, $r6, $r7, $r8, $r9, $r10, $r11, $r12, $r13;
+        boolean $z0;
+        int[] r15;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i0 := @parameter0: int;
+
+        r1 := @parameter1: java.lang.Object;
+
+        if i0 != 0 goto label02;
+
+        r14 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue>;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue> = r1;
+
+        $z0 = r0.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue>;
+
+        if $z0 != 0 goto label01;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue> = 1;
+
+        $i24 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        $i25 = $i24 + 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $i25;
+
+     label01:
+        return r14;
+
+     label02:
+        r15 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i6 = r0.<com.esotericsoftware.kryo.util.IntMap: int mask>;
+
+        i1 = i0 & $i6;
+
+        i2 = r15[i1];
+
+        if i2 != i0 goto label03;
+
+        $r12 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        r16 = $r12[i1];
+
+        $r13 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r13[i1] = r1;
+
+        return r16;
+
+     label03:
+        i26 = specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: int hash2(int)>(i0);
+
+        i3 = r15[i26];
+
+        if i3 != i0 goto label04;
+
+        $r10 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        r17 = $r10[i26];
+
+        $r11 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r11[i26] = r1;
+
+        return r17;
+
+     label04:
+        i27 = specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: int hash3(int)>(i0);
+
+        i4 = r15[i27];
+
+        if i4 != i0 goto label05;
+
+        $r8 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        r18 = $r8[i27];
+
+        $r9 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r9[i27] = r1;
+
+        return r18;
+
+     label05:
+        i28 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i7 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        i5 = i28 + $i7;
+
+     label06:
+        if i28 >= i5 goto label08;
+
+        $i23 = r15[i28];
+
+        if $i23 != i0 goto label07;
+
+        $r6 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        r2 = $r6[i28];
+
+        $r7 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r7[i28] = r1;
+
+        return r2;
+
+     label07:
+        i28 = i28 + 1;
+
+        goto label06;
+
+     label08:
+        if i2 != 0 goto label10;
+
+        r15[i1] = i0;
+
+        $r5 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r5[i1] = r1;
+
+        $i18 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        $i19 = $i18 + 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $i19;
+
+        $i20 = r0.<com.esotericsoftware.kryo.util.IntMap: int threshold>;
+
+        if $i18 < $i20 goto label09;
+
+        $i21 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i22 = $i21 << 1;
+
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void resize(int)>($i22);
+
+     label09:
+        return null;
+
+     label10:
+        if i3 != 0 goto label12;
+
+        r15[i26] = i0;
+
+        $r4 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r4[i26] = r1;
+
+        $i13 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        $i14 = $i13 + 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $i14;
+
+        $i15 = r0.<com.esotericsoftware.kryo.util.IntMap: int threshold>;
+
+        if $i13 < $i15 goto label11;
+
+        $i16 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i17 = $i16 << 1;
+
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void resize(int)>($i17);
+
+     label11:
+        return null;
+
+     label12:
+        if i4 != 0 goto label14;
+
+        r15[i27] = i0;
+
+        $r3 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r3[i27] = r1;
+
+        $i8 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        $i9 = $i8 + 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $i9;
+
+        $i10 = r0.<com.esotericsoftware.kryo.util.IntMap: int threshold>;
+
+        if $i8 < $i10 goto label13;
+
+        $i11 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i12 = $i11 << 1;
+
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void resize(int)>($i12);
+
+     label13:
+        return null;
+
+     label14:
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void push(int,java.lang.Object,int,int,int,int,int,int)>(i0, r1, i1, i2, i26, i3, i27, i4);
+
+        return null;
+    }
+
+    public void putAll(com.esotericsoftware.kryo.util.IntMap)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0, r1;
+        java.util.Iterator r2;
+        com.esotericsoftware.kryo.util.IntMap$Entry r3;
+        com.esotericsoftware.kryo.util.IntMap$Entries $r4;
+        boolean $z0;
+        java.lang.Object $r5, $r6;
+        int $i0;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        r1 := @parameter0: com.esotericsoftware.kryo.util.IntMap;
+
+        $r4 = virtualinvoke r1.<com.esotericsoftware.kryo.util.IntMap: com.esotericsoftware.kryo.util.IntMap$Entries entries()>();
+
+        r2 = virtualinvoke $r4.<com.esotericsoftware.kryo.util.IntMap$Entries: java.util.Iterator iterator()>();
+
+     label1:
+        $z0 = interfaceinvoke r2.<java.util.Iterator: boolean hasNext()>();
+
+        if $z0 == 0 goto label2;
+
+        $r5 = interfaceinvoke r2.<java.util.Iterator: java.lang.Object next()>();
+
+        r3 = (com.esotericsoftware.kryo.util.IntMap$Entry) $r5;
+
+        $i0 = r3.<com.esotericsoftware.kryo.util.IntMap$Entry: int key>;
+
+        $r6 = r3.<com.esotericsoftware.kryo.util.IntMap$Entry: java.lang.Object value>;
+
+        virtualinvoke r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object put(int,java.lang.Object)>($i0, $r6);
+
+        goto label1;
+
+     label2:
+        return;
+    }
+
+    private void putResize(int, java.lang.Object)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int i0, i1, i2, i3, i4, i5, i6, $i7, $i8, $i9, $i10, $i11, $i12, $i13, $i14, $i15, $i16, $i17, $i18, $i19, $i20, $i21, $i22;
+        java.lang.Object r1;
+        int[] $r2, $r3, $r4, $r5, $r7, $r9;
+        java.lang.Object[] $r6, $r8, $r10;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i0 := @parameter0: int;
+
+        r1 := @parameter1: java.lang.Object;
+
+        if i0 != 0 goto label1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue> = r1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue> = 1;
+
+        return;
+
+     label1:
+        $i7 = r0.<com.esotericsoftware.kryo.util.IntMap: int mask>;
+
+        i1 = i0 & $i7;
+
+        $r2 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        i2 = $r2[i1];
+
+        if i2 != 0 goto label3;
+
+        $r9 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $r9[i1] = i0;
+
+        $r10 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r10[i1] = r1;
+
+        $i18 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        $i19 = $i18 + 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $i19;
+
+        $i20 = r0.<com.esotericsoftware.kryo.util.IntMap: int threshold>;
+
+        if $i18 < $i20 goto label2;
+
+        $i21 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i22 = $i21 << 1;
+
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void resize(int)>($i22);
+
+     label2:
+        return;
+
+     label3:
+        i3 = specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: int hash2(int)>(i0);
+
+        $r3 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        i4 = $r3[i3];
+
+        if i4 != 0 goto label5;
+
+        $r7 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $r7[i3] = i0;
+
+        $r8 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r8[i3] = r1;
+
+        $i13 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        $i14 = $i13 + 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $i14;
+
+        $i15 = r0.<com.esotericsoftware.kryo.util.IntMap: int threshold>;
+
+        if $i13 < $i15 goto label4;
+
+        $i16 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i17 = $i16 << 1;
+
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void resize(int)>($i17);
+
+     label4:
+        return;
+
+     label5:
+        i5 = specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: int hash3(int)>(i0);
+
+        $r4 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        i6 = $r4[i5];
+
+        if i6 != 0 goto label7;
+
+        $r5 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $r5[i5] = i0;
+
+        $r6 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r6[i5] = r1;
+
+        $i8 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        $i9 = $i8 + 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $i9;
+
+        $i10 = r0.<com.esotericsoftware.kryo.util.IntMap: int threshold>;
+
+        if $i8 < $i10 goto label6;
+
+        $i11 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i12 = $i11 << 1;
+
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void resize(int)>($i12);
+
+     label6:
+        return;
+
+     label7:
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void push(int,java.lang.Object,int,int,int,int,int,int)>(i0, r1, i1, i2, i3, i4, i5, i6);
+
+        return;
+    }
+
+    private void push(int, java.lang.Object, int, int, int, int, int, int)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int[] r1;
+        java.lang.Object[] r2;
+        int i0, i1, $i2, $i3, $i4, $i5, $i6, $i7, $i8, $i9, $i10, $i11, $i12, $i13, $i14, $i15, $i16, $i17, i18, i19, i20, i21, i22, i23, i24, i25, i26;
+        java.util.Random $r3;
+        java.lang.Object r4, r5;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i18 := @parameter0: int;
+
+        r4 := @parameter1: java.lang.Object;
+
+        i19 := @parameter2: int;
+
+        i20 := @parameter3: int;
+
+        i21 := @parameter4: int;
+
+        i22 := @parameter5: int;
+
+        i23 := @parameter6: int;
+
+        i24 := @parameter7: int;
+
+        r1 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        r2 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        i0 = r0.<com.esotericsoftware.kryo.util.IntMap: int mask>;
+
+        i25 = 0;
+
+        i1 = r0.<com.esotericsoftware.kryo.util.IntMap: int pushIterations>;
+
+     label01:
+        $r3 = <com.esotericsoftware.kryo.util.ObjectMap: java.util.Random random>;
+
+        $i2 = virtualinvoke $r3.<java.util.Random: int nextInt(int)>(3);
+
+        lookupswitch($i2)
+        {
+            case 0: goto label02;
+            case 1: goto label03;
+            default: goto label04;
+        };
+
+     label02:
+        i26 = i20;
+
+        r5 = r2[i19];
+
+        r1[i19] = i18;
+
+        r2[i19] = r4;
+
+        goto label05;
+
+     label03:
+        i26 = i22;
+
+        r5 = r2[i21];
+
+        r1[i21] = i18;
+
+        r2[i21] = r4;
+
+        goto label05;
+
+     label04:
+        i26 = i24;
+
+        r5 = r2[i23];
+
+        r1[i23] = i18;
+
+        r2[i23] = r4;
+
+     label05:
+        i19 = i26 & i0;
+
+        i20 = r1[i19];
+
+        if i20 != 0 goto label07;
+
+        r1[i19] = i26;
+
+        r2[i19] = r5;
+
+        $i13 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        $i14 = $i13 + 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $i14;
+
+        $i15 = r0.<com.esotericsoftware.kryo.util.IntMap: int threshold>;
+
+        if $i13 < $i15 goto label06;
+
+        $i16 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i17 = $i16 << 1;
+
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void resize(int)>($i17);
+
+     label06:
+        return;
+
+     label07:
+        i21 = specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: int hash2(int)>(i26);
+
+        i22 = r1[i21];
+
+        if i22 != 0 goto label09;
+
+        r1[i21] = i26;
+
+        r2[i21] = r5;
+
+        $i8 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        $i9 = $i8 + 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $i9;
+
+        $i10 = r0.<com.esotericsoftware.kryo.util.IntMap: int threshold>;
+
+        if $i8 < $i10 goto label08;
+
+        $i11 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i12 = $i11 << 1;
+
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void resize(int)>($i12);
+
+     label08:
+        return;
+
+     label09:
+        i23 = specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: int hash3(int)>(i26);
+
+        i24 = r1[i23];
+
+        if i24 != 0 goto label11;
+
+        r1[i23] = i26;
+
+        r2[i23] = r5;
+
+        $i3 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        $i4 = $i3 + 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $i4;
+
+        $i5 = r0.<com.esotericsoftware.kryo.util.IntMap: int threshold>;
+
+        if $i3 < $i5 goto label10;
+
+        $i6 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i7 = $i6 << 1;
+
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void resize(int)>($i7);
+
+     label10:
+        return;
+
+     label11:
+        i25 = i25 + 1;
+
+        if i25 != i1 goto label12;
+
+        goto label13;
+
+     label12:
+        i18 = i26;
+
+        r4 = r5;
+
+        goto label01;
+
+     label13:
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void putStash(int,java.lang.Object)>(i26, r5);
+
+        return;
+    }
+
+    private void putStash(int, java.lang.Object)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int i0, i1, $i2, $i3, $i4, $i5, $i6, $i7, $i8, $i9, $i10, $i11;
+        java.lang.Object r1;
+        int[] $r2;
+        java.lang.Object[] $r3;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i0 := @parameter0: int;
+
+        r1 := @parameter1: java.lang.Object;
+
+        $i3 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        $i2 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashCapacity>;
+
+        if $i3 != $i2 goto label1;
+
+        $i10 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i11 = $i10 << 1;
+
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void resize(int)>($i11);
+
+        virtualinvoke r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object put(int,java.lang.Object)>(i0, r1);
+
+        return;
+
+     label1:
+        $i5 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i4 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        i1 = $i5 + $i4;
+
+        $r2 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $r2[i1] = i0;
+
+        $r3 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r3[i1] = r1;
+
+        $i6 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        $i7 = $i6 + 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize> = $i7;
+
+        $i8 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        $i9 = $i8 + 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $i9;
+
+        return;
+    }
+
+    public java.lang.Object get(int)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int i0, $i1, $i2, $i3, $i4, i5;
+        int[] $r1, $r2, $r3;
+        java.lang.Object $r4, $r5, $r7;
+        boolean $z0;
+        java.lang.Object[] $r6;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i0 := @parameter0: int;
+
+        if i0 != 0 goto label2;
+
+        $z0 = r0.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue>;
+
+        if $z0 != 0 goto label1;
+
+        return null;
+
+     label1:
+        $r5 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue>;
+
+        return $r5;
+
+     label2:
+        $i1 = r0.<com.esotericsoftware.kryo.util.IntMap: int mask>;
+
+        i5 = i0 & $i1;
+
+        $r1 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i2 = $r1[i5];
+
+        if $i2 == i0 goto label3;
+
+        i5 = specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: int hash2(int)>(i0);
+
+        $r2 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i3 = $r2[i5];
+
+        if $i3 == i0 goto label3;
+
+        i5 = specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: int hash3(int)>(i0);
+
+        $r3 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i4 = $r3[i5];
+
+        if $i4 == i0 goto label3;
+
+        $r4 = specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object getStash(int,java.lang.Object)>(i0, null);
+
+        return $r4;
+
+     label3:
+        $r6 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r7 = $r6[i5];
+
+        return $r7;
+    }
+
+    public java.lang.Object get(int, java.lang.Object)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int i0, $i1, $i2, $i3, $i4, i5;
+        java.lang.Object r1, $r5, $r6, $r8;
+        int[] $r2, $r3, $r4;
+        boolean $z0;
+        java.lang.Object[] $r7;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i0 := @parameter0: int;
+
+        r1 := @parameter1: java.lang.Object;
+
+        if i0 != 0 goto label2;
+
+        $z0 = r0.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue>;
+
+        if $z0 != 0 goto label1;
+
+        return r1;
+
+     label1:
+        $r6 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue>;
+
+        return $r6;
+
+     label2:
+        $i1 = r0.<com.esotericsoftware.kryo.util.IntMap: int mask>;
+
+        i5 = i0 & $i1;
+
+        $r2 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i2 = $r2[i5];
+
+        if $i2 == i0 goto label3;
+
+        i5 = specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: int hash2(int)>(i0);
+
+        $r3 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i3 = $r3[i5];
+
+        if $i3 == i0 goto label3;
+
+        i5 = specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: int hash3(int)>(i0);
+
+        $r4 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i4 = $r4[i5];
+
+        if $i4 == i0 goto label3;
+
+        $r5 = specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object getStash(int,java.lang.Object)>(i0, r1);
+
+        return $r5;
+
+     label3:
+        $r7 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r8 = $r7[i5];
+
+        return $r8;
+    }
+
+    private java.lang.Object getStash(int, java.lang.Object)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int i0, i1, $i2, $i3, i4;
+        java.lang.Object r1, $r4;
+        int[] r2;
+        java.lang.Object[] $r3;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i0 := @parameter0: int;
+
+        r1 := @parameter1: java.lang.Object;
+
+        r2 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        i4 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i2 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        i1 = i4 + $i2;
+
+     label1:
+        if i4 >= i1 goto label3;
+
+        $i3 = r2[i4];
+
+        if $i3 != i0 goto label2;
+
+        $r3 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r4 = $r3[i4];
+
+        return $r4;
+
+     label2:
+        i4 = i4 + 1;
+
+        goto label1;
+
+     label3:
+        return r1;
+    }
+
+    public java.lang.Object remove(int)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int i0, $i1, $i2, $i3, $i4, $i5, $i6, $i7, $i8, $i9, $i10, $i11, $i12, i13, i14, i15;
+        int[] $r1, $r2, $r3, $r5, $r8, $r11;
+        java.lang.Object $r4, r14, r15, r16, r17;
+        java.lang.Object[] $r6, $r7, $r9, $r10, $r12, $r13;
+        boolean $z0;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i0 := @parameter0: int;
+
+        if i0 != 0 goto label2;
+
+        $z0 = r0.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue>;
+
+        if $z0 != 0 goto label1;
+
+        return null;
+
+     label1:
+        r14 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue>;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue> = null;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue> = 0;
+
+        $i11 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        $i12 = $i11 - 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $i12;
+
+        return r14;
+
+     label2:
+        $i1 = r0.<com.esotericsoftware.kryo.util.IntMap: int mask>;
+
+        i13 = i0 & $i1;
+
+        $r1 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i2 = $r1[i13];
+
+        if $i2 != i0 goto label3;
+
+        $r11 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $r11[i13] = 0;
+
+        $r12 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        r15 = $r12[i13];
+
+        $r13 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r13[i13] = null;
+
+        $i9 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        $i10 = $i9 - 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $i10;
+
+        return r15;
+
+     label3:
+        i14 = specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: int hash2(int)>(i0);
+
+        $r2 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i3 = $r2[i14];
+
+        if $i3 != i0 goto label4;
+
+        $r8 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $r8[i14] = 0;
+
+        $r9 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        r16 = $r9[i14];
+
+        $r10 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r10[i14] = null;
+
+        $i7 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        $i8 = $i7 - 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $i8;
+
+        return r16;
+
+     label4:
+        i15 = specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: int hash3(int)>(i0);
+
+        $r3 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i4 = $r3[i15];
+
+        if $i4 != i0 goto label5;
+
+        $r5 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $r5[i15] = 0;
+
+        $r6 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        r17 = $r6[i15];
+
+        $r7 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r7[i15] = null;
+
+        $i5 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        $i6 = $i5 - 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $i6;
+
+        return r17;
+
+     label5:
+        $r4 = virtualinvoke r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object removeStash(int)>(i0);
+
+        return $r4;
+    }
+
+    java.lang.Object removeStash(int)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int i0, i1, $i2, $i3, $i4, $i5, i6;
+        int[] r1;
+        java.lang.Object r2;
+        java.lang.Object[] $r3;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i0 := @parameter0: int;
+
+        r1 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        i6 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i2 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        i1 = i6 + $i2;
+
+     label1:
+        if i6 >= i1 goto label3;
+
+        $i3 = r1[i6];
+
+        if $i3 != i0 goto label2;
+
+        $r3 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        r2 = $r3[i6];
+
+        virtualinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void removeStashIndex(int)>(i6);
+
+        $i4 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        $i5 = $i4 - 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $i5;
+
+        return r2;
+
+     label2:
+        i6 = i6 + 1;
+
+        goto label1;
+
+     label3:
+        return null;
+    }
+
+    void removeStashIndex(int)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int i0, i1, $i2, $i3, $i4, $i5, $i6;
+        java.lang.Object[] $r1, $r4, $r6, $r7;
+        int[] $r2, $r3;
+        java.lang.Object $r5;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i0 := @parameter0: int;
+
+        $i2 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        $i3 = $i2 - 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize> = $i3;
+
+        $i5 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i4 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        i1 = $i5 + $i4;
+
+        if i0 >= i1 goto label1;
+
+        $r3 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $r2 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i6 = $r2[i1];
+
+        $r3[i0] = $i6;
+
+        $r6 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r4 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r5 = $r4[i1];
+
+        $r6[i0] = $r5;
+
+        $r7 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r7[i1] = null;
+
+        goto label2;
+
+     label1:
+        $r1 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $r1[i0] = null;
+
+     label2:
+        return;
+    }
+
+    public void shrink(int)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int $i0, $i1, i2, i3;
+        java.lang.IllegalArgumentException $r1;
+        java.lang.StringBuilder $r2, $r3, $r4;
+        java.lang.String $r5;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i2 := @parameter0: int;
+
+        if i2 >= 0 goto label1;
+
+        $r1 = new java.lang.IllegalArgumentException;
+
+        $r2 = new java.lang.StringBuilder;
+
+        specialinvoke $r2.<java.lang.StringBuilder: void <init>()>();
+
+        $r3 = virtualinvoke $r2.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("maximumCapacity must be >= 0: ");
+
+        $r4 = virtualinvoke $r3.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i2);
+
+        $r5 = virtualinvoke $r4.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        specialinvoke $r1.<java.lang.IllegalArgumentException: void <init>(java.lang.String)>($r5);
+
+        throw $r1;
+
+     label1:
+        $i0 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        if $i0 <= i2 goto label2;
+
+        i2 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+     label2:
+        $i1 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        if $i1 > i2 goto label3;
+
+        return;
+
+     label3:
+        i3 = staticinvoke <com.esotericsoftware.kryo.util.ObjectMap: int nextPowerOfTwo(int)>(i2);
+
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void resize(int)>(i3);
+
+        return;
+    }
+
+    public void clear(int)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int i0, $i1;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i0 := @parameter0: int;
+
+        $i1 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        if $i1 > i0 goto label1;
+
+        virtualinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void clear()>();
+
+        return;
+
+     label1:
+        r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue> = null;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue> = 0;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = 0;
+
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void resize(int)>(i0);
+
+        return;
+    }
+
+    public void clear()
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int[] r1;
+        java.lang.Object[] r2;
+        int $i0, $i1, $i2, i3;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        r1 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        r2 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $i1 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i0 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        i3 = $i1 + $i0;
+
+     label1:
+        $i2 = i3;
+
+        i3 = i3 + -1;
+
+        if $i2 <= 0 goto label2;
+
+        r1[i3] = 0;
+
+        r2[i3] = null;
+
+        goto label1;
+
+     label2:
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = 0;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize> = 0;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue> = null;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue> = 0;
+
+        return;
+    }
+
+    public boolean containsValue(java.lang.Object, boolean)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        java.lang.Object r1, $r3, $r4, $r5, $r6, $r7, $r8;
+        boolean z0, $z1, $z2, $z3, $z4;
+        java.lang.Object[] r2;
+        int $i0, $i1, $i2, $i3, $i4, $i5, $i6, $i7, i8, $i9, i10, i11, $i12;
+        int[] r9;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        r1 := @parameter0: java.lang.Object;
+
+        z0 := @parameter1: boolean;
+
+        r2 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        if r1 != null goto label04;
+
+        $z4 = r0.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue>;
+
+        if $z4 == 0 goto label01;
+
+        $r8 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue>;
+
+        if $r8 != null goto label01;
+
+        return 1;
+
+     label01:
+        r9 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i6 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i5 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        i8 = $i6 + $i5;
+
+     label02:
+        $i9 = i8;
+
+        i8 = i8 + -1;
+
+        if $i9 <= 0 goto label03;
+
+        $i7 = r9[i8];
+
+        if $i7 == 0 goto label02;
+
+        $r7 = r2[i8];
+
+        if $r7 != null goto label02;
+
+        return 1;
+
+     label03:
+        goto label11;
+
+     label04:
+        if z0 == 0 goto label08;
+
+        $r5 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue>;
+
+        if r1 != $r5 goto label05;
+
+        return 1;
+
+     label05:
+        $i3 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i2 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        i10 = $i3 + $i2;
+
+     label06:
+        $i4 = i10;
+
+        i10 = i10 + -1;
+
+        if $i4 <= 0 goto label07;
+
+        $r6 = r2[i10];
+
+        if $r6 != r1 goto label06;
+
+        return 1;
+
+     label07:
+        goto label11;
+
+     label08:
+        $z1 = r0.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue>;
+
+        if $z1 == 0 goto label09;
+
+        $r4 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue>;
+
+        $z3 = virtualinvoke r1.<java.lang.Object: boolean equals(java.lang.Object)>($r4);
+
+        if $z3 == 0 goto label09;
+
+        return 1;
+
+     label09:
+        $i1 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i0 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        i11 = $i1 + $i0;
+
+     label10:
+        $i12 = i11;
+
+        i11 = i11 + -1;
+
+        if $i12 <= 0 goto label11;
+
+        $r3 = r2[i11];
+
+        $z2 = virtualinvoke r1.<java.lang.Object: boolean equals(java.lang.Object)>($r3);
+
+        if $z2 == 0 goto label10;
+
+        return 1;
+
+     label11:
+        return 0;
+    }
+
+    public boolean containsKey(int)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int i0, $i1, $i2, $i3, $i4, i5, i6, i7;
+        int[] $r1, $r2, $r3;
+        boolean $z0, $z1;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i0 := @parameter0: int;
+
+        if i0 != 0 goto label1;
+
+        $z1 = r0.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue>;
+
+        return $z1;
+
+     label1:
+        $i1 = r0.<com.esotericsoftware.kryo.util.IntMap: int mask>;
+
+        i5 = i0 & $i1;
+
+        $r1 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i2 = $r1[i5];
+
+        if $i2 == i0 goto label2;
+
+        i6 = specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: int hash2(int)>(i0);
+
+        $r2 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i3 = $r2[i6];
+
+        if $i3 == i0 goto label2;
+
+        i7 = specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: int hash3(int)>(i0);
+
+        $r3 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i4 = $r3[i7];
+
+        if $i4 == i0 goto label2;
+
+        $z0 = specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: boolean containsKeyStash(int)>(i0);
+
+        return $z0;
+
+     label2:
+        return 1;
+    }
+
+    private boolean containsKeyStash(int)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int i0, i1, $i2, $i3, i4;
+        int[] r1;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i0 := @parameter0: int;
+
+        r1 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        i4 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i2 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        i1 = i4 + $i2;
+
+     label1:
+        if i4 >= i1 goto label3;
+
+        $i3 = r1[i4];
+
+        if $i3 != i0 goto label2;
+
+        return 1;
+
+     label2:
+        i4 = i4 + 1;
+
+        goto label1;
+
+     label3:
+        return 0;
+    }
+
+    public int findKey(java.lang.Object, boolean, int)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        java.lang.Object r1, $r3, $r5, $r6, $r7, $r9, $r10;
+        boolean z0, $z1, $z2, $z3, $z4;
+        int i0, $i1, $i2, $i3, $i4, $i5, $i6, $i7, $i8, $i9, $i10, $i11, i12, $i13, i14, i15, $i16;
+        java.lang.Object[] r2;
+        int[] $r4, $r8, r11;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        r1 := @parameter0: java.lang.Object;
+
+        z0 := @parameter1: boolean;
+
+        i0 := @parameter2: int;
+
+        r2 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        if r1 != null goto label04;
+
+        $z4 = r0.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue>;
+
+        if $z4 == 0 goto label01;
+
+        $r10 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue>;
+
+        if $r10 != null goto label01;
+
+        return 0;
+
+     label01:
+        r11 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i9 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i8 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        i12 = $i9 + $i8;
+
+     label02:
+        $i13 = i12;
+
+        i12 = i12 + -1;
+
+        if $i13 <= 0 goto label03;
+
+        $i10 = r11[i12];
+
+        if $i10 == 0 goto label02;
+
+        $r9 = r2[i12];
+
+        if $r9 != null goto label02;
+
+        $i11 = r11[i12];
+
+        return $i11;
+
+     label03:
+        goto label11;
+
+     label04:
+        if z0 == 0 goto label08;
+
+        $r6 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue>;
+
+        if r1 != $r6 goto label05;
+
+        return 0;
+
+     label05:
+        $i5 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i4 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        i14 = $i5 + $i4;
+
+     label06:
+        $i6 = i14;
+
+        i14 = i14 + -1;
+
+        if $i6 <= 0 goto label07;
+
+        $r7 = r2[i14];
+
+        if $r7 != r1 goto label06;
+
+        $r8 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i7 = $r8[i14];
+
+        return $i7;
+
+     label07:
+        goto label11;
+
+     label08:
+        $z1 = r0.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue>;
+
+        if $z1 == 0 goto label09;
+
+        $r5 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue>;
+
+        $z3 = virtualinvoke r1.<java.lang.Object: boolean equals(java.lang.Object)>($r5);
+
+        if $z3 == 0 goto label09;
+
+        return 0;
+
+     label09:
+        $i2 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i1 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        i15 = $i2 + $i1;
+
+     label10:
+        $i16 = i15;
+
+        i15 = i15 + -1;
+
+        if $i16 <= 0 goto label11;
+
+        $r3 = r2[i15];
+
+        $z2 = virtualinvoke r1.<java.lang.Object: boolean equals(java.lang.Object)>($r3);
+
+        if $z2 == 0 goto label10;
+
+        $r4 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        $i3 = $r4[i15];
+
+        return $i3;
+
+     label11:
+        return i0;
+    }
+
+    public void ensureCapacity(int)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int i0, i1, $i2, $i3, $i4, $i5;
+        float $f0, $f1, $f2;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i0 := @parameter0: int;
+
+        $i2 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        i1 = $i2 + i0;
+
+        $i3 = r0.<com.esotericsoftware.kryo.util.IntMap: int threshold>;
+
+        if i1 < $i3 goto label1;
+
+        $f1 = (float) i1;
+
+        $f0 = r0.<com.esotericsoftware.kryo.util.IntMap: float loadFactor>;
+
+        $f2 = $f1 / $f0;
+
+        $i4 = (int) $f2;
+
+        $i5 = staticinvoke <com.esotericsoftware.kryo.util.ObjectMap: int nextPowerOfTwo(int)>($i4);
+
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void resize(int)>($i5);
+
+     label1:
+        return;
+    }
+
+    private void resize(int)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int i0, i1, i2, i3, $i4, $i5, $i6, $i7, $i8, $i9, $i10, $i11, $i12, $i13, $i14, $i15, $i16, $i17, $i18, $i19, $i20, i22;
+        int[] r1, $r3;
+        java.lang.Object[] r2, $r4, $r5;
+        float $f0, $f1, $f2;
+        double $d0, $d1, $d2, $d3, $d4;
+        boolean $z0;
+        java.lang.Object $r6;
+        byte $b21;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i0 := @parameter0: int;
+
+        $i5 = r0.<com.esotericsoftware.kryo.util.IntMap: int capacity>;
+
+        $i4 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize>;
+
+        i1 = $i5 + $i4;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int capacity> = i0;
+
+        $f1 = (float) i0;
+
+        $f0 = r0.<com.esotericsoftware.kryo.util.IntMap: float loadFactor>;
+
+        $f2 = $f1 * $f0;
+
+        $i6 = (int) $f2;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int threshold> = $i6;
+
+        $i7 = i0 - 1;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int mask> = $i7;
+
+        $i8 = staticinvoke <java.lang.Integer: int numberOfTrailingZeros(int)>(i0);
+
+        $i9 = 31 - $i8;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int hashShift> = $i9;
+
+        $d0 = (double) i0;
+
+        $d1 = staticinvoke <java.lang.Math: double log(double)>($d0);
+
+        $d2 = staticinvoke <java.lang.Math: double ceil(double)>($d1);
+
+        $i10 = (int) $d2;
+
+        $i11 = $i10 * 2;
+
+        $i12 = staticinvoke <java.lang.Math: int max(int,int)>(3, $i11);
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int stashCapacity> = $i12;
+
+        $i13 = staticinvoke <java.lang.Math: int min(int,int)>(i0, 8);
+
+        $d3 = (double) i0;
+
+        $d4 = staticinvoke <java.lang.Math: double sqrt(double)>($d3);
+
+        $i14 = (int) $d4;
+
+        $i15 = $i14 / 8;
+
+        $i16 = staticinvoke <java.lang.Math: int max(int,int)>($i13, $i15);
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int pushIterations> = $i16;
+
+        r1 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        r2 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        $i17 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashCapacity>;
+
+        $i18 = i0 + $i17;
+
+        $r3 = newarray (int)[$i18];
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable> = $r3;
+
+        $i19 = r0.<com.esotericsoftware.kryo.util.IntMap: int stashCapacity>;
+
+        $i20 = i0 + $i19;
+
+        $r4 = newarray (java.lang.Object)[$i20];
+
+        $r5 = (java.lang.Object[]) $r4;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable> = $r5;
+
+        i2 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        $z0 = r0.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue>;
+
+        if $z0 == 0 goto label1;
+
+        $b21 = 1;
+
+        goto label2;
+
+     label1:
+        $b21 = 0;
+
+     label2:
+        r0.<com.esotericsoftware.kryo.util.IntMap: int size> = $b21;
+
+        r0.<com.esotericsoftware.kryo.util.IntMap: int stashSize> = 0;
+
+        if i2 <= 0 goto label5;
+
+        i22 = 0;
+
+     label3:
+        if i22 >= i1 goto label5;
+
+        i3 = r1[i22];
+
+        if i3 == 0 goto label4;
+
+        $r6 = r2[i22];
+
+        specialinvoke r0.<com.esotericsoftware.kryo.util.IntMap: void putResize(int,java.lang.Object)>(i3, $r6);
+
+     label4:
+        i22 = i22 + 1;
+
+        goto label3;
+
+     label5:
+        return;
+    }
+
+    private int hash2(int)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int $i0, $i1, $i2, $i3, $i4, i5, i6;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i5 := @parameter0: int;
+
+        i6 = i5 * -1262997959;
+
+        $i0 = r0.<com.esotericsoftware.kryo.util.IntMap: int hashShift>;
+
+        $i1 = i6 >>> $i0;
+
+        $i3 = i6 ^ $i1;
+
+        $i2 = r0.<com.esotericsoftware.kryo.util.IntMap: int mask>;
+
+        $i4 = $i3 & $i2;
+
+        return $i4;
+    }
+
+    private int hash3(int)
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int $i0, $i1, $i2, $i3, $i4, i5, i6;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        i5 := @parameter0: int;
+
+        i6 = i5 * -825114047;
+
+        $i0 = r0.<com.esotericsoftware.kryo.util.IntMap: int hashShift>;
+
+        $i1 = i6 >>> $i0;
+
+        $i3 = i6 ^ $i1;
+
+        $i2 = r0.<com.esotericsoftware.kryo.util.IntMap: int mask>;
+
+        $i4 = $i3 & $i2;
+
+        return $i4;
+    }
+
+    public java.lang.String toString()
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        int[] r2;
+        java.lang.Object[] r3;
+        int $i0, $i1, i2, i3, $i4, i5;
+        java.lang.StringBuilder $r4;
+        boolean $z0;
+        java.lang.String $r7;
+        java.lang.Object $r11, $r15, $r18;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        $i0 = r0.<com.esotericsoftware.kryo.util.IntMap: int size>;
+
+        if $i0 != 0 goto label1;
+
+        return "[]";
+
+     label1:
+        $r4 = new java.lang.StringBuilder;
+
+        specialinvoke $r4.<java.lang.StringBuilder: void <init>(int)>(32);
+
+        virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(char)>(91);
+
+        r2 = r0.<com.esotericsoftware.kryo.util.IntMap: int[] keyTable>;
+
+        r3 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object[] valueTable>;
+
+        i2 = lengthof r2;
+
+        $z0 = r0.<com.esotericsoftware.kryo.util.IntMap: boolean hasZeroValue>;
+
+        if $z0 == 0 goto label2;
+
+        virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>("0=");
+
+        $r18 = r0.<com.esotericsoftware.kryo.util.IntMap: java.lang.Object zeroValue>;
+
+        virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r18);
+
+        goto label4;
+
+     label2:
+        $i1 = i2;
+
+        i2 = i2 + -1;
+
+        if $i1 <= 0 goto label4;
+
+        i3 = r2[i2];
+
+        if i3 != 0 goto label3;
+
+        goto label2;
+
+     label3:
+        virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i3);
+
+        virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(char)>(61);
+
+        $r15 = r3[i2];
+
+        virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r15);
+
+        goto label4;
+
+     label4:
+        $i4 = i2;
+
+        i2 = i2 + -1;
+
+        if $i4 <= 0 goto label6;
+
+        i5 = r2[i2];
+
+        if i5 != 0 goto label5;
+
+        goto label4;
+
+     label5:
+        virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.String)>(", ");
+
+        virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(int)>(i5);
+
+        virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(char)>(61);
+
+        $r11 = r3[i2];
+
+        virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(java.lang.Object)>($r11);
+
+        goto label4;
+
+     label6:
+        virtualinvoke $r4.<java.lang.StringBuilder: java.lang.StringBuilder append(char)>(93);
+
+        $r7 = virtualinvoke $r4.<java.lang.StringBuilder: java.lang.String toString()>();
+
+        return $r7;
+    }
+
+    public com.esotericsoftware.kryo.util.IntMap$Entries entries()
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        com.esotericsoftware.kryo.util.IntMap$Entries $r1;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        $r1 = new com.esotericsoftware.kryo.util.IntMap$Entries;
+
+        specialinvoke $r1.<com.esotericsoftware.kryo.util.IntMap$Entries: void <init>(com.esotericsoftware.kryo.util.IntMap)>(r0);
+
+        return $r1;
+    }
+
+    public com.esotericsoftware.kryo.util.IntMap$Values values()
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        com.esotericsoftware.kryo.util.IntMap$Values $r1;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        $r1 = new com.esotericsoftware.kryo.util.IntMap$Values;
+
+        specialinvoke $r1.<com.esotericsoftware.kryo.util.IntMap$Values: void <init>(com.esotericsoftware.kryo.util.IntMap)>(r0);
+
+        return $r1;
+    }
+
+    public com.esotericsoftware.kryo.util.IntMap$Keys keys()
+    {
+        com.esotericsoftware.kryo.util.IntMap r0;
+        com.esotericsoftware.kryo.util.IntMap$Keys $r1;
+
+        r0 := @this: com.esotericsoftware.kryo.util.IntMap;
+
+        $r1 = new com.esotericsoftware.kryo.util.IntMap$Keys;
+
+        specialinvoke $r1.<com.esotericsoftware.kryo.util.IntMap$Keys: void <init>(com.esotericsoftware.kryo.util.IntMap)>(r0);
+
+        return $r1;
+    }
+
+    public static void <clinit>()
+    {
+        <com.esotericsoftware.kryo.util.IntMap: int EMPTY> = 0;
+
+        <com.esotericsoftware.kryo.util.IntMap: int PRIME3> = -825114047;
+
+        <com.esotericsoftware.kryo.util.IntMap: int PRIME2> = -1262997959;
+
+        <com.esotericsoftware.kryo.util.IntMap: int PRIME1> = -1105259343;
+
+        return;
+    }
+}

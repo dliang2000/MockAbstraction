@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReflectionHelper.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">jsonschema2pojo-core</a> &gt; <a href="index.source.html" class="el_package">org.jsonschema2pojo.util</a> &gt; <span class="el_source">ReflectionHelper.java</span></div><h1>ReflectionHelper.java</h1><pre class="source lang-java linenums">/**
+ * Copyright © 2010-2020 Nokia
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.jsonschema2pojo.util;
+
+import static org.jsonschema2pojo.util.TypeUtil.*;
+
+import java.lang.reflect.Modifier;
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.stream.StreamSupport;
+
+import org.jsonschema2pojo.Schema;
+import org.jsonschema2pojo.rules.RuleFactory;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.sun.codemodel.JClass;
+import com.sun.codemodel.JDefinedClass;
+import com.sun.codemodel.JFieldVar;
+import com.sun.codemodel.JPackage;
+import com.sun.codemodel.JType;
+
+public class ReflectionHelper {
+
+  private RuleFactory ruleFactory;
+
+<span class="fc" id="L44">  public ReflectionHelper(RuleFactory ruleFactory) {</span>
+<span class="fc" id="L45">    this.ruleFactory = ruleFactory;</span>
+<span class="fc" id="L46">  }</span>
+
+  public JType getSuperType(String nodeName, JsonNode node, JPackage jPackage, Schema schema) {
+<span class="pc bpc" id="L49" title="3 of 4 branches missed.">    if (node.has(&quot;extends&quot;) &amp;&amp; node.has(&quot;extendsJavaClass&quot;)) {</span>
+<span class="nc" id="L50">      throw new IllegalStateException(&quot;'extends' and 'extendsJavaClass' defined simultaneously&quot;);</span>
+    }
+
+<span class="fc" id="L53">    JType superType = jPackage.owner().ref(Object.class);</span>
+<span class="fc" id="L54">    Schema superTypeSchema = getSuperSchema(node, schema, false);</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">    if (superTypeSchema != null) {</span>
+<span class="nc" id="L56">      superType = ruleFactory.getSchemaRule().apply(nodeName + &quot;Parent&quot;, node.get(&quot;extends&quot;), node, jPackage, superTypeSchema);</span>
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">    } else if (node.has(&quot;extendsJavaClass&quot;)) {</span>
+<span class="nc" id="L58">      superType = resolveType(jPackage, node.get(&quot;extendsJavaClass&quot;).asText());</span>
+    }
+
+<span class="fc" id="L61">    return superType;</span>
+  }
+
+  public Schema getSuperSchema(JsonNode node, Schema schema, boolean followRefs) {
+<span class="pc bpc" id="L65" title="1 of 2 branches missed.">    if (node.has(&quot;extends&quot;)) {</span>
+      String path;
+<span class="nc bnc" id="L67" title="All 2 branches missed.">      if (schema.getId().getFragment() == null) {</span>
+<span class="nc" id="L68">        path = &quot;#extends&quot;;</span>
+      } else {
+<span class="nc" id="L70">        path = &quot;#&quot; + schema.getId().getFragment() + &quot;/extends&quot;;</span>
+      }
+
+<span class="nc" id="L73">      Schema superSchema = ruleFactory.getSchemaStore().create(schema, path, ruleFactory.getGenerationConfig().getRefFragmentPathDelimiters());</span>
+
+<span class="nc bnc" id="L75" title="All 2 branches missed.">      if (followRefs) {</span>
+<span class="nc" id="L76">        superSchema = resolveSchemaRefsRecursive(superSchema);</span>
+      }
+
+<span class="nc" id="L79">      return superSchema;</span>
+    }
+<span class="fc" id="L81">    return null;</span>
+  }
+
+  /**
+   * This is recursive with searchClassAndSuperClassesForField
+   */
+  public JFieldVar searchSuperClassesForField(String property, JDefinedClass jclass) {
+<span class="nc" id="L88">    JClass superClass = jclass._extends();</span>
+<span class="nc" id="L89">    JDefinedClass definedSuperClass = definedClassOrNullFromType(superClass);</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">    if (definedSuperClass == null) {</span>
+<span class="nc" id="L91">      return null;</span>
+    }
+<span class="nc" id="L93">    return searchClassAndSuperClassesForField(property, definedSuperClass);</span>
+  }
+
+  public JDefinedClass getConcreteBuilderClass(JDefinedClass instanceClass) {
+<span class="nc" id="L97">    String builderClassname = ruleFactory.getNameHelper().getBuilderClassName(instanceClass);</span>
+
+<span class="nc" id="L99">    return StreamSupport.stream(Spliterators.spliteratorUnknownSize(instanceClass.classes(), Spliterator.ORDERED), false)</span>
+<span class="nc" id="L100">            .filter(definedClass -&gt; definedClass.name().equals(builderClassname)).findFirst().orElse(null);</span>
+  }
+
+  public JDefinedClass getConcreteBuilderClass(JClass target) {
+<span class="nc" id="L104">    String builderClassname = ruleFactory.getNameHelper().getBuilderClassName(target);</span>
+<span class="nc" id="L105">    return getAllPackageClasses(target._package()).stream().filter(definedClass -&gt; definedClass.name().equals(builderClassname)).findFirst()</span>
+<span class="nc" id="L106">            .orElse(null);</span>
+  }
+
+  public JDefinedClass getBaseBuilderClass(JDefinedClass target) {
+<span class="nc" id="L110">    String builderClassname = ruleFactory.getNameHelper().getBaseBuilderClassName(target);</span>
+
+<span class="nc" id="L112">    return StreamSupport.stream(Spliterators.spliteratorUnknownSize(target.classes(), Spliterator.ORDERED), false)</span>
+<span class="nc" id="L113">        .filter(definedClass -&gt; definedClass.name().equals(builderClassname)).findFirst().orElse(null);</span>
+  }
+
+  public JDefinedClass getBaseBuilderClass(JClass target) {
+<span class="nc" id="L117">    String builderClassname = ruleFactory.getNameHelper().getBaseBuilderClassName(target);</span>
+<span class="nc" id="L118">    return getAllPackageClasses(target._package()).stream().filter(definedClass -&gt; definedClass.name().equals(builderClassname)).findFirst()</span>
+<span class="nc" id="L119">        .orElse(null);</span>
+  }
+
+  public boolean isFinal(JType superType) {
+    try {
+<span class="fc" id="L124">      Class&lt;?&gt; javaClass = Class.forName(superType.fullName());</span>
+<span class="fc" id="L125">      return Modifier.isFinal(javaClass.getModifiers());</span>
+<span class="nc" id="L126">    } catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L127">      return false;</span>
+    }
+  }
+
+  public JFieldVar searchClassAndSuperClassesForField(String property, JDefinedClass jclass) {
+<span class="nc" id="L132">    Map&lt;String, JFieldVar&gt; fields = jclass.fields();</span>
+<span class="nc" id="L133">    JFieldVar field = fields.get(property);</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">    if (field == null) {</span>
+<span class="nc" id="L135">      return searchSuperClassesForField(property, jclass);</span>
+    }
+<span class="nc" id="L137">    return field;</span>
+  }
+
+  private JDefinedClass definedClassOrNullFromType(JType type) {
+<span class="nc bnc" id="L141" title="All 4 branches missed.">    if (type == null || type.isPrimitive()) {</span>
+<span class="nc" id="L142">      return null;</span>
+    }
+<span class="nc" id="L144">    JClass fieldClass = type.boxify();</span>
+<span class="nc" id="L145">    JPackage jPackage = fieldClass._package();</span>
+    try
+    {
+<span class="nc" id="L148">      return this._getClass(fieldClass.name(), jPackage);</span>
+<span class="nc" id="L149">    } catch (NoClassDefFoundError error) {</span>
+<span class="nc" id="L150">      String name = fieldClass.name();</span>
+<span class="nc" id="L151">      String erasureName = fieldClass.erasure().name();</span>
+
+<span class="nc bnc" id="L153" title="All 2 branches missed.">      if(!Objects.equals(name, erasureName)) {</span>
+<span class="nc" id="L154">        ruleFactory.getLogger().debug(&quot;Could not get class for type with name: &quot; + name + &quot; trying &quot; + erasureName + &quot; instead.&quot;);</span>
+<span class="nc" id="L155">        return this._getClass(erasureName, jPackage);</span>
+      } else {
+<span class="nc" id="L157">        throw error;</span>
+      }
+    }
+  }
+
+  private JDefinedClass _getClass(String name, JPackage _package) {
+<span class="nc" id="L163">    return getAllPackageClasses(_package).stream().filter(definedClass -&gt; definedClass.name().equals(name)).findFirst()</span>
+<span class="nc" id="L164">        .orElseThrow(() -&gt; new NoClassDefFoundError(name));</span>
+  }
+
+  private Collection&lt;JDefinedClass&gt; getAllPackageClasses(JPackage _package) {
+<span class="nc" id="L168">    LinkedList&lt;JDefinedClass&gt; result = new LinkedList&lt;&gt;();</span>
+<span class="nc" id="L169">    StreamSupport.stream(Spliterators.spliteratorUnknownSize(_package.classes(), Spliterator.ORDERED), false)</span>
+<span class="nc" id="L170">        .forEach(_class -&gt; result.addAll(getAllClassClasses(_class)));</span>
+<span class="nc" id="L171">    return result;</span>
+  }
+
+  private Collection&lt;JDefinedClass&gt; getAllClassClasses(JDefinedClass _class) {
+<span class="nc" id="L175">    LinkedList&lt;JDefinedClass&gt; result = new LinkedList&lt;&gt;();</span>
+<span class="nc" id="L176">    result.add(_class);</span>
+
+<span class="nc" id="L178">    _class.classes().forEachRemaining(result::add);</span>
+<span class="nc" id="L179">    return result;</span>
+  }
+
+  private Schema resolveSchemaRefsRecursive(Schema schema) {
+<span class="nc" id="L183">    JsonNode schemaNode = schema.getContent();</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">    if (schemaNode.has(&quot;$ref&quot;)) {</span>
+<span class="nc" id="L185">      schema = ruleFactory.getSchemaStore()</span>
+<span class="nc" id="L186">          .create(schema, schemaNode.get(&quot;$ref&quot;).asText(), ruleFactory.getGenerationConfig().getRefFragmentPathDelimiters());</span>
+<span class="nc" id="L187">      return resolveSchemaRefsRecursive(schema);</span>
+    }
+<span class="nc" id="L189">    return schema;</span>
+  }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

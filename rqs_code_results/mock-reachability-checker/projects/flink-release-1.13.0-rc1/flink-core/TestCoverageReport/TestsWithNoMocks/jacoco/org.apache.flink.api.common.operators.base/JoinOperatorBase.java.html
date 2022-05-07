@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JoinOperatorBase.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Flink : Core</a> &gt; <a href="index.source.html" class="el_package">org.apache.flink.api.common.operators.base</a> &gt; <span class="el_source">JoinOperatorBase.java</span></div><h1>JoinOperatorBase.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.api.common.operators.base;
+
+import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.Public;
+import org.apache.flink.api.common.functions.FlatJoinFunction;
+import org.apache.flink.api.common.functions.Partitioner;
+import org.apache.flink.api.common.operators.BinaryOperatorInformation;
+import org.apache.flink.api.common.operators.DualInputOperator;
+import org.apache.flink.api.common.operators.util.UserCodeClassWrapper;
+import org.apache.flink.api.common.operators.util.UserCodeObjectWrapper;
+import org.apache.flink.api.common.operators.util.UserCodeWrapper;
+
+@Internal
+public abstract class JoinOperatorBase&lt;IN1, IN2, OUT, FT extends FlatJoinFunction&lt;IN1, IN2, OUT&gt;&gt;
+        extends DualInputOperator&lt;IN1, IN2, OUT, FT&gt; {
+
+    /**
+     * An enumeration of hints, optionally usable to tell the system how exactly execute the join.
+     */
+<span class="fc" id="L38">    @Public</span>
+    public static enum JoinHint {
+
+        /**
+         * Leave the choice how to do the join to the optimizer. If in doubt, the optimizer will
+         * choose a repartitioning join.
+         */
+<span class="fc" id="L45">        OPTIMIZER_CHOOSES,</span>
+
+        /**
+         * Hint that the first join input is much smaller than the second. This results in
+         * broadcasting and hashing the first input, unless the optimizer infers that prior existing
+         * partitioning is available that is even cheaper to exploit.
+         */
+<span class="fc" id="L52">        BROADCAST_HASH_FIRST,</span>
+
+        /**
+         * Hint that the second join input is much smaller than the first. This results in
+         * broadcasting and hashing the second input, unless the optimizer infers that prior
+         * existing partitioning is available that is even cheaper to exploit.
+         */
+<span class="fc" id="L59">        BROADCAST_HASH_SECOND,</span>
+
+        /**
+         * Hint that the first join input is a bit smaller than the second. This results in
+         * repartitioning both inputs and hashing the first input, unless the optimizer infers that
+         * prior existing partitioning and orders are available that are even cheaper to exploit.
+         */
+<span class="fc" id="L66">        REPARTITION_HASH_FIRST,</span>
+
+        /**
+         * Hint that the second join input is a bit smaller than the first. This results in
+         * repartitioning both inputs and hashing the second input, unless the optimizer infers that
+         * prior existing partitioning and orders are available that are even cheaper to exploit.
+         */
+<span class="fc" id="L73">        REPARTITION_HASH_SECOND,</span>
+
+        /**
+         * Hint that the join should repartitioning both inputs and use sorting and merging as the
+         * join strategy.
+         */
+<span class="fc" id="L79">        REPARTITION_SORT_MERGE</span>
+    }
+
+<span class="pc" id="L82">    private JoinHint joinHint = JoinHint.OPTIMIZER_CHOOSES;</span>
+    private Partitioner&lt;?&gt; partitioner;
+
+    public JoinOperatorBase(
+            UserCodeWrapper&lt;FT&gt; udf,
+            BinaryOperatorInformation&lt;IN1, IN2, OUT&gt; operatorInfo,
+            int[] keyPositions1,
+            int[] keyPositions2,
+            String name) {
+<span class="fc" id="L91">        super(udf, operatorInfo, keyPositions1, keyPositions2, name);</span>
+<span class="fc" id="L92">    }</span>
+
+    public JoinOperatorBase(
+            FT udf,
+            BinaryOperatorInformation&lt;IN1, IN2, OUT&gt; operatorInfo,
+            int[] keyPositions1,
+            int[] keyPositions2,
+            String name) {
+<span class="nc" id="L100">        super(new UserCodeObjectWrapper&lt;&gt;(udf), operatorInfo, keyPositions1, keyPositions2, name);</span>
+<span class="nc" id="L101">    }</span>
+
+    public JoinOperatorBase(
+            Class&lt;? extends FT&gt; udf,
+            BinaryOperatorInformation&lt;IN1, IN2, OUT&gt; operatorInfo,
+            int[] keyPositions1,
+            int[] keyPositions2,
+            String name) {
+<span class="nc" id="L109">        super(new UserCodeClassWrapper&lt;&gt;(udf), operatorInfo, keyPositions1, keyPositions2, name);</span>
+<span class="nc" id="L110">    }</span>
+
+    public void setJoinHint(JoinHint joinHint) {
+<span class="nc bnc" id="L113" title="All 2 branches missed.">        if (joinHint == null) {</span>
+<span class="nc" id="L114">            throw new IllegalArgumentException(&quot;Join Hint must not be null.&quot;);</span>
+        }
+<span class="nc" id="L116">        this.joinHint = joinHint;</span>
+<span class="nc" id="L117">    }</span>
+
+    public JoinHint getJoinHint() {
+<span class="nc" id="L120">        return joinHint;</span>
+    }
+
+    public void setCustomPartitioner(Partitioner&lt;?&gt; partitioner) {
+<span class="nc" id="L124">        this.partitioner = partitioner;</span>
+<span class="nc" id="L125">    }</span>
+
+    public Partitioner&lt;?&gt; getCustomPartitioner() {
+<span class="nc" id="L128">        return partitioner;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>
